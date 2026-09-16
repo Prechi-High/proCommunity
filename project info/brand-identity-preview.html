@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Brand Identity Preview</title>
+<link rel="preconnect" href="https://fonts.cdnfonts.com">
+<style>
+  @font-face {
+    font-family: 'General Sans';
+    src: url('https://fonts.cdnfonts.com/s/85736/GeneralSans-Regular.woff') format('woff');
+    font-weight: 400;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'General Sans', -apple-system, Helvetica, Arial, sans-serif;
+    background: #f0ece7;
+    margin: 0;
+    padding: 32px 24px 80px;
+    color: #2A211D;
+  }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.subtitle { color: #665f58; font-size: 13px; margin-top: 0; margin-bottom: 32px; }
+  h2 { font-size: 14px; text-transform: none; color: #2A211D; margin-bottom: 12px; margin-top: 36px; }
+
+  .swatch-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .swatch {
+    width: 130px;
+  }
+  .swatch-color {
+    height: 80px;
+    border-radius: 10px;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+  .swatch-label { font-size: 11px; margin-top: 6px; font-weight: 600; }
+  .swatch-hex { font-size: 10px; color: #6b6259; }
+
+  .type-sample { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #e7ded7; }
+  .type-sample .h1 { font-size: 26px; font-weight: 700; margin: 0 0 4px; }
+  .type-sample .h2 { font-size: 16px; font-weight: 600; margin: 0 0 10px; color: #2A211D; }
+  .type-sample .body { font-size: 14px; line-height: 1.5; color: #4a423c; max-width: 480px; }
+  .type-sample .label { font-size: 11px; color: #8C3547; font-weight: 600; margin-top: 14px; }
+
+  .icon-row { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  .icon-demo {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid #2A211D;
+  }
+  .icon-demo.active {
+    border-color: #8C3547;
+    background: #8C3547;
+    color: #fff;
+  }
+  .icon-demo svg { width: 20px; height: 20px; }
+
+  .mock-screen {
+    width: 300px;
+    border: 2px solid #2A211D;
+    border-radius: 22px;
+    background: #FBF5F1;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .mock-card {
+    background: #fff;
+    border: 1px solid #E7DED7;
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .mock-thumb {
+    width: 46px; height: 46px;
+    border-radius: 8px;
+    background: #E7DED7;
+    flex-shrink: 0;
+  }
+  .mock-line { height: 8px; background: #E7DED7; border-radius: 4px; }
+  .mock-line.long { width: 90%; }
+  .mock-line.med { width: 60%; }
+  .badge-confidence {
+    display: inline-block;
+    background: #D9A441;
+    color: #2A211D;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    width: fit-content;
+  }
+  .badge-strong {
+    display: inline-block;
+    background: #6E8F73;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    width: fit-content;
+  }
+  .mock-btn {
+    background: #8C3547;
+    color: #fff;
+    text-align: center;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .mock-wordmark {
+    font-size: 22px;
+    font-weight: 800;
+    color: #8C3547;
+    letter-spacing: -0.5px;
+  }
+
+  .grid-2 { display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start; }
+</style>
+</head>
+<body>
+
+<h1>Brand Identity Preview</h1>
+<p class="subtitle">Name candidate: "Sourced" · Color, type, and icon direction — for review before UI build begins.</p>
+
+<h2>Color Palette</h2>
+<div class="swatch-row">
+  <div class="swatch"><div class="swatch-color" style="background:#FBF5F1;"></div><div class="swatch-label">Shell</div><div class="swatch-hex">#FBF5F1 — background</div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#2A211D;"></div><div class="swatch-label">Ink</div><div class="swatch-hex">#2A211D — text</div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#8C3547;"></div><div class="swatch-label">Rosewood</div><div class="swatch-hex">#8C3547 — primary/CTA</div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#D9A441;"></div><div class="swatch-label">Honey</div><div class="swatch-hex">#D9A441 — accent/badges</div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#6E8F73;"></div><div class="swatch-label">Sage</div><div class="swatch-hex">#6E8F73 — positive signal</div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#E7DED7;"></div><div class="swatch-label">Mist</div><div class="swatch-hex">#E7DED7 — borders/cards</div></div>
+</div>
+
+<h2>Typography — General Sans (single family, weight-based hierarchy)</h2>
+<div class="type-sample">
+  <div class="h1">Buying confidence, before you buy.</div>
+  <div class="h2">This is a section heading</div>
+  <div class="body">This is body copy at the size and weight used throughout the product — for literacy panels, community posts, and descriptions. It should stay easy to read at mobile sizes without needing a second typeface.</div>
+  <div class="label">LABEL / BADGE TEXT</div>
+</div>
+
+<h2>Icon Style — line icons, rounded, fill = active state</h2>
+<div class="icon-row">
+  <div class="icon-demo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-6 9 6v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+  </div>
+  <div class="icon-demo active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-6 9 6v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+  </div>
+  <div class="icon-demo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+  </div>
+  <div class="icon-demo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5 5 0 00-7.1 0L12 6.3l-1.7-1.7a5 5 0 10-7.1 7.1L12 20.4l8.8-8.8a5 5 0 000-7z"/></svg>
+  </div>
+  <div class="icon-demo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+  </div>
+  <div class="icon-demo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
+  </div>
+</div>
+
+<h2>Putting it together — mock Shelf screen using the system above</h2>
+<div class="mock-screen">
+  <div class="mock-wordmark">Sourced</div>
+  <div class="mock-card">
+    <div class="mock-thumb"></div>
+    <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+      <div class="mock-line med"></div>
+      <div class="badge-strong">Strong match · 88</div>
+    </div>
+  </div>
+  <div class="mock-card">
+    <div class="mock-thumb"></div>
+    <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+      <div class="mock-line long"></div>
+      <div class="badge-confidence">127 tracking this</div>
+    </div>
+  </div>
+  <div class="mock-btn">Get This Product</div>
+</div>
+
+</body>
+</html>

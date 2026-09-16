@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>V1 Wireframes — Low Fidelity</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, Helvetica, Arial, sans-serif;
+    background: #eeeeee;
+    margin: 0;
+    padding: 32px 24px 80px;
+    color: #222;
+  }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.subtitle { color: #666; font-size: 13px; margin-top: 0; margin-bottom: 32px; }
+
+  .grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 40px;
+    align-items: flex-start;
+  }
+  .screen-block { width: 300px; }
+  .screen-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .screen-num { color: #999; font-weight: 400; }
+  .screen-note {
+    font-size: 11px;
+    color: #777;
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+
+  .frame {
+    width: 300px;
+    height: 600px;
+    border: 2px solid #333;
+    border-radius: 22px;
+    background: #fff;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .notch {
+    width: 80px;
+    height: 14px;
+    background: #333;
+    border-radius: 0 0 10px 10px;
+    margin: 0 auto;
+  }
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* wireframe primitives */
+  .wire-box {
+    border: 1.5px dashed #999;
+    background: repeating-linear-gradient(45deg, #f7f7f7, #f7f7f7 6px, #eee 6px, #eee 12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #aaa;
+    font-size: 10px;
+    border-radius: 4px;
+  }
+  .line {
+    height: 8px;
+    background: #ccc;
+    border-radius: 2px;
+  }
+  .line.short { width: 40%; }
+  .line.med { width: 65%; }
+  .line.long { width: 90%; }
+  .label {
+    font-size: 9px;
+    color: #888;
+    text-transform: none;
+    margin-bottom: 2px;
+  }
+  .btn {
+    border: 1.5px solid #333;
+    border-radius: 6px;
+    text-align: center;
+    padding: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #333;
+  }
+  .btn.ghost {
+    border-style: dashed;
+    color: #999;
+    font-weight: 400;
+  }
+  .pill {
+    border: 1px solid #999;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 9px;
+    color: #777;
+    display: inline-block;
+  }
+  .divider { height: 1px; background: #ddd; margin: 4px 0; }
+  .row { display: flex; gap: 6px; }
+  .row.wrap { flex-wrap: wrap; }
+  .badge {
+    font-size: 8px;
+    border: 1px solid #333;
+    border-radius: 3px;
+    padding: 1px 5px;
+    color: #333;
+  }
+  .navbar {
+    display: flex;
+    justify-content: space-around;
+    border-top: 1.5px solid #333;
+    padding: 8px 0;
+    font-size: 8px;
+    color: #999;
+    background: #fafafa;
+  }
+  .navbar .active { color: #222; font-weight: 700; }
+  .card {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 6px;
+    display: flex;
+    gap: 8px;
+  }
+  .card .thumb { width: 50px; height: 50px; flex-shrink: 0; }
+  .card .body { flex: 1; display: flex; flex-direction: column; gap: 4px; justify-content: center; }
+  .sticky-bottom {
+    border-top: 1.5px solid #333;
+    padding: 8px;
+    background: #fff;
+  }
+  .section-title { font-size: 10px; font-weight: 700; color: #555; margin-top: 4px; }
+  .callout {
+    font-size: 9px;
+    color: #b45309;
+    border: 1px dashed #d97757;
+    background: #fff8f2;
+    padding: 5px;
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+
+<h1>V1 Wireframes — Low Fidelity</h1>
+<p class="subtitle">Screen-by-screen, structure and hierarchy only — no visual styling yet. Matches UX Flows v1 doc.</p>
+
+<div class="grid">
+
+  <!-- 1. ONBOARDING -->
+  <div class="screen-block">
+    <div class="screen-title"><span class="screen-num">01</span> · Onboarding / Profile Setup</div>
+    <div class="screen-note">Value line first, sign-up, then optional (skippable) profile prompt.</div>
+    <div class="frame">
+      <div class="notch"></div>
+      <div class="content">
+        <div class="wire-box" style="height:70px;">app mark / logo</div>
+        <div class="line long" style="height:14px;"></div>
+        <div class="line med"></div>
+        <div class="label" style="margin-top:20px;">EMAIL / PHONE</div>
+        <div class="wire-box" style="height:34px;">input field</div>
+        <div class="btn" style="margin-top:8px;">Continue</div>
+        <div class="divider" style="margin-top:16px;"></div>
+        <div class="section-title">Tell us about your skin (optional)</div>
+        <div class="label">SKIN TYPE</div>
+        <div class="row wrap">
+          <div class="pill">Dry</div><div class="pill">Oily</div><div class="pill">Combo</div><div class="pill">Sensitive</div>
+        </div>
+        <div class="btn ghost" style="margin-top:4px;">Not sure? Take a quick quiz →</div>
+        <div class="label" style="margin-top:6px;">CONCERNS</div>
+        <div class="row wrap">
+          <div class="pill">Acne</div><div class="pill">Aging</div><div class="pill">Dark spots</div>
+        </div>
+        <div class="btn" style="margin-top:10px;">Save & Continue</div>
+        <div class="btn ghost">Skip for now</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1b. SKIN TYPE QUIZ -->
+  <div class="screen-block">
+    <div class="screen-title"><span class="screen-num">01b</span> · Skin Type Quiz (Not Sure Path)</div>
+    <div class="screen-note">Result framed as estimate, not diagnosis. Manual override always available.</div>
+    <div class="frame">
+      <div class="notch"></div>
+      <div class="content">
+        <div class="label">QUESTION 2 OF 5</div>
+        <div class="line long" style="height:14px;">By midday, my skin feels...</div>
+        <div class="btn ghost">Shiny / oily, especially T-zone</div>
+        <div class="btn ghost">Tight or flaky</div>
+        <div class="btn ghost">Comfortable, not much change</div>
+        <div class="btn ghost">Oily in some areas, dry in others</div>
+        <div class="line short" style="margin-top:20px;">●●○○○</div>
+        <div class="divider" style="margin-top:60px;"></div>
+        <div class="callout" style="border-color:#999;background:#fafafa;color:#666;">Result: "Based on your answers, you're likely <b>Combination</b> — you can change this anytime"</div>
+        <div class="btn">Use This</div>
+        <div class="btn ghost">Pick manually instead</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. YOUR SHELF -->
+  <div class="screen-block">
+    <div class="screen-title"><span class="screen-num">02</span> · Your Shelf (Home) — Returning User</div>
+    <div class="screen-note">Interleaved, not siloed: routine → alert → community snippet → product → repeat. Feels like one living space, not stacked sections.</div>
+    <div class="frame">
+      <div class="notch"></div>
+      <div class="content">
+        <div class="row" style="justify-content:space-between; align-items:center;">
+          <div class="line short"></div>
+          <div class="wire-box" style="width:26px;height:26px;border-radius:50%;">👤</div>
+        </div>
+        <div class="card"><div class="thumb wire-box">AM</div><div class="body"><div class="line med"></div><div class="pill" style="width:fit-content;">☐ Routine · Not done</div></div></div>
+        <div class="callout">Refill soon: Cleanser (~5 days left)</div>
+        <div class="card"><div class="thumb wire-box" style="width:30px;height:30px;">👤</div><div class="body"><div class="row"><div class="badge">✔ Verified</div><div class="badge">oily · 3mo</div></div><div class="line long"></div></div></div>
+        <div class="card"><div class="thumb wire-box">img</div><div class="body"><div class="line med"></div><div class="badge" style="width:fit-content;">Strong match · 88</div></div></div>
+        <div class="callout">Price drop: Moisturizer now ₦X</div>
+        <div class="wire-box" style="width:100%;height:50px;">▶ video: "week 4 update"</div>
+        <div class="card"><div class="thumb wire-box">PM</div><div class="body"><div class="line med"></div><div class="pill" style="width:fit-content;">☑ Routine · Done</div></div></div>
+      </div>
+      <div class="navbar">
+        <div class="active">Shelf</div><div>Search</div><div>Favorites</div><div>Profile</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2b. YOUR SHELF - NEW USER -->
+  <div class="screen-block">
+    <div class="screen-title"><span class="screen-num">02b</span> · Your Shelf (Home) — New User, Zero Tracked Products</div>
+    <div class="screen-note">Interleaved trending products + real discussion + video, not walled-off sections. Never blank, never fabricated scale.</div>
+    <div class="frame">
+      <div class="notch"></div>
+      <div class="content">
+        <div class="row" style="justify-content:space-between; align-items:center;">
+          <div class="line short"></div>
+          <div class="wire-box" style="width:26px;height:26px;border-radius:50%;">👤</div>
+        </div>
+        <div class="callout" style="border-color:#999; background:#fafafa; color:#666;">Search or scan a product to start your Shelf</div>
+        <div class="card"><div class="thumb wire-box">img</div><div class="body"><div class="line med"></div><div class="badge" style="width:fit-content;">127 tracking this</div></div></div>
+        <div class="card"><div class="thumb wire-box" style="width:30px;height:30px;">👤</div><div class="body"><div class="row"><div class="badge">✔ Verified</div><div class="badge">oily · 3mo</div></div><div class="line long"></div></div></div>
+        <div class="wire-box" style="width:100%;height:50px;">▶ trending video: ingredient explainer</div>
+        <div class="card"><div class="thumb wire-box">img</div><div class="body"><div class="line med"></div><div class="badge" style="width:fit-content;">Strong match · 88</div></div></div>
+        <div class="card"><div class="thumb wire-box" style="width:30px;height:30px;">👤</div><div class="body"><div class="row"><div class="badge">combo</div></div><div class="line med"></div></div></div>
+        <div class="label" style="margin-top:4px;">Real seeded content — never fake numbers or placeholder activity</div>
+      </div>
+      <div class="navbar">
+        <div class="active">Shelf</div><div>Search</div><div>Favorites</div><div>Profile</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. SEARCH RESULTS -->
+  <div class="screen-block">
+    <div class="screen-title"><span class="screen-num">03</span> · Search / Browse Results</div>
+    <div class="screen-note">Confidence Score visible at a glance. Keyword filters (mattifying, hydrating, etc.) map to product attributes. No merchant/price yet.</div>
+    <div class="frame">
+      <div class="notch"></div>
+      <div class="content">
+        <div class="wire-box" style="height:32px;">🔍 search input</div>
+        <div class="row wrap">
+          <div class="pill">Oily skin</div><div class="pill">Mattifying</div><div class="pill">Oil-free</div><div class="pill">Price</div>
+        </div>
+        <div class="card"><div class="thumb wire-box">img</div><div class="body"><div class="line med"></div><div class="badge">Strong match · 92</div></div></div>
+        <div class="card"><div class="thumb wire-box">img</div><div class="body"><div class="line med"></div><div class="badge">Mixed feedback · 61</div></div></div>
+        <div class="card"><div class="thumb wire-box">img</div><div class="body"><div class="line med"></div><div class="badge">Strong match · 88</div></div></div>
+        <div class="card"><div class="thumb wire-box">img</div><div class="body"><div class="line med"></div><div class="badge">Few reviews · —</div></div></div>
+      </div>
+      <div class="navbar">
+        <div>Shelf</div><div class="active">Search</div><div>Favorites</div><div>Profile</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. PRODUCT DETAIL - BEFORE -->
+  <div class="screen-block">
+    <div class="screen-title"><span class="screen-num">04</span> · Product Detail — Before "Get This Product"</div>
+    <div class="screen-note">No merchant/price shown. Literacy + Confidence Score + community lead.</div>
+    <div class="frame">
+      <div class="notch"></div>
+      <div class="content">
+        <div class="wire-box" style="height:140px;">product photo</div>
+        <div class="line long" style="height:12px;"></div>
+        <div class="badge" style="width:fit-content;">Confidence Score: 88</div>
+        <div class="section-title">What it is</div>
+        <div class="line long"></div><div class="line med"></div>
+        <div class="callout">Not medical advice — patch test before use</div>
+        <div class="section-title">Videos</div>
+        <div class="row"><div class="wire-box" style="width:70px;height:50px;">▶</div><div class="wire-box" style="width:70px;height:50px;">▶</div><div class="wire-box" style="width:70px;height:50px;">▶</div></div>
+        <div class="section-title">Community (3)</div>
+        <div class="card"><div class="thumb wire-box" style="width:30px;height:30px;">👤</div><div class="body"><div class="badge" style="width:fit-content;">oily · 3mo</div><div class="line short"></div></div></div>
+      </div>
+      <div class="sticky-bottom row" style="justify-content:space-between;">
+        <div class="btn" style="flex:1;">Get This Product</div>
+        <div class="wire-box" style="width:36px;">♡</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. PRODUCT DETAIL - STORE LIST REVEALED -->
+  <div class="screen-block">
+    <div class="screen-title"><span class="screen-num">05</span> · Product Detail — Store List Revealed</div>
+    <div class="screen-note">Appears after tapping "Get This Product." Sortable/filterable by price.</div>
+    <div class="frame">
+      <div class="notch"></div>
+      <div class="content">
+        <div class="section-title">Available from</div>
+        <div class="row wrap"><div class="pill">Price: Low–High ▾</div></div>
+        <div class="card"><div class="thumb wire-box">S</div><div class="body"><div class="line med"></div><div class="line short"></div></div></div>
+        <div class="card"><div class="thumb wire-box">S</div><div class="body"><div class="line med"></div><div class="line short"></div></div></div>
+        <div class="card"><div class="thumb wire-box">S</div><div class="body"><div class="line med"></div><div class="line short"></div></div></div>
+        <div class="label" style="margin-top:6px;">↑ scroll up for discussion / literacy</div>
+      </div>
+      <div class="sticky-bottom">
+        <div class="line short" style="margin:auto;">tap a store to continue →</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. COMMUNITY THREAD -->
+  <div class="screen-block">
+    <div class="screen-title"><span class="screen-num">06</span> · Community Thread</div>
+    <div class="screen-note">Trait-tagged posts, verified owner badges, ask a question CTA.</div>
+    <div class="frame">
+      <div class="notch"></div>
+      <div class="content">
+        <div class="row wrap"><div class="pill">Top</div><div class="pill">Newest</div></div>
+        <div class="card"><div class="thumb wire-box" style="width:30px;height:30px;">👤</div><div class="body"><div class="row"><div class="badge">✔ Verified</div><div class="badge">oily</div></div><div class="line long"></div><div class="line short"></div></div></div>
+        <div class="card"><div class="thumb wire-box" style="width:30px;height:30px;">👤</div><div class="body"><div class="row"><div class="badge">sensitive</div></div><div class="line med"></div></div></div>
+        <div class="card"><div class="thumb wire-box" style="width:30px;height:30px;">👤</div><div class="body"><div class="row"><div class="badge">✔ Verified</div><div class="badge">combo · 6mo</div></div><div class="line long"></div></div></div>
+      </div>
+      <div class="sticky-bottom btn">+ Ask a Question</div>
+    </div>
+  </div>
+
+  <!-- 7. VERIFIED OWNER PROFILE -->
+  <div class="screen-block">
+    <div class="screen-title"><span class="screen-num">07</span> · Verified Owner Profile</div>
+    <div class="screen-note">Category-specific reputation, contribution history — no leaderboard/ranking.</div>
+    <div class="frame">
+      <div class="notch"></div>
+      <div class="content">
+        <div class="wire-box" style="height:60px;width:60px;border-radius:50%;margin:auto;">👤</div>
+        <div class="line short" style="margin:auto;"></div>
+        <div class="section-title">Reputation</div>
+        <div class="row wrap"><div class="badge">Oily skin · 14</div><div class="badge">Acne · 6</div></div>
+        <div class="section-title">Contribution history</div>
+        <div class="line med"></div><div class="line med"></div><div class="line short"></div>
+        <div class="section-title">Their routine / journal</div>
+        <div class="wire-box" style="height:60px;">shared entries</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. ROUTINE TRACKER -->
+  <div class="screen-block">
+    <div class="screen-title"><span class="screen-num">08</span> · Routine Tracker</div>
+    <div class="screen-note">Checklist, quiet streak confirmation — no guilt-based copy on missed days.</div>
+    <div class="frame">
+      <div class="notch"></div>
+      <div class="content">
+        <div class="row wrap"><div class="pill">AM</div><div class="pill">PM</div></div>
+        <div class="card"><div class="thumb wire-box">☐</div><div class="body"><div class="line med"></div></div></div>
+        <div class="card"><div class="thumb wire-box">☑</div><div class="body"><div class="line med"></div></div></div>
+        <div class="card"><div class="thumb wire-box">☐</div><div class="body"><div class="line med"></div></div></div>
+        <div class="btn ghost">+ Add step</div>
+        <div class="section-title">Streak</div>
+        <div class="line short">🔥 5 days — quiet confirmation, no pressure copy</div>
+      </div>
+      <div class="navbar">
+        <div>Shelf</div><div>Search</div><div class="active">Routine</div><div>Profile</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. PROGRESS JOURNAL -->
+  <div class="screen-block">
+    <div class="screen-title"><span class="screen-num">09</span> · Progress Journal</div>
+    <div class="screen-note">Private by default. Per-entry share toggle — never bulk/default-on.</div>
+    <div class="frame">
+      <div class="notch"></div>
+      <div class="content">
+        <div class="section-title">Timeline — Cleanser</div>
+        <div class="row"><div class="wire-box" style="width:60px;height:60px;">wk1</div><div class="body"><div class="line short"></div><div class="pill" style="width:fit-content;">Private</div></div></div>
+        <div class="row"><div class="wire-box" style="width:60px;height:60px;">wk4</div><div class="body"><div class="line short"></div><div class="pill" style="width:fit-content;">Private</div></div></div>
+        <div class="btn ghost">+ Add entry</div>
+        <div class="section-title">Share this entry?</div>
+        <div class="row"><div class="btn" style="flex:1;">Keep Private</div><div class="btn ghost" style="flex:1;">Share to Community</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10. FAVORITES -->
+  <div class="screen-block">
+    <div class="screen-title"><span class="screen-num">10</span> · Favorites / Wishlist</div>
+    <div class="screen-note">Favorites the product, not a store listing. Price-alert toggle per item.</div>
+    <div class="frame">
+      <div class="notch"></div>
+      <div class="content">
+        <div class="card"><div class="thumb wire-box">img</div><div class="body"><div class="line med"></div><div class="pill" style="width:fit-content;">🔔 Price alerts ON</div></div></div>
+        <div class="card"><div class="thumb wire-box">img</div><div class="body"><div class="line med"></div><div class="pill" style="width:fit-content;">🔕 Price alerts OFF</div></div></div>
+        <div class="card"><div class="thumb wire-box">img</div><div class="body"><div class="line med"></div><div class="pill" style="width:fit-content;">🔔 Price alerts ON</div></div></div>
+      </div>
+      <div class="navbar">
+        <div>Shelf</div><div>Search</div><div class="active">Favorites</div><div>Profile</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

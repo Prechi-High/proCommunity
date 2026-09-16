@@ -1,0 +1,5 @@
+# Minimal config so `supabase functions deploy` can target this project.
+project_id = "aqdptcuwpneuyzjavjak"
+
+[functions.youtube-fetch]
+verify_jwt = true
