@@ -39,11 +39,11 @@ export default function ProductDetailScreen() {
   const ownerships = useAppStore((s) => s.ownerships);
   const addRoutineStep = useAppStore((s) => s.addRoutineStep);
   const [scoreOpen, setScoreOpen] = useState(false);
-  const { data: clips = [] } = useQuery({
+  const { data: clips = [], isFetching: videosLoading } = useQuery({
     queryKey: ['youtube', product?.brand, product?.name],
     queryFn: () => loadProductVideos(product!.name, product!.brand),
     enabled: Boolean(product),
-    staleTime: 7 * 24 * 60 * 60 * 1000,
+    staleTime: 60 * 1000,
   });
 
   useEffect(() => {
@@ -167,9 +167,12 @@ export default function ProductDetailScreen() {
         </View>
       </View>
 
-      {clips.length ? (
+      {videosLoading || clips.length ? (
         <View style={{ gap: 8 }}>
           <Heading size={16}>Watch</Heading>
+          {videosLoading && !clips.length ? (
+            <Caption>Looking up reviews on YouTube…</Caption>
+          ) : null}
           {clips.slice(0, 3).map((clip) => (
             <Pressable
               key={clip.youtubeVideoId}

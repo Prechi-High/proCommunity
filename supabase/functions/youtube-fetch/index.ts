@@ -69,18 +69,22 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (supabaseUrl && serviceKey && clips.length) {
-      const supabase = createClient(supabaseUrl, serviceKey);
-      await supabase.from("video_cache").upsert(
-        clips.map((clip) => ({
-          youtube_video_id: clip.youtubeVideoId,
-          title: clip.title,
-          channel_title: clip.channelTitle,
-          thumbnail_url: clip.thumbnailUrl,
-          search_query: query,
-          fetched_at: new Date().toISOString(),
-        })),
-        { onConflict: "search_query,youtube_video_id" },
-      );
+      try {
+        const supabase = createClient(supabaseUrl, serviceKey);
+        await supabase.from("video_cache").upsert(
+          clips.map((clip) => ({
+            youtube_video_id: clip.youtubeVideoId,
+            title: clip.title,
+            channel_title: clip.channelTitle,
+            thumbnail_url: clip.thumbnailUrl,
+            search_query: query,
+            fetched_at: new Date().toISOString(),
+          })),
+          { onConflict: "search_query,youtube_video_id" },
+        );
+      } catch {
+        // Cache is optional. Still return clips to the app.
+      }
     }
 
     return new Response(JSON.stringify({ clips }), { headers: jsonHeaders });
