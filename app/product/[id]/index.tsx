@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Platform, Pressable, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { MasonryFeed, ThreadRow } from '@/components/CommunityBits';
 import { Screen } from '@/components/Screen';
@@ -55,8 +55,14 @@ import {
 import { computeConfidence } from '@/lib/confidence';
 import { isVerifiedForProduct, useAppStore } from '@/lib/store';
 import { useProduct } from '@/lib/useProduct';
-import { JOURNEY_LABELS, loadProductVideos, tagVideo, type VideoJourneyTag } from '@/lib/youtube';
-import { loadApprovedJourneyClips, mixByPlatform, platformLabel, type JourneyClip } from '@/lib/videos';
+import { JOURNEY_LABELS, type VideoJourneyTag } from '@/lib/youtube';
+import {
+  discoverProductJourney,
+  loadCachedProductJourney,
+  mixByPlatform,
+  platformLabel,
+  type JourneyClip,
+} from '@/lib/videos';
 
 const PLATFORM_ICONS = {
   youtube: YoutubeLogo,
@@ -65,39 +71,6 @@ const PLATFORM_ICONS = {
   facebook: FacebookLogo,
   pinterest: PinterestLogo,
 } as const;
-
-function asJourneyClipFromYoutube(
-  clip: Awaited<ReturnType<typeof loadProductVideos>>[number],
-): JourneyClip {
-  return {
-    id: `yt-${clip.youtubeVideoId}`,
-    platform: 'youtube',
-    sourceUrl: `https://www.youtube.com/watch?v=${clip.youtubeVideoId}`,
-    embedHtml: null,
-    youtubeVideoId: clip.youtubeVideoId,
-    title: clip.title,
-    author: clip.channelTitle,
-    thumbnailUrl: clip.thumbnailUrl,
-    durationSeconds: clip.durationSeconds ?? null,
-    tag: tagVideo(clip),
-  };
-}
-
-async function loadJourney(product: { name: string; brand: string } & Parameters<typeof loadApprovedJourneyClips>[0]) {
-  const [youtube, approved] = await Promise.all([
-    loadProductVideos(product.name, product.brand),
-    loadApprovedJourneyClips(product),
-  ]);
-  const seen = new Set<string>();
-  const merged: JourneyClip[] = [];
-  for (const clip of [...approved, ...youtube.map(asJourneyClipFromYoutube)]) {
-    const key = clip.youtubeVideoId || clip.sourceUrl || clip.id;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push(clip);
-  }
-  return merged;
-}
 
 const JOURNEY_ICONS = {
   who_this_is_for: Path,
@@ -132,12 +105,27 @@ export default function ProductDetailScreen() {
   const addRoutineStep = useAppStore((s) => s.addRoutineStep);
   const [journey, setJourney] = useState<VideoJourneyTag>('who_this_is_for');
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const { data: clips = [], isFetching: videosLoading } = useQuery({
     queryKey: ['journey-videos', product?.id, product?.brand, product?.name],
-    queryFn: () => loadJourney(product!),
+    queryFn: () => loadCachedProductJourney(product!),
     enabled: Boolean(product),
-    staleTime: 60 * 1000,
+    staleTime: 30 * 1000,
+  });
+
+  const discoverQuery = useQuery({
+    queryKey: ['journey-discover', product?.id],
+    enabled: Boolean(product),
+    staleTime: 6 * 60 * 60 * 1000,
+    retry: 1,
+    queryFn: async () => {
+      await discoverProductJourney(product!);
+      await queryClient.invalidateQueries({
+        queryKey: ['journey-videos', product!.id, product!.brand, product!.name],
+      });
+      return true;
+    },
   });
 
   useEffect(() => {
@@ -173,7 +161,7 @@ export default function ProductDetailScreen() {
   const tracked = trackingCount(product.id);
   const tagged = clips;
   const filtered = tagged.filter((clip) => clip.tag === journey);
-  const shown = mixByPlatform(filtered.length ? filtered : tagged, 8);
+  const shown = mixByPlatform(filtered.length ? filtered : tagged, 10);
 
   return (
     <Screen
@@ -342,6 +330,9 @@ export default function ProductDetailScreen() {
               ))}
             </View>
             {videosLoading && !clips.length ? <Caption>Looking up short reviews…</Caption> : null}
+            {discoverQuery.isFetching ? (
+              <Caption>Finding TikTok, Instagram, Facebook and Pinterest reviews…</Caption>
+            ) : null}
             {!filtered.length && clips.length ? (
               <Caption>Nothing tagged for that chapter yet — showing every review we found.</Caption>
             ) : null}

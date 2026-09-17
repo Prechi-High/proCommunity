@@ -1,5 +1,6 @@
+import { discoverVideosForProduct } from './discoverVideos';
 import { supabase } from './supabase';
-import { tagVideo, type VideoJourneyTag } from './youtube';
+import { loadProductVideos, tagVideo, type VideoJourneyTag } from './youtube';
 import type { Product } from './types';
 
 export type VideoPlatform = 'youtube' | 'tiktok' | 'instagram' | 'facebook' | 'pinterest';
@@ -102,7 +103,7 @@ export function platformLabel(platform: VideoPlatform): string {
   }[platform];
 }
 
-export function mixByPlatform(clips: JourneyClip[], limit = 8): JourneyClip[] {
+export function mixByPlatform(clips: JourneyClip[], limit = 10): JourneyClip[] {
   const buckets = new Map<VideoPlatform, JourneyClip[]>();
   for (const clip of clips) {
     const list = buckets.get(clip.platform) ?? [];
@@ -110,17 +111,74 @@ export function mixByPlatform(clips: JourneyClip[], limit = 8): JourneyClip[] {
     buckets.set(clip.platform, list);
   }
   const order: VideoPlatform[] = ['tiktok', 'instagram', 'pinterest', 'facebook', 'youtube'];
+  const cap: Record<VideoPlatform, number> = {
+    tiktok: 3,
+    instagram: 3,
+    pinterest: 2,
+    facebook: 2,
+    youtube: 2,
+  };
+  const taken: Record<VideoPlatform, number> = {
+    tiktok: 0,
+    instagram: 0,
+    pinterest: 0,
+    facebook: 0,
+    youtube: 0,
+  };
   const mixed: JourneyClip[] = [];
   let added = true;
   while (mixed.length < limit && added) {
     added = false;
     for (const platform of order) {
+      if (taken[platform] >= cap[platform]) continue;
       const next = buckets.get(platform)?.shift();
       if (!next) continue;
       mixed.push(next);
+      taken[platform] += 1;
       added = true;
       if (mixed.length >= limit) break;
     }
   }
   return mixed;
+}
+
+function mergeJourney(social: JourneyClip[], youtube: JourneyClip[]): JourneyClip[] {
+  const seen = new Set<string>();
+  const merged: JourneyClip[] = [];
+  for (const clip of [...social, ...youtube]) {
+    const key = clip.youtubeVideoId || clip.sourceUrl || clip.id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(clip);
+  }
+  return merged;
+}
+
+function asJourneyClipFromYoutube(
+  clip: Awaited<ReturnType<typeof loadProductVideos>>[number],
+): JourneyClip {
+  return {
+    id: `yt-${clip.youtubeVideoId}`,
+    platform: 'youtube',
+    sourceUrl: `https://www.youtube.com/watch?v=${clip.youtubeVideoId}`,
+    embedHtml: null,
+    youtubeVideoId: clip.youtubeVideoId,
+    title: clip.title,
+    author: clip.channelTitle,
+    thumbnailUrl: clip.thumbnailUrl,
+    durationSeconds: clip.durationSeconds ?? null,
+    tag: tagVideo(clip),
+  };
+}
+
+export async function loadCachedProductJourney(product: Product): Promise<JourneyClip[]> {
+  const [youtube, social] = await Promise.all([
+    loadProductVideos(product.name, product.brand),
+    loadApprovedJourneyClips(product),
+  ]);
+  return mergeJourney(social, youtube.slice(0, 2).map(asJourneyClipFromYoutube));
+}
+
+export async function discoverProductJourney(product: Product): Promise<void> {
+  await discoverVideosForProduct(product);
 }
