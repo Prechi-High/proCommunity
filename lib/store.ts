@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import { track } from './analytics';
 import { communityPosts } from './seed';
 import type {
   AppNotification,
   CommunityPost,
   Concern,
+  DiscussionThread,
   Favorite,
   Ownership,
   Profile,
@@ -13,6 +15,7 @@ import type {
   QuizAnswers,
   RoutineLog,
   RoutineStep,
+  SatchelItem,
   SearchHistoryItem,
   SkinType,
   UsageEstimate,
@@ -50,6 +53,10 @@ export interface AppState {
   notifications: AppNotification[];
   searchHistory: SearchHistoryItem[];
   flaggedPostIds: string[];
+  satchelItems: SatchelItem[];
+  satchelPulse: number;
+  satchelNudgeSeenOn: string | null;
+  userThreads: DiscussionThread[];
   signIn: (email: string, displayName?: string) => void;
   signOut: () => void;
   completeOnboarding: (input: {
@@ -78,6 +85,11 @@ export interface AppState {
   markNotificationRead: (id: string) => void;
   flagPost: (postId: string) => void;
   resolveFlag: (postId: string) => void;
+  addToSatchel: (productId: string) => void;
+  removeFromSatchel: (productId: string) => void;
+  markSatchelPurchased: (productId: string) => void;
+  dismissSatchelNudge: () => void;
+  addThread: (productId: string, title: string) => string;
 }
 
 const emptyUserSlice = {
@@ -94,6 +106,10 @@ const emptyUserSlice = {
   notifications: [] as AppNotification[],
   searchHistory: [] as SearchHistoryItem[],
   flaggedPostIds: [] as string[],
+  satchelItems: [] as SatchelItem[],
+  satchelPulse: 0,
+  satchelNudgeSeenOn: null as string | null,
+  userThreads: [] as DiscussionThread[],
 };
 
 function memoryStorage() {
@@ -317,12 +333,64 @@ export const useAppStore = create<AppState>()(
       resolveFlag: (postId) => {
         set({ flaggedPostIds: get().flaggedPostIds.filter((id) => id !== postId) });
       },
+      addToSatchel: (productId) => {
+        if (get().satchelItems.some((item) => item.productId === productId)) {
+          set({ satchelPulse: Date.now() });
+          return;
+        }
+        track('satchel_add', { productId });
+        set({
+          satchelItems: [
+            {
+              id: uid('satchel'),
+              productId,
+              addedAt: new Date().toISOString(),
+              purchased: false,
+              purchasedAt: null,
+            },
+            ...get().satchelItems,
+          ],
+          satchelPulse: Date.now(),
+        });
+      },
+      removeFromSatchel: (productId) => {
+        set({ satchelItems: get().satchelItems.filter((item) => item.productId !== productId) });
+      },
+      markSatchelPurchased: (productId) => {
+        const now = new Date().toISOString();
+        set({
+          satchelItems: get().satchelItems.map((item) =>
+            item.productId === productId ? { ...item, purchased: true, purchasedAt: now } : item,
+          ),
+        });
+        get().markPurchased(productId);
+        track('satchel_purchased', { productId });
+      },
+      dismissSatchelNudge: () => set({ satchelNudgeSeenOn: todayStamp() }),
+      addThread: (productId, title) => {
+        const id = uid('thread');
+        const profile = get().profile;
+        set({
+          userThreads: [
+            {
+              id,
+              productId,
+              title: title.trim(),
+              createdBy: profile?.id ?? 'you',
+              createdAt: new Date().toISOString(),
+            },
+            ...get().userThreads,
+          ],
+        });
+        track('thread_started', { productId, threadId: id });
+        return id;
+      },
     }),
     {
       name: 'sourced-app',
       storage: createJSONStorage(() => asyncStorage),
       partialize: (state) => {
-        const { hydrated: _hydrated, setHydrated: _setHydrated, ...rest } = state;
+        const { hydrated: _hydrated, setHydrated: _setHydrated, satchelPulse: _pulse, ...rest } = state;
         return rest;
       },
       onRehydrateStorage: () => (state) => {

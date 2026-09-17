@@ -1,9 +1,10 @@
-import { ActivityIndicator, Linking, Pressable, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 
 import { Screen } from '@/components/Screen';
 import { Button, Caption, Heading, Notice, Title } from '@/components/ui';
 import { colors, fonts, radii } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { routeId } from '@/lib/catalog';
 import { useProduct } from '@/lib/useProduct';
 
@@ -27,6 +28,13 @@ export default function StoresScreen() {
     ? `https://world.openbeautyfacts.org/product/${product.barcode}`
     : null);
 
+  const openInApp = (url: string) => {
+    track('store_clickthrough', { productId: product.id, url });
+    router.push(
+      `/browse?url=${encodeURIComponent(url)}&host=${encodeURIComponent(hostFrom(url))}` as Href,
+    );
+  };
+
   return (
     <Screen>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -41,7 +49,7 @@ export default function StoresScreen() {
       </Notice>
       {openFactsUrl ? (
         <Pressable
-          onPress={() => Linking.openURL(openFactsUrl)}
+          onPress={() => openInApp(openFactsUrl)}
           style={{
             backgroundColor: colors.white,
             borderColor: colors.mist,
@@ -67,7 +75,7 @@ export default function StoresScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Title>Open Beauty Facts</Title>
-            <Caption>Product page, ingredients, and community photos</Caption>
+            <Caption>Opens in-app so your Satchel stays with you</Caption>
           </View>
           <Text style={{ fontFamily: fonts.semibold, color: colors.rosewood }}>Open</Text>
         </Pressable>
@@ -78,4 +86,12 @@ export default function StoresScreen() {
       <Button label="↑ Back to reviews & ingredients" kind="text" onPress={() => router.back()} />
     </Screen>
   );
+}
+
+function hostFrom(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return 'store';
+  }
 }

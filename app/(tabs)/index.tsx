@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Pressable, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 
+import { MasonryFeed } from '@/components/CommunityBits';
 import { Screen } from '@/components/Screen';
 import {
   Body,
@@ -10,18 +11,17 @@ import {
   Card,
   Heading,
   Notice,
-  PostCard,
   ScoreBadge,
   Thumb,
   Title,
   Wordmark,
 } from '@/components/ui';
 import { colors, fonts } from '@/constants/theme';
-import { getProduct, getProductPosts, trackingCount } from '@/lib/catalog';
+import { getFeedPosts, getProduct, getProductPosts, trackingCount } from '@/lib/catalog';
 import { computeConfidence } from '@/lib/confidence';
 import { searchCatalog } from '@/lib/products';
 import { SKIN_TYPE_LABEL } from '@/lib/quiz';
-import { allVisiblePosts, currentStreak, useAppStore } from '@/lib/store';
+import { currentStreak, useAppStore } from '@/lib/store';
 import { daysUntil, withUsageDates } from '@/lib/usage';
 import { useProducts } from '@/lib/useProduct';
 
@@ -33,7 +33,6 @@ export default function ShelfScreen() {
   const logs = useAppStore((s) => s.routineLogs);
   const usage = useAppStore((s) => s.usageEstimates);
   const userPosts = useAppStore((s) => s.userPosts);
-  const helpfulVotes = useAppStore((s) => s.helpfulVotes);
 
   const ownedIds = ownerships.map((item) => item.productId);
   const hasShelf = ownedIds.length > 0 || steps.length > 0;
@@ -66,9 +65,7 @@ export default function ShelfScreen() {
     })
     .find(Boolean);
 
-  const feedPosts = allVisiblePosts(userPosts)
-    .filter((post) => post.type !== 'question' || ownedIds.includes(post.productId))
-    .slice(0, 3);
+  const feedPosts = getFeedPosts(undefined, userPosts).slice(0, 4);
 
   return (
     <Screen>
@@ -160,15 +157,13 @@ export default function ShelfScreen() {
 
       {feedPosts[0] ? (
         <View style={{ gap: 8 }}>
-          <Heading size={16}>From the community</Heading>
-          {feedPosts.map((post) => (
-            <Pressable
-              key={post.id}
-              onPress={() => router.push(`/product/${post.productId}/community`)}
-            >
-              <PostCard post={post} voted={helpfulVotes.includes(post.id)} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <Heading size={16}>From the community</Heading>
+            <Pressable onPress={() => router.push('/feed' as Href)}>
+              <Caption color={colors.rosewood}>See all</Caption>
             </Pressable>
-          ))}
+          </View>
+          <MasonryFeed posts={feedPosts} />
         </View>
       ) : (
         <Body>No live discussion yet on your tracked products.</Body>

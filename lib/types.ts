@@ -20,7 +20,7 @@ export type ProductCategory =
   | 'essence'
   | 'treatment';
 
-export type PostType = 'question' | 'answer' | 'experience' | 'update';
+export type PostType = 'question' | 'answer' | 'experience' | 'update' | 'feed_post';
 
 export type PostStatus = 'visible' | 'flagged' | 'removed';
 
@@ -75,16 +75,43 @@ export interface LiteracyEntry {
 export interface CommunityPost {
   id: string;
   productId: string;
+  threadId?: string | null;
   userId: string;
   authorName: string;
   parentPostId: string | null;
   type: PostType;
   body: string;
+  photoUrl?: string | null;
   traitTags: string[];
   isVerifiedOwner: boolean;
   helpfulCount: number;
   status: PostStatus;
   createdAt: string;
+}
+
+export interface DiscussionThread {
+  id: string;
+  productId: string;
+  title: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface YoutubeComment {
+  id: string;
+  productId: string;
+  youtubeVideoId: string;
+  authorDisplayName: string;
+  body: string;
+  fetchedAt: string;
+}
+
+export interface SatchelItem {
+  id: string;
+  productId: string;
+  addedAt: string;
+  purchased: boolean;
+  purchasedAt: string | null;
 }
 
 export interface SeedAuthor {
@@ -155,3 +182,5 @@ export interface SearchHistoryItem {
 export interface QuizAnswers {
   [questionId: string]: string;
 }
+
+export type VideoJourneyTag = 'who_this_is_for' | 'results_over_time' | 'how_to_use';

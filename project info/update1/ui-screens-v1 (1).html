@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>V1 UI Screens</title>
+<style>
+  @import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap');
+
+  :root {
+    --shell: #FBF5F1;
+    --ink: #2A211D;
+    --ink-soft: #6B5F57;
+    --rosewood: #8C3547;
+    --rosewood-soft: #F4E8EA;
+    --honey: #D9A441;
+    --honey-soft: #FBF1DC;
+    --sage: #6E8F73;
+    --sage-soft: #E8F0E9;
+    --mist: #E7DED7;
+    --white: #FFFFFF;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'General Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #E8E2DC;
+    padding: 40px 24px 80px;
+    color: var(--ink);
+  }
+
+  .page-header { max-width: 1400px; margin: 0 auto 36px; }
+  .page-header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+  .page-header p { font-size: 13px; color: var(--ink-soft); margin-top: 4px; }
+
+  .grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 44px;
+    max-width: 1400px;
+    margin: 0 auto;
+    align-items: flex-start;
+  }
+
+  .screen-block { width: 320px; }
+  .screen-label {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 3px;
+    letter-spacing: -0.01em;
+  }
+  .screen-label span { color: var(--ink-soft); font-weight: 500; }
+  .screen-desc { font-size: 11px; color: var(--ink-soft); margin-bottom: 12px; line-height: 1.45; }
+
+  .phone {
+    width: 320px;
+    height: 660px;
+    background: var(--shell);
+    border-radius: 34px;
+    border: 8px solid #1A1512;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-shadow: 0 12px 40px rgba(42,33,29,0.18);
+  }
+
+  .status-bar {
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink);
+    flex-shrink: 0;
+  }
+
+  .screen-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .screen-body::-webkit-scrollbar { display: none; }
+
+  /* Typography */
+  .wordmark { font-size: 21px; font-weight: 700; color: var(--rosewood); letter-spacing: -0.03em; }
+  .h-lg { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+  .h-md { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+  .h-sm { font-size: 13px; font-weight: 600; }
+  .body-txt { font-size: 13px; line-height: 1.5; color: var(--ink-soft); }
+  .caption { font-size: 11px; color: var(--ink-soft); line-height: 1.45; }
+  .eyebrow {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  /* Components */
+  .card {
+    background: var(--white);
+    border: 1px solid var(--mist);
+    border-radius: 14px;
+    padding: 12px;
+  }
+  .card-row { display: flex; gap: 12px; align-items: center; }
+
+  .thumb {
+    width: 52px; height: 52px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #EFE6DF, #E0D3C9);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .thumb.sm { width: 34px; height: 34px; border-radius: 50%; font-size: 13px; }
+
+  .btn {
+    background: var(--rosewood);
+    color: var(--white);
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    width: 100%;
+    text-align: center;
+    letter-spacing: -0.01em;
+  }
+  .btn-outline {
+    background: transparent;
+    color: var(--ink);
+    border: 1.5px solid var(--mist);
+  }
+  .btn-text {
+    background: none; border: none;
+    color: var(--rosewood);
+    font-size: 13px; font-weight: 600;
+    font-family: inherit;
+    padding: 8px;
+    width: 100%;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1.5px solid var(--mist);
+    background: var(--white);
+    border-radius: 999px;
+    padding: 7px 13px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .chip.on { background: var(--rosewood); border-color: var(--rosewood); color: var(--white); }
+  .chip-row { display: flex; gap: 7px; flex-wrap: wrap; }
+  .chip-scroll { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 2px; }
+  .chip-scroll::-webkit-scrollbar { display: none; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 4px 9px;
+    border-radius: 999px;
+    width: fit-content;
+  }
+  .badge-sage { background: var(--sage-soft); color: #3F5C44; }
+  .badge-honey { background: var(--honey-soft); color: #8A6414; }
+  .badge-rose { background: var(--rosewood-soft); color: var(--rosewood); }
+  .badge-neutral { background: var(--mist); color: var(--ink-soft); }
+
+  .score-ring {
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    border: 4px solid var(--sage);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    flex-shrink: 0;
+    background: var(--white);
+  }
+  .score-ring .num { font-size: 18px; font-weight: 700; line-height: 1; }
+  .score-ring .lbl { font-size: 7px; font-weight: 600; color: var(--ink-soft); letter-spacing: 0.04em; }
+
+  .notice {
+    background: var(--honey-soft);
+    border-left: 3px solid var(--honey);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 11px;
+    line-height: 1.45;
+    color: #6B4D0F;
+  }
+  .notice.quiet {
+    background: var(--white);
+    border-left-color: var(--mist);
+    border: 1px solid var(--mist);
+    color: var(--ink-soft);
+  }
+
+  .divider { height: 1px; background: var(--mist); }
+
+  .video-tile {
+    width: 112px; height: 76px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #DDD0C6, #C9B8AB);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--white);
+    font-size: 20px;
+    position: relative;
+  }
+
+  .skeleton-line { height: 9px; background: var(--mist); border-radius: 5px; }
+  .skeleton-line.w90 { width: 90%; }
+  .skeleton-line.w70 { width: 70%; }
+  .skeleton-line.w50 { width: 50%; }
+
+  .tabbar {
+    display: flex;
+    background: var(--white);
+    border-top: 1px solid var(--mist);
+    padding: 10px 0 14px;
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+    font-size: 9.5px;
+    font-weight: 500;
+    color: var(--ink-soft);
+  }
+  .tab.on { color: var(--rosewood); font-weight: 600; }
+  .tab svg { width: 21px; height: 21px; }
+
+  .sticky-cta {
+    background: var(--white);
+    border-top: 1px solid var(--mist);
+    padding: 12px 16px 16px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .icon-btn {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    border: 1.5px solid var(--mist);
+    background: var(--white);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .icon-btn svg { width: 20px; height: 20px; }
+
+  .search-field {
+    background: var(--white);
+    border: 1.5px solid var(--mist);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex; align-items: center; gap: 9px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  .hero-img {
+    width: 100%; height: 190px;
+    border-radius: 16px;
+    background: linear-gradient(140deg, #EFE6DF, #DCCCC0);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px;
+  }
+
+  .quiz-opt {
+    background: var(--white);
+    border: 1.5px solid var(--mist);
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .quiz-opt.sel { border-color: var(--rosewood); background: var(--rosewood-soft); }
+
+  .progress-track { height: 4px; background: var(--mist); border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--rosewood); border-radius: 4px; }
+
+  .store-row {
+    background: var(--white);
+    border: 1px solid var(--mist);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex; align-items: center; gap: 11px;
+  }
+  .store-row.best { border-color: var(--sage); background: var(--sage-soft); }
+  .price { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+
+  .check {
+    width: 24px; height: 24px;
+    border-radius: 8px;
+    border: 1.5px solid var(--mist);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .check.done { background: var(--sage); border-color: var(--sage); color: var(--white); }
+
+  .timeline-item { display: flex; gap: 12px; }
+  .timeline-img {
+    width: 64px; height: 64px; border-radius: 10px;
+    background: linear-gradient(135deg, #EFE6DF, #DCCCC0);
+    flex-shrink: 0;
+  }
+  .avatar-stack { display: flex; }
+  .avatar-stack .thumb.sm { margin-left: -9px; border: 2px solid var(--shell); }
+  .avatar-stack .thumb.sm:first-child { margin-left: 0; }
+
+  /* Discovery Feed - masonry */
+  .masonry {
+    columns: 2;
+    column-gap: 9px;
+  }
+  .masonry-tile {
+    break-inside: avoid;
+    margin-bottom: 9px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--white);
+    border: 1px solid var(--mist);
+  }
+  .masonry-img {
+    width: 100%;
+    background: linear-gradient(150deg, #EFE6DF, #D9C6B8);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .masonry-body { padding: 8px; }
+  .masonry-caption { font-size: 10.5px; line-height: 1.4; color: var(--ink); }
+  .masonry-meta { display: flex; gap: 4px; margin-top:6px; flex-wrap: wrap; }
+
+  /* Thread list */
+  .thread-row {
+    background: var(--white);
+    border: 1px solid var(--mist);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .thread-title { font-size: 13px; font-weight: 600; }
+  .thread-preview { font-size: 11px; color: var(--ink-soft); margin-top: 4px; line-height: 1.4; }
+  .thread-meta { font-size: 10px; color: var(--ink-soft); margin-top: 7px; }
+
+  /* Related-post AI surfacing */
+  .related-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 9px; font-weight: 700;
+    color: #6B5F57;
+    background: var(--mist);
+    padding: 3px 8px; border-radius: 999px;
+    margin-bottom: 6px;
+  }
+
+  /* YouTube comment bootstrap styling — visually distinct, never verified-owner style */
+  .yt-comment {
+    background: #F7F2EE;
+    border: 1px dashed #C9BBB1;
+    border-radius: 10px;
+    padding: 9px 10px;
+  }
+  .yt-comment .yt-src {
+    font-size: 9px; font-weight: 700; color: #8A7A6C;
+    display: flex; align-items: center; gap: 4px;
+    margin-bottom: 5px;
+  }
+
+  /* Satchel floating widget */
+  .satchel-fab {
+    position: absolute;
+    bottom: 78px; right: 14px;
+    width: 54px; height: 54px;
+    border-radius: 50%;
+    background: var(--rosewood);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 6px 16px rgba(140,53,71,0.35);
+    z-index: 5;
+  }
+  .satchel-fab .count {
+    position: absolute; top: -3px; right: -3px;
+    background: var(--honey);
+    color: var(--ink);
+    font-size: 10px; font-weight: 700;
+    width: 19px; height: 19px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--shell);
+  }
+  .satchel-item-row {
+    background: var(--white);
+    border: 1px solid var(--mist);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex; align-items: center; gap: 10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>V1.1 — UI Screens</h1>
+  <p>Brand system applied: Shell / Ink / Rosewood / Honey / Sage · General Sans · line icons with filled active states · Discovery Feed, named threads, and The Satchel now included</p>
+</div>
+
+<div class="grid">
+
+  <!-- 01 ONBOARDING -->
+  <div class="screen-block">
+    <div class="screen-label">01 <span>· Onboarding</span></div>
+    <div class="screen-desc">Value statement, then sign-up. Profile is optional and skippable.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body" style="justify-content:center; padding:24px;">
+        <div class="wordmark" style="font-size:26px; margin-bottom:26px;">Sourced</div>
+        <div class="h-lg">Know before<br>you buy.</div>
+        <div class="body-txt" style="margin-top:2px;">Real experience from people who've actually used it — not just star ratings.</div>
+
+        <div style="margin-top:32px; display:flex; flex-direction:column; gap:10px;">
+          <div class="eyebrow">Email or phone</div>
+          <div class="search-field">you@example.com</div>
+          <button class="btn" style="margin-top:4px;">Continue</button>
+          <div class="divider" style="margin:10px 0;"></div>
+          <button class="btn btn-outline">Continue with Google</button>
+        </div>
+
+        <div class="caption" style="text-align:center; margin-top:22px;">By continuing you agree to our Terms and Privacy Policy.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 01b QUIZ -->
+  <div class="screen-block">
+    <div class="screen-label">01b <span>· Skin Type Quiz</span></div>
+    <div class="screen-desc">For people who don't know their skin type. Result is an estimate, never a diagnosis.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span style="font-size:18px;">←</span>
+          <div class="progress-track" style="flex:1;"><div class="progress-fill" style="width:40%;"></div></div>
+        </div>
+        <div class="eyebrow" style="margin-top:8px;">Question 2 of 5</div>
+        <div class="h-lg" style="font-size:21px;">By midday, how does your skin usually feel?</div>
+
+        <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+          <div class="quiz-opt">Shiny all over</div>
+          <div class="quiz-opt sel">Shiny on forehead and nose, normal elsewhere</div>
+          <div class="quiz-opt">Tight, dry, or flaky</div>
+          <div class="quiz-opt">Comfortable — not much change</div>
+        </div>
+
+        <div class="notice quiet" style="margin-top:auto;">Your answers give us a starting point. You can change your skin type anytime in settings.</div>
+      </div>
+      <div class="sticky-cta"><button class="btn">Next</button></div>
+    </div>
+  </div>
+
+  <!-- 02 SHELF (RETURNING) -->
+  <div class="screen-block">
+    <div class="screen-label">02 <span>· Your Shelf — returning user</span></div>
+    <div class="screen-desc">Interleaved: routine, alerts, community, products woven together — not stacked sections.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="wordmark">Sourced</div>
+          <div class="thumb sm">🙂</div>
+        </div>
+
+        <div class="card" style="background:var(--rosewood); border-color:var(--rosewood); color:var(--white);">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:11px; opacity:0.75; font-weight:600;">MORNING ROUTINE</div>
+              <div style="font-size:15px; font-weight:600; margin-top:2px;">2 of 4 done</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:19px; font-weight:700;">5</div>
+              <div style="font-size:9px; opacity:0.75;">day streak</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:5px; margin-top:12px;">
+            <div style="flex:1; height:4px; background:var(--white); border-radius:3px;"></div>
+            <div style="flex:1; height:4px; background:var(--white); border-radius:3px;"></div>
+            <div style="flex:1; height:4px; background:rgba(255,255,255,0.3); border-radius:3px;"></div>
+            <div style="flex:1; height:4px; background:rgba(255,255,255,0.3); border-radius:3px;"></div>
+          </div>
+        </div>
+
+        <div class="notice">Running low — your cleanser should last about 5 more days.</div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="thumb sm">👤</div>
+            <div style="flex:1;">
+              <div style="display:flex; gap:5px; margin-bottom:5px;">
+                <span class="badge badge-sage">✓ Verified owner</span>
+                <span class="badge badge-neutral">Oily · 3mo</span>
+              </div>
+              <div class="caption" style="color:var(--ink);">"Third month in — still no breakouts, but it does pill under sunscreen."</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="thumb">🧴</div>
+            <div style="flex:1;">
+              <div class="h-sm">Niacinamide 10% Serum</div>
+              <div class="badge badge-sage" style="margin-top:6px;">Strong match · 88</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="video-tile" style="width:100%; height:130px;">▶</div>
+      </div>
+      <div class="tabbar">
+        <div class="tab on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>Shelf</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5 5 0 00-7.1 0L12 6.3l-1.7-1.7a5 5 0 10-7.1 7.1L12 20.4l8.8-8.8a5 5 0 000-7z"/></svg>Saved</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>You</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 02b SHELF (NEW USER) -->
+  <div class="screen-block">
+    <div class="screen-label">02b <span>· Your Shelf — new user</span></div>
+    <div class="screen-desc">Never blank. Real trending products and real discussion — honest numbers, no fabricated scale.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="wordmark">Sourced</div>
+          <div class="thumb sm">🙂</div>
+        </div>
+
+        <div class="card" style="text-align:center; padding:18px;">
+          <div style="font-size:26px;">🔍</div>
+          <div class="h-sm" style="margin-top:8px;">Your shelf is empty</div>
+          <div class="caption" style="margin-top:4px;">Search a product to start tracking what you use.</div>
+          <button class="btn" style="margin-top:14px;">Find a product</button>
+        </div>
+
+        <div class="h-md">Popular with combination skin</div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="thumb">🧴</div>
+            <div style="flex:1;">
+              <div class="h-sm">Gentle Foaming Cleanser</div>
+              <div style="display:flex; gap:5px; margin-top:6px;">
+                <span class="badge badge-sage">Strong match · 91</span>
+              </div>
+              <div class="caption" style="margin-top:6px;">127 people tracking this</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="thumb sm">👤</div>
+            <div style="flex:1;">
+              <div style="display:flex; gap:5px; margin-bottom:5px;">
+                <span class="badge badge-sage">✓ Verified owner</span>
+                <span class="badge badge-neutral">Combo</span>
+              </div>
+              <div class="caption" style="color:var(--ink);">"Took about 3 weeks before I noticed any real difference."</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="video-tile" style="width:100%; height:120px;">▶</div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="thumb">🧪</div>
+            <div style="flex:1;">
+              <div class="h-sm">Barrier Repair Moisturizer</div>
+              <div class="badge badge-honey" style="margin-top:6px;">Mixed feedback · 64</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>Shelf</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5 5 0 00-7.1 0L12 6.3l-1.7-1.7a5 5 0 10-7.1 7.1L12 20.4l8.8-8.8a5 5 0 000-7z"/></svg>Saved</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>You</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 03 SEARCH -->
+  <div class="screen-block">
+    <div class="screen-label">03 <span>· Search & Browse</span></div>
+    <div class="screen-desc">Confidence Score scannable at a glance. Keyword chips map to real product attributes. No price yet.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body">
+        <div class="search-field">🔍 &nbsp;niacinamide serum</div>
+
+        <div class="chip-scroll">
+          <div class="chip on">Oily skin</div>
+          <div class="chip">Mattifying</div>
+          <div class="chip">Oil-free</div>
+          <div class="chip">Fragrance-free</div>
+        </div>
+
+        <div class="caption">24 products · sorted by fit</div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="thumb">🧴</div>
+            <div style="flex:1;">
+              <div class="h-sm">Niacinamide 10% + Zinc</div>
+              <div class="caption" style="margin-top:2px;">Serum · fragrance-free</div>
+              <div class="badge badge-sage" style="margin-top:6px;">Strong match · 92</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="thumb">🧴</div>
+            <div style="flex:1;">
+              <div class="h-sm">Clarifying Niacinamide Gel</div>
+              <div class="caption" style="margin-top:2px;">Gel · mattifying</div>
+              <div class="badge badge-honey" style="margin-top:6px;">Mixed feedback · 61</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="thumb">🧪</div>
+            <div style="flex:1;">
+              <div class="h-sm">Balance Serum 5%</div>
+              <div class="caption" style="margin-top:2px;">Serum · oil-free</div>
+              <div class="badge badge-sage" style="margin-top:6px;">Strong match · 88</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="thumb">🫙</div>
+            <div style="flex:1;">
+              <div class="h-sm">Pore Minimizing Essence</div>
+              <div class="caption" style="margin-top:2px;">Essence</div>
+              <div class="badge badge-neutral" style="margin-top:6px;">Too few reviews yet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="satchel-fab"><span class="count">3</span>🐱</div>
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1z"/></svg>Shelf</div>
+        <div class="tab on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 2a9 9 0 105.6 16.1l4.1 4.1 1.4-1.4-4.1-4.1A9 9 0 0011 2zm0 2a7 7 0 110 14 7 7 0 010-14z"/></svg>Search</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5 5 0 00-7.1 0L12 6.3l-1.7-1.7a5 5 0 10-7.1 7.1L12 20.4l8.8-8.8a5 5 0 000-7z"/></svg>Saved</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>You</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 04 PRODUCT DETAIL -->
+  <div class="screen-block">
+    <div class="screen-label">04 <span>· Product — before "Get This"</span></div>
+    <div class="screen-desc">No merchant, no price. Video journey, Discovery Feed, and named threads lead — not a document to read and judge.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body">
+        <div class="hero-img">🧴</div>
+
+        <div>
+          <div class="caption">THE ORDINARY</div>
+          <div class="h-lg" style="font-size:20px; margin-top:2px;">Niacinamide 10% + Zinc 1%</div>
+        </div>
+
+        <div class="card" style="display:flex; gap:14px; align-items:center;">
+          <div class="score-ring"><div class="num">92</div><div class="lbl">SCORE</div></div>
+          <div style="flex:1;">
+            <div class="h-sm">Strong match for you</div>
+            <div class="caption" style="margin-top:3px;">Based on your oily skin type, 41 verified owners, and clear ingredient labeling.</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="h-md" style="margin-bottom:7px;">What's in it</div>
+          <div class="chip-row">
+            <div class="chip">Niacinamide 10%</div>
+            <div class="chip">Zinc PCA</div>
+            <div class="chip">Fragrance-free</div>
+          </div>
+          <div class="body-txt" style="margin-top:9px;">Niacinamide helps regulate oil production and can reduce the look of enlarged pores over time. Typically takes 4–8 weeks to show visible change.</div>
+        </div>
+
+        <div class="notice">Not medical advice. Patch-test before first use — individual reactions vary.</div>
+
+        <div>
+          <div class="h-md" style="margin-bottom:8px;">Video journey</div>
+          <div class="chip-scroll" style="margin-bottom:8px;">
+            <div class="chip on">Who it's for</div>
+            <div class="chip">Results over time</div>
+            <div class="chip">How to use</div>
+          </div>
+          <div style="display:flex; gap:9px; overflow-x:auto;">
+            <div>
+              <div class="video-tile">▶</div>
+              <div class="caption" style="width:112px; margin-top:4px;">Oily skin routine, week by week</div>
+            </div>
+            <div>
+              <div class="video-tile">▶</div>
+              <div class="caption" style="width:112px; margin-top:4px;">Ingredient breakdown: niacinamide</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline;">
+            <div class="h-md">From the community</div>
+            <div class="caption" style="color:var(--rosewood); font-weight:600;">See all</div>
+          </div>
+          <div class="masonry" style="margin-top:8px;">
+            <div class="masonry-tile">
+              <div class="masonry-img" style="height:100px;">📷</div>
+              <div class="masonry-body">
+                <div class="masonry-caption">"3 weeks in — texture is so much smoother"</div>
+                <div class="masonry-meta"><span class="badge badge-sage" style="font-size:8px;">✓ Verified</span></div>
+              </div>
+            </div>
+            <div class="masonry-tile">
+              <div class="masonry-img" style="height:130px;">📷</div>
+              <div class="masonry-body">
+                <div class="masonry-caption">Morning shelf — what I pair this with</div>
+                <div class="masonry-meta"><span class="badge badge-neutral" style="font-size:8px;">Combo</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline;">
+            <div class="h-md">Discussions</div>
+            <div class="caption" style="color:var(--rosewood); font-weight:600;">+ New thread</div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+            <div class="thread-row">
+              <div class="thread-title">Alternatives for oily skin?</div>
+              <div class="thread-preview">"Tried this for a month, didn't work for me — what else should I look at..."</div>
+              <div class="thread-meta">14 replies · active today</div>
+            </div>
+            <div class="thread-row">
+              <div class="thread-title">3 weeks in — results</div>
+              <div class="thread-preview">"Cut my midday shine noticeably by week 5..."</div>
+              <div class="thread-meta">34 replies · active 2h ago</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sticky-cta">
+        <div class="icon-btn" style="background:var(--rosewood-soft); border-color:var(--rosewood-soft);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#8C3547" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h2l2.4 12.2a2 2 0 002 1.8h7.2a2 2 0 002-1.6L21 8H6"/><circle cx="9" cy="21" r="1.4"/><circle cx="18" cy="21" r="1.4"/></svg>
+        </div>
+        <button class="btn">Get This Product</button>
+        <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="#2A211D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5 5 0 00-7.1 0L12 6.3l-1.7-1.7a5 5 0 10-7.1 7.1L12 20.4l8.8-8.8a5 5 0 000-7z"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 04b DISCOVERY FEED -->
+  <div class="screen-block">
+    <div class="screen-label">04b <span>· Discovery Feed</span></div>
+    <div class="screen-desc">Pinterest-style masonry — browsing/discovering, not reading and judging. Tangential related posts can surface too, by design.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:18px;">←</span>
+          <div class="h-md">From the community</div>
+        </div>
+        <div class="masonry">
+          <div class="masonry-tile">
+            <div class="masonry-img" style="height:120px;">📷</div>
+            <div class="masonry-body">
+              <div class="masonry-caption">"3 weeks in — texture is so much smoother"</div>
+              <div class="masonry-meta"><span class="badge badge-sage" style="font-size:8px;">✓ Verified</span><span class="badge badge-neutral" style="font-size:8px;">Oily</span></div>
+            </div>
+          </div>
+          <div class="masonry-tile">
+            <div class="masonry-img" style="height:90px;">📷</div>
+            <div class="masonry-body">
+              <div class="masonry-caption">My whole morning shelf right now</div>
+              <div class="masonry-meta"><span class="badge badge-neutral" style="font-size:8px;">Combo</span></div>
+            </div>
+          </div>
+          <div class="masonry-tile">
+            <div class="masonry-img" style="height:150px;">📷</div>
+            <div class="masonry-body">
+              <div class="masonry-caption">Honestly regret this one — broke me out</div>
+              <div class="masonry-meta"><span class="badge badge-sage" style="font-size:8px;">✓ Verified</span></div>
+            </div>
+          </div>
+          <div class="masonry-tile">
+            <div class="masonry-img" style="height:100px;">📷</div>
+            <div class="masonry-body">
+              <div class="masonry-caption">Layering order that finally worked</div>
+              <div class="masonry-meta"><span class="badge badge-neutral" style="font-size:8px;">Sensitive</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="caption" style="text-align:center; margin-top:2px;">Critical and glowing posts shown equally — nothing hidden, nothing boosted</div>
+      </div>
+      <div class="sticky-cta"><button class="btn">+ Share your own</button></div>
+    </div>
+  </div>
+
+  <!-- 05 STORE LIST -->
+  <div class="screen-block">
+    <div class="screen-label">05 <span>· Store list revealed</span></div>
+    <div class="screen-desc">Only appears after tapping "Get This Product." Sortable — no paid placement, ever.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:18px;">←</span>
+          <div class="h-md">Where to buy</div>
+        </div>
+        <div class="caption">Niacinamide 10% + Zinc 1% · 6 stores</div>
+
+        <div class="chip-scroll">
+          <div class="chip on">Price ↑</div>
+          <div class="chip">Ships to me</div>
+          <div class="chip">In stock</div>
+        </div>
+
+        <div class="store-row best">
+          <div class="thumb sm" style="background:var(--white);">🏬</div>
+          <div style="flex:1;">
+            <div class="h-sm">Glow Depot NG</div>
+            <div class="caption">Ships in 2–3 days</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="price">₦8,400</div>
+            <div class="badge badge-sage" style="margin-top:3px;">Lowest</div>
+          </div>
+        </div>
+
+        <div class="store-row">
+          <div class="thumb sm">🏬</div>
+          <div style="flex:1;">
+            <div class="h-sm">SkinLab Store</div>
+            <div class="caption">Ships in 1–2 days</div>
+          </div>
+          <div class="price">₦8,950</div>
+        </div>
+
+        <div class="store-row">
+          <div class="thumb sm">🏬</div>
+          <div style="flex:1;">
+            <div class="h-sm">Pure Beauty Co</div>
+            <div class="caption">Ships in 4–6 days</div>
+          </div>
+          <div class="price">₦9,200</div>
+        </div>
+
+        <div class="store-row">
+          <div class="thumb sm">🏬</div>
+          <div style="flex:1;">
+            <div class="h-sm">The Serum Room</div>
+            <div class="caption">Out of stock</div>
+          </div>
+          <div class="price" style="color:var(--ink-soft);">₦8,700</div>
+        </div>
+
+        <div class="notice quiet">Stores are ranked by your filter only. No store can pay to appear higher.</div>
+
+        <button class="btn-text">↑ Back to reviews & ingredients</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 06 THREAD LIST -->
+  <div class="screen-block">
+    <div class="screen-label">06 <span>· Discussion threads (all)</span></div>
+    <div class="screen-desc">Multiple named conversations per product — not one flat Q&A list.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:18px;">←</span>
+          <div>
+            <div class="h-md">Discussions</div>
+            <div class="caption">Niacinamide 10% + Zinc</div>
+          </div>
+        </div>
+
+        <div class="thread-row">
+          <div class="thread-title">Alternatives for oily skin?</div>
+          <div class="thread-preview">"Tried this for a month, didn't work for me — what else should I look at..."</div>
+          <div class="thread-meta">14 replies · active today</div>
+        </div>
+        <div class="thread-row">
+          <div class="thread-title">3 weeks in — results</div>
+          <div class="thread-preview">"Cut my midday shine noticeably by week 5..."</div>
+          <div class="thread-meta">34 replies · active 2h ago</div>
+        </div>
+        <div class="thread-row">
+          <div class="thread-title">Does this work under makeup?</div>
+          <div class="thread-preview">"Been wondering if it pills with foundation..."</div>
+          <div class="thread-meta">6 replies · active yesterday</div>
+        </div>
+        <div class="thread-row" style="border-style:dashed; text-align:center; color:var(--ink-soft);">
+          <div class="thread-title" style="color:var(--rosewood);">+ Start a new thread</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 06b THREAD DETAIL -->
+  <div class="screen-block">
+    <div class="screen-label">06b <span>· Thread — "Alternatives for oily skin?"</span></div>
+    <div class="screen-desc">AI-surfaced related posts fill a young thread. YouTube comments bootstrap early content, always clearly labeled.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:18px;">←</span>
+          <div>
+            <div class="h-md">Alternatives for oily skin?</div>
+            <div class="caption">Niacinamide 10% + Zinc</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row" style="align-items:flex-start;">
+            <div class="thumb sm">💬</div>
+            <div style="flex:1;">
+              <span class="badge badge-rose">Question</span>
+              <div class="body-txt" style="color:var(--ink); margin-top:7px;">Tried this for a month, didn't work for me. Anyone found something that actually helped with oily T-zone?</div>
+              <div class="caption" style="margin-top:9px;">Asked 2 days ago</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="related-tag">✦ RELATED — not a direct reply</div>
+        <div class="card">
+          <div class="card-row" style="align-items:flex-start;">
+            <div class="thumb sm">👤</div>
+            <div style="flex:1;">
+              <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                <span class="badge badge-sage">✓ Verified</span>
+                <span class="badge badge-neutral">Oily · 6mo in</span>
+              </div>
+              <div class="body-txt" style="color:var(--ink); margin-top:7px;">Cut my midday shine noticeably by week 5. Layer it <em>under</em> sunscreen or it pills badly.</div>
+              <div class="caption" style="margin-top:9px;">From "3 weeks in — results" · ↑ 34 helpful</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="yt-comment">
+          <div class="yt-src">▶ FROM A YOUTUBE REVIEW</div>
+          <div class="body-txt" style="color:var(--ink);">"Switched to this after my old serum stopped working, oily skin here too — took about 3 weeks to notice less shine."</div>
+        </div>
+
+        <div class="card">
+          <div class="card-row" style="align-items:flex-start;">
+            <div class="thumb sm">👤</div>
+            <div style="flex:1;">
+              <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                <span class="badge badge-sage">✓ Verified</span>
+                <span class="badge badge-neutral">Oily · 4mo in</span>
+              </div>
+              <div class="body-txt" style="color:var(--ink); margin-top:7px;">Same here — didn't work for my T-zone specifically. Switched to a 5% version and that was better.</div>
+              <div class="caption" style="margin-top:9px;">↑ 8 helpful · Reply</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sticky-cta"><button class="btn">Reply to this thread</button></div>
+    </div>
+  </div>
+
+  <!-- 07 ROUTINE -->
+  <div class="screen-block">
+    <div class="screen-label">07 <span>· Routine tracker</span></div>
+    <div class="screen-desc">Fast to log. Streak is quiet encouragement — never guilt, never punitive on a missed day.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body">
+        <div class="h-lg" style="font-size:21px;">Today</div>
+
+        <div class="chip-row">
+          <div class="chip on">Morning</div>
+          <div class="chip">Evening</div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="check done">✓</div>
+            <div class="thumb sm">🧼</div>
+            <div style="flex:1;"><div class="h-sm">Gentle Cleanser</div><div class="caption">Step 1</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="check done">✓</div>
+            <div class="thumb sm">🧴</div>
+            <div style="flex:1;"><div class="h-sm">Niacinamide Serum</div><div class="caption">Step 2</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="check"></div>
+            <div class="thumb sm">🫙</div>
+            <div style="flex:1;"><div class="h-sm">Moisturizer</div><div class="caption">Step 3</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="check"></div>
+            <div class="thumb sm">☀️</div>
+            <div style="flex:1;"><div class="h-sm">SPF 50</div><div class="caption">Step 4</div></div>
+          </div>
+        </div>
+
+        <button class="btn-text">+ Add a step</button>
+
+        <div class="card" style="background:var(--sage-soft); border-color:var(--sage-soft); text-align:center;">
+          <div style="font-size:21px;">🌿</div>
+          <div class="h-sm" style="margin-top:5px;">5 days in a row</div>
+          <div class="caption" style="margin-top:3px;">Consistency matters more than perfection.</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>Shelf</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5 5 0 00-7.1 0L12 6.3l-1.7-1.7a5 5 0 10-7.1 7.1L12 20.4l8.8-8.8a5 5 0 000-7z"/></svg>Saved</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>You</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 08 PROGRESS JOURNAL -->
+  <div class="screen-block">
+    <div class="screen-label">08 <span>· Progress journal</span></div>
+    <div class="screen-desc">Private by default. Sharing is an explicit, per-entry choice — never bulk, never default-on.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:18px;">←</span>
+          <div>
+            <div class="h-md">Your progress</div>
+            <div class="caption">Niacinamide 10% + Zinc</div>
+          </div>
+        </div>
+
+        <div class="badge badge-neutral">🔒 Private to you</div>
+
+        <div class="timeline-item">
+          <div class="timeline-img"></div>
+          <div style="flex:1;">
+            <div class="h-sm">Week 8 · Today</div>
+            <div class="caption" style="margin-top:4px;">Shine is way down. Tiny bit of dryness on cheeks.</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="timeline-item">
+          <div class="timeline-img"></div>
+          <div style="flex:1;">
+            <div class="h-sm">Week 4</div>
+            <div class="caption" style="margin-top:4px;">Starting to see a difference around my nose.</div>
+            <div class="badge badge-sage" style="margin-top:6px;">Shared to community</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="timeline-item">
+          <div class="timeline-img"></div>
+          <div style="flex:1;">
+            <div class="h-sm">Week 1</div>
+            <div class="caption" style="margin-top:4px;">Day one. No reaction from patch test.</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:4px;">
+          <div class="h-sm">Share week 8 with the community?</div>
+          <div class="caption" style="margin-top:4px;">Only this entry. Your other entries stay private.</div>
+          <div style="display:flex; gap:8px; margin-top:11px;">
+            <button class="btn btn-outline" style="font-size:13px; padding:11px;">Keep private</button>
+            <button class="btn" style="font-size:13px; padding:11px;">Share</button>
+          </div>
+        </div>
+      </div>
+      <div class="sticky-cta"><button class="btn">+ Add entry</button></div>
+    </div>
+  </div>
+
+  <!-- 09 OWNER PROFILE -->
+  <div class="screen-block">
+    <div class="screen-label">09 <span>· Verified owner profile</span></div>
+    <div class="screen-desc">Reputation is per-category, never a global leaderboard rank.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body">
+        <div style="text-align:center; padding:8px 0;">
+          <div class="thumb" style="width:72px; height:72px; border-radius:50%; margin:0 auto; font-size:28px;">👤</div>
+          <div class="h-md" style="margin-top:10px;">Amara O.</div>
+          <div class="caption" style="margin-top:2px;">Member since March 2026</div>
+          <div class="badge badge-sage" style="margin:9px auto 0;">✓ Verified owner</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div>
+          <div class="h-md" style="margin-bottom:8px;">Known for</div>
+          <div class="chip-row">
+            <div class="chip">Oily skin · 14 answers</div>
+            <div class="chip">Acne-prone · 6 answers</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex; justify-content:space-around; text-align:center;">
+            <div>
+              <div class="h-md">23</div>
+              <div class="caption">Answers</div>
+            </div>
+            <div>
+              <div class="h-md">9</div>
+              <div class="caption">Products used</div>
+            </div>
+            <div>
+              <div class="h-md">7mo</div>
+              <div class="caption">Active</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="h-md" style="margin-bottom:8px;">Recent contributions</div>
+          <div class="card" style="margin-bottom:8px;">
+            <div class="caption" style="color:var(--ink);">"Layer it under sunscreen, not over."</div>
+            <div class="caption" style="margin-top:5px;">On Niacinamide 10% · ↑ 34</div>
+          </div>
+          <div class="card">
+            <div class="caption" style="color:var(--ink);">"Gave me a mild purge for 2 weeks, then settled."</div>
+            <div class="caption" style="margin-top:5px;">On Salicylic Cleanser · ↑ 18</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 09b THE SATCHEL -->
+  <div class="screen-block">
+    <div class="screen-label">09b <span>· The Satchel</span></div>
+    <div class="screen-desc">Collect across multiple searches before committing to any purchase — floating widget, iconic add animation.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:18px;">←</span>
+          <div class="h-md">Your Satchel</div>
+        </div>
+        <div class="caption">4 products collected</div>
+
+        <div class="satchel-item-row">
+          <div class="thumb">🧴</div>
+          <div style="flex:1;">
+            <div class="h-sm">Niacinamide 10% + Zinc</div>
+            <div class="badge badge-sage" style="margin-top:5px;">Strong match · 92</div>
+          </div>
+          <div class="check"></div>
+        </div>
+        <div class="satchel-item-row">
+          <div class="thumb">🧼</div>
+          <div style="flex:1;">
+            <div class="h-sm">Gentle Foaming Cleanser</div>
+            <div class="badge badge-sage" style="margin-top:5px;">Strong match · 88</div>
+          </div>
+          <div class="check"></div>
+        </div>
+        <div class="satchel-item-row">
+          <div class="thumb">☀️</div>
+          <div style="flex:1;">
+            <div class="h-sm">Mineral SPF 50</div>
+            <div class="badge badge-honey" style="margin-top:5px;">Mixed feedback · 64</div>
+          </div>
+          <div class="check done">✓</div>
+        </div>
+        <div class="satchel-item-row">
+          <div class="thumb">🫙</div>
+          <div style="flex:1;">
+            <div class="h-sm">Barrier Repair Cream</div>
+            <div class="badge badge-sage" style="margin-top:5px;">Strong match · 90</div>
+          </div>
+          <div class="check"></div>
+        </div>
+
+        <div class="notice quiet">V2: we'll show which store carries the most of your Satchel, and combine stores if no single one has everything.</div>
+      </div>
+      <div class="sticky-cta"><button class="btn">Ready to buy</button></div>
+    </div>
+  </div>
+
+  <!-- 09c SATCHEL — IN-APP WEBVIEW CARRY-THROUGH -->
+  <div class="screen-block">
+    <div class="screen-label">09c <span>· Satchel carried into in-app store view</span></div>
+    <div class="screen-desc">Store opens in a WebView we control — Satchel stays visible as a floating overlay. True cross-app overlay isn't possible on iOS; this is the real, buildable version.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div style="flex:1; position:relative; background:#fff;">
+        <div style="padding:10px 16px; border-bottom:1px solid var(--mist); display:flex; align-items:center; gap:8px;">
+          <span style="font-size:16px;">←</span>
+          <div class="caption" style="flex:1; text-align:center;">glowdepot.ng</div>
+          <span style="font-size:14px;">⟳</span>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:10px;">
+          <div class="skeleton-line w70" style="height:16px;"></div>
+          <div style="height:120px; background:var(--mist); border-radius:10px;"></div>
+          <div class="skeleton-line w90"></div>
+          <div class="skeleton-line w50"></div>
+        </div>
+        <div class="satchel-fab"><span class="count">3</span>🐱</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10 SAVED -->
+  <div class="screen-block">
+    <div class="screen-label">10 <span>· Saved & price alerts</span></div>
+    <div class="screen-desc">Saves the product itself, not a store's listing. Alerts fire on real price changes only.</div>
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+      <div class="screen-body">
+        <div class="h-lg" style="font-size:21px;">Saved</div>
+        <div class="caption">6 products · 3 with price alerts on</div>
+
+        <div class="card" style="border-color:var(--sage);">
+          <div class="card-row">
+            <div class="thumb">🧴</div>
+            <div style="flex:1;">
+              <div class="h-sm">Barrier Repair Cream</div>
+              <div class="badge badge-sage" style="margin-top:5px;">↓ Dropped to ₦11,200</div>
+            </div>
+            <div style="font-size:16px;">🔔</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="thumb">🧪</div>
+            <div style="flex:1;">
+              <div class="h-sm">Vitamin C Serum 15%</div>
+              <div class="caption" style="margin-top:3px;">From ₦14,500 · 4 stores</div>
+            </div>
+            <div style="font-size:16px;">🔔</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="thumb">🫙</div>
+            <div style="flex:1;">
+              <div class="h-sm">Clay Mask</div>
+              <div class="caption" style="margin-top:3px;">From ₦6,800 · 2 stores</div>
+            </div>
+            <div style="font-size:16px; opacity:0.3;">🔕</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-row">
+            <div class="thumb">☀️</div>
+            <div style="flex:1;">
+              <div class="h-sm">Mineral SPF 50</div>
+              <div class="caption" style="margin-top:3px;">From ₦12,000 · 5 stores</div>
+            </div>
+            <div style="font-size:16px;">🔔</div>
+          </div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1z"/></svg>Shelf</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</div>
+        <div class="tab on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21l-1.5-1.3C5.4 15.1 2 12.1 2 8.5 2 5.4 4.4 3 7.5 3c1.7 0 3.4.8 4.5 2.1C13.1 3.8 14.8 3 16.5 3 19.6 3 22 5.4 22 8.5c0 3.6-3.4 6.6-8.5 11.2z"/></svg>Saved</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>You</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

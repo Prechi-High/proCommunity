@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 
 import { Screen } from '@/components/Screen';
 import { Badge, Body, Button, Caption, Card, Chip, Heading, Title } from '@/components/ui';
@@ -74,6 +74,8 @@ export default function YouScreen() {
           </View>
         </View>
       </Card>
+
+      <Button label="Open Satchel" kind="outline" onPress={() => router.push('/satchel' as Href)} />
 
       <Heading size={16}>Search history</Heading>
       {searchHistory.length === 0 ? (

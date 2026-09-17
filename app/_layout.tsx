@@ -7,6 +7,7 @@ import { useEffect, type ReactNode } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { SatchelLayer } from '@/components/SatchelWidget';
 import { WebShell } from '@/components/Screen';
 import { colors } from '@/constants/theme';
 import { ObservabilityProvider, wrapRoot } from '@/lib/observability';
@@ -91,6 +92,7 @@ function RootLayout() {
         <ObservabilityProvider>
           <WebShell>
             <AuthGate>
+              <View style={{ flex: 1 }}>
               <Stack
                 screenOptions={{
                   headerShown: false,
@@ -105,7 +107,12 @@ function RootLayout() {
                 <Stack.Screen name="routine/index" />
                 <Stack.Screen name="user/[id]" />
                 <Stack.Screen name="admin/index" />
+                <Stack.Screen name="satchel" />
+                <Stack.Screen name="browse" />
+                <Stack.Screen name="feed" />
               </Stack>
+              <SatchelLayer />
+              </View>
             </AuthGate>
           </WebShell>
         </ObservabilityProvider>

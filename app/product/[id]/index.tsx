@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Pressable, Text, View } from 'react-native';
+import { createElement, useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Linking, Platform, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Heart } from 'phosphor-react-native';
+import { Handbag, Heart } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 
+import { MasonryFeed, ThreadRow } from '@/components/CommunityBits';
 import { Screen } from '@/components/Screen';
 import {
   Badge,
@@ -20,11 +21,18 @@ import {
 } from '@/components/ui';
 import { colors, radii } from '@/constants/theme';
 import { track } from '@/lib/analytics';
-import { getLiteracyForProduct, getProductPosts, routeId, tagLabel } from '@/lib/catalog';
+import {
+  getFeedPosts,
+  getLiteracyForProduct,
+  getProductPosts,
+  getProductThreads,
+  routeId,
+  tagLabel,
+} from '@/lib/catalog';
 import { computeConfidence } from '@/lib/confidence';
 import { isVerifiedForProduct, useAppStore } from '@/lib/store';
 import { useProduct } from '@/lib/useProduct';
-import { loadProductVideos } from '@/lib/youtube';
+import { JOURNEY_LABELS, loadProductVideos, tagVideo, type VideoJourneyTag } from '@/lib/youtube';
 
 export default function ProductDetailScreen() {
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
@@ -33,12 +41,17 @@ export default function ProductDetailScreen() {
   const { data: product, isLoading } = useProduct(id);
   const profile = useAppStore((s) => s.profile);
   const userPosts = useAppStore((s) => s.userPosts);
+  const userThreads = useAppStore((s) => s.userThreads);
   const favorites = useAppStore((s) => s.favorites);
   const toggleFavorite = useAppStore((s) => s.toggleFavorite);
+  const addToSatchel = useAppStore((s) => s.addToSatchel);
+  const satchelItems = useAppStore((s) => s.satchelItems);
   const markPurchased = useAppStore((s) => s.markPurchased);
   const ownerships = useAppStore((s) => s.ownerships);
   const addRoutineStep = useAppStore((s) => s.addRoutineStep);
   const [scoreOpen, setScoreOpen] = useState(false);
+  const [journey, setJourney] = useState<VideoJourneyTag>('who_this_is_for');
+  const [playingId, setPlayingId] = useState<string | null>(null);
   const { data: clips = [], isFetching: videosLoading } = useQuery({
     queryKey: ['youtube', product?.brand, product?.name],
     queryFn: () => loadProductVideos(product!.name, product!.brand),
@@ -71,14 +84,37 @@ export default function ProductDetailScreen() {
   const breakdown = computeConfidence(product, profile, posts);
   const literacy = getLiteracyForProduct(product);
   const saved = favorites.some((item) => item.productId === product.id);
+  const inSatchel = satchelItems.some((item) => item.productId === product.id);
   const owned = ownerships.some((item) => item.productId === product.id);
   const verified = isVerifiedForProduct(ownerships, product.id);
-  const preview = posts.filter((post) => post.type !== 'question').slice(0, 2);
+  const feedPreview = getFeedPosts(product.id, userPosts).slice(0, 4);
+  const threads = getProductThreads(product.id, userThreads, userPosts).slice(0, 2);
+  const tagged = clips.map((clip) => ({ ...clip, tag: tagVideo(clip) }));
+  const filtered = tagged.filter((clip) => clip.tag === journey);
+  const shown = filtered.length ? filtered : tagged;
 
   return (
     <Screen
       footer={
         <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+          <Pressable
+            onPress={() => addToSatchel(product.id)}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              backgroundColor: colors.rosewoodSoft,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            accessibilityLabel="Add to Satchel"
+          >
+            <Handbag
+              size={22}
+              color={colors.rosewood}
+              weight={inSatchel ? 'fill' : 'regular'}
+            />
+          </Pressable>
           <View style={{ flex: 1 }}>
             <Button label="Get This Product" onPress={() => router.push(`/product/${product.id}/stores`)} />
           </View>
@@ -167,64 +203,86 @@ export default function ProductDetailScreen() {
         </View>
       </View>
 
+      <Disclaimer />
+
       {videosLoading || clips.length ? (
         <View style={{ gap: 8 }}>
-          <Heading size={16}>Watch</Heading>
-          {videosLoading && !clips.length ? (
-            <Caption>Looking up reviews on YouTube…</Caption>
+          <Heading size={16}>Video journey</Heading>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {(Object.keys(JOURNEY_LABELS) as VideoJourneyTag[]).map((tag) => (
+              <Chip key={tag} label={JOURNEY_LABELS[tag]} selected={journey === tag} onPress={() => setJourney(tag)} />
+            ))}
+          </View>
+          {videosLoading && !clips.length ? <Caption>Looking up reviews on YouTube…</Caption> : null}
+          {!filtered.length && clips.length ? (
+            <Caption>No clip tagged for this chapter yet — showing every review we found.</Caption>
           ) : null}
-          {clips.slice(0, 3).map((clip) => (
+          {shown.slice(0, 3).map((clip) => (
             <Pressable
               key={clip.youtubeVideoId}
-              onPress={() => Linking.openURL(`https://www.youtube.com/watch?v=${clip.youtubeVideoId}`)}
+              onPress={() => {
+                if (Platform.OS === 'web') {
+                  setPlayingId(clip.youtubeVideoId);
+                  return;
+                }
+                Linking.openURL(`https://www.youtube.com/watch?v=${clip.youtubeVideoId}`);
+              }}
             >
               <Card>
-                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                  {clip.thumbnailUrl ? (
-                    <Image
-                      source={{ uri: clip.thumbnailUrl }}
-                      style={{ width: 72, height: 48, borderRadius: 8, backgroundColor: colors.mist }}
-                    />
-                  ) : (
-                    <Thumb emoji="▶" size={48} />
-                  )}
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Title>{clip.title}</Title>
-                    <Caption>{clip.channelTitle}</Caption>
+                {playingId === clip.youtubeVideoId && Platform.OS === 'web' ? (
+                  createElement('iframe', {
+                    src: `https://www.youtube.com/embed/${clip.youtubeVideoId}`,
+                    style: { width: '100%', height: 180, border: 0, borderRadius: 8 },
+                    allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
+                    allowFullScreen: true,
+                  })
+                ) : (
+                  <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                    {clip.thumbnailUrl ? (
+                      <Image
+                        source={{ uri: clip.thumbnailUrl }}
+                        style={{ width: 72, height: 48, borderRadius: 8, backgroundColor: colors.mist }}
+                      />
+                    ) : (
+                      <Thumb emoji="▶" size={48} />
+                    )}
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Title>{clip.title}</Title>
+                      <Caption>{clip.channelTitle}</Caption>
+                      <Badge label={JOURNEY_LABELS[clip.tag]} />
+                    </View>
                   </View>
-                </View>
+                )}
               </Card>
             </Pressable>
           ))}
         </View>
       ) : null}
 
-      <Disclaimer />
-
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <Heading size={16}>Community</Heading>
-        <Pressable onPress={() => router.push(`/product/${product.id}/community`)}>
-          <Caption color={colors.rosewood}>{`View all ${posts.length}`}</Caption>
-        </Pressable>
+      <View style={{ gap: 8 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <Heading size={16}>From the community</Heading>
+          <Pressable onPress={() => router.push(`/product/${product.id}/feed`)}>
+            <Caption color={colors.rosewood}>See all</Caption>
+          </Pressable>
+        </View>
+        <MasonryFeed
+          posts={feedPreview}
+          onPressPost={() => router.push(`/product/${product.id}/feed`)}
+        />
       </View>
-      {preview.map((post) => (
-        <Pressable key={post.id} onPress={() => router.push(`/product/${product.id}/community`)}>
-          <Card>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <Thumb emoji="👤" size={34} />
-              <View style={{ flex: 1, gap: 6 }}>
-                <View style={{ flexDirection: 'row', gap: 5, flexWrap: 'wrap' }}>
-                  {post.isVerifiedOwner ? <Badge label="✓ Verified" tone="sage" /> : null}
-                  {post.traitTags.map((tag) => (
-                    <Badge key={tag} label={tag} />
-                  ))}
-                </View>
-                <Caption color={colors.ink}>{post.body}</Caption>
-              </View>
-            </View>
-          </Card>
-        </Pressable>
-      ))}
+
+      <View style={{ gap: 8 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <Heading size={16}>Discussions</Heading>
+          <Pressable onPress={() => router.push(`/product/${product.id}/community`)}>
+            <Caption color={colors.rosewood}>+ New thread</Caption>
+          </Pressable>
+        </View>
+        {threads.map((thread) => (
+          <ThreadRow key={thread.id} thread={thread} productId={product.id} />
+        ))}
+      </View>
 
       <Button
         label={owned ? (verified ? 'Eligible to post as verified' : 'Purchase marked — waiting period') : 'I bought this'}

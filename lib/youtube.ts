@@ -134,3 +134,68 @@ export async function loadProductVideos(productName: string, brand: string): Pro
   remember(cacheKey, live);
   return live;
 }
+
+export type VideoJourneyTag = 'who_this_is_for' | 'results_over_time' | 'how_to_use';
+
+export const JOURNEY_LABELS: Record<VideoJourneyTag, string> = {
+  who_this_is_for: "Who it's for",
+  results_over_time: 'Results over time',
+  how_to_use: 'How to use',
+};
+
+export function tagVideo(clip: YoutubeClip): VideoJourneyTag {
+  const text = `${clip.title} ${clip.channelTitle}`.toLowerCase();
+  if (/\bhow to\b|tutorial|routine|apply|layer|application|use this/.test(text)) return 'how_to_use';
+  if (/week|result|before|after|month|progress|transform|journey/.test(text)) return 'results_over_time';
+  return 'who_this_is_for';
+}
+
+export interface LiveYoutubeComment {
+  id: string;
+  authorDisplayName: string;
+  body: string;
+  youtubeVideoId: string;
+}
+
+export async function loadYoutubeComments(videoId: string): Promise<LiveYoutubeComment[]> {
+  if (!videoId) return [];
+  try {
+    const response = await fetch(`/api/youtube?videoId=${encodeURIComponent(videoId)}`);
+    if (response.ok) {
+      const json = (await response.json()) as { comments?: LiveYoutubeComment[] };
+      if (json.comments?.length) return json.comments;
+    }
+  } catch {
+    // proxy may be missing locally
+  }
+
+  const key = youtubeKey();
+  if (!key) return [];
+  const params = new URLSearchParams({
+    part: 'snippet',
+    videoId,
+    maxResults: '5',
+    textFormat: 'plainText',
+    key,
+  });
+  const response = await fetch(`https://www.googleapis.com/youtube/v3/commentThreads?${params.toString()}`);
+  if (!response.ok) return [];
+  const json = (await response.json()) as {
+    items?: Array<{
+      id?: string;
+      snippet?: {
+        topLevelComment?: {
+          snippet?: { authorDisplayName?: string; textDisplay?: string };
+        };
+      };
+    }>;
+  };
+  return (json.items ?? [])
+    .map((item) => ({
+      id: item.id ?? '',
+      youtubeVideoId: videoId,
+      authorDisplayName: item.snippet?.topLevelComment?.snippet?.authorDisplayName ?? 'YouTube viewer',
+      body: item.snippet?.topLevelComment?.snippet?.textDisplay ?? '',
+    }))
+    .filter((comment) => Boolean(comment.body));
+}
