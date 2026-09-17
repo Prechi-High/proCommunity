@@ -51,8 +51,10 @@ export function Screen({
             style={{
               paddingHorizontal: 16,
               paddingBottom: Platform.OS === 'web' ? 16 : 8,
-              paddingTop: 8,
+              paddingTop: 10,
               backgroundColor: colors.shell,
+              borderTopWidth: 1,
+              borderTopColor: colors.mist,
               gap: 8,
             }}
           >

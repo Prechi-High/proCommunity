@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, Text, View } from 'react-native';
 import { usePathname, useRouter, useSegments, type Href } from 'expo-router';
 
-import { colors, fonts } from '@/constants/theme';
+import { colors, elevation, fonts } from '@/constants/theme';
+import { Cat, Handbag, X } from '@/components/icons';
 import { useAppStore } from '@/lib/store';
 
 export function SatchelLayer() {
@@ -20,6 +21,13 @@ export function SatchelLayer() {
   );
 }
 
+/**
+ * 09b — a reminder, never a deadline.
+ *
+ * Shows at most once a day, says nothing about expiry or urgency, and is
+ * dismissible in one tap. Suppressed entirely inside the in-app store view,
+ * where its job is reassurance rather than interruption.
+ */
 function SatchelNudge() {
   const items = useAppStore((state) => state.satchelItems);
   const seenOn = useAppStore((state) => state.satchelNudgeSeenOn);
@@ -28,43 +36,82 @@ function SatchelNudge() {
   const pathname = usePathname();
   const today = new Date().toISOString().slice(0, 10);
   const remaining = items.filter((item) => !item.purchased);
-  if (!remaining.length || seenOn === today || pathname === '/satchel') return null;
+  const hidden =
+    !remaining.length || seenOn === today || pathname === '/satchel' || pathname === '/browse';
+
+  const enter = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (hidden) return;
+    Animated.timing(enter, {
+      toValue: 1,
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [hidden, enter]);
+
+  if (hidden) return null;
 
   return (
-    <View
+    <Animated.View
       pointerEvents="box-none"
-      style={{ position: 'absolute', left: 16, right: 16, bottom: 150, zIndex: 21 }}
+      style={{
+        position: 'absolute',
+        left: 16,
+        right: 16,
+        bottom: 150,
+        zIndex: 21,
+        opacity: enter,
+        transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+      }}
     >
       <View
-        style={{
-          backgroundColor: colors.white,
-          borderColor: colors.mist,
-          borderWidth: 1,
-          borderRadius: 14,
-          padding: 12,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 10,
-          shadowColor: colors.ink,
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-        }}
+        style={[
+          {
+            backgroundColor: colors.white,
+            borderColor: colors.mist,
+            borderWidth: 1,
+            borderRadius: 16,
+            padding: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+          },
+          elevation.lifted,
+        ]}
       >
-        <Text style={{ fontSize: 18 }}>🐱</Text>
-        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12, color: colors.ink, lineHeight: 16 }}>
-          {`You still have ${remaining.length} ${remaining.length === 1 ? 'item' : 'items'} in your Satchel`}
+        <View
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 17,
+            backgroundColor: colors.rosewoodSoft,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Cat size={19} color={colors.rosewood} weight="fill" />
+        </View>
+        <Text
+          style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12, color: colors.ink, lineHeight: 17 }}
+        >
+          {`${remaining.length} ${remaining.length === 1 ? 'thing is' : 'things are'} waiting in your Satchel. No rush — nothing expires.`}
         </Text>
-        <Pressable onPress={() => router.push('/satchel' as Href)}>
+        <Pressable onPress={() => router.push('/satchel' as Href)} hitSlop={8}>
           <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.rosewood }}>Open</Text>
         </Pressable>
-        <Pressable onPress={dismiss}>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>OK</Text>
+        <Pressable onPress={dismiss} hitSlop={8} accessibilityLabel="Dismiss">
+          <X size={15} color={colors.inkSoft} weight="bold" />
         </Pressable>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
+/**
+ * The cat-bag itself. Carried across every screen including the in-app store
+ * view, so stepping out to buy something never feels like being cut loose.
+ */
 export function SatchelWidget() {
   const items = useAppStore((state) => state.satchelItems);
   const pulse = useAppStore((state) => state.satchelPulse);
@@ -72,14 +119,24 @@ export function SatchelWidget() {
   const pathname = usePathname();
   const segments = useSegments();
   const scale = useRef(new Animated.Value(1)).current;
+  const tilt = useRef(new Animated.Value(0)).current;
+
+  const inStoreView = pathname === '/browse';
 
   useEffect(() => {
-    if (!pulse) return;
-    Animated.sequence([
-      Animated.timing(scale, { toValue: 1.2, duration: 140, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, friction: 5, useNativeDriver: true }),
+    if (!pulse || inStoreView) return;
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(scale, { toValue: 1.22, duration: 140, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true }),
+      ]),
+      Animated.sequence([
+        Animated.timing(tilt, { toValue: 1, duration: 110, useNativeDriver: true }),
+        Animated.timing(tilt, { toValue: -1, duration: 150, useNativeDriver: true }),
+        Animated.spring(tilt, { toValue: 0, friction: 4, useNativeDriver: true }),
+      ]),
     ]).start();
-  }, [pulse, scale]);
+  }, [pulse, inStoreView, scale, tilt]);
 
   if (pathname === '/satchel') return null;
   const inTabs = segments[0] === '(tabs)';
@@ -93,34 +150,38 @@ export function SatchelWidget() {
         right: 14,
         bottom: inTabs ? 78 : 24,
         zIndex: 20,
-        transform: [{ scale }],
+        transform: [
+          { scale },
+          { rotate: tilt.interpolate({ inputRange: [-1, 1], outputRange: ['-8deg', '8deg'] }) },
+        ],
       }}
     >
       <Pressable
         onPress={() => router.push('/satchel' as Href)}
-        style={{
-          width: 54,
-          height: 54,
-          borderRadius: 27,
-          backgroundColor: colors.rosewood,
-          alignItems: 'center',
-          justifyContent: 'center',
-          shadowColor: colors.rosewood,
-          shadowOpacity: 0.35,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 6 },
-        }}
-        accessibilityLabel="Open Satchel"
+        style={[
+          {
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: colors.rosewood,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          elevation.lifted,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={count ? `Open Satchel, ${count} collected` : 'Open Satchel'}
       >
-        <Text style={{ fontSize: 22 }}>🐱</Text>
+        <Handbag size={24} color={colors.white} weight={count > 0 ? 'fill' : 'regular'} />
         {count > 0 ? (
           <View
             style={{
               position: 'absolute',
               top: -3,
               right: -3,
-              width: 19,
-              height: 19,
+              minWidth: 20,
+              height: 20,
+              paddingHorizontal: 4,
               borderRadius: 10,
               backgroundColor: colors.honey,
               borderWidth: 2,

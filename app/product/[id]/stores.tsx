@@ -2,12 +2,22 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 
 import { Screen } from '@/components/Screen';
-import { Button, Caption, Heading, Notice, Title } from '@/components/ui';
-import { colors, fonts, radii } from '@/constants/theme';
+import { Caption, Card, Heading, Notice, Thumb, Title } from '@/components/ui';
+import { ArrowSquareOut, BackButton, Handbag, Scales, Storefront } from '@/components/icons';
+import { colors, elevation, fonts, radii } from '@/constants/theme';
 import { track } from '@/lib/analytics';
 import { routeId } from '@/lib/catalog';
 import { useProduct } from '@/lib/useProduct';
 
+/**
+ * 05 — Store list.
+ *
+ * By the time someone is here the decision is already made emotionally; this
+ * screen just has to not undo it. The fairness statement is placed above the
+ * list rather than buried below it, because naming the absence of manipulation
+ * is what actually lowers reactance. There is no stock or price urgency
+ * anywhere on this screen, because we have no real data to support any.
+ */
 export default function StoresScreen() {
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
   const id = routeId(rawId);
@@ -24,9 +34,9 @@ export default function StoresScreen() {
 
   if (!product) return null;
 
-  const openFactsUrl = product.productUrl ?? (product.barcode
-    ? `https://world.openbeautyfacts.org/product/${product.barcode}`
-    : null);
+  const openFactsUrl =
+    product.productUrl ??
+    (product.barcode ? `https://world.openbeautyfacts.org/product/${product.barcode}` : null);
 
   const openInApp = (url: string) => {
     track('store_clickthrough', { productId: product.id, url });
@@ -37,53 +47,93 @@ export default function StoresScreen() {
 
   return (
     <Screen>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Pressable onPress={() => router.back()}>
-          <Text style={{ fontSize: 18, color: colors.ink }}>←</Text>
-        </Pressable>
-        <Heading size={16}>Where to buy</Heading>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <BackButton />
+        <View style={{ flex: 1 }}>
+          <Heading size={18}>Where to buy</Heading>
+        </View>
       </View>
-      <Caption>{product.name}</Caption>
-      <Notice>
-        Store prices are not live yet. Shopify checkout is paused — we will not invent Naira prices.
-      </Notice>
+
+      <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10 }}>
+        <Thumb imageUrl={product.heroImageUrl} category={product.category} size={48} />
+        <View style={{ flex: 1 }}>
+          <Title>{product.name}</Title>
+          <Caption>{product.brand}</Caption>
+        </View>
+      </Card>
+
+      {/* Said out loud, and said first. */}
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: 11,
+          alignItems: 'flex-start',
+          backgroundColor: colors.sageSoft,
+          borderRadius: radii.card,
+          padding: 13,
+        }}
+      >
+        <Scales size={16} color={colors.sage} weight="fill" />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: colors.ink }}>
+            No store paid to be here
+          </Text>
+          <Caption>
+            This order is not for sale. We take nothing from the seller, so nobody can buy a higher
+            position on this page.
+          </Caption>
+        </View>
+      </View>
+
       {openFactsUrl ? (
         <Pressable
           onPress={() => openInApp(openFactsUrl)}
-          style={{
-            backgroundColor: colors.white,
-            borderColor: colors.mist,
-            borderWidth: 1,
-            borderRadius: radii.card,
-            padding: 12,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 12,
-          }}
+          style={[
+            {
+              backgroundColor: colors.white,
+              borderColor: colors.mist,
+              borderWidth: 1,
+              borderRadius: radii.card,
+              padding: 13,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            },
+            elevation.raised,
+          ]}
         >
           <View
             style={{
-              width: 34,
-              height: 34,
-              borderRadius: 17,
-              backgroundColor: colors.mist,
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: colors.rosewoodSoft,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Text>🧴</Text>
+            <Storefront size={19} color={colors.rosewood} weight="regular" />
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, gap: 3 }}>
             <Title>Open Beauty Facts</Title>
-            <Caption>Opens in-app so your Satchel stays with you</Caption>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Handbag size={11} color={colors.inkSoft} weight="regular" />
+              <Caption>Opens inside Sourced — your Satchel comes with you</Caption>
+            </View>
           </View>
-          <Text style={{ fontFamily: fonts.semibold, color: colors.rosewood }}>Open</Text>
+          <ArrowSquareOut size={16} color={colors.rosewood} weight="regular" />
         </Pressable>
       ) : (
-        <Caption>No merchant link is available for this product yet.</Caption>
+        <Notice quiet>
+          No merchant link exists for this product yet. We would rather show nothing than invent a
+          listing.
+        </Notice>
       )}
-      <Notice quiet>When stores are added, they will be ranked by your filter only. No store can pay to appear higher.</Notice>
-      <Button label="↑ Back to reviews & ingredients" kind="text" onPress={() => router.back()} />
+
+      <Notice quiet>
+        Live prices and stock are not connected yet. When they are, they will come from the store's own
+        feed — we will not estimate a price or imply something is running out.
+      </Notice>
     </Screen>
   );
 }

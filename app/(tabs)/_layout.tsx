@@ -1,5 +1,6 @@
-import { Heart, House, MagnifyingGlass, User } from 'phosphor-react-native';
 import { Tabs } from 'expo-router';
+
+import { Heart, House, MagnifyingGlass, User } from '@/components/icons';
 
 import { colors, fonts } from '@/constants/theme';
 

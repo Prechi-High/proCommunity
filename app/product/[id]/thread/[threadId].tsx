@@ -5,7 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { YoutubeCommentCard } from '@/components/CommunityBits';
 import { Screen } from '@/components/Screen';
-import { Badge, Button, Caption, Heading, PostCard, Title } from '@/components/ui';
+import { Button, Caption, Heading, PostCard, Title } from '@/components/ui';
+import { BackButton, ChatsCircle, HandHeart, Sparkle, YoutubeLogo } from '@/components/icons';
 import { colors, fonts, radii } from '@/constants/theme';
 import {
   getSeedYoutubeComments,
@@ -19,6 +20,16 @@ import { isVerifiedForProduct, useAppStore } from '@/lib/store';
 import { useProduct } from '@/lib/useProduct';
 import { loadProductVideos, loadYoutubeComments } from '@/lib/youtube';
 
+/**
+ * 06b — Thread detail.
+ *
+ * Two things have to happen at once. Someone should feel accompanied ("other
+ * people wondered exactly this"), and they should be able to tell, without
+ * effort, which of the things on screen is a real reply, which we surfaced by
+ * matching words, and which we borrowed from YouTube. The three are given
+ * visibly different containers and explicit headers — the moment the borrowed
+ * content could pass as a genuine answer, the validation turns into suspicion.
+ */
 export default function ThreadScreen() {
   const { id: rawId, threadId: rawThread } = useLocalSearchParams<{ id: string; threadId: string }>();
   const id = routeId(rawId);
@@ -79,6 +90,7 @@ export default function ThreadScreen() {
   }
   if (!product) return null;
   const verified = isVerifiedForProduct(ownerships, product.id);
+  const voices = new Set(posts.map((post) => post.userId)).size;
 
   return (
     <Screen
@@ -88,22 +100,23 @@ export default function ThreadScreen() {
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder="Reply to this thread. No medical claims."
+              placeholder="What happened when you used it? No medical claims, please."
               placeholderTextColor={colors.inkSoft}
               multiline
               style={{
-                minHeight: 80,
+                minHeight: 84,
                 backgroundColor: colors.white,
                 borderColor: colors.mist,
                 borderWidth: 1,
                 borderRadius: radii.card,
                 padding: 12,
                 fontFamily: fonts.regular,
+                fontSize: 14,
                 color: colors.ink,
               }}
             />
             <Button
-              label="Post"
+              label="Post reply"
               disabled={draft.trim().length < 8}
               onPress={() => {
                 addPost({
@@ -125,63 +138,135 @@ export default function ThreadScreen() {
             />
           </View>
         ) : (
-          <Button label="Reply to this thread" onPress={() => setReplying(true)} />
+          <Button label="Add your experience" icon={HandHeart} onPress={() => setReplying(true)} />
         )
       }
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Pressable onPress={() => router.back()}>
-          <Text style={{ fontSize: 18, color: colors.ink }}>←</Text>
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Heading size={16}>{thread.title}</Heading>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+        <BackButton />
+        <View style={{ flex: 1, gap: 3 }}>
+          <Heading size={19}>{thread.title}</Heading>
           <Caption>{product.name}</Caption>
         </View>
       </View>
 
-      {posts.map((post) => (
-        <Pressable
-          key={post.id}
-          onLongPress={() => {
-            flagPost(post.id);
-            Alert.alert('Flagged for review', 'A moderator will look at this post.');
+      {/* "Someone else asked exactly this" — stated plainly, with a real count. */}
+      {posts.length ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+          <ChatsCircle size={13} color={colors.sage} weight="fill" />
+          <Caption color={colors.sage}>
+            {`${voices} ${voices === 1 ? 'person has' : 'people have'} been here before you`}
+          </Caption>
+        </View>
+      ) : null}
+
+      {posts.length ? (
+        <View style={{ gap: 10 }}>
+          <SourceHeader
+            icon={ChatsCircle}
+            label="Replies from Sourced members"
+            note="Written here, by people with an account."
+            tone={colors.sage}
+          />
+          {posts.map((post) => (
+            <Pressable
+              key={post.id}
+              onLongPress={() => {
+                flagPost(post.id);
+                Alert.alert('Flagged for review', 'A moderator will look at this post.');
+              }}
+            >
+              <PostCard
+                post={post}
+                highlightQuestion
+                voted={helpfulVotes.includes(post.id)}
+                onHelpful={() => voteHelpful(post.id)}
+                onPressAuthor={() => router.push(`/user/${post.userId}`)}
+              />
+            </Pressable>
+          ))}
+        </View>
+      ) : (
+        <View
+          style={{
+            borderRadius: radii.card,
+            borderWidth: 1,
+            borderColor: colors.mist,
+            borderStyle: 'dashed',
+            padding: 16,
+            gap: 4,
           }}
         >
-          <PostCard
-            post={post}
-            highlightQuestion
-            voted={helpfulVotes.includes(post.id)}
-            onHelpful={() => voteHelpful(post.id)}
-          />
-        </Pressable>
-      ))}
+          <Title>Nobody has replied here yet</Title>
+          <Caption>
+            Below is everything we could find that is close to this question. None of it is a reply —
+            it is labelled so you can weigh it properly.
+          </Caption>
+        </View>
+      )}
 
       {related.length ? (
-        <View style={{ gap: 8 }}>
-          <Title>Related — not a direct reply</Title>
-          <Caption>Matched by overlapping words while this thread is still young.</Caption>
+        <View style={{ gap: 10 }}>
+          <SourceHeader
+            icon={Sparkle}
+            label="Surfaced by us — not replies"
+            note="Other posts on this product that share wording with this question."
+            tone={colors.honey}
+          />
           {related.map((post) => (
-            <PostCard key={post.id} post={post} />
+            <View
+              key={post.id}
+              style={{
+                borderLeftWidth: 3,
+                borderLeftColor: colors.honey,
+                borderRadius: 4,
+                paddingLeft: 8,
+              }}
+            >
+              <PostCard post={post} onPressAuthor={() => router.push(`/user/${post.userId}`)} />
+            </View>
           ))}
         </View>
       ) : null}
 
       {youtubeBootstrap.length ? (
-        <View style={{ gap: 8 }}>
-          <Title>Early conversation from YouTube</Title>
-          <Caption>Labeled and separate from verified owners. This fades as Sourced posts grow.</Caption>
+        <View style={{ gap: 10 }}>
+          <SourceHeader
+            icon={YoutubeLogo}
+            label="Borrowed from YouTube"
+            note="Not written here and not verified. Shown so a new thread isn't empty; it fades as replies arrive."
+            tone={colors.inkSoft}
+          />
           {youtubeBootstrap.map((comment, index) => (
             <YoutubeCommentCard key={`${comment.authorDisplayName}-${index}`} comment={comment} />
           ))}
         </View>
       ) : null}
-
-      {!posts.length ? (
-        <View style={{ gap: 8 }}>
-          <Badge label="New thread" />
-          <Caption>No on-platform replies yet. Related posts and labeled YouTube comments keep this from looking abandoned.</Caption>
-        </View>
-      ) : null}
     </Screen>
+  );
+}
+
+/** Each provenance class gets the same header shape, so the distinction is learnable. */
+function SourceHeader({
+  icon: IconCmp,
+  label,
+  note,
+  tone,
+}: {
+  icon: typeof ChatsCircle;
+  label: string;
+  note: string;
+  tone: string;
+}) {
+  return (
+    <View style={{ gap: 3 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <IconCmp size={13} color={tone} weight="fill" />
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 10.5, color: tone, letterSpacing: 0.7 }}>
+          {label.toUpperCase()}
+        </Text>
+      </View>
+      <Caption>{note}</Caption>
+    </View>
   );
 }

@@ -50,14 +50,6 @@ function categoryFrom(tags: string[] = []): ProductCategory {
   return 'treatment';
 }
 
-function emojiFor(category: ProductCategory): string {
-  if (category === 'cleanser') return '🧼';
-  if (category === 'spf') return '☀️';
-  if (category === 'mask') return '🫙';
-  if (category === 'serum' || category === 'essence') return '🧪';
-  return '🧴';
-}
-
 function attributesFrom(product: ObfProduct): string[] {
   const tags = [...(product.labels_tags ?? []), ...(product.categories_tags ?? [])].map(slug);
   const out = new Set<string>();
@@ -104,7 +96,6 @@ export function mapObfProduct(raw: ObfProduct): Product | null {
     ingredients: ingredients.slice(0, 24),
     attributeTags: attributesFrom(raw),
     suitsSkinTypes: suitsFrom([...(raw.categories_tags ?? []), ...(raw.labels_tags ?? [])]),
-    heroEmoji: emojiFor(category),
     heroImageUrl: raw.image_front_url || raw.image_url || null,
     typicalDurationDays: null,
     shelfLifeMonths: null,

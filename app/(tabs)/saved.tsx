@@ -1,14 +1,22 @@
-import { Pressable, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Bell, BellSlash } from 'phosphor-react-native';
 
 import { Screen } from '@/components/Screen';
-import { Caption, Card, Heading, Thumb, Title } from '@/components/ui';
-import { colors } from '@/constants/theme';
+import { Caption, Card, Heading, SectionHeader, Thumb, Title } from '@/components/ui';
+import { Bell, BellSlash, CaretRight, Heart } from '@/components/icons';
+import { colors, fonts } from '@/constants/theme';
 import { getProduct } from '@/lib/catalog';
 import { useAppStore } from '@/lib/store';
 import { useProducts } from '@/lib/useProduct';
 
+/**
+ * 10 — Saved & price alerts.
+ *
+ * The feeling is being quietly looked after between visits, which only works
+ * if the app never pings without a real reason. So the alert toggle states
+ * exactly what would trigger it, and we say plainly that we will not invent a
+ * drop or pad the frequency to get someone opening the app more often.
+ */
 export default function SavedScreen() {
   const router = useRouter();
   const favorites = useAppStore((s) => s.favorites);
@@ -23,37 +31,96 @@ export default function SavedScreen() {
     })
     .filter(Boolean);
 
+  const watching = favorites.filter((fav) => fav.priceAlertEnabled).length;
+
   return (
     <Screen>
       <Heading size={21}>Saved</Heading>
-      <Caption>
-        {rows.length === 0
-          ? 'Save a product from its page. You favorite the product itself, not a store.'
-          : `${rows.length} products · store price alerts return when listings are live`}
-      </Caption>
+
+      {rows.length === 0 ? (
+        <Card style={{ alignItems: 'center', gap: 7, paddingVertical: 30 }}>
+          <Heart size={26} color={colors.inkSoft} weight="regular" />
+          <Title>Nothing saved yet</Title>
+          <Text
+            style={{
+              fontFamily: fonts.regular,
+              fontSize: 12.5,
+              lineHeight: 19,
+              color: colors.inkSoft,
+              textAlign: 'center',
+              maxWidth: 280,
+            }}
+          >
+            Tap the heart on any product. You save the product itself, not a store — so an alert follows
+            the best price anywhere, not one seller.
+          </Text>
+        </Card>
+      ) : (
+        <SectionHeader
+          title={`${rows.length} saved`}
+          hint={
+            watching
+              ? `Watching ${watching} for a real price movement.`
+              : 'Turn on the bell to hear about an actual price drop.'
+          }
+        />
+      )}
+
       {rows.map((row) => {
         const { fav, product } = row!;
         return (
-          <Pressable key={product.id} onPress={() => router.push(`/product/${product.id}`)}>
-            <Card>
+          <Pressable
+            key={product.id}
+            accessibilityRole="link"
+            accessibilityLabel={product.name}
+            onPress={() => router.push(`/product/${product.id}`)}
+          >
+            <Card style={{ padding: 10 }}>
               <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                <Thumb emoji={product.heroEmoji} imageUrl={product.heroImageUrl} />
-                <View style={{ flex: 1, gap: 4 }}>
+                <Thumb imageUrl={product.heroImageUrl} category={product.category} size={56} />
+                <View style={{ flex: 1, gap: 3 }}>
                   <Title>{product.name}</Title>
-                  <Caption>{`${product.brand} · ${product.source === 'open_beauty_facts' ? 'Open Beauty Facts' : 'Catalog'}`}</Caption>
+                  <Caption>{product.brand}</Caption>
+                  <Caption color={fav.priceAlertEnabled ? colors.sage : colors.inkSoft}>
+                    {fav.priceAlertEnabled
+                      ? 'You will hear only if the price actually falls'
+                      : 'No alerts on this one'}
+                  </Caption>
                 </View>
-                <Pressable onPress={() => setPriceAlert(product.id, !fav.priceAlertEnabled)} hitSlop={8}>
+                <Pressable
+                  onPress={() => setPriceAlert(product.id, !fav.priceAlertEnabled)}
+                  hitSlop={10}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: fav.priceAlertEnabled }}
+                  accessibilityLabel={`Price alerts for ${product.name}`}
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 19,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: fav.priceAlertEnabled ? colors.sageSoft : colors.shell,
+                  }}
+                >
                   {fav.priceAlertEnabled ? (
-                    <Bell size={20} color={colors.ink} weight="fill" />
+                    <Bell size={18} color={colors.sage} weight="fill" />
                   ) : (
-                    <BellSlash size={20} color={colors.mist} />
+                    <BellSlash size={18} color={colors.inkSoft} weight="regular" />
                   )}
                 </Pressable>
+                <CaretRight size={13} color={colors.mist} weight="bold" />
               </View>
             </Card>
           </Pressable>
         );
       })}
+
+      {rows.length ? (
+        <Caption>
+          Store prices are not connected yet. When they are, an alert fires on a genuine drop and
+          nothing else — we will not simulate one or send a reminder just to get you back.
+        </Caption>
+      ) : null}
     </Screen>
   );
 }

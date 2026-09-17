@@ -75,6 +75,20 @@ export function getAuthor(userId: string) {
   return Object.values(authors).find((author) => author.id === userId);
 }
 
+/** Portrait for a community voice. Returns null for the signed-in user's own posts. */
+export function authorAvatar(userId: string): string | null {
+  return getAuthor(userId)?.avatarUrl ?? null;
+}
+
+/** Initials fallback so a missing portrait still reads as a person, not a blank. */
+export function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
 export function getAuthorPosts(userId: string, extra: CommunityPost[] = []): CommunityPost[] {
   return [...communityPosts, ...extra].filter(
     (post) => post.userId === userId && post.status === 'visible',

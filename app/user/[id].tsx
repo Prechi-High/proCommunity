@@ -2,11 +2,30 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
 import { Screen } from '@/components/Screen';
-import { Badge, Caption, Card, Chip, Heading, Title } from '@/components/ui';
-import { colors } from '@/constants/theme';
+import {
+  Avatar,
+  Caption,
+  Card,
+  Eyebrow,
+  Heading,
+  SectionHeader,
+  StatBlock,
+  Title,
+  VerifiedBadge,
+} from '@/components/ui';
+import { ArrowFatUp, BackButton, CaretRight, HandHeart, Quotes } from '@/components/icons';
+import { colors, fonts, radii } from '@/constants/theme';
 import { getAuthor, getAuthorPosts, getProduct, routeId } from '@/lib/catalog';
 import { useAppStore } from '@/lib/store';
 
+/**
+ * 09 — Verified owner profile.
+ *
+ * "Known for" is the headline, above any count, because being known for oily
+ * skin specifically is an identity — and identity sustains contribution in a
+ * way a global score never does. There is deliberately no rank, no position,
+ * and no comparison to another member anywhere on this screen.
+ */
 export default function UserProfileScreen() {
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
   const id = routeId(rawId);
@@ -18,66 +37,103 @@ export default function UserProfileScreen() {
   if (!author) {
     return (
       <Screen>
-        <Heading>Profile not found</Heading>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <BackButton />
+          <Heading size={18}>Profile not found</Heading>
+        </View>
       </Screen>
     );
   }
 
   const productsUsed = new Set(posts.map((post) => post.productId)).size;
+  const helpfulTotal = posts.reduce((sum, post) => sum + post.helpfulCount, 0);
+  const since = new Date(author.memberSince).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
 
   return (
     <Screen>
-      <Pressable onPress={() => router.back()}>
-        <Text style={{ fontSize: 18, color: colors.ink }}>←</Text>
-      </Pressable>
-      <View style={{ alignItems: 'center', paddingVertical: 8, gap: 8 }}>
-        <View
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 36,
-            backgroundColor: colors.mist,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 28 }}>👤</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <BackButton />
+      </View>
+
+      <View style={{ alignItems: 'center', gap: 9, paddingTop: 4 }}>
+        <Avatar uri={author.avatarUrl} name={author.displayName} size={88} verified={author.verified} />
+        <Heading size={21}>{author.displayName}</Heading>
+        {author.verified ? <VerifiedBadge /> : null}
+        <Caption>{`Member since ${since}`}</Caption>
+      </View>
+
+      {/* The identity claim, first and largest. */}
+      {author.knownFor.length ? (
+        <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <HandHeart size={14} color={colors.rosewood} weight="fill" />
+            <Eyebrow color={colors.rosewood}>People come to them for</Eyebrow>
+          </View>
+          {author.knownFor.map((item) => (
+            <View
+              key={item.tag}
+              style={{
+                backgroundColor: colors.rosewoodSoft,
+                borderRadius: radii.card,
+                paddingHorizontal: 14,
+                paddingVertical: 13,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: fonts.semibold,
+                  fontSize: 17,
+                  color: colors.ink,
+                  letterSpacing: -0.3,
+                }}
+              >
+                {item.tag}
+              </Text>
+              <Caption>{`${item.answers} answers other people found useful`}</Caption>
+            </View>
+          ))}
         </View>
-        <Title>{author.displayName}</Title>
-        <Caption>{`Member since ${new Date(author.memberSince).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}</Caption>
-        {author.verified ? <Badge label="✓ Verified owner" tone="sage" /> : null}
-      </View>
-      <View style={{ height: 1, backgroundColor: colors.mist }} />
-      <Heading size={16}>Known for</Heading>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {author.knownFor.length === 0 ? (
-          <Caption>No category reputation yet.</Caption>
-        ) : (
-          author.knownFor.map((item) => (
-            <Chip key={item.tag} label={`${item.tag} · ${item.answers} answers`} />
-          ))
-        )}
-      </View>
+      ) : (
+        <Card style={{ gap: 4 }}>
+          <Title>No specialism yet</Title>
+          <Caption>
+            Reputation here is earned per category — answer questions about one thing and it starts
+            showing up above.
+          </Caption>
+        </Card>
+      )}
+
+      {/* Counts live below the identity, and are never compared to anyone. */}
       <Card>
         <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-          <View style={{ alignItems: 'center' }}>
-            <Title>{String(posts.length)}</Title>
-            <Caption>Answers</Caption>
-          </View>
-          <View style={{ alignItems: 'center' }}>
-            <Title>{String(productsUsed)}</Title>
-            <Caption>Products used</Caption>
-          </View>
+          <StatBlock value={String(posts.length)} label="Answers" />
+          <StatBlock value={String(productsUsed)} label="Products used" />
+          <StatBlock value={String(helpfulTotal)} label="Found helpful" />
         </View>
       </Card>
-      <Heading size={16}>Recent contributions</Heading>
+
+      <SectionHeader title="Recent contributions" />
       {posts.slice(0, 6).map((post) => {
         const product = getProduct(post.productId);
         return (
-          <Pressable key={post.id} onPress={() => router.push(`/product/${post.productId}/community`)}>
-            <Card>
-              <Caption color={colors.ink}>{`"${post.body}"`}</Caption>
-              <Caption>{`On ${product?.name ?? 'a product'} · ↑ ${post.helpfulCount}`}</Caption>
+          <Pressable
+            key={post.id}
+            onPress={() => router.push(`/product/${post.productId}/community`)}
+          >
+            <Card style={{ gap: 9 }}>
+              <Quotes size={14} color={colors.mist} weight="fill" />
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 20, color: colors.ink }}>
+                {post.body}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <ArrowFatUp size={11} color={colors.inkSoft} weight="regular" />
+                <Caption>{`${post.helpfulCount} · on ${product?.name ?? 'a product'}`}</Caption>
+                <View style={{ flex: 1 }} />
+                <CaretRight size={12} color={colors.mist} weight="bold" />
+              </View>
             </Card>
           </Pressable>
         );

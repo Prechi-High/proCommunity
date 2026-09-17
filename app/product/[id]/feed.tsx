@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { MasonryFeed } from '@/components/CommunityBits';
 import { Screen } from '@/components/Screen';
-import { Button, Caption, Heading } from '@/components/ui';
+import { Button, Caption, Heading, Notice } from '@/components/ui';
+import { BackButton, Camera, Plus, Scales } from '@/components/icons';
 import { colors, fonts, radii } from '@/constants/theme';
 import { getFeedPosts, routeId } from '@/lib/catalog';
 import { SKIN_TYPE_LABEL } from '@/lib/quiz';
 import { isVerifiedForProduct, useAppStore } from '@/lib/store';
 import { useProduct } from '@/lib/useProduct';
 
+/** 04b, scoped to one product. Same restraint: no ranking, no boosting. */
 export default function ProductFeedScreen() {
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
   const id = routeId(rawId);
@@ -43,17 +45,18 @@ export default function ProductFeedScreen() {
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder="A caption from real use. Honest criticism is welcome."
+              placeholder="What actually happened? Honest criticism is welcome here."
               placeholderTextColor={colors.inkSoft}
               multiline
               style={{
-                minHeight: 72,
+                minHeight: 76,
                 backgroundColor: colors.white,
                 borderColor: colors.mist,
                 borderWidth: 1,
                 borderRadius: radii.card,
                 padding: 12,
                 fontFamily: fonts.regular,
+                fontSize: 14,
                 color: colors.ink,
               }}
             />
@@ -67,7 +70,7 @@ export default function ProductFeedScreen() {
                   userId: profile?.id ?? 'anon',
                   type: 'feed_post',
                   body: draft.trim(),
-                  photoUrl: 'tile:user',
+                  photoUrl: null,
                   traitTags:
                     profile?.skinType && profile.skinType !== 'unknown'
                       ? [SKIN_TYPE_LABEL[profile.skinType]]
@@ -80,21 +83,31 @@ export default function ProductFeedScreen() {
             />
           </View>
         ) : (
-          <Button label="+ Share your own" onPress={() => setSharing(true)} />
+          <Button label="Share what happened for you" icon={Plus} onPress={() => setSharing(true)} />
         )
       }
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Pressable onPress={() => router.back()}>
-          <Text style={{ fontSize: 18, color: colors.ink }}>←</Text>
-        </Pressable>
-        <View>
-          <Heading size={16}>From the community</Heading>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <BackButton />
+        <View style={{ flex: 1 }}>
+          <Heading size={18}>What it looked like</Heading>
           <Caption>{product.name}</Caption>
         </View>
       </View>
-      <Caption>Critical and glowing posts shown equally — nothing hidden, nothing boosted.</Caption>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+        <Scales size={13} color={colors.inkSoft} weight="regular" />
+        <Caption>{`${posts.length} posts, newest first. Nothing hidden, nothing boosted.`}</Caption>
+      </View>
+
       <MasonryFeed posts={posts} onPressPost={() => undefined} />
+
+      {sharing ? (
+        <Notice quiet icon={Camera}>
+          Photo upload arrives with Supabase Storage. Until then a post without a photo shows as a quote
+          card rather than borrowing someone else's picture.
+        </Notice>
+      ) : null}
     </Screen>
   );
 }

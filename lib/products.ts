@@ -18,7 +18,6 @@ function fromRow(row: Record<string, unknown>): Product {
     ingredients: (row.ingredients as string[]) ?? [],
     attributeTags: (row.attribute_tags as string[]) ?? [],
     suitsSkinTypes: (row.suits_skin_types as Product['suitsSkinTypes']) ?? [],
-    heroEmoji: '🧴',
     heroImageUrl: (row.hero_image_url as string | null) ?? null,
     typicalDurationDays: (row.typical_duration_days as number | null) ?? null,
     shelfLifeMonths: (row.shelf_life_months as number | null) ?? null,
@@ -50,14 +49,29 @@ export async function searchCatalog(query: string, chip?: string): Promise<Produ
     }
   }
 
-  const q = term.toLowerCase();
-  return seedProducts.filter((product) => {
-    if (!q) return true;
-    const hay = [product.name, product.brand, ...product.ingredients, ...product.attributeTags]
-      .join(' ')
-      .toLowerCase();
-    return hay.includes(q);
-  });
+  // Last resort. Scored per word rather than matched on the whole phrase, so a
+  // query like "combination skin serum" still returns something sensible.
+  const words = term.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return seedProducts;
+
+  return seedProducts
+    .map((product) => {
+      const hay = [
+        product.name,
+        product.brand,
+        product.category,
+        ...product.suitsSkinTypes,
+        ...product.ingredients,
+        ...product.attributeTags,
+      ]
+        .join(' ')
+        .toLowerCase();
+      const score = words.reduce((total, word) => (hay.includes(word) ? total + 1 : total), 0);
+      return { product, score };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.product);
 }
 
 export async function loadProduct(id: string): Promise<Product | null> {

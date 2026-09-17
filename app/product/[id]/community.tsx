@@ -1,15 +1,23 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { ThreadRow } from '@/components/CommunityBits';
 import { Screen } from '@/components/Screen';
-import { Button, Caption, Heading } from '@/components/ui';
+import { Button, Caption, Heading, Notice } from '@/components/ui';
+import { BackButton, ChatsCircle, Lightbulb, Plus } from '@/components/icons';
 import { colors, fonts, radii } from '@/constants/theme';
 import { getProductThreads, routeId } from '@/lib/catalog';
 import { useAppStore } from '@/lib/store';
 import { useProduct } from '@/lib/useProduct';
 
+/**
+ * 06 — Discussion threads.
+ *
+ * The feeling is relief: "there's literally a thread for this." That comes from
+ * titles being specific enough to recognise your own question in, so the list
+ * is title-led and the compose box coaches toward specificity — never intrigue.
+ */
 export default function CommunityScreen() {
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
   const id = routeId(rawId);
@@ -31,6 +39,7 @@ export default function CommunityScreen() {
   if (!product) return null;
 
   const threads = getProductThreads(product.id, userThreads, userPosts);
+  const totalReplies = threads.reduce((sum, thread) => sum + thread.replyCount, 0);
 
   return (
     <Screen
@@ -40,20 +49,24 @@ export default function CommunityScreen() {
             <TextInput
               value={title}
               onChangeText={setTitle}
-              placeholder="Name the thread — e.g. Does this pill under SPF?"
+              placeholder="Ask it the way you'd ask a friend"
               placeholderTextColor={colors.inkSoft}
               style={{
                 backgroundColor: colors.white,
                 borderColor: colors.mist,
                 borderWidth: 1,
                 borderRadius: radii.card,
-                padding: 12,
+                padding: 13,
                 fontFamily: fonts.regular,
+                fontSize: 14,
                 color: colors.ink,
               }}
             />
+            <Caption>
+              Specific titles get answered. "Does this pill under sunscreen?" beats "Thoughts?"
+            </Caption>
             <Button
-              label="Start thread"
+              label="Start this thread"
               disabled={title.trim().length < 6}
               onPress={() => {
                 const threadId = addThread(product.id, title.trim());
@@ -64,23 +77,33 @@ export default function CommunityScreen() {
             />
           </View>
         ) : (
-          <Button label="+ Start a new thread" onPress={() => setCreating(true)} />
+          <Button label="Ask something new" icon={Plus} onPress={() => setCreating(true)} />
         )
       }
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Pressable onPress={() => router.back()}>
-          <Text style={{ fontSize: 18, color: colors.ink }}>←</Text>
-        </Pressable>
-        <View>
-          <Heading size={16}>Discussions</Heading>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <BackButton />
+        <View style={{ flex: 1 }}>
+          <Heading size={18}>Conversations</Heading>
           <Caption>{product.name}</Caption>
         </View>
       </View>
-      <Caption>Named threads, not one undifferentiated Q&A. Honest criticism stays visible.</Caption>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+        <ChatsCircle size={13} color={colors.inkSoft} weight="regular" />
+        <Caption>
+          {`${threads.length} ${threads.length === 1 ? 'thread' : 'threads'} · ${totalReplies} ${totalReplies === 1 ? 'reply' : 'replies'} · each one is a separate question, not a pile of comments`}
+        </Caption>
+      </View>
+
       {threads.map((thread) => (
         <ThreadRow key={thread.id} thread={thread} productId={product.id} />
       ))}
+
+      <Notice quiet icon={Lightbulb}>
+        Threads are never reordered by sentiment. A thread full of complaints sits in the same list, in
+        the same place, as a thread full of praise.
+      </Notice>
     </Screen>
   );
 }

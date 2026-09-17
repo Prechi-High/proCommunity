@@ -44,7 +44,6 @@ export interface Product {
   ingredients: string[];
   attributeTags: string[];
   suitsSkinTypes: SkinType[];
-  heroEmoji: string;
   typicalDurationDays: number | null;
   shelfLifeMonths: number | null;
   source: 'seed' | 'shopify' | 'open_beauty_facts';
@@ -121,6 +120,7 @@ export interface SeedAuthor {
   memberSince: string;
   verified: boolean;
   knownFor: { tag: string; answers: number }[];
+  avatarUrl?: string | null;
 }
 
 export interface Ownership {

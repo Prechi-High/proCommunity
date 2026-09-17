@@ -22,6 +22,29 @@ function searchQuery(productName: string, brand: string): string {
   return `${brand} ${productName} review skincare`.replace(/\s+/g, ' ').trim().slice(0, 80);
 }
 
+const ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  '#39': "'",
+  nbsp: ' ',
+};
+
+/** YouTube returns HTML-escaped snippet text; it is rendered as plain text here. */
+function decodeEntities(text: string): string {
+  return text.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (match, code: string) => {
+    const named = ENTITIES[code.toLowerCase()];
+    if (named) return named;
+    if (code.startsWith('#x') || code.startsWith('#X')) {
+      return String.fromCodePoint(parseInt(code.slice(2), 16));
+    }
+    if (code.startsWith('#')) return String.fromCodePoint(Number(code.slice(1)));
+    return match;
+  });
+}
+
 function mapYoutubeItems(items: unknown): YoutubeClip[] {
   if (!Array.isArray(items)) return [];
   return items
@@ -36,8 +59,8 @@ function mapYoutubeItems(items: unknown): YoutubeClip[] {
       };
       return {
         youtubeVideoId: row.id?.videoId ?? '',
-        title: row.snippet?.title ?? 'Video',
-        channelTitle: row.snippet?.channelTitle ?? '',
+        title: decodeEntities(row.snippet?.title ?? 'Video'),
+        channelTitle: decodeEntities(row.snippet?.channelTitle ?? ''),
         thumbnailUrl:
           row.snippet?.thumbnails?.medium?.url ?? row.snippet?.thumbnails?.default?.url ?? '',
       };
@@ -71,7 +94,13 @@ async function searchViaProxy(query: string): Promise<YoutubeClip[]> {
     const response = await fetch(`/api/youtube?q=${encodeURIComponent(query)}`);
     if (!response.ok) return [];
     const json = (await response.json()) as { clips?: YoutubeClip[] };
-    return json.clips?.filter((clip) => clip.youtubeVideoId) ?? [];
+    return (json.clips ?? [])
+      .filter((clip) => clip.youtubeVideoId)
+      .map((clip) => ({
+        ...clip,
+        title: decodeEntities(clip.title),
+        channelTitle: decodeEntities(clip.channelTitle),
+      }));
   } catch {
     return [];
   }
@@ -99,8 +128,8 @@ export async function loadProductVideos(productName: string, brand: string): Pro
         if (fresh.length) {
           const clips = fresh.map((row) => ({
             youtubeVideoId: String(row.youtube_video_id),
-            title: String(row.title ?? 'Video'),
-            channelTitle: String(row.channel_title ?? ''),
+            title: decodeEntities(String(row.title ?? 'Video')),
+            channelTitle: decodeEntities(String(row.channel_title ?? '')),
             thumbnailUrl: String(row.thumbnail_url ?? ''),
           }));
           remember(cacheKey, clips);
@@ -116,8 +145,13 @@ export async function loadProductVideos(productName: string, brand: string): Pro
         body: { query },
       });
       if (!error && invoked?.clips?.length) {
-        remember(cacheKey, invoked.clips);
-        return invoked.clips as YoutubeClip[];
+        const clips = (invoked.clips as YoutubeClip[]).map((clip) => ({
+          ...clip,
+          title: decodeEntities(clip.title),
+          channelTitle: decodeEntities(clip.channelTitle),
+        }));
+        remember(cacheKey, clips);
+        return clips;
       }
     } catch {
       // function may not be deployed yet
@@ -194,8 +228,10 @@ export async function loadYoutubeComments(videoId: string): Promise<LiveYoutubeC
     .map((item) => ({
       id: item.id ?? '',
       youtubeVideoId: videoId,
-      authorDisplayName: item.snippet?.topLevelComment?.snippet?.authorDisplayName ?? 'YouTube viewer',
-      body: item.snippet?.topLevelComment?.snippet?.textDisplay ?? '',
+      authorDisplayName: decodeEntities(
+        item.snippet?.topLevelComment?.snippet?.authorDisplayName ?? 'YouTube viewer',
+      ),
+      body: decodeEntities(item.snippet?.topLevelComment?.snippet?.textDisplay ?? ''),
     }))
     .filter((comment) => Boolean(comment.body));
 }

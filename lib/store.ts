@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -131,12 +132,16 @@ let asyncStorage: {
   removeItem: (key: string) => Promise<void>;
 } = memoryStorage();
 
-try {
-  // Loaded at runtime so the store can import before native modules attach.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  asyncStorage = require('@react-native-async-storage/async-storage').default;
-} catch {
-  asyncStorage = memoryStorage();
+// Web routes are rendered in Node first, where AsyncStorage's web backend
+// reaches for window.localStorage and throws.
+if (Platform.OS !== 'web' || typeof window !== 'undefined') {
+  try {
+    // Loaded at runtime so the store can import before native modules attach.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    asyncStorage = require('@react-native-async-storage/async-storage').default;
+  } catch {
+    asyncStorage = memoryStorage();
+  }
 }
 
 export const useAppStore = create<AppState>()(
