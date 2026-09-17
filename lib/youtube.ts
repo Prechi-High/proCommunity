@@ -120,7 +120,9 @@ export async function loadProductVideos(productName: string, brand: string): Pro
     try {
       const { data, error } = await supabase
         .from('video_cache')
-        .select('youtube_video_id, title, channel_title, thumbnail_url, fetched_at')
+        .select('youtube_video_id, title, channel_title, thumbnail_url, fetched_at, pending_review, source_platform')
+        .eq('source_platform', 'youtube')
+        .eq('pending_review', false)
         .ilike('title', `%${productName.slice(0, 24).replace(/[%_,]/g, ' ')}%`)
         .limit(6);
       if (!error && data?.length) {

@@ -1,4 +1,4 @@
-import { createElement, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Platform, Pressable, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { MasonryFeed, ThreadRow } from '@/components/CommunityBits';
 import { Screen } from '@/components/Screen';
+import { OfficialEmbed } from '@/components/VideoEmbed';
 import {
   Badge,
   Body,
@@ -34,8 +35,13 @@ import {
   Plus,
   Storefront,
   TrendUp,
+  YoutubeLogo,
+  TiktokLogo,
+  InstagramLogo,
+  FacebookLogo,
+  PinterestLogo,
 } from '@/components/icons';
-import { colors, elevation, radii, scrimGradient } from '@/constants/theme';
+import { colors, elevation, scrimGradient } from '@/constants/theme';
 import { track } from '@/lib/analytics';
 import {
   getFeedPosts,
@@ -50,6 +56,48 @@ import { computeConfidence } from '@/lib/confidence';
 import { isVerifiedForProduct, useAppStore } from '@/lib/store';
 import { useProduct } from '@/lib/useProduct';
 import { JOURNEY_LABELS, loadProductVideos, tagVideo, type VideoJourneyTag } from '@/lib/youtube';
+import { loadApprovedJourneyClips, platformLabel, type JourneyClip } from '@/lib/videos';
+
+const PLATFORM_ICONS = {
+  youtube: YoutubeLogo,
+  tiktok: TiktokLogo,
+  instagram: InstagramLogo,
+  facebook: FacebookLogo,
+  pinterest: PinterestLogo,
+} as const;
+
+function asJourneyClipFromYoutube(
+  clip: Awaited<ReturnType<typeof loadProductVideos>>[number],
+): JourneyClip {
+  return {
+    id: `yt-${clip.youtubeVideoId}`,
+    platform: 'youtube',
+    sourceUrl: `https://www.youtube.com/watch?v=${clip.youtubeVideoId}`,
+    embedHtml: null,
+    youtubeVideoId: clip.youtubeVideoId,
+    title: clip.title,
+    author: clip.channelTitle,
+    thumbnailUrl: clip.thumbnailUrl,
+    durationSeconds: null,
+    tag: tagVideo(clip),
+  };
+}
+
+async function loadJourney(product: { name: string; brand: string } & Parameters<typeof loadApprovedJourneyClips>[0]) {
+  const [youtube, approved] = await Promise.all([
+    loadProductVideos(product.name, product.brand),
+    loadApprovedJourneyClips(product),
+  ]);
+  const seen = new Set<string>();
+  const merged: JourneyClip[] = [];
+  for (const clip of [...approved, ...youtube.map(asJourneyClipFromYoutube)]) {
+    const key = clip.youtubeVideoId || clip.sourceUrl || clip.id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(clip);
+  }
+  return merged;
+}
 
 const JOURNEY_ICONS = {
   who_this_is_for: Path,
@@ -86,8 +134,8 @@ export default function ProductDetailScreen() {
   const [playingId, setPlayingId] = useState<string | null>(null);
 
   const { data: clips = [], isFetching: videosLoading } = useQuery({
-    queryKey: ['youtube', product?.brand, product?.name],
-    queryFn: () => loadProductVideos(product!.name, product!.brand),
+    queryKey: ['journey-videos', product?.id, product?.brand, product?.name],
+    queryFn: () => loadJourney(product!),
     enabled: Boolean(product),
     staleTime: 60 * 1000,
   });
@@ -123,7 +171,7 @@ export default function ProductDetailScreen() {
   const feedPreview = getFeedPosts(product.id, userPosts).slice(0, 4);
   const threads = getProductThreads(product.id, userThreads, userPosts).slice(0, 2);
   const tracked = trackingCount(product.id);
-  const tagged = clips.map((clip) => ({ ...clip, tag: tagVideo(clip) }));
+  const tagged = clips;
   const filtered = tagged.filter((clip) => clip.tag === journey);
   const shown = filtered.length ? filtered : tagged;
 
@@ -293,76 +341,75 @@ export default function ProductDetailScreen() {
                 />
               ))}
             </View>
-            {videosLoading && !clips.length ? <Caption>Looking up reviews on YouTube…</Caption> : null}
+            {videosLoading && !clips.length ? <Caption>Looking up short reviews…</Caption> : null}
             {!filtered.length && clips.length ? (
               <Caption>Nothing tagged for that chapter yet — showing every review we found.</Caption>
             ) : null}
-            {shown.slice(0, 3).map((clip) => (
-              <Pressable
-                key={clip.youtubeVideoId}
-                onPress={() => {
-                  if (Platform.OS === 'web') {
-                    setPlayingId(clip.youtubeVideoId);
-                    return;
-                  }
-                  Linking.openURL(`https://www.youtube.com/watch?v=${clip.youtubeVideoId}`);
-                }}
-              >
-                {playingId === clip.youtubeVideoId && Platform.OS === 'web' ? (
-                  <View style={{ borderRadius: radii.card, overflow: 'hidden' }}>
-                    {createElement('iframe', {
-                      src: `https://www.youtube.com/embed/${clip.youtubeVideoId}?autoplay=1`,
-                      style: { width: '100%', height: 200, border: 0 },
-                      allow:
-                        'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
-                      allowFullScreen: true,
-                    })}
-                  </View>
-                ) : (
-                  <Card style={{ padding: 10 }}>
-                    <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                      <View
-                        style={{
-                          width: 96,
-                          height: 62,
-                          borderRadius: 10,
-                          overflow: 'hidden',
-                          backgroundColor: colors.mist,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        {clip.thumbnailUrl ? (
-                          <Image
-                            source={{ uri: clip.thumbnailUrl }}
-                            style={{ width: 96, height: 62 }}
-                            resizeMode="cover"
-                          />
-                        ) : null}
+            {shown.slice(0, 4).map((clip) => {
+              const PlatformMark = PLATFORM_ICONS[clip.platform];
+              const playing = playingId === clip.id;
+              return (
+                <Pressable
+                  key={clip.id}
+                  onPress={() => {
+                    if (Platform.OS === 'web') {
+                      setPlayingId(playing ? null : clip.id);
+                      return;
+                    }
+                    Linking.openURL(clip.sourceUrl);
+                  }}
+                >
+                  {playing ? (
+                    <OfficialEmbed clip={clip} />
+                  ) : (
+                    <Card style={{ padding: 10 }}>
+                      <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
                         <View
                           style={{
-                            position: 'absolute',
-                            width: 28,
-                            height: 28,
-                            borderRadius: 14,
-                            backgroundColor: 'rgba(255,255,255,0.92)',
+                            width: 96,
+                            height: 62,
+                            borderRadius: 10,
+                            overflow: 'hidden',
+                            backgroundColor: colors.mist,
                             alignItems: 'center',
                             justifyContent: 'center',
                           }}
                         >
-                          <Play size={13} color={colors.ink} weight="fill" />
+                          {clip.thumbnailUrl ? (
+                            <Image
+                              source={{ uri: clip.thumbnailUrl }}
+                              style={{ width: 96, height: 62 }}
+                              resizeMode="cover"
+                            />
+                          ) : null}
+                          <View
+                            style={{
+                              position: 'absolute',
+                              width: 28,
+                              height: 28,
+                              borderRadius: 14,
+                              backgroundColor: 'rgba(255,255,255,0.92)',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <Play size={13} color={colors.ink} weight="fill" />
+                          </View>
+                        </View>
+                        <View style={{ flex: 1, gap: 5 }}>
+                          <Title>{clip.title}</Title>
+                          <Caption>{clip.author || platformLabel(clip.platform)}</Caption>
+                          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                            <Badge label={JOURNEY_LABELS[clip.tag]} />
+                            <Badge label={platformLabel(clip.platform)} icon={PlatformMark} />
+                          </View>
                         </View>
                       </View>
-                      <View style={{ flex: 1, gap: 5 }}>
-                        <Title>{clip.title}</Title>
-                        <Caption>{clip.channelTitle}</Caption>
-                        <Badge label={JOURNEY_LABELS[clip.tag]} />
-                      </View>
-                    </View>
-                  </Card>
-                )}
-              </Pressable>
-            ))}
+                    </Card>
+                  )}
+                </Pressable>
+              );
+            })}
           </View>
         ) : null}
 

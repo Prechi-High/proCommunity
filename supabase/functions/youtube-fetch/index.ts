@@ -74,10 +74,14 @@ Deno.serve(async (req) => {
         await supabase.from("video_cache").upsert(
           clips.map((clip) => ({
             youtube_video_id: clip.youtubeVideoId,
+            source_platform: "youtube",
+            source_url: `https://www.youtube.com/watch?v=${clip.youtubeVideoId}`,
             title: clip.title,
             channel_title: clip.channelTitle,
+            channel_or_author: clip.channelTitle,
             thumbnail_url: clip.thumbnailUrl,
             search_query: query,
+            pending_review: false,
             fetched_at: new Date().toISOString(),
           })),
           { onConflict: "search_query,youtube_video_id" },
