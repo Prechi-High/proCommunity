@@ -194,6 +194,7 @@ function isFacebookPostUrl(url: URL): boolean {
     return false;
   }
   const parts = pathParts(url);
+  if (parts.some((part) => part.toLowerCase() === "groups")) return false;
   const watchId = url.searchParams.get("v");
   if ((parts[0]?.toLowerCase() === "watch" || url.pathname.toLowerCase().includes("/watch")) && watchId) {
     return /^\d+$/.test(watchId);
