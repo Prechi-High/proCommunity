@@ -180,5 +180,6 @@ export async function loadCachedProductJourney(product: Product): Promise<Journe
 }
 
 export async function discoverProductJourney(product: Product): Promise<void> {
-  await discoverVideosForProduct(product);
+  const { error } = await discoverVideosForProduct(product);
+  if (error) throw new Error(error);
 }
