@@ -456,7 +456,7 @@ function buildQueries(body: DiscoverBody): PlannedQuery[] {
         q: tagSiteQuery(platform, phrase, partner || undefined),
         platform,
         attributeTag,
-        searchQuery: `web:${platform}:attr:${phrase}${partner ? `+${partner}` : ""}`,
+        searchQuery: `web:${platform}:${productName || phrase}`,
       });
     }
   }

@@ -56,7 +56,7 @@ import { computeConfidence } from '@/lib/confidence';
 import { isVerifiedForProduct, useAppStore } from '@/lib/store';
 import { useProduct } from '@/lib/useProduct';
 import { JOURNEY_LABELS, loadProductVideos, tagVideo, type VideoJourneyTag } from '@/lib/youtube';
-import { loadApprovedJourneyClips, platformLabel, type JourneyClip } from '@/lib/videos';
+import { loadApprovedJourneyClips, mixByPlatform, platformLabel, type JourneyClip } from '@/lib/videos';
 
 const PLATFORM_ICONS = {
   youtube: YoutubeLogo,
@@ -78,7 +78,7 @@ function asJourneyClipFromYoutube(
     title: clip.title,
     author: clip.channelTitle,
     thumbnailUrl: clip.thumbnailUrl,
-    durationSeconds: null,
+    durationSeconds: clip.durationSeconds ?? null,
     tag: tagVideo(clip),
   };
 }
@@ -173,7 +173,7 @@ export default function ProductDetailScreen() {
   const tracked = trackingCount(product.id);
   const tagged = clips;
   const filtered = tagged.filter((clip) => clip.tag === journey);
-  const shown = filtered.length ? filtered : tagged;
+  const shown = mixByPlatform(filtered.length ? filtered : tagged, 8);
 
   return (
     <Screen
@@ -345,7 +345,7 @@ export default function ProductDetailScreen() {
             {!filtered.length && clips.length ? (
               <Caption>Nothing tagged for that chapter yet — showing every review we found.</Caption>
             ) : null}
-            {shown.slice(0, 4).map((clip) => {
+            {shown.map((clip) => {
               const PlatformMark = PLATFORM_ICONS[clip.platform];
               const playing = playingId === clip.id;
               return (

@@ -1,12 +1,14 @@
 import Constants from 'expo-constants';
 
 import { supabase } from './supabase';
+import { isShortFormYoutube, isoDurationToSeconds } from './youtubeDuration';
 
 export interface YoutubeClip {
   youtubeVideoId: string;
   title: string;
   channelTitle: string;
   thumbnailUrl: string;
+  durationSeconds: number | null;
 }
 
 const memory = new Map<string, { at: number; clips: YoutubeClip[]; empty?: boolean }>();
@@ -63,6 +65,7 @@ function mapYoutubeItems(items: unknown): YoutubeClip[] {
         channelTitle: decodeEntities(row.snippet?.channelTitle ?? ''),
         thumbnailUrl:
           row.snippet?.thumbnails?.medium?.url ?? row.snippet?.thumbnails?.default?.url ?? '',
+        durationSeconds: null,
       };
     })
     .filter((clip) => Boolean(clip.youtubeVideoId));
@@ -72,21 +75,47 @@ function remember(key: string, clips: YoutubeClip[]) {
   memory.set(key, { at: Date.now(), clips, empty: clips.length === 0 });
 }
 
+async function attachYoutubeDurations(clips: YoutubeClip[]): Promise<YoutubeClip[]> {
+  const key = youtubeKey();
+  const ids = clips.map((clip) => clip.youtubeVideoId).filter(Boolean);
+  if (!key || !ids.length) return [];
+  const params = new URLSearchParams({
+    part: 'contentDetails',
+    id: ids.join(','),
+    key,
+  });
+  const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params.toString()}`);
+  if (!response.ok) return [];
+  const json = (await response.json()) as {
+    items?: Array<{ id?: string; contentDetails?: { duration?: string } }>;
+  };
+  const durations = new Map(
+    (json.items ?? []).map((item) => [item.id ?? '', isoDurationToSeconds(item.contentDetails?.duration)]),
+  );
+  return clips
+    .map((clip) => ({
+      ...clip,
+      durationSeconds: durations.get(clip.youtubeVideoId) ?? clip.durationSeconds,
+    }))
+    .filter((clip) => isShortFormYoutube(clip.durationSeconds));
+}
+
 async function searchYoutubeDirect(query: string): Promise<YoutubeClip[]> {
   const key = youtubeKey();
   if (!key) return [];
   const params = new URLSearchParams({
     part: 'snippet',
     type: 'video',
-    maxResults: '6',
+    maxResults: '15',
     q: query,
     key,
     safeSearch: 'moderate',
+    videoEmbeddable: 'true',
   });
   const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`);
   if (!response.ok) return [];
   const json = (await response.json()) as { items?: unknown };
-  return mapYoutubeItems(json.items);
+  return attachYoutubeDurations(mapYoutubeItems(json.items).slice(0, 12));
 }
 
 async function searchViaProxy(query: string): Promise<YoutubeClip[]> {
@@ -95,11 +124,12 @@ async function searchViaProxy(query: string): Promise<YoutubeClip[]> {
     if (!response.ok) return [];
     const json = (await response.json()) as { clips?: YoutubeClip[] };
     return (json.clips ?? [])
-      .filter((clip) => clip.youtubeVideoId)
+      .filter((clip) => clip.youtubeVideoId && isShortFormYoutube(clip.durationSeconds ?? null))
       .map((clip) => ({
         ...clip,
         title: decodeEntities(clip.title),
         channelTitle: decodeEntities(clip.channelTitle),
+        durationSeconds: clip.durationSeconds ?? null,
       }));
   } catch {
     return [];
@@ -120,19 +150,21 @@ export async function loadProductVideos(productName: string, brand: string): Pro
     try {
       const { data, error } = await supabase
         .from('video_cache')
-        .select('youtube_video_id, title, channel_title, thumbnail_url, fetched_at, pending_review, source_platform')
+        .select('youtube_video_id, title, channel_title, thumbnail_url, fetched_at, pending_review, source_platform, duration_seconds')
         .eq('source_platform', 'youtube')
         .eq('pending_review', false)
         .ilike('title', `%${productName.slice(0, 24).replace(/[%_,]/g, ' ')}%`)
-        .limit(6);
+        .limit(12);
       if (!error && data?.length) {
         const fresh = data.filter((row) => Date.now() - +new Date(row.fetched_at as string) < WEEK_MS);
-        if (fresh.length) {
-          const clips = fresh.map((row) => ({
+        const short = fresh.filter((row) => isShortFormYoutube(row.duration_seconds as number | null));
+        if (short.length) {
+          const clips = short.slice(0, 6).map((row) => ({
             youtubeVideoId: String(row.youtube_video_id),
             title: decodeEntities(String(row.title ?? 'Video')),
             channelTitle: decodeEntities(String(row.channel_title ?? '')),
             thumbnailUrl: String(row.thumbnail_url ?? ''),
+            durationSeconds: (row.duration_seconds as number | null) ?? null,
           }));
           remember(cacheKey, clips);
           return clips;
@@ -147,13 +179,18 @@ export async function loadProductVideos(productName: string, brand: string): Pro
         body: { query },
       });
       if (!error && invoked?.clips?.length) {
-        const clips = (invoked.clips as YoutubeClip[]).map((clip) => ({
-          ...clip,
-          title: decodeEntities(clip.title),
-          channelTitle: decodeEntities(clip.channelTitle),
-        }));
-        remember(cacheKey, clips);
-        return clips;
+        const clips = (invoked.clips as YoutubeClip[])
+          .filter((clip) => isShortFormYoutube(clip.durationSeconds ?? null))
+          .map((clip) => ({
+            ...clip,
+            title: decodeEntities(clip.title),
+            channelTitle: decodeEntities(clip.channelTitle),
+            durationSeconds: clip.durationSeconds ?? null,
+          }));
+        if (clips.length) {
+          remember(cacheKey, clips);
+          return clips;
+        }
       }
     } catch {
       // function may not be deployed yet

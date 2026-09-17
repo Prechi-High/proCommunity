@@ -1,3 +1,5 @@
+import { isShortFormYoutube, isoDurationToSeconds } from '../lib/youtubeDuration';
+
 type QueryReq = { method?: string; query?: { q?: string | string[]; videoId?: string | string[] }; body?: { query?: string; videoId?: string } };
 type QueryRes = { status: (code: number) => { json: (body: unknown) => void } };
 
@@ -51,10 +53,11 @@ export default async function handler(req: QueryReq, res: QueryRes) {
   const params = new URLSearchParams({
     part: 'snippet',
     type: 'video',
-    maxResults: '6',
+    maxResults: '15',
     q: query,
     key,
     safeSearch: 'moderate',
+    videoEmbeddable: 'true',
   });
   const youtube = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`);
   const payload = (await youtube.json()) as {
@@ -68,15 +71,42 @@ export default async function handler(req: QueryReq, res: QueryRes) {
     }>;
   };
 
-  const clips = (payload.items ?? [])
+  const found = (payload.items ?? [])
     .map((item) => ({
       youtubeVideoId: item.id?.videoId ?? '',
       title: item.snippet?.title ?? 'Video',
       channelTitle: item.snippet?.channelTitle ?? '',
       thumbnailUrl:
         item.snippet?.thumbnails?.medium?.url ?? item.snippet?.thumbnails?.default?.url ?? '',
+      durationSeconds: null as number | null,
     }))
     .filter((clip) => Boolean(clip.youtubeVideoId));
+
+  let clips = found;
+  if (found.length) {
+    const details = new URLSearchParams({
+      part: 'contentDetails',
+      id: found.map((clip) => clip.youtubeVideoId).join(','),
+      key,
+    });
+    const detailRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?${details.toString()}`);
+    const detailJson = (await detailRes.json()) as {
+      items?: Array<{ id?: string; contentDetails?: { duration?: string } }>;
+    };
+    const durations = new Map(
+      (detailJson.items ?? []).map((item) => [
+        item.id ?? '',
+        isoDurationToSeconds(item.contentDetails?.duration),
+      ]),
+    );
+    clips = found
+      .map((clip) => ({
+        ...clip,
+        durationSeconds: durations.get(clip.youtubeVideoId) ?? null,
+      }))
+      .filter((clip) => isShortFormYoutube(clip.durationSeconds))
+      .slice(0, 6);
+  }
 
   res.status(200).json({ clips });
 }
