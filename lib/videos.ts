@@ -24,70 +24,59 @@ function asPlatform(value: string | null | undefined): VideoPlatform {
   return PLATFORMS.includes(value as VideoPlatform) ? (value as VideoPlatform) : 'youtube';
 }
 
-/**
- * Approved multi-platform clips only. Pending web-search discoveries never
- * leave the admin queue through this path.
- */
-function productTokens(product: Product): string[] {
-  const raw = [
-    product.name,
-    product.brand,
-    ...product.ingredients.slice(0, 4),
-    ...product.attributeTags.slice(0, 4),
-  ];
-  const seen = new Set<string>();
-  const tokens: string[] = [];
-  for (const value of raw) {
-    const token = value.replace(/_/g, ' ').trim().toLowerCase();
-    if (token.length < 4 || seen.has(token)) continue;
-    seen.add(token);
-    tokens.push(token);
-  }
-  return tokens;
+function asJourneyClip(row: {
+  id: unknown;
+  source_platform: unknown;
+  source_url: unknown;
+  embed_html: unknown;
+  youtube_video_id: unknown;
+  title: unknown;
+  channel_or_author: unknown;
+  channel_title: unknown;
+  thumbnail_url: unknown;
+  duration_seconds: unknown;
+}): JourneyClip {
+  const title = String(row.title ?? 'Video');
+  const author = String(row.channel_or_author ?? row.channel_title ?? '');
+  return {
+    id: String(row.id),
+    platform: asPlatform(row.source_platform as string),
+    sourceUrl: String(row.source_url ?? ''),
+    embedHtml: (row.embed_html as string | null) ?? null,
+    youtubeVideoId: (row.youtube_video_id as string | null) ?? null,
+    title,
+    author,
+    thumbnailUrl: String(row.thumbnail_url ?? ''),
+    durationSeconds: (row.duration_seconds as number | null) ?? null,
+    tag: tagVideo({
+      youtubeVideoId: String(row.youtube_video_id ?? ''),
+      title,
+      channelTitle: author,
+      thumbnailUrl: String(row.thumbnail_url ?? ''),
+      durationSeconds: (row.duration_seconds as number | null) ?? null,
+    }),
+  };
 }
 
+/**
+ * Clips discovered for this catalog product only. Shared ingredient tokens
+ * must not leak The Ordinary's niacinamide finds onto every other serum.
+ */
 export async function loadApprovedJourneyClips(product: Product): Promise<JourneyClip[]> {
   if (!supabase) return [];
-  const tokens = productTokens(product);
 
   try {
     const { data, error } = await supabase
       .from('video_cache')
       .select(
-        'id, source_platform, source_url, embed_html, youtube_video_id, title, channel_or_author, channel_title, thumbnail_url, duration_seconds, attribute_tag, search_query, pending_review',
+        'id, source_platform, source_url, embed_html, youtube_video_id, title, channel_or_author, channel_title, thumbnail_url, duration_seconds, pending_review, catalog_product_id',
       )
       .eq('pending_review', false)
+      .eq('catalog_product_id', product.id)
       .neq('source_platform', 'youtube')
-      .limit(80);
+      .limit(40);
     if (error || !data?.length) return [];
-
-    const relevant = data.filter((row) => {
-      const hay = `${row.title ?? ''} ${row.search_query ?? ''} ${row.attribute_tag ?? ''}`.toLowerCase();
-      return tokens.some((token) => hay.includes(token));
-    });
-
-    return relevant.map((row) => {
-      const title = String(row.title ?? 'Video');
-      const author = String(row.channel_or_author ?? row.channel_title ?? '');
-      return {
-        id: String(row.id),
-        platform: asPlatform(row.source_platform as string),
-        sourceUrl: String(row.source_url ?? ''),
-        embedHtml: (row.embed_html as string | null) ?? null,
-        youtubeVideoId: (row.youtube_video_id as string | null) ?? null,
-        title,
-        author,
-        thumbnailUrl: String(row.thumbnail_url ?? ''),
-        durationSeconds: (row.duration_seconds as number | null) ?? null,
-        tag: tagVideo({
-          youtubeVideoId: String(row.youtube_video_id ?? ''),
-          title,
-          channelTitle: author,
-          thumbnailUrl: String(row.thumbnail_url ?? ''),
-          durationSeconds: (row.duration_seconds as number | null) ?? null,
-        }),
-      };
-    });
+    return data.map(asJourneyClip);
   } catch {
     return [];
   }

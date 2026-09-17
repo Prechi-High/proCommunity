@@ -160,8 +160,13 @@ export default function ProductDetailScreen() {
   const threads = getProductThreads(product.id, userThreads, userPosts).slice(0, 2);
   const tracked = trackingCount(product.id);
   const tagged = clips;
-  const filtered = tagged.filter((clip) => clip.tag === journey);
-  const shown = mixByPlatform(filtered.length ? filtered : tagged, 10);
+  const chapter = tagged.filter((clip) => clip.tag === journey);
+  const social = tagged.filter((clip) => clip.platform !== 'youtube');
+  const mixedSource = [
+    ...chapter,
+    ...social.filter((clip) => !chapter.some((row) => row.id === clip.id)),
+  ];
+  const shown = mixByPlatform(mixedSource.length ? mixedSource : tagged, 10);
 
   return (
     <Screen
@@ -312,7 +317,7 @@ export default function ProductDetailScreen() {
 
         {/* Curiosity gap, opened honestly: real reviews, organised by the question
             someone is actually asking at this point. */}
-        {videosLoading || clips.length ? (
+        {videosLoading || discoverQuery.isFetching || clips.length ? (
           <View style={{ gap: 10 }}>
             <SectionHeader
               title="Watch someone else's weeks"
@@ -333,7 +338,7 @@ export default function ProductDetailScreen() {
             {discoverQuery.isFetching ? (
               <Caption>Finding TikTok, Instagram, Facebook and Pinterest reviews…</Caption>
             ) : null}
-            {!filtered.length && clips.length ? (
+            {!chapter.length && clips.length ? (
               <Caption>Nothing tagged for that chapter yet — showing every review we found.</Caption>
             ) : null}
             {shown.map((clip) => {
