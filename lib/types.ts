@@ -183,4 +183,4 @@ export interface QuizAnswers {
   [questionId: string]: string;
 }
 
-export type VideoJourneyTag = 'who_this_is_for' | 'results_over_time' | 'how_to_use';
+export type { ContentTagKey as VideoJourneyTag } from './taxonomy';

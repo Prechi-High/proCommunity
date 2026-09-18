@@ -18,6 +18,7 @@ module.exports = {
       youtubeDataApiKey: env('YOUTUBE_DATA_API_KEY') || env('EXPO_PUBLIC_YOUTUBE_DATA_API_KEY'),
       supabaseUrl: env('EXPO_PUBLIC_SUPABASE_URL', PUBLIC_SUPABASE_URL),
       supabaseAnonKey: env('EXPO_PUBLIC_SUPABASE_ANON_KEY', PUBLIC_SUPABASE_ANON_KEY),
+      videoReviewEnabled: env('VIDEO_REVIEW_ENABLED', 'false') === 'true',
     },
   },
 };

@@ -83,9 +83,34 @@ export function pinterestEmbedSrc(sourceUrl: string): string | null {
   return `https://assets.pinterest.com/ext/embed.html?id=${id}`;
 }
 
+export function youtubeIdFromUrl(sourceUrl: string): string | null {
+  const url = parseHttpUrl(sourceUrl);
+  if (!url) return null;
+  const host = url.hostname.replace(/^www\./i, '').toLowerCase();
+  if (host === 'youtu.be') {
+    const id = pathParts(url)[0] ?? '';
+    return /^[\w-]{11}$/.test(id) ? id : null;
+  }
+  const fromQuery = url.searchParams.get('v');
+  if (fromQuery && /^[\w-]{11}$/.test(fromQuery)) return fromQuery;
+  const parts = pathParts(url);
+  if ((parts[0]?.toLowerCase() === 'shorts' || parts[0]?.toLowerCase() === 'embed') && /^[\w-]{11}$/.test(parts[1] ?? '')) {
+    return parts[1];
+  }
+  return null;
+}
+
 export function youtubeEmbedSrc(videoId: string | null | undefined): string | null {
   if (!videoId) return null;
-  return `https://www.youtube.com/embed/${videoId}`;
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://pro-community.vercel.app';
+  const params = new URLSearchParams({
+    rel: '0',
+    enablejsapi: '1',
+    origin,
+    modestbranding: '1',
+    playsinline: '1',
+  });
+  return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
 }
 
 export function officialEmbedSrc(

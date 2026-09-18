@@ -4,6 +4,7 @@ import type { Product } from './types';
 export interface PendingVideo {
   id: string;
   product_id: string | null;
+  catalog_product_id?: string | null;
   attribute_tag: string | null;
   source_platform: 'youtube' | 'tiktok' | 'instagram' | 'facebook' | 'pinterest';
   source_url: string;
@@ -12,9 +13,14 @@ export interface PendingVideo {
   channel_or_author: string | null;
   thumbnail_url: string | null;
   duration_seconds: number | null;
+  youtube_video_id?: string | null;
   search_query: string | null;
   fetched_at: string;
   pending_review: boolean;
+  content_tags?: string[];
+  classification_confidence?: number | null;
+  classification_method?: string | null;
+  classification_justification?: string | null;
 }
 
 async function invoke(body: Record<string, unknown>) {
@@ -41,8 +47,12 @@ export async function rejectVideo(id: string) {
   return invoke({ action: 'reject', id });
 }
 
+export async function classifyPendingVideos() {
+  return invoke({ action: 'classify_pending', taxonomyCategory: 'skincare' });
+}
+
 export async function discoverVideosForProduct(product: Product) {
-  return invoke({
+  const result = await invoke({
     action: 'discover',
     productId: product.id,
     productName: product.name,
@@ -50,5 +60,21 @@ export async function discoverVideosForProduct(product: Product) {
     ingredients: product.ingredients,
     attributeTags: product.attributeTags,
     suitsSkinTypes: product.suitsSkinTypes,
+    taxonomyCategory: 'skincare',
   });
+  await classifyPendingVideos();
+  return result;
+}
+
+export async function voteOnVideo(videoId: string, voterKey: string, isHelpful: boolean) {
+  return invoke({
+    action: 'vote',
+    id: videoId,
+    voterKey,
+    isHelpful,
+  });
+}
+
+export async function refreshVideoDiscovery() {
+  return invoke({ action: 'refresh_gaps' });
 }

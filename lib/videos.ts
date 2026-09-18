@@ -1,6 +1,6 @@
-import { discoverVideosForProduct } from './discoverVideos';
+import { discoverVideosForProduct, voteOnVideo } from './discoverVideos';
 import { supabase } from './supabase';
-import { loadProductVideos, tagVideo, type VideoJourneyTag } from './youtube';
+import { CACHE_FIRST_THRESHOLD, wilsonScore, type ContentTagKey } from './taxonomy';
 import type { Product } from './types';
 
 export type VideoPlatform = 'youtube' | 'tiktok' | 'instagram' | 'facebook' | 'pinterest';
@@ -15,7 +15,12 @@ export interface JourneyClip {
   author: string;
   thumbnailUrl: string;
   durationSeconds: number | null;
-  tag: VideoJourneyTag;
+  contentTags: ContentTagKey[];
+  classificationConfidence: number | null;
+  classificationJustification: string | null;
+  helpfulCount: number;
+  notHelpfulCount: number;
+  wilson: number;
 }
 
 const PLATFORMS: VideoPlatform[] = ['youtube', 'tiktok', 'instagram', 'facebook', 'pinterest'];
@@ -24,20 +29,24 @@ function asPlatform(value: string | null | undefined): VideoPlatform {
   return PLATFORMS.includes(value as VideoPlatform) ? (value as VideoPlatform) : 'youtube';
 }
 
-function asJourneyClip(row: {
-  id: unknown;
-  source_platform: unknown;
-  source_url: unknown;
-  embed_html: unknown;
-  youtube_video_id: unknown;
-  title: unknown;
-  channel_or_author: unknown;
-  channel_title: unknown;
-  thumbnail_url: unknown;
-  duration_seconds: unknown;
-}): JourneyClip {
+function asJourneyClip(row: Record<string, unknown>): JourneyClip {
   const title = String(row.title ?? 'Video');
   const author = String(row.channel_or_author ?? row.channel_title ?? '');
+  const tags = Array.isArray(row.content_tags)
+    ? (row.content_tags as string[]).filter((tag): tag is ContentTagKey =>
+        [
+          'how_it_works',
+          'how_to_use',
+          'composition',
+          'who_its_for',
+          'results_over_time',
+          'precautions',
+          'comparisons',
+        ].includes(tag),
+      )
+    : [];
+  const helpful = Number(row.helpful_count ?? 0);
+  const notHelpful = Number(row.not_helpful_count ?? 0);
   return {
     id: String(row.id),
     platform: asPlatform(row.source_platform as string),
@@ -48,38 +57,85 @@ function asJourneyClip(row: {
     author,
     thumbnailUrl: String(row.thumbnail_url ?? ''),
     durationSeconds: (row.duration_seconds as number | null) ?? null,
-    tag: tagVideo({
-      youtubeVideoId: String(row.youtube_video_id ?? ''),
-      title,
-      channelTitle: author,
-      thumbnailUrl: String(row.thumbnail_url ?? ''),
-      durationSeconds: (row.duration_seconds as number | null) ?? null,
-    }),
+    contentTags: tags,
+    classificationConfidence:
+      row.classification_confidence == null ? null : Number(row.classification_confidence),
+    classificationJustification: (row.classification_justification as string | null) ?? null,
+    helpfulCount: helpful,
+    notHelpfulCount: notHelpful,
+    wilson: wilsonScore(helpful, notHelpful),
   };
 }
 
-/**
- * Clips discovered for this catalog product only. Shared ingredient tokens
- * must not leak The Ordinary's niacinamide finds onto every other serum.
- */
-export async function loadApprovedJourneyClips(product: Product): Promise<JourneyClip[]> {
-  if (!supabase) return [];
+const SELECT_CLIP =
+  'id, source_platform, source_url, embed_html, youtube_video_id, title, channel_or_author, channel_title, thumbnail_url, duration_seconds, content_tags, classification_confidence, classification_justification, helpful_count, not_helpful_count, catalog_product_id, fetched_at';
 
+/**
+ * Cache-first: tagged, Wilson-ranked clips for one product + content tag.
+ * Does not call Serper.
+ */
+export async function loadTaggedClips(
+  product: Product,
+  tag: ContentTagKey,
+  limit = 40,
+): Promise<JourneyClip[]> {
+  if (!supabase) return [];
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabase.rpc('list_tagged_videos', {
+      p_catalog: product.id,
+      p_tag: tag,
+      p_limit: limit,
+    });
+    if (!error && Array.isArray(data) && data.length) {
+      return diversifyTiedTop4(data.map((row) => asJourneyClip(row as Record<string, unknown>)));
+    }
+    const fallback = await supabase
       .from('video_cache')
-      .select(
-        'id, source_platform, source_url, embed_html, youtube_video_id, title, channel_or_author, channel_title, thumbnail_url, duration_seconds, pending_review, catalog_product_id',
-      )
-      .eq('pending_review', false)
+      .select(SELECT_CLIP)
       .eq('catalog_product_id', product.id)
-      .neq('source_platform', 'youtube')
-      .limit(40);
-    if (error || !data?.length) return [];
-    return data.map(asJourneyClip);
+      .contains('content_tags', [tag])
+      .limit(limit);
+    if (fallback.error || !fallback.data?.length) return [];
+    return diversifyTiedTop4(
+      fallback.data
+        .map((row) => asJourneyClip(row as Record<string, unknown>))
+        .sort((a, b) => b.wilson - a.wilson),
+    );
   } catch {
     return [];
   }
+}
+
+/** Prefer a different platform in the top 4 when Wilson scores are tied. */
+function diversifyTiedTop4(clips: JourneyClip[]): JourneyClip[] {
+  const out = [...clips];
+  for (let i = 1; i < Math.min(4, out.length); i += 1) {
+    if (Math.abs(out[i].wilson - out[i - 1].wilson) > 1e-9) continue;
+    if (out[i].platform === out[i - 1].platform) {
+      const swap = out.findIndex(
+        (clip, index) =>
+          index > i &&
+          Math.abs(clip.wilson - out[i].wilson) <= 1e-9 &&
+          clip.platform !== out[i].platform,
+      );
+      if (swap > 0) {
+        const current = out[i];
+        out[i] = out[swap];
+        out[swap] = current;
+      }
+    }
+  }
+  return out;
+}
+
+export function voterKeyFor(profileId?: string | null): string {
+  if (profileId) return profileId;
+  if (typeof localStorage === 'undefined') return 'anon-local';
+  const existing = localStorage.getItem('sourced-voter-key');
+  if (existing) return existing;
+  const next = `anon-${Math.random().toString(36).slice(2, 12)}`;
+  localStorage.setItem('sourced-voter-key', next);
+  return next;
 }
 
 export function platformLabel(platform: VideoPlatform): string {
@@ -92,83 +148,44 @@ export function platformLabel(platform: VideoPlatform): string {
   }[platform];
 }
 
-export function mixByPlatform(clips: JourneyClip[], limit = 10): JourneyClip[] {
-  const buckets = new Map<VideoPlatform, JourneyClip[]>();
-  for (const clip of clips) {
-    const list = buckets.get(clip.platform) ?? [];
-    list.push(clip);
-    buckets.set(clip.platform, list);
+export async function loadJourneyForTag(
+  product: Product,
+  tag: ContentTagKey,
+): Promise<{ clips: JourneyClip[]; discovered: boolean }> {
+  const cached = await loadTaggedClips(product, tag);
+  if (cached.length >= CACHE_FIRST_THRESHOLD) {
+    return { clips: cached, discovered: false };
   }
-  const order: VideoPlatform[] = ['tiktok', 'instagram', 'pinterest', 'facebook', 'youtube'];
-  const cap: Record<VideoPlatform, number> = {
-    tiktok: 3,
-    instagram: 3,
-    pinterest: 2,
-    facebook: 2,
-    youtube: 2,
-  };
-  const taken: Record<VideoPlatform, number> = {
-    tiktok: 0,
-    instagram: 0,
-    pinterest: 0,
-    facebook: 0,
-    youtube: 0,
-  };
-  const mixed: JourneyClip[] = [];
-  let added = true;
-  while (mixed.length < limit && added) {
-    added = false;
-    for (const platform of order) {
-      if (taken[platform] >= cap[platform]) continue;
-      const next = buckets.get(platform)?.shift();
-      if (!next) continue;
-      mixed.push(next);
-      taken[platform] += 1;
-      added = true;
-      if (mixed.length >= limit) break;
-    }
+  try {
+    await discoverProductJourney(product);
+  } catch {
+    return { clips: cached, discovered: false };
   }
-  return mixed;
-}
-
-function mergeJourney(social: JourneyClip[], youtube: JourneyClip[]): JourneyClip[] {
-  const seen = new Set<string>();
-  const merged: JourneyClip[] = [];
-  for (const clip of [...social, ...youtube]) {
-    const key = clip.youtubeVideoId || clip.sourceUrl || clip.id;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push(clip);
-  }
-  return merged;
-}
-
-function asJourneyClipFromYoutube(
-  clip: Awaited<ReturnType<typeof loadProductVideos>>[number],
-): JourneyClip {
-  return {
-    id: `yt-${clip.youtubeVideoId}`,
-    platform: 'youtube',
-    sourceUrl: `https://www.youtube.com/watch?v=${clip.youtubeVideoId}`,
-    embedHtml: null,
-    youtubeVideoId: clip.youtubeVideoId,
-    title: clip.title,
-    author: clip.channelTitle,
-    thumbnailUrl: clip.thumbnailUrl,
-    durationSeconds: clip.durationSeconds ?? null,
-    tag: tagVideo(clip),
-  };
-}
-
-export async function loadCachedProductJourney(product: Product): Promise<JourneyClip[]> {
-  const [youtube, social] = await Promise.all([
-    loadProductVideos(product.name, product.brand),
-    loadApprovedJourneyClips(product),
-  ]);
-  return mergeJourney(social, youtube.slice(0, 2).map(asJourneyClipFromYoutube));
+  const filled = await loadTaggedClips(product, tag);
+  return { clips: filled, discovered: true };
 }
 
 export async function discoverProductJourney(product: Product): Promise<void> {
   const { error } = await discoverVideosForProduct(product);
   if (error) throw new Error(error);
+}
+
+export async function submitVideoVote(videoId: string, voterKey: string, isHelpful: boolean) {
+  return voteOnVideo(videoId, voterKey, isHelpful);
+}
+
+export async function loadMyVideoVote(videoId: string, voterKey: string): Promise<boolean | null> {
+  if (!supabase || !voterKey) return null;
+  try {
+    const { data, error } = await supabase
+      .from('video_feedback')
+      .select('is_helpful')
+      .eq('video_id', videoId)
+      .eq('voter_key', voterKey)
+      .maybeSingle();
+    if (error || !data) return null;
+    return Boolean(data.is_helpful);
+  } catch {
+    return null;
+  }
 }

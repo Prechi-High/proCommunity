@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import { MasonryFeed, ThreadRow } from '@/components/CommunityBits';
 import { Screen } from '@/components/Screen';
@@ -27,14 +27,18 @@ import {
   BookOpen,
   Camera,
   CheckCircle,
+  Flask,
   Handbag,
   Heart,
+  Lightbulb,
   NotePencil,
-  Path,
   Play,
   Plus,
+  Scales,
   Storefront,
   TrendUp,
+  User,
+  Warning,
   YoutubeLogo,
   TiktokLogo,
   InstagramLogo,
@@ -54,15 +58,9 @@ import {
 } from '@/lib/catalog';
 import { computeConfidence } from '@/lib/confidence';
 import { isVerifiedForProduct, useAppStore } from '@/lib/store';
+import { FALLBACK_TAGS, PAGE_SIZE, loadTaxonomy, type ContentTagKey } from '@/lib/taxonomy';
 import { useProduct } from '@/lib/useProduct';
-import { JOURNEY_LABELS, type VideoJourneyTag } from '@/lib/youtube';
-import {
-  discoverProductJourney,
-  loadCachedProductJourney,
-  mixByPlatform,
-  platformLabel,
-  type JourneyClip,
-} from '@/lib/videos';
+import { loadJourneyForTag, platformLabel, voterKeyFor } from '@/lib/videos';
 
 const PLATFORM_ICONS = {
   youtube: YoutubeLogo,
@@ -72,10 +70,14 @@ const PLATFORM_ICONS = {
   pinterest: PinterestLogo,
 } as const;
 
-const JOURNEY_ICONS = {
-  who_this_is_for: Path,
-  results_over_time: TrendUp,
+const TAG_ICONS = {
+  how_it_works: Lightbulb,
   how_to_use: BookOpen,
+  composition: Flask,
+  who_its_for: User,
+  results_over_time: TrendUp,
+  precautions: Warning,
+  comparisons: Scales,
 } as const;
 
 /**
@@ -103,34 +105,36 @@ export default function ProductDetailScreen() {
   const markPurchased = useAppStore((s) => s.markPurchased);
   const ownerships = useAppStore((s) => s.ownerships);
   const addRoutineStep = useAppStore((s) => s.addRoutineStep);
-  const [journey, setJourney] = useState<VideoJourneyTag>('who_this_is_for');
+  const [journey, setJourney] = useState<ContentTagKey>('how_to_use');
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const queryClient = useQueryClient();
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const voterKey = voterKeyFor(profile?.id);
 
-  const { data: clips = [], isFetching: videosLoading } = useQuery({
-    queryKey: ['journey-videos', product?.id, product?.brand, product?.name],
-    queryFn: () => loadCachedProductJourney(product!),
-    enabled: Boolean(product),
-    staleTime: 30 * 1000,
+  const taxonomyQuery = useQuery({
+    queryKey: ['skincare-taxonomy'],
+    queryFn: () => loadTaxonomy(),
+    staleTime: 60 * 60 * 1000,
   });
+  const tags = taxonomyQuery.data?.length ? taxonomyQuery.data : FALLBACK_TAGS;
 
-  const discoverQuery = useQuery({
-    queryKey: ['journey-discover', product?.id],
+  const journeyQuery = useQuery({
+    queryKey: ['journey-videos', product?.id, journey],
+    queryFn: () => loadJourneyForTag(product!, journey),
     enabled: Boolean(product),
-    staleTime: 6 * 60 * 60 * 1000,
-    retry: 1,
-    queryFn: async () => {
-      await discoverProductJourney(product!);
-      await queryClient.invalidateQueries({
-        queryKey: ['journey-videos', product!.id, product!.brand, product!.name],
-      });
-      return true;
-    },
+    staleTime: 10 * 60 * 1000,
   });
+  const clips = journeyQuery.data?.clips ?? [];
+  const videosLoading = journeyQuery.isFetching;
+  const fillingGap = journeyQuery.isFetching && (journeyQuery.data?.clips.length ?? 0) < PAGE_SIZE;
 
   useEffect(() => {
     if (product) track('product_viewed', { productId: product.id, source: product.source });
   }, [product]);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+    setPlayingId(null);
+  }, [journey]);
 
   if (isLoading) {
     return (
@@ -159,14 +163,8 @@ export default function ProductDetailScreen() {
   const feedPreview = getFeedPosts(product.id, userPosts).slice(0, 4);
   const threads = getProductThreads(product.id, userThreads, userPosts).slice(0, 2);
   const tracked = trackingCount(product.id);
-  const tagged = clips;
-  const chapter = tagged.filter((clip) => clip.tag === journey);
-  const social = tagged.filter((clip) => clip.platform !== 'youtube');
-  const mixedSource = [
-    ...chapter,
-    ...social.filter((clip) => !chapter.some((row) => row.id === clip.id)),
-  ];
-  const shown = mixByPlatform(mixedSource.length ? mixedSource : tagged, 10);
+  const shown = clips.slice(0, visibleCount);
+  const currentTag = tags.find((tag) => tag.tagKey === journey);
 
   return (
     <Screen
@@ -317,47 +315,42 @@ export default function ProductDetailScreen() {
 
         {/* Curiosity gap, opened honestly: real reviews, organised by the question
             someone is actually asking at this point. */}
-        {videosLoading || discoverQuery.isFetching || clips.length ? (
-          <View style={{ gap: 10 }}>
-            <SectionHeader
-              title="Watch someone else's weeks"
-              hint="Real reviews, grouped by what you're trying to find out."
-            />
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {(Object.keys(JOURNEY_LABELS) as VideoJourneyTag[]).map((tag) => (
-                <Chip
-                  key={tag}
-                  label={JOURNEY_LABELS[tag]}
-                  icon={JOURNEY_ICONS[tag]}
-                  selected={journey === tag}
-                  onPress={() => setJourney(tag)}
-                />
-              ))}
-            </View>
-            {videosLoading && !clips.length ? <Caption>Looking up short reviews…</Caption> : null}
-            {discoverQuery.isFetching ? (
-              <Caption>Finding TikTok, Instagram, Facebook and Pinterest reviews…</Caption>
-            ) : null}
-            {!chapter.length && clips.length ? (
-              <Caption>Nothing tagged for that chapter yet — showing every review we found.</Caption>
-            ) : null}
-            {shown.map((clip) => {
-              const PlatformMark = PLATFORM_ICONS[clip.platform];
-              const playing = playingId === clip.id;
-              return (
-                <Pressable
-                  key={clip.id}
-                  onPress={() => {
-                    if (Platform.OS === 'web') {
-                      setPlayingId(playing ? null : clip.id);
-                      return;
-                    }
-                    Linking.openURL(clip.sourceUrl);
-                  }}
-                >
-                  {playing ? (
-                    <OfficialEmbed clip={clip} />
-                  ) : (
+        <View style={{ gap: 10 }}>
+          <SectionHeader
+            title="Watch someone else's weeks"
+            hint="Real reviews, grouped by what you're trying to find out."
+          />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {tags.map((tag) => (
+              <Chip
+                key={tag.tagKey}
+                label={tag.tagLabel}
+                icon={TAG_ICONS[tag.tagKey]}
+                selected={journey === tag.tagKey}
+                onPress={() => setJourney(tag.tagKey)}
+              />
+            ))}
+          </View>
+          {videosLoading && !clips.length ? <Caption>Looking up short reviews…</Caption> : null}
+          {fillingGap ? <Caption>Finding reviews for this topic…</Caption> : null}
+          {!clips.length && !videosLoading ? (
+            <Caption>
+              {currentTag
+                ? `Nothing tagged as ${currentTag.tagLabel.toLowerCase()} yet.`
+                : 'Nothing tagged for this topic yet.'}
+            </Caption>
+          ) : null}
+          {shown.map((clip) => {
+            const PlatformMark = PLATFORM_ICONS[clip.platform];
+            const playing = playingId === clip.id;
+            return (
+              <View key={clip.id}>
+                {playing ? (
+                  <OfficialEmbed clip={clip} voterKey={voterKey} />
+                ) : (
+                  <Pressable
+                    onPress={() => setPlayingId(clip.id)}
+                  >
                     <Card style={{ padding: 10 }}>
                       <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
                         <View
@@ -396,18 +389,25 @@ export default function ProductDetailScreen() {
                           <Title>{clip.title}</Title>
                           <Caption>{clip.author || platformLabel(clip.platform)}</Caption>
                           <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-                            <Badge label={JOURNEY_LABELS[clip.tag]} />
+                            <Badge label={currentTag?.tagLabel ?? 'Review'} />
                             <Badge label={platformLabel(clip.platform)} icon={PlatformMark} />
                           </View>
                         </View>
                       </View>
                     </Card>
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : null}
+                  </Pressable>
+                )}
+              </View>
+            );
+          })}
+          {clips.length > visibleCount ? (
+            <Button
+              label="Show more"
+              kind="quiet"
+              onPress={() => setVisibleCount((count) => count + PAGE_SIZE)}
+            />
+          ) : null}
+        </View>
 
         <View style={{ gap: 10 }}>
           <SectionHeader

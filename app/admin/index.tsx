@@ -32,12 +32,14 @@ import {
   approveVideo,
   discoverVideosForProduct,
   listPendingVideos,
+  refreshVideoDiscovery,
   rejectVideo,
   type PendingVideo,
 } from '@/lib/discoverVideos';
 import { communityPosts, products } from '@/lib/seed';
 import { useAppStore } from '@/lib/store';
-import { platformLabel, type JourneyClip, type VideoPlatform } from '@/lib/videos';
+import { isVideoReviewEnabled, tagLabel } from '@/lib/taxonomy';
+import { platformLabel, voterKeyFor, type JourneyClip, type VideoPlatform } from '@/lib/videos';
 
 const PLATFORM_ICONS = {
   youtube: YoutubeLogo,
@@ -49,17 +51,33 @@ const PLATFORM_ICONS = {
 
 function asClip(row: PendingVideo): JourneyClip {
   const platform = row.source_platform as VideoPlatform;
+  const tags = (row.content_tags ?? []).filter((tag): tag is JourneyClip['contentTags'][number] =>
+    [
+      'how_it_works',
+      'how_to_use',
+      'composition',
+      'who_its_for',
+      'results_over_time',
+      'precautions',
+      'comparisons',
+    ].includes(tag),
+  );
   return {
     id: row.id,
     platform,
     sourceUrl: row.source_url,
     embedHtml: row.embed_html,
-    youtubeVideoId: null,
+    youtubeVideoId: row.youtube_video_id ?? null,
     title: row.title ?? 'Video',
     author: row.channel_or_author ?? '',
     thumbnailUrl: row.thumbnail_url ?? '',
     durationSeconds: row.duration_seconds,
-    tag: 'who_this_is_for',
+    contentTags: tags,
+    classificationConfidence: row.classification_confidence ?? null,
+    classificationJustification: row.classification_justification ?? null,
+    helpfulCount: 0,
+    notHelpfulCount: 0,
+    wilson: 0,
   };
 }
 
@@ -89,11 +107,22 @@ export default function AdminScreen() {
     enabled: Boolean(profile?.isAdmin),
   });
 
+  const reviewQuery = useQuery({
+    queryKey: ['video-review-flag'],
+    queryFn: isVideoReviewEnabled,
+    enabled: Boolean(profile?.isAdmin),
+  });
+
   const discover = useMutation({
     mutationFn: async () => {
       const product = products.find((item) => item.id === discoverProductId) ?? products[0];
       return discoverVideosForProduct(product);
     },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pending-videos'] }),
+  });
+
+  const refresh = useMutation({
+    mutationFn: () => refreshVideoDiscovery(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pending-videos'] }),
   });
 
@@ -139,10 +168,22 @@ export default function AdminScreen() {
 
       <SectionHeader
         title="Video discovery"
-        hint="Finds are auto-approved for now and show on the product journey immediately."
+        hint="Cache-first serving. Wilson score reorders visible rows; it is not the review gate. Pending rows stay on record."
       />
 
-      <Caption>Run discovery for a product. New clips go live without a review step.</Caption>
+      {reviewQuery.data === false || reviewQuery.data == null ? (
+        <Card style={{ gap: 6, backgroundColor: colors.rosewoodSoft }}>
+          <Title>Review is off for testing</Title>
+          <Caption>
+            Pending rows are still visible to shoppers. Set VIDEO_REVIEW_ENABLED and
+            app_flags.video_review_enabled to true before public users.
+          </Caption>
+        </Card>
+      ) : (
+        <Caption>Review is on. Shoppers only see approved clips. Wilson ranking is separate.</Caption>
+      )}
+
+      <Caption>Run discovery for a product. New clips insert as pending_review=true for the queue.</Caption>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {products.slice(0, 6).map((product) => (
           <Chip
@@ -158,6 +199,12 @@ export default function AdminScreen() {
         disabled={discover.isPending}
         onPress={() => discover.mutate()}
       />
+      <Button
+        label={refresh.isPending ? 'Refreshing gaps…' : 'Refresh catalog gaps'}
+        kind="quiet"
+        disabled={refresh.isPending}
+        onPress={() => refresh.mutate()}
+      />
       {discoverError ? <Caption color={colors.rosewood}>{discoverError}</Caption> : null}
       {discover.data && !discoverError ? (
         <Caption>
@@ -171,7 +218,7 @@ export default function AdminScreen() {
         <Card style={{ alignItems: 'center', gap: 7, paddingVertical: 22 }}>
           <ShieldCheck size={22} color={colors.sage} weight="regular" />
           <Title>No videos waiting</Title>
-          <Body>Run a search above. New clips are auto-approved and appear on the product page.</Body>
+          <Body>Run a search above. New clips stay in this queue with their tags and justification.</Body>
         </Card>
       ) : (
         pending.map((row) => {
@@ -209,7 +256,24 @@ export default function AdminScreen() {
               {row.duration_seconds != null ? (
                 <Caption>{`${Math.round(row.duration_seconds / 60)} min · from oEmbed, not a downloaded file`}</Caption>
               ) : null}
-              {previewId === row.id ? <OfficialEmbed clip={clip} height={360} /> : null}
+              {row.content_tags?.length ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {row.content_tags.map((tag) => (
+                    <Chip key={tag} label={tagLabel(tag)} />
+                  ))}
+                </View>
+              ) : (
+                <Caption>No tags (below confidence floor, or classifier skipped).</Caption>
+              )}
+              {row.classification_confidence != null ? (
+                <Caption>{`Confidence ${row.classification_confidence.toFixed(2)}${row.classification_method ? ` · ${row.classification_method}` : ''}`}</Caption>
+              ) : null}
+              {row.classification_justification ? (
+                <Caption>{row.classification_justification}</Caption>
+              ) : null}
+              {previewId === row.id ? (
+                <OfficialEmbed clip={clip} height={360} voterKey={voterKeyFor(profile?.id)} />
+              ) : null}
               <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                 <View style={{ flex: 1, minWidth: 110 }}>
                   <Button
