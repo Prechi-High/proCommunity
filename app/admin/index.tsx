@@ -183,7 +183,9 @@ export default function AdminScreen() {
         <Caption>Review is on. Shoppers only see approved clips. Wilson ranking is separate.</Caption>
       )}
 
-      <Caption>Run discovery for a product. New clips insert as pending_review=true for the queue.</Caption>
+      <Caption>
+        YouTube-only discovery (Serper is off). Finds short YouTube clips and stores them on the product.
+      </Caption>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {products.slice(0, 6).map((product) => (
           <Chip

@@ -1124,6 +1124,16 @@ async function runDiscover(
   body: DiscoverBody,
   taxonomy: TaxonomyRow[],
 ): Promise<Record<string, unknown>> {
+  // Default: Serper is off. Product pages use youtube-fetch instead.
+  // Re-enable with Edge secret VIDEO_DISCOVERY_PROVIDER=serper.
+  if ((Deno.env.get("VIDEO_DISCOVERY_PROVIDER") ?? "youtube").toLowerCase() !== "serper") {
+    return {
+      inserted: 0,
+      provider: "youtube_only",
+      error: "serper_disabled",
+      hint: "Product discovery uses youtube-fetch / YouTube Data API.",
+    };
+  }
   if (!serperKey()) {
     return {
       inserted: 0,

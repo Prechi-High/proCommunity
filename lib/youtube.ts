@@ -6,6 +6,7 @@ import {
   filterMeaningfulThreads,
 } from './commentQuality';
 import { supabase } from './supabase';
+import type { Product } from './types';
 import { isShortFormYoutube, isoDurationToSeconds } from './youtubeDuration';
 
 export interface YoutubeClip {
@@ -142,7 +143,27 @@ async function searchViaProxy(query: string): Promise<YoutubeClip[]> {
 }
 
 export async function loadProductVideos(productName: string, brand: string): Promise<YoutubeClip[]> {
-  const cacheKey = `${brand} ${productName}`.trim().toLowerCase();
+  return loadProductVideosForCatalog({ name: productName, brand, id: '' });
+}
+
+/** DB-first YouTube clips for a catalog product; fetches via youtube-fetch when thin. */
+export async function ensureYoutubeVideosForProduct(
+  product: Pick<Product, 'id' | 'name' | 'brand'>,
+): Promise<{ clips: YoutubeClip[]; error: string | null }> {
+  try {
+    const clips = await loadProductVideosForCatalog(product);
+    return { clips, error: null };
+  } catch (error) {
+    return { clips: [], error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+async function loadProductVideosForCatalog(
+  product: Pick<Product, 'id' | 'name' | 'brand'>,
+): Promise<YoutubeClip[]> {
+  const productName = product.name;
+  const brand = product.brand;
+  const cacheKey = `${product.id || brand} ${productName}`.trim().toLowerCase();
   const hit = memory.get(cacheKey);
   if (hit) {
     const maxAge = hit.empty ? EMPTY_MS : WEEK_MS;
@@ -151,11 +172,71 @@ export async function loadProductVideos(productName: string, brand: string): Pro
 
   const query = searchQuery(productName, brand);
 
-  if (supabase) {
+  if (supabase && product.id) {
     try {
       const { data, error } = await supabase
         .from('video_cache')
-        .select('youtube_video_id, title, channel_title, thumbnail_url, fetched_at, pending_review, source_platform, duration_seconds')
+        .select(
+          'youtube_video_id, title, channel_title, thumbnail_url, fetched_at, pending_review, source_platform, duration_seconds',
+        )
+        .eq('source_platform', 'youtube')
+        .eq('catalog_product_id', product.id)
+        .limit(12);
+      if (!error && data?.length) {
+        const fresh = data.filter((row) => Date.now() - +new Date(row.fetched_at as string) < WEEK_MS);
+        const short = fresh.filter((row) => isShortFormYoutube(row.duration_seconds as number | null));
+        if (short.length >= 4) {
+          const clips = short.slice(0, 6).map((row) => ({
+            youtubeVideoId: String(row.youtube_video_id),
+            title: decodeEntities(String(row.title ?? 'Video')),
+            channelTitle: decodeEntities(String(row.channel_title ?? '')),
+            thumbnailUrl: String(row.thumbnail_url ?? ''),
+            durationSeconds: (row.duration_seconds as number | null) ?? null,
+          }));
+          remember(cacheKey, clips);
+          return clips;
+        }
+      }
+    } catch {
+      // table may not exist yet
+    }
+
+    try {
+      const { data: invoked, error } = await supabase.functions.invoke('youtube-fetch', {
+        body: {
+          query,
+          catalogProductId: product.id,
+          productName,
+          brand,
+        },
+      });
+      if (error) {
+        // fall through to proxy / direct
+      } else if (invoked?.clips?.length) {
+        const clips = (invoked.clips as YoutubeClip[])
+          .filter((clip) => isShortFormYoutube(clip.durationSeconds ?? null))
+          .map((clip) => ({
+            ...clip,
+            title: decodeEntities(clip.title),
+            channelTitle: decodeEntities(clip.channelTitle),
+            durationSeconds: clip.durationSeconds ?? null,
+          }));
+        if (clips.length) {
+          remember(cacheKey, clips);
+          return clips;
+        }
+      }
+    } catch {
+      // function may not be deployed yet
+    }
+  } else if (supabase) {
+    // Legacy title search when no catalog id (thread bootstrap).
+    try {
+      const { data, error } = await supabase
+        .from('video_cache')
+        .select(
+          'youtube_video_id, title, channel_title, thumbnail_url, fetched_at, pending_review, source_platform, duration_seconds',
+        )
         .eq('source_platform', 'youtube')
         .eq('pending_review', false)
         .ilike('title', `%${productName.slice(0, 24).replace(/[%_,]/g, ' ')}%`)
@@ -176,12 +257,12 @@ export async function loadProductVideos(productName: string, brand: string): Pro
         }
       }
     } catch {
-      // table may not exist yet
+      // ignore
     }
 
     try {
       const { data: invoked, error } = await supabase.functions.invoke('youtube-fetch', {
-        body: { query },
+        body: { query, productName, brand },
       });
       if (!error && invoked?.clips?.length) {
         const clips = (invoked.clips as YoutubeClip[])
@@ -198,7 +279,7 @@ export async function loadProductVideos(productName: string, brand: string): Pro
         }
       }
     } catch {
-      // function may not be deployed yet
+      // ignore
     }
   }
 

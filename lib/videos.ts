@@ -1,8 +1,9 @@
-import { discoverVideosForProduct, voteOnVideo } from './discoverVideos';
+import { voteOnVideo } from './discoverVideos';
 import { clipMatchesTag, heuristicContentTags } from './heuristicTags';
 import { supabase } from './supabase';
 import { CACHE_FIRST_THRESHOLD, wilsonScore, type ContentTagKey } from './taxonomy';
 import type { Product } from './types';
+import { ensureYoutubeVideosForProduct } from './youtube';
 
 export type VideoPlatform = 'youtube' | 'tiktok' | 'instagram' | 'facebook' | 'pinterest';
 
@@ -90,12 +91,16 @@ export async function loadTaggedClips(
       p_limit: limit,
     });
     if (!error && Array.isArray(data) && data.length) {
-      return diversifyTiedTop4(data.map((row) => asJourneyClip(row as Record<string, unknown>)));
+      const youtubeOnly = data
+        .map((row) => asJourneyClip(row as Record<string, unknown>))
+        .filter((clip) => clip.platform === 'youtube');
+      if (youtubeOnly.length) return diversifyTiedTop4(youtubeOnly);
     }
     const fallback = await supabase
       .from('video_cache')
       .select(SELECT_CLIP)
       .eq('catalog_product_id', product.id)
+      .eq('source_platform', 'youtube')
       .contains('content_tags', [tag])
       .limit(limit);
     if (!fallback.error && fallback.data?.length) {
@@ -106,11 +111,12 @@ export async function loadTaggedClips(
       );
     }
 
-    // Untagged / under-classified cache: still show product clips that match this chip.
+    // Untagged / under-classified cache: still show YouTube clips that match this chip.
     const any = await supabase
       .from('video_cache')
       .select(SELECT_CLIP)
       .eq('catalog_product_id', product.id)
+      .eq('source_platform', 'youtube')
       .order('fetched_at', { ascending: false })
       .limit(Math.max(limit, 24));
     if (any.error || !any.data?.length) return [];
@@ -201,7 +207,8 @@ export async function loadJourneyForTag(
 }
 
 export async function discoverProductJourney(product: Product): Promise<void> {
-  const { error } = await discoverVideosForProduct(product);
+  // YouTube-only discovery. Serper is disabled for product search.
+  const { error } = await ensureYoutubeVideosForProduct(product);
   if (error) throw new Error(error);
 }
 
