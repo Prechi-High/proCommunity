@@ -1,3 +1,4 @@
+import { invokeCachedRead } from './cachedRead';
 import { supabase } from './supabase';
 
 export const TAXONOMY_CATEGORY = 'skincare';
@@ -80,6 +81,28 @@ export function taxonomyCategoryForProduct(): string {
 }
 
 export async function loadTaxonomy(category = TAXONOMY_CATEGORY): Promise<CategoryTag[]> {
+  const cached = await invokeCachedRead<{
+    tags?: Array<{ tagKey?: string; tagLabel?: string; description?: string; sortOrder?: number }>;
+  }>({
+    action: 'taxonomy',
+    category,
+  });
+  if (cached?.tags?.length) {
+    const rows = cached.tags
+      .map((row) => {
+        const tagKey = asContentTagKey(String(row.tagKey));
+        if (!tagKey) return null;
+        return {
+          tagKey,
+          tagLabel: String(row.tagLabel ?? tagKey),
+          description: String(row.description ?? ''),
+          sortOrder: Number(row.sortOrder ?? 0),
+        };
+      })
+      .filter((row): row is CategoryTag => Boolean(row));
+    if (rows.length) return rows;
+  }
+
   if (!supabase) return FALLBACK_TAGS;
   try {
     const { data, error } = await supabase

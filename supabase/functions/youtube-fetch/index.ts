@@ -1,6 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+import { cacheInvalidation } from "../_shared/redis/invalidate.ts";
+
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -193,6 +195,9 @@ Deno.serve(async (req) => {
             const { error } = await supabase.from("video_cache").insert(row);
             if (!error) inserted += 1;
           }
+        }
+        if (inserted > 0 && catalogProductId) {
+          await cacheInvalidation.invalidateProductVideos(catalogProductId).catch(() => undefined);
         }
       } catch {
         // Cache is optional. Still return clips to the app.

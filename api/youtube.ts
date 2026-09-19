@@ -5,12 +5,24 @@ import {
   filterMeaningfulThreads,
   type ThreadComment,
 } from '../lib/commentQuality';
+import {
+  CACHE_TTL,
+  cacheAside,
+  cacheInvalidation,
+  logCacheEvent,
+  videoCommentsKey,
+} from '../lib/server/redis';
 import { isShortFormYoutube, isoDurationToSeconds } from '../lib/youtubeDuration';
 
 type QueryReq = {
   method?: string;
-  query?: { q?: string | string[]; videoId?: string | string[] };
-  body?: { query?: string; videoId?: string };
+  query?: {
+    q?: string | string[];
+    videoId?: string | string[];
+    page?: string | string[];
+    limit?: string | string[];
+  };
+  body?: { query?: string; videoId?: string; page?: number; limit?: number };
 };
 type QueryRes = { status: (code: number) => { json: (body: unknown) => void } };
 
@@ -37,6 +49,8 @@ type YoutubeThreadItem = {
     }>;
   };
 };
+
+type ApiComment = ReturnType<typeof toApiComments>[number];
 
 function decodeEntities(value: string): string {
   return value
@@ -96,11 +110,16 @@ function toApiComments(threads: ThreadComment[]) {
   }));
 }
 
-async function persistMeaningfulComments(videoId: string, threads: ThreadComment[]) {
+function serviceSupabase() {
   const url = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key || !threads.length) return;
-  const client = createClient(url, key, { auth: { persistSession: false } });
+  if (!url || !key) return null;
+  return createClient(url, key, { auth: { persistSession: false } });
+}
+
+async function persistMeaningfulComments(videoId: string, threads: ThreadComment[]) {
+  const client = serviceSupabase();
+  if (!client || !threads.length) return;
   const parents = threads.map((thread) => ({
     id: thread.id,
     youtube_video_id: videoId,
@@ -131,6 +150,111 @@ async function persistMeaningfulComments(videoId: string, threads: ThreadComment
   if (replies.length) {
     await client.from('youtube_comments').upsert(replies, { onConflict: 'id' });
   }
+  await cacheInvalidation.invalidateVideoComments(videoId);
+}
+
+/** Prefer persisted meaningful parents + replies before calling YouTube. */
+async function loadCommentsFromDb(
+  videoId: string,
+  page: number,
+  limit: number,
+): Promise<ApiComment[] | null> {
+  const client = serviceSupabase();
+  if (!client) return null;
+  try {
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    const { data: parents, error } = await client
+      .from('youtube_comments')
+      .select(
+        'id, youtube_video_id, author_display_name, body, like_count, evidence_score, is_meaningful',
+      )
+      .eq('youtube_video_id', videoId)
+      .is('parent_comment_id', null)
+      .eq('is_meaningful', true)
+      .order('evidence_score', { ascending: false })
+      .range(from, to);
+    if (error || !parents?.length) return null;
+
+    const parentIds = parents.map((row) => String(row.id));
+    const { data: replies } = await client
+      .from('youtube_comments')
+      .select(
+        'id, youtube_video_id, author_display_name, body, like_count, evidence_score, parent_comment_id',
+      )
+      .eq('youtube_video_id', videoId)
+      .in('parent_comment_id', parentIds)
+      .order('evidence_score', { ascending: false });
+
+    const byParent = new Map<string, typeof replies>();
+    for (const reply of replies ?? []) {
+      const parentId = String(reply.parent_comment_id ?? '');
+      const list = byParent.get(parentId) ?? [];
+      list.push(reply);
+      byParent.set(parentId, list);
+    }
+
+    return parents.map((parent) => {
+      const threadReplies = (byParent.get(String(parent.id)) ?? []).slice(0, COMMENT_REPLIES_PER_THREAD);
+      return {
+        id: String(parent.id),
+        youtubeVideoId: videoId,
+        authorDisplayName: String(parent.author_display_name ?? 'YouTube viewer'),
+        body: String(parent.body ?? ''),
+        parentId: null as string | null,
+        likeCount: Number(parent.like_count ?? 0),
+        evidenceScore: Number(parent.evidence_score ?? 0),
+        isMeaningful: true,
+        replies: threadReplies.map((reply) => ({
+          id: String(reply.id),
+          youtubeVideoId: videoId,
+          authorDisplayName: String(reply.author_display_name ?? 'YouTube viewer'),
+          body: String(reply.body ?? ''),
+          parentId: String(parent.id),
+          likeCount: Number(reply.like_count ?? 0),
+          evidenceScore: Number(reply.evidence_score ?? 0),
+          isMeaningful: true,
+          replies: [] as unknown[],
+        })),
+      };
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function fetchCommentsFromYoutube(
+  videoId: string,
+  apiKey: string,
+  page: number,
+  limit: number,
+): Promise<ApiComment[]> {
+  const params = new URLSearchParams({
+    part: 'snippet,replies',
+    videoId,
+    maxResults: String(Math.min(Math.max(limit, 1), COMMENT_THREADS_FETCH)),
+    order: 'relevance',
+    textFormat: 'plainText',
+    key: apiKey,
+  });
+  const youtube = await fetch(`https://www.googleapis.com/youtube/v3/commentThreads?${params.toString()}`);
+  const payload = (await youtube.json()) as { items?: YoutubeThreadItem[] };
+  const threads = mapMeaningfulThreads(videoId, payload.items ?? []);
+  await persistMeaningfulComments(videoId, threads).catch(() => undefined);
+  const all = toApiComments(threads);
+  const start = (page - 1) * limit;
+  return all.slice(start, start + limit);
+}
+
+function parsePageLimit(req: QueryReq): { page: number; limit: number } {
+  const rawPage = req.query?.page ?? req.body?.page ?? 1;
+  const rawLimit = req.query?.limit ?? req.body?.limit ?? COMMENT_THREADS_FETCH;
+  const page = Math.min(50, Math.max(1, Number(Array.isArray(rawPage) ? rawPage[0] : rawPage) || 1));
+  const limit = Math.min(
+    40,
+    Math.max(1, Number(Array.isArray(rawLimit) ? rawLimit[0] : rawLimit) || COMMENT_THREADS_FETCH),
+  );
+  return { page, limit };
 }
 
 export default async function handler(req: QueryReq, res: QueryRes) {
@@ -143,19 +267,20 @@ export default async function handler(req: QueryReq, res: QueryRes) {
   const rawVideo = req.query?.videoId ?? req.body?.videoId ?? '';
   const videoId = String(Array.isArray(rawVideo) ? rawVideo[0] : rawVideo).trim();
   if (videoId) {
-    const params = new URLSearchParams({
-      part: 'snippet,replies',
-      videoId,
-      maxResults: String(COMMENT_THREADS_FETCH),
-      order: 'relevance',
-      textFormat: 'plainText',
-      key,
+    const { page, limit } = parsePageLimit(req);
+    const cacheKey = videoCommentsKey(videoId, page, limit);
+    const comments = await cacheAside<ApiComment[]>({
+      key: cacheKey,
+      ttlSec: CACHE_TTL.comments(),
+      shouldCache: (value) => Array.isArray(value) && value.length > 0,
+      onEvent: logCacheEvent,
+      loader: async () => {
+        const fromDb = await loadCommentsFromDb(videoId, page, limit);
+        if (fromDb?.length) return fromDb;
+        return fetchCommentsFromYoutube(videoId, key, page, limit);
+      },
     });
-    const youtube = await fetch(`https://www.googleapis.com/youtube/v3/commentThreads?${params.toString()}`);
-    const payload = (await youtube.json()) as { items?: YoutubeThreadItem[] };
-    const threads = mapMeaningfulThreads(videoId, payload.items ?? []);
-    await persistMeaningfulComments(videoId, threads).catch(() => undefined);
-    res.status(200).json({ comments: toApiComments(threads) });
+    res.status(200).json({ comments, page, limit });
     return;
   }
 

@@ -1,6 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+import { cacheInvalidation } from "../_shared/redis/invalidate.ts";
+
 /**
  * discover-video-content
  *
@@ -1332,6 +1334,10 @@ async function runDiscover(
     }
   }
 
+  if ((inserted > 0 || classifiedExisting > 0) && catalogId) {
+    await cacheInvalidation.invalidateProductVideos(catalogId).catch(() => undefined);
+  }
+
   return {
     provider: "serper",
     searches_attempted: searchesAttempted,
@@ -1376,19 +1382,37 @@ Deno.serve(async (req) => {
 
     if (action === "approve") {
       if (!body.id) return json({ error: "missing_id" }, 400);
+      const { data: before } = await supabase
+        .from("video_cache")
+        .select("catalog_product_id")
+        .eq("id", body.id)
+        .maybeSingle();
       const patch: Record<string, unknown> = {
         pending_review: false,
         approved_by: isUuid(body.approvedBy) ? body.approvedBy : null,
       };
       const { error } = await supabase.from("video_cache").update(patch).eq("id", body.id);
       if (error) return json({ error: error.message }, 500);
+      const catalogId = (before?.catalog_product_id as string | null) ?? null;
+      if (catalogId) {
+        await cacheInvalidation.invalidateProductVideos(catalogId).catch(() => undefined);
+      }
       return json({ ok: true });
     }
 
     if (action === "reject") {
       if (!body.id) return json({ error: "missing_id" }, 400);
+      const { data: before } = await supabase
+        .from("video_cache")
+        .select("catalog_product_id")
+        .eq("id", body.id)
+        .maybeSingle();
       const { error } = await supabase.from("video_cache").delete().eq("id", body.id);
       if (error) return json({ error: error.message }, 500);
+      const catalogId = (before?.catalog_product_id as string | null) ?? null;
+      if (catalogId) {
+        await cacheInvalidation.invalidateProductVideos(catalogId).catch(() => undefined);
+      }
       return json({ ok: true });
     }
 
@@ -1397,6 +1421,11 @@ Deno.serve(async (req) => {
       if (!body.id || !voterKey || typeof body.isHelpful !== "boolean") {
         return json({ error: "missing_vote" }, 400);
       }
+      const { data: videoRow } = await supabase
+        .from("video_cache")
+        .select("catalog_product_id")
+        .eq("id", body.id)
+        .maybeSingle();
       const { error } = await supabase.from("video_feedback").upsert(
         {
           video_id: body.id,
@@ -1406,6 +1435,10 @@ Deno.serve(async (req) => {
         { onConflict: "video_id,voter_key" },
       );
       if (error) return json({ error: error.message }, 500);
+      const catalogId = (videoRow?.catalog_product_id as string | null) ?? null;
+      if (catalogId) {
+        await cacheInvalidation.invalidateProductVideos(catalogId).catch(() => undefined);
+      }
       return json({ ok: true });
     }
 
@@ -1449,6 +1482,10 @@ Deno.serve(async (req) => {
         if (!updateError) {
           classified += 1;
           if (result.content_tags.length) tagged += 1;
+          const catalogId = (row.catalog_product_id as string | null) ?? null;
+          if (catalogId) {
+            await cacheInvalidation.invalidateProductVideos(catalogId).catch(() => undefined);
+          }
         }
         // Heuristic path is cheap; only throttle when an LLM call likely ran.
         if (!result.classification_justification?.startsWith("heuristic:")) {

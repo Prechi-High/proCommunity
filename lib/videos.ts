@@ -1,3 +1,4 @@
+import { invokeCachedRead } from './cachedRead';
 import { voteOnVideo } from './discoverVideos';
 import { clipMatchesTag, heuristicContentTags } from './heuristicTags';
 import { supabase } from './supabase';
@@ -78,11 +79,82 @@ const SELECT_CLIP =
  * Falls back to product videos + title heuristics when content_tags are empty
  * (e.g. LLM classifier exhausted).
  */
+function clipFromCachedPayload(row: Record<string, unknown>): JourneyClip {
+  const helpful = Number(row.helpfulCount ?? row.helpful_count ?? 0);
+  const notHelpful = Number(row.notHelpfulCount ?? row.not_helpful_count ?? 0);
+  const tags = Array.isArray(row.contentTags)
+    ? (row.contentTags as string[]).filter((t): t is ContentTagKey =>
+        [
+          'how_it_works',
+          'how_to_use',
+          'composition',
+          'who_its_for',
+          'results_over_time',
+          'precautions',
+          'comparisons',
+        ].includes(t),
+      )
+    : Array.isArray(row.content_tags)
+      ? (row.content_tags as string[]).filter((t): t is ContentTagKey =>
+          [
+            'how_it_works',
+            'how_to_use',
+            'composition',
+            'who_its_for',
+            'results_over_time',
+            'precautions',
+            'comparisons',
+          ].includes(t),
+        )
+      : [];
+  return {
+    id: String(row.id),
+    platform: asPlatform(String(row.platform ?? row.source_platform ?? 'youtube')),
+    sourceUrl: String(row.sourceUrl ?? row.source_url ?? ''),
+    embedHtml: (row.embedHtml as string | null) ?? (row.embed_html as string | null) ?? null,
+    youtubeVideoId:
+      (row.youtubeVideoId as string | null) ?? (row.youtube_video_id as string | null) ?? null,
+    title: String(row.title ?? 'Video'),
+    author: String(row.author ?? row.channel_or_author ?? row.channel_title ?? ''),
+    thumbnailUrl: String(row.thumbnailUrl ?? row.thumbnail_url ?? ''),
+    durationSeconds:
+      (row.durationSeconds as number | null) ?? (row.duration_seconds as number | null) ?? null,
+    contentTags: tags,
+    classificationConfidence:
+      row.classificationConfidence == null && row.classification_confidence == null
+        ? null
+        : Number(row.classificationConfidence ?? row.classification_confidence),
+    classificationJustification:
+      (row.classificationJustification as string | null) ??
+      (row.classification_justification as string | null) ??
+      null,
+    helpfulCount: helpful,
+    notHelpfulCount: notHelpful,
+    wilson: wilsonScore(helpful, notHelpful),
+  };
+}
+
 export async function loadTaggedClips(
   product: Product,
   tag: ContentTagKey,
   limit = 40,
 ): Promise<JourneyClip[]> {
+  const page = 1;
+  const pageLimit = Math.min(Math.max(limit, 1), 40);
+  const cached = await invokeCachedRead<{ clips?: Record<string, unknown>[] }>({
+    action: 'tagged_videos',
+    productId: product.id,
+    tag,
+    page,
+    limit: pageLimit,
+  });
+  if (cached?.clips?.length) {
+    const clips = cached.clips
+      .map((row) => clipFromCachedPayload(row))
+      .filter((clip) => clip.platform === 'youtube');
+    if (clips.length) return diversifyTiedTop4(clips);
+  }
+
   if (!supabase) return [];
   try {
     const { data, error } = await supabase.rpc('list_tagged_videos', {

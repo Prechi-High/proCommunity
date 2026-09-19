@@ -1,3 +1,4 @@
+import { invokeCachedRead } from './cachedRead';
 import { products as seedProducts } from './seed';
 import {
   fetchOpenBeautyProduct,
@@ -97,6 +98,13 @@ export async function loadProduct(id: string): Promise<Product | null> {
   }
   const live = await fetchOpenBeautyProduct(id);
   if (live) return live;
+
+  const redisCached = await invokeCachedRead<{ product?: Record<string, unknown> | null }>({
+    action: 'product',
+    productId: id,
+  });
+  if (redisCached?.product) return fromRow(redisCached.product);
+
   if (supabase) {
     const { data } = await supabase.from('products').select('*').or(`barcode.eq.${id},id.eq.${id}`).maybeSingle();
     if (data) return fromRow(data as Record<string, unknown>);
