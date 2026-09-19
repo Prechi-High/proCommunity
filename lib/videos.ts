@@ -1,4 +1,5 @@
 import { discoverVideosForProduct, voteOnVideo } from './discoverVideos';
+import { clipMatchesTag, heuristicContentTags } from './heuristicTags';
 import { supabase } from './supabase';
 import { CACHE_FIRST_THRESHOLD, wilsonScore, type ContentTagKey } from './taxonomy';
 import type { Product } from './types';
@@ -73,6 +74,8 @@ const SELECT_CLIP =
 /**
  * Cache-first: tagged, Wilson-ranked clips for one product + content tag.
  * Does not call Serper.
+ * Falls back to product videos + title heuristics when content_tags are empty
+ * (e.g. LLM classifier exhausted).
  */
 export async function loadTaggedClips(
   product: Product,
@@ -95,12 +98,44 @@ export async function loadTaggedClips(
       .eq('catalog_product_id', product.id)
       .contains('content_tags', [tag])
       .limit(limit);
-    if (fallback.error || !fallback.data?.length) return [];
-    return diversifyTiedTop4(
-      fallback.data
-        .map((row) => asJourneyClip(row as Record<string, unknown>))
-        .sort((a, b) => b.wilson - a.wilson),
-    );
+    if (!fallback.error && fallback.data?.length) {
+      return diversifyTiedTop4(
+        fallback.data
+          .map((row) => asJourneyClip(row as Record<string, unknown>))
+          .sort((a, b) => b.wilson - a.wilson),
+      );
+    }
+
+    // Untagged / under-classified cache: still show product clips that match this chip.
+    const any = await supabase
+      .from('video_cache')
+      .select(SELECT_CLIP)
+      .eq('catalog_product_id', product.id)
+      .order('fetched_at', { ascending: false })
+      .limit(Math.max(limit, 24));
+    if (any.error || !any.data?.length) return [];
+    const matched = any.data
+      .map((row) => asJourneyClip(row as Record<string, unknown>))
+      .filter((clip) =>
+        clipMatchesTag(clip.title, clip.author, tag, clip.contentTags),
+      )
+      .sort((a, b) => b.wilson - a.wilson);
+    if (matched.length) return diversifyTiedTop4(matched);
+
+    // Last resort: show product clips under who_its_for so the shelf is never empty.
+    if (tag === 'who_its_for') {
+      return diversifyTiedTop4(
+        any.data
+          .map((row) => {
+            const clip = asJourneyClip(row as Record<string, unknown>);
+            if (clip.contentTags.length) return clip;
+            const guessed = heuristicContentTags(clip.title, clip.author);
+            return { ...clip, contentTags: guessed.tags };
+          })
+          .sort((a, b) => b.wilson - a.wilson),
+      );
+    }
+    return [];
   } catch {
     return [];
   }

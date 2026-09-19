@@ -737,6 +737,34 @@ const EMPTY_CLASSIFICATION: Classification = {
   classification_justification: null,
 };
 
+const HEURISTIC_RULES: Array<{ tag: string; pattern: RegExp }> = [
+  { tag: "how_to_use", pattern: /\b(how to|how i|tutorial|routine|apply|application|layer|use this|using|cleanse|wash|steps?)\b/i },
+  { tag: "how_it_works", pattern: /\b(how it works|science|mechanism|barrier|ceramide|explains?|dermatologist|why it)\b/i },
+  { tag: "composition", pattern: /\b(ingredient|composition|formula|formulati|what.?s in|niacinamide|retinol|salicylic|zinc)\b/i },
+  { tag: "who_its_for", pattern: /\b(oily|dry|sensitive|acne|combination|skin type|who (it'?s|is) for|good for)\b/i },
+  { tag: "results_over_time", pattern: /\b(before\s*after|results?|week|month|progress|transform|journey|glow|healing)\b/i },
+  { tag: "precautions", pattern: /\b(irritat|sting|burn|side effect|patch test|caution|warning|purge|react)\b/i },
+  { tag: "comparisons", pattern: /\b(vs\.?|versus|compare|comparison|dupe|alternative|better than)\b/i },
+];
+
+/** Deterministic tags when the LLM is down. Only uses the fixed taxonomy keys. */
+function heuristicClassify(title: string, author: string, allowed: Set<string>): Classification {
+  const hay = `${title} ${author}`.trim();
+  const tags: string[] = [];
+  if (hay && !/^(instagram|facebook|tiktok|pinterest|youtube)\s*video$/i.test(hay)) {
+    for (const rule of HEURISTIC_RULES) {
+      if (allowed.has(rule.tag) && rule.pattern.test(hay) && !tags.includes(rule.tag)) tags.push(rule.tag);
+    }
+  }
+  if (!tags.length && allowed.has("who_its_for")) tags.push("who_its_for");
+  return {
+    content_tags: tags.slice(0, 3),
+    classification_confidence: tags.length && tags[0] !== "who_its_for" ? 0.78 : 0.71,
+    classification_method: "title_description",
+    classification_justification: tags.length ? `heuristic:${tags.join(",")}` : "heuristic_empty",
+  };
+}
+
 function stripXml(xml: string): string {
   return xml
     .replace(/<text[^>]*>/gi, " ")
@@ -959,7 +987,7 @@ async function callLlm(prompt: string): Promise<{ text: string; error: string | 
         name: "openrouter",
         url: "https://openrouter.ai/api/v1/chat/completions",
         key: secretValue("OPENROUTER_API_KEY"),
-        model: Deno.env.get("OPENROUTER_MODEL")?.trim() || "google/gemini-2.5-flash",
+        model: Deno.env.get("OPENROUTER_MODEL")?.trim() || "openai/gpt-4o-mini",
         extraHeaders: {
           "HTTP-Referer": Deno.env.get("PUBLIC_SITE_ORIGIN")?.trim() || "https://pro-community.vercel.app",
           "X-Title": "Sourced",
@@ -991,6 +1019,14 @@ async function classifyClip(
   productName: string,
 ): Promise<Classification> {
   if (!taxonomy.length) return EMPTY_CLASSIFICATION;
+  const allowed = new Set(taxonomy.map((row) => row.tag_key));
+  const genericTitle = /^(instagram|facebook|tiktok|pinterest|youtube)\s*video$/i.test(clip.title.trim());
+  // Cheap path when there is nothing for an LLM to read.
+  if (genericTitle || !clip.title.trim()) {
+    const fallback = heuristicClassify(clip.title, clip.channel_or_author, allowed);
+    return { ...fallback, classification_method: "title_description" };
+  }
+
   let transcript = "";
   if (clip.source_platform === "youtube" && clip.youtube_video_id) {
     transcript = await fetchYoutubeCaptions(clip.youtube_video_id);
@@ -1019,21 +1055,46 @@ Return JSON only: {"tags":["how_to_use"],"confidence":0.82,"justification":"..."
   const { text: raw, error: llmError } = await callLlm(prompt);
   const parsed = parseClassifierJson(raw);
   if (!parsed) {
+    const fallback = heuristicClassify(clip.title, clip.channel_or_author, allowed);
+    if (fallback.content_tags.length) {
+      return {
+        ...fallback,
+        classification_method: method,
+        classification_justification:
+          `${fallback.classification_justification};llm:${llmError ?? (raw ? "classifier_unparsed" : "no_llm_key")}`.slice(0, 280),
+      };
+    }
     return {
       ...EMPTY_CLASSIFICATION,
       classification_method: method,
       classification_justification: llmError ?? (raw ? "classifier_unparsed" : "no_llm_key"),
     };
   }
-  const allowed = new Set(taxonomy.map((row) => row.tag_key));
   const tags: string[] = [];
   for (const tag of parsed.tags) {
     const mapped = normalizeAllowedTag(tag, allowed);
     if (mapped && !tags.includes(mapped)) tags.push(mapped);
   }
   const floor = Number.isFinite(CLASSIFICATION_FLOOR) ? CLASSIFICATION_FLOOR : 0.7;
+  if (parsed.confidence >= floor && tags.length) {
+    return {
+      content_tags: tags,
+      classification_confidence: parsed.confidence,
+      classification_method: method,
+      classification_justification: parsed.justification || null,
+    };
+  }
+  const fallback = heuristicClassify(clip.title, clip.channel_or_author, allowed);
+  if (fallback.content_tags.length) {
+    return {
+      ...fallback,
+      classification_method: method,
+      classification_justification:
+        `${fallback.classification_justification};llm_below_floor_or_empty`.slice(0, 280),
+    };
+  }
   return {
-    content_tags: parsed.confidence >= floor ? tags : [],
+    content_tags: [],
     classification_confidence: parsed.confidence,
     classification_method: method,
     classification_justification: parsed.justification || null,
@@ -1344,11 +1405,11 @@ Deno.serve(async (req) => {
         .from("video_cache")
         .select("id, source_platform, source_url, embed_html, title, channel_or_author, channel_title, thumbnail_url, duration_seconds, youtube_video_id, catalog_product_id, search_query")
         .eq("content_tags", "{}")
-        .or("classification_method.is.null,classification_justification.eq.no_llm_key,classification_justification.eq.classifier_unparsed,classification_justification.like.openai_http_%,classification_justification.like.anthropic_http_%,classification_justification.like.gemini_%,classification_justification.like.openrouter_%,classification_justification.like.nvidia_%,classification_justification.like.no_%")
         .order("fetched_at", { ascending: false })
-        .limit(6);
+        .limit(24);
       if (error) return json({ error: error.message, classified: 0 }, 500);
       let classified = 0;
+      let tagged = 0;
       for (const row of data ?? []) {
         const productName = String(row.search_query ?? row.catalog_product_id ?? "");
         const result = await classifyClip(
@@ -1372,13 +1433,23 @@ Deno.serve(async (req) => {
             classification_confidence: result.classification_confidence,
             classification_method: result.classification_method,
             classification_justification: result.classification_justification,
+            pending_review: false,
           })
           .eq("id", row.id);
-        if (!updateError) classified += 1;
-        if (result.classification_justification?.includes("RESOURCE_EXHAUSTED")) break;
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        if (!updateError) {
+          classified += 1;
+          if (result.content_tags.length) tagged += 1;
+        }
+        // Heuristic path is cheap; only throttle when an LLM call likely ran.
+        if (!result.classification_justification?.startsWith("heuristic:")) {
+          if (result.classification_justification?.includes("RESOURCE_EXHAUSTED")) {
+            // Keep going with heuristics for the rest of this batch.
+          } else {
+            await new Promise((resolve) => setTimeout(resolve, 400));
+          }
+        }
       }
-      return json({ classified, remaining: Math.max(0, (data?.length ?? 0) - classified) });
+      return json({ classified, tagged, remaining: Math.max(0, (data?.length ?? 0) - classified) });
     }
 
     if (action === "refresh_gaps") {
