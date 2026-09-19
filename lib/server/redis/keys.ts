@@ -22,6 +22,19 @@ export function productKey(productId: string): string {
   return `${CACHE_PREFIX}:product:${productId}`;
 }
 
+/** Normalize search query + optional chip for stable Redis keys. */
+export function normalizeSearchQuery(query: string, chip?: string): string {
+  return `${query} ${chip ?? ''}`
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+export function searchKey(query: string, chip?: string): string {
+  const normalized = normalizeSearchQuery(query, chip);
+  return `${CACHE_PREFIX}:search:${normalized || '_'}`;
+}
+
 export function productVideosKey(
   productId: string,
   tag: string,

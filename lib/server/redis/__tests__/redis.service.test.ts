@@ -6,10 +6,12 @@ import {
   CACHE_TTL,
   cacheAside,
   cacheInvalidation,
+  normalizeSearchQuery,
   productKey,
   productVideosKey,
   redisService,
   resetRedisClientForTests,
+  searchKey,
   setRedisClientForTests,
   videoCommentsKey,
 } from '../index';
@@ -82,6 +84,12 @@ describe('cache keys', () => {
       videoCommentsKey('yt1', 2, 20),
     );
     assert.equal(productKey('abc'), 'cache:product:abc');
+  });
+
+  it('normalizes search keys stably', () => {
+    assert.equal(normalizeSearchQuery('  Niacinamide  Serum ', 'oily'), 'niacinamide serum oily');
+    assert.equal(searchKey('Niacinamide Serum', 'oily'), searchKey('niacinamide serum', 'oily'));
+    assert.equal(searchKey('a', 'b'), 'cache:search:a b');
   });
 });
 
@@ -184,6 +192,11 @@ describe('TTL', () => {
   it('uses configured product TTL default', () => {
     delete process.env.CACHE_TTL_PRODUCT_SEC;
     assert.equal(CACHE_TTL.product(), 30 * 60);
+  });
+
+  it('uses 24h search TTL by default', () => {
+    delete process.env.CACHE_TTL_SEARCH_SEC;
+    assert.equal(CACHE_TTL.search(), 24 * 60 * 60);
   });
 
   it('respects env override', () => {

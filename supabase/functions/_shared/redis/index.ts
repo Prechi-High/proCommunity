@@ -8,6 +8,8 @@ export {
   productVideosKey,
   videoCommentsKey,
   taxonomyKey,
+  searchKey,
+  normalizeSearchQuery,
   productVideoKeyVariants,
   CONTENT_TAG_KEYS,
 } from "./keys.ts";

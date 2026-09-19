@@ -2,7 +2,14 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
 import { cacheAside } from "../_shared/redis/cacheAside.ts";
-import { productKey, productVideosKey, taxonomyKey } from "../_shared/redis/keys.ts";
+import {
+  normalizeSearchQuery,
+  productKey,
+  productVideosKey,
+  searchKey,
+  taxonomyKey,
+} from "../_shared/redis/keys.ts";
+import { redisService } from "../_shared/redis/service.ts";
 import { CACHE_TTL } from "../_shared/redis/ttl.ts";
 
 const cors = {
@@ -10,7 +17,23 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type Action = "product" | "tagged_videos" | "taxonomy";
+type Action = "product" | "tagged_videos" | "taxonomy" | "search" | "upsert_products";
+
+type ProductLike = {
+  id?: string;
+  name?: string;
+  brand?: string;
+  description?: string;
+  category?: string;
+  ingredients?: string[];
+  attributeTags?: string[];
+  suitsSkinTypes?: string[];
+  heroImageUrl?: string | null;
+  typicalDurationDays?: number | null;
+  shelfLifeMonths?: number | null;
+  source?: string;
+  barcode?: string | null;
+};
 
 type Body = {
   action?: Action;
@@ -19,6 +42,10 @@ type Body = {
   page?: number;
   limit?: number;
   category?: string;
+  query?: string;
+  chip?: string;
+  products?: ProductLike[];
+  searchQuery?: string;
 };
 
 const SELECT_CLIP =
@@ -32,6 +59,16 @@ const TAG_KEYS = new Set([
   "results_over_time",
   "precautions",
   "comparisons",
+]);
+
+const CATEGORIES = new Set([
+  "cleanser",
+  "serum",
+  "moisturizer",
+  "spf",
+  "mask",
+  "essence",
+  "treatment",
 ]);
 
 function json(body: unknown, status = 200) {
@@ -58,6 +95,31 @@ function clampLimit(value: unknown, fallback = 20, max = 40): number {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 1) return fallback;
   return Math.min(Math.floor(n), max);
+}
+
+function escapeIlike(term: string): string {
+  return term.replace(/[%_,]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+}
+
+/** App-facing product: id = barcode when present. */
+function toAppProduct(row: Record<string, unknown>) {
+  const barcode = (row.barcode as string | null) ?? null;
+  return {
+    id: String(barcode || row.id),
+    name: String(row.name ?? ""),
+    brand: String(row.brand ?? ""),
+    description: String(row.description ?? ""),
+    category: String(row.category ?? "treatment"),
+    ingredients: Array.isArray(row.ingredients) ? (row.ingredients as string[]) : [],
+    attributeTags: Array.isArray(row.attribute_tags) ? (row.attribute_tags as string[]) : [],
+    suitsSkinTypes: Array.isArray(row.suits_skin_types) ? (row.suits_skin_types as string[]) : [],
+    heroImageUrl: (row.hero_image_url as string | null) ?? null,
+    typicalDurationDays: (row.typical_duration_days as number | null) ?? null,
+    shelfLifeMonths: (row.shelf_life_months as number | null) ?? null,
+    source: String(row.source ?? "open_beauty_facts"),
+    barcode,
+    productUrl: null as string | null,
+  };
 }
 
 function asClip(row: Record<string, unknown>) {
@@ -94,7 +156,69 @@ async function loadProductRow(client: SupabaseClient, productId: string) {
     .or(`barcode.eq.${productId},id.eq.${productId}`)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return data;
+  return data ? toAppProduct(data as Record<string, unknown>) : null;
+}
+
+async function searchProductsDb(client: SupabaseClient, term: string) {
+  let request = client.from("products").select("*").limit(40);
+  const safe = escapeIlike(term);
+  if (safe) request = request.or(`name.ilike.%${safe}%,brand.ilike.%${safe}%`);
+  const { data, error } = await request;
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => toAppProduct(row as Record<string, unknown>));
+}
+
+async function upsertOneProduct(client: SupabaseClient, product: ProductLike) {
+  const barcode = String(product.barcode || product.id || "").trim();
+  const name = String(product.name ?? "").trim();
+  if (!barcode || !name) return null;
+
+  const category = CATEGORIES.has(String(product.category))
+    ? String(product.category)
+    : "treatment";
+  const row = {
+    name,
+    brand: String(product.brand ?? "Unknown brand").trim() || "Unknown brand",
+    description: String(product.description ?? "").slice(0, 8000),
+    category,
+    ingredients: Array.isArray(product.ingredients) ? product.ingredients.slice(0, 48) : [],
+    attribute_tags: Array.isArray(product.attributeTags) ? product.attributeTags.slice(0, 48) : [],
+    suits_skin_types: Array.isArray(product.suitsSkinTypes)
+      ? product.suitsSkinTypes.slice(0, 12)
+      : [],
+    hero_image_url: product.heroImageUrl ?? null,
+    typical_duration_days: product.typicalDurationDays ?? null,
+    shelf_life_months: product.shelfLifeMonths ?? null,
+    source: "open_beauty_facts",
+    barcode,
+  };
+
+  const { data: existing } = await client
+    .from("products")
+    .select("id")
+    .eq("barcode", barcode)
+    .maybeSingle();
+
+  let saved: Record<string, unknown> | null = null;
+  if (existing?.id) {
+    const { data, error } = await client
+      .from("products")
+      .update(row)
+      .eq("id", existing.id)
+      .select("*")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    saved = data as Record<string, unknown> | null;
+  } else {
+    const { data, error } = await client.from("products").insert(row).select("*").maybeSingle();
+    if (error) throw new Error(error.message);
+    saved = data as Record<string, unknown> | null;
+  }
+
+  if (!saved) return null;
+  const appProduct = toAppProduct(saved);
+  await redisService.setJson(productKey(barcode), appProduct, CACHE_TTL.product());
+  return appProduct;
 }
 
 async function loadTaggedPage(
@@ -173,6 +297,46 @@ Deno.serve(async (req) => {
       return json({
         product: value,
         cache: { event, durationMs, totalMs: Date.now() - started },
+      });
+    }
+
+    if (action === "search") {
+      const query = body.query?.trim() ?? "";
+      const chip = body.chip?.trim() || undefined;
+      const term = normalizeSearchQuery(query, chip) || "skincare serum";
+      const key = searchKey(query, chip);
+      const { value, event, durationMs } = await cacheAside({
+        key,
+        ttlSec: CACHE_TTL.search(),
+        loader: () => searchProductsDb(client, term),
+        shouldCache: (products) => Array.isArray(products) && products.length > 0,
+      });
+      return json({
+        products: value,
+        cache: { event, durationMs, totalMs: Date.now() - started },
+      });
+    }
+
+    if (action === "upsert_products") {
+      const list = Array.isArray(body.products) ? body.products.slice(0, 40) : [];
+      if (!list.length) return json({ error: "missing_products" }, 400);
+      const saved: ReturnType<typeof toAppProduct>[] = [];
+      for (const item of list) {
+        try {
+          const one = await upsertOneProduct(client, item);
+          if (one) saved.push(one);
+        } catch (error) {
+          console.error("[cached-read] upsert_failed", error instanceof Error ? error.message : error);
+        }
+      }
+      const searchQuery = body.searchQuery?.trim();
+      if (searchQuery && saved.length) {
+        await redisService.setJson(searchKey(searchQuery), saved, CACHE_TTL.search());
+      }
+      return json({
+        upserted: saved.length,
+        products: saved,
+        cache: { totalMs: Date.now() - started },
       });
     }
 

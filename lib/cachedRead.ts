@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-type CachedReadAction = 'product' | 'tagged_videos' | 'taxonomy';
+type CachedReadAction = 'product' | 'tagged_videos' | 'taxonomy' | 'search' | 'upsert_products';
 
 /**
  * Invoke the server-side cache-aside Edge Function.

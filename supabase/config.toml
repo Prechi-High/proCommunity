@@ -6,3 +6,6 @@ verify_jwt = true
 
 [functions.discover-video-content]
 verify_jwt = false
+
+[functions.cached-read]
+verify_jwt = true

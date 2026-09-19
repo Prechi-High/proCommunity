@@ -8,6 +8,8 @@ export {
   productVideosKey,
   videoCommentsKey,
   taxonomyKey,
+  searchKey,
+  normalizeSearchQuery,
   productVideoKeyVariants,
   videoCommentKeyVariants,
   CONTENT_TAG_KEYS,

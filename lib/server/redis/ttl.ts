@@ -12,4 +12,5 @@ export const CACHE_TTL = {
   videos: () => envSec('CACHE_TTL_VIDEOS_SEC', 10 * 60),
   comments: () => envSec('CACHE_TTL_COMMENTS_SEC', 10 * 60),
   taxonomy: () => envSec('CACHE_TTL_TAXONOMY_SEC', 60 * 60),
+  search: () => envSec('CACHE_TTL_SEARCH_SEC', 24 * 60 * 60),
 } as const;
