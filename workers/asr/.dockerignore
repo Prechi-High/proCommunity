@@ -1,0 +1,9 @@
+faster-whisper
+*.pt
+*.bin
+.venv/
+__pycache__/
+tmp/
+models/
+.env
+

@@ -5,6 +5,7 @@ import {
   rememberProduct,
   searchOpenBeautyFacts,
 } from './openBeautyFacts';
+import { catalogIdForQuery } from './productNormalize';
 import { supabase } from './supabase';
 import type { Product } from './types';
 
@@ -31,9 +32,14 @@ function fromRow(row: Record<string, unknown>): Product {
 
 export async function searchCatalog(query: string, chip?: string): Promise<Product[]> {
   const term = chip ? `${query} ${chip}`.trim() : query;
+  const aliasId = catalogIdForQuery(query);
+  const aliasProduct = aliasId ? seedProducts.find((product) => product.id === aliasId) : undefined;
   try {
     const live = await searchOpenBeautyFacts(term || 'skincare serum');
-    if (live.length) return live;
+    if (live.length) {
+      if (!aliasProduct) return live;
+      return [aliasProduct, ...live.filter((item) => item.id !== aliasProduct.id)];
+    }
   } catch {
     // Fall through to Supabase / seed. Live API is the primary catalog.
   }
@@ -52,9 +58,9 @@ export async function searchCatalog(query: string, chip?: string): Promise<Produ
   // Last resort. Scored per word rather than matched on the whole phrase, so a
   // query like "combination skin serum" still returns something sensible.
   const words = term.toLowerCase().split(/\s+/).filter(Boolean);
-  if (!words.length) return seedProducts;
+  if (!words.length) return aliasProduct ? [aliasProduct, ...seedProducts] : seedProducts;
 
-  return seedProducts
+  const ranked = seedProducts
     .map((product) => {
       const hay = [
         product.name,
@@ -72,6 +78,13 @@ export async function searchCatalog(query: string, chip?: string): Promise<Produ
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score)
     .map((entry) => entry.product);
+  if (aliasProduct && !ranked.some((product) => product.id === aliasProduct.id)) {
+    return [aliasProduct, ...ranked];
+  }
+  if (aliasProduct) {
+    return [aliasProduct, ...ranked.filter((product) => product.id !== aliasProduct.id)];
+  }
+  return ranked;
 }
 
 export async function loadProduct(id: string): Promise<Product | null> {

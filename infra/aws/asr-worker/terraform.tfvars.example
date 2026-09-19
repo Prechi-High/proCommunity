@@ -1,0 +1,11 @@
+aws_region          = "eu-west-1"
+image_tag           = "REPLACE_WITH_GIT_SHA"
+vpc_id              = "vpc-xxxxxxxx"
+subnet_ids          = ["subnet-aaaaaaaa", "subnet-bbbbbbbb"]
+supabase_secret_arn = "arn:aws:secretsmanager:eu-west-1:ACCOUNT:secret:sourced/asr/supabase"
+upstash_secret_arn  = "arn:aws:secretsmanager:eu-west-1:ACCOUNT:secret:sourced/asr/upstash"
+llm_secret_arn      = "arn:aws:secretsmanager:eu-west-1:ACCOUNT:secret:sourced/asr/llm"
+budget_emails       = ["you@example.com"]
+desired_count       = 0
+enable_schedule     = false
+budget_amount       = "10"

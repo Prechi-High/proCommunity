@@ -34,6 +34,24 @@ yarn-error.*
 .env
 .env*.local
 
+# ASR worker
+workers/asr/.venv/
+workers/asr/__pycache__/
+workers/asr/.pytest_cache/
+workers/asr/.env
+workers/asr/tmp/
+workers/asr/models/
+infra/aws/**/.terraform/
+infra/aws/**/*.tfstate
+infra/aws/**/*.tfstate.*
+infra/aws/**/terraform.tfvars
+*.pt
+*.pt
+*.bin
+*.onnx
+whisper-cache/
+
+
 # supabase CLI
 supabase/.temp/
 

@@ -232,7 +232,9 @@ export function ThreadRow({ thread, productId }: { thread: ThreadSummary; produc
 export function YoutubeCommentCard({
   comment,
 }: {
-  comment: Pick<YoutubeComment, 'authorDisplayName' | 'body'>;
+  comment: Pick<YoutubeComment, 'authorDisplayName' | 'body'> & {
+    replies?: Array<Pick<YoutubeComment, 'authorDisplayName' | 'body'>>;
+  };
 }) {
   return (
     <View
@@ -258,6 +260,24 @@ export function YoutubeCommentCard({
         {comment.body}
       </Text>
       <Caption>{comment.authorDisplayName}</Caption>
+      {(comment.replies ?? []).map((reply, index) => (
+        <View
+          key={`${reply.authorDisplayName}-${index}`}
+          style={{
+            marginTop: 4,
+            marginLeft: 10,
+            paddingLeft: 10,
+            borderLeftWidth: 2,
+            borderLeftColor: colors.mist,
+            gap: 4,
+          }}
+        >
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.ink, lineHeight: 18 }}>
+            {reply.body}
+          </Text>
+          <Caption>{`Reply · ${reply.authorDisplayName}`}</Caption>
+        </View>
+      ))}
     </View>
   );
 }

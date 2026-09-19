@@ -133,6 +133,60 @@ function catalogProductId(value: string | undefined): string | null {
   return id;
 }
 
+function redisConfigured(): boolean {
+  return Boolean(
+    Deno.env.get("UPSTASH_REDIS_REST_URL")?.trim() && Deno.env.get("UPSTASH_REDIS_REST_TOKEN")?.trim(),
+  );
+}
+
+async function enqueueAnalysisJob(job: Record<string, unknown>): Promise<boolean> {
+  const url = Deno.env.get("UPSTASH_REDIS_REST_URL")?.trim();
+  const token = Deno.env.get("UPSTASH_REDIS_REST_TOKEN")?.trim();
+  if (!url || !token) return false;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify([
+        "LPUSH",
+        Deno.env.get("ASR_QUEUE_KEY")?.trim() || "asr:jobs",
+        JSON.stringify(job),
+      ]),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function queueVideoAnalysis(
+  client: NonNullable<ReturnType<typeof serviceClient>>,
+  row: { id: string; catalog_product_id?: string | null; source_platform?: string; source_url?: string },
+): Promise<boolean> {
+  const payload = {
+    version: 1,
+    jobType: "TRANSCRIBE_VIDEO",
+    jobId: crypto.randomUUID(),
+    videoId: row.id,
+    productId: row.catalog_product_id ?? null,
+    platform: row.source_platform ?? "",
+    videoUrl: row.source_url ?? "",
+    createdAt: new Date().toISOString(),
+    attempt: 1,
+  };
+  await client.from("video_analysis_jobs").upsert(
+    {
+      video_id: row.id,
+      job_type: "TRANSCRIBE_VIDEO",
+      status: "queued",
+      job_payload: payload,
+    },
+    { onConflict: "video_id,job_type" },
+  );
+  await client.from("video_cache").update({ analysis_status: "queued" }).eq("id", row.id);
+  return enqueueAnalysisJob(payload);
+}
+
 function humanTag(tag: string): string {
   return tag.replace(/_/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -765,6 +819,7 @@ function parseClassifierJson(raw: string): { tags: string[]; confidence: number;
         tag?: unknown;
         confidence?: unknown;
         justification?: unknown;
+        evidence?: unknown;
       };
       const rawTags = parsed.tags ?? parsed.content_tags ?? parsed.tag;
       const tags = Array.isArray(rawTags)
@@ -776,13 +831,40 @@ function parseClassifierJson(raw: string): { tags: string[]; confidence: number;
       return {
         tags,
         confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 0,
-        justification: String(parsed.justification ?? "").slice(0, 280),
+        justification: String(parsed.justification ?? parsed.evidence ?? "").slice(0, 280),
       };
     } catch {
       continue;
     }
   }
   return null;
+}
+
+/** Map accidental LLM aliases onto the fixed 7 taxonomy keys. Never invent new keys. */
+const TAG_ALIASES: Record<string, string> = {
+  HOW_TO_USE: "how_to_use",
+  DEMONSTRATION: "how_to_use",
+  ROUTINE: "how_to_use",
+  HOW_IT_WORKS: "how_it_works",
+  INGREDIENTS: "composition",
+  COMPOSITION: "composition",
+  WHO_ITS_FOR: "who_its_for",
+  RESULTS_AFTER_USAGE: "results_over_time",
+  BEFORE_AFTER: "results_over_time",
+  RESULTS_OVER_TIME: "results_over_time",
+  PRECAUTIONS: "precautions",
+  COMPARISON: "comparisons",
+  COMPARISONS: "comparisons",
+  PROS_AND_CONS: "comparisons",
+};
+
+function normalizeAllowedTag(raw: string, allowed: Set<string>): string | null {
+  const value = raw.trim();
+  if (allowed.has(value)) return value;
+  const alias = TAG_ALIASES[value.toUpperCase().replace(/\s+/g, "_")];
+  if (alias && allowed.has(alias)) return alias;
+  const lowered = value.toLowerCase().replace(/\s+/g, "_");
+  return allowed.has(lowered) ? lowered : null;
 }
 
 function secretValue(name: string): string {
@@ -917,7 +999,11 @@ async function classifyClip(
   const taxonomyBlock = taxonomy
     .map((row) => `- ${row.tag_key} (${row.tag_label}): ${row.description}`)
     .join("\n");
-  const prompt = `Classify this skincare product video. Multi-label: return only tag_key values that clearly apply. If none apply, return []. Overall confidence 0-1. One-line justification.
+  const prompt = `Classify this skincare product video using ONLY the product's fixed taxonomy.
+Multi-label: return only tag_key values from the Allowed tags list below.
+Never invent tags, categories, or free-text labels. Unknown tags are rejected.
+If none of the allowed tags clearly apply, return []. Empty is correct.
+Overall confidence 0-1. One-line justification.
 
 Product: ${productName}
 Platform: ${clip.source_platform}
@@ -925,7 +1011,7 @@ Title: ${clip.title}
 Author: ${clip.channel_or_author}
 ${transcript ? `Captions (best-effort timedtext, not a downloaded file):\n${transcript.slice(0, 4000)}` : "No captions. Classify from title/author only. TikTok/Instagram/Facebook/Pinterest never have media fetched."}
 
-Allowed tags:
+Allowed tags (closed list — do not add others):
 ${taxonomyBlock}
 
 Return JSON only: {"tags":["how_to_use"],"confidence":0.82,"justification":"..."}`;
@@ -940,7 +1026,11 @@ Return JSON only: {"tags":["how_to_use"],"confidence":0.82,"justification":"..."
     };
   }
   const allowed = new Set(taxonomy.map((row) => row.tag_key));
-  const tags = parsed.tags.filter((tag) => allowed.has(tag));
+  const tags: string[] = [];
+  for (const tag of parsed.tags) {
+    const mapped = normalizeAllowedTag(tag, allowed);
+    if (mapped && !tags.includes(mapped)) tags.push(mapped);
+  }
   const floor = Number.isFinite(CLASSIFICATION_FLOOR) ? CLASSIFICATION_FLOOR : 0.7;
   return {
     content_tags: parsed.confidence >= floor ? tags : [],
@@ -1066,8 +1156,19 @@ async function runDiscover(
       }
       embedsSuccessful += 1;
       perPlatform.set(query.platform, (perPlatform.get(query.platform) ?? 0) + 1);
-      const classified = await classifyClip(clip, taxonomy, productName ?? "");
-      if (!classified.content_tags.length) unclassified += 1;
+      const useQueue = redisConfigured();
+      let classified = {
+        content_tags: [] as string[],
+        classification_confidence: null as number | null,
+        classification_method: "title_description" as const,
+        classification_justification: null as string | null,
+      };
+      if (!useQueue) {
+        classified = await classifyClip(clip, taxonomy, productName ?? "");
+        if (!classified.content_tags.length) unclassified += 1;
+      } else {
+        unclassified += 1;
+      }
       toInsert.push({
         product_id: isUuid(body.productId) ? body.productId : null,
         catalog_product_id: catalogId,
@@ -1091,34 +1192,48 @@ async function runDiscover(
         classification_justification: classified.classification_justification,
         helpful_count: 0,
         not_helpful_count: 0,
+        analysis_status: useQueue ? "queued" : classified.content_tags.length ? "complete" : "pending",
       });
     }
   }
 
-  let inserted = 0;
-  if (toInsert.length) {
-    const { data, error } = await client.from("video_cache").insert(toInsert).select("id");
-    if (error) {
-      for (const row of toInsert) {
-        const { error: rowError } = await client.from("video_cache").insert(row);
-        if (rowError) duplicatesSkipped += 1;
-        else inserted += 1;
+    let inserted = 0;
+    let queued = 0;
+    if (toInsert.length) {
+      const { data, error } = await client.from("video_cache").insert(toInsert).select("id, catalog_product_id, source_platform, source_url");
+      if (error) {
+        for (const row of toInsert) {
+          const { data: one, error: rowError } = await client.from("video_cache").insert(row).select("id, catalog_product_id, source_platform, source_url").maybeSingle();
+          if (rowError) duplicatesSkipped += 1;
+          else {
+            inserted += 1;
+            if (one && redisConfigured() && (await queueVideoAnalysis(client, one))) queued += 1;
+          }
+        }
+      } else {
+        inserted = data?.length ?? toInsert.length;
+        if (redisConfigured()) {
+          for (const row of data ?? []) {
+            if (await queueVideoAnalysis(client, row)) queued += 1;
+          }
+        }
       }
-    } else {
-      inserted = data?.length ?? toInsert.length;
     }
-  }
 
-  let classifiedExisting = 0;
-  if (catalogId && taxonomy.length) {
-    const { data: untagged } = await client
-      .from("video_cache")
-      .select("id, source_platform, source_url, embed_html, title, channel_or_author, channel_title, thumbnail_url, duration_seconds, youtube_video_id")
-      .eq("catalog_product_id", catalogId)
-      .eq("content_tags", "{}")
-      .limit(12);
-    for (const row of untagged ?? []) {
-      const classified = await classifyClip(
+    let classifiedExisting = 0;
+    if (catalogId && taxonomy.length) {
+      const { data: untagged } = await client
+        .from("video_cache")
+        .select("id, source_platform, source_url, embed_html, title, channel_or_author, channel_title, thumbnail_url, duration_seconds, youtube_video_id, catalog_product_id")
+        .eq("catalog_product_id", catalogId)
+        .eq("content_tags", "{}")
+        .limit(12);
+      for (const row of untagged ?? []) {
+        if (redisConfigured()) {
+          if (await queueVideoAnalysis(client, row)) queued += 1;
+          continue;
+        }
+        const classified = await classifyClip(
         {
           source_platform: (row.source_platform as Platform) ?? "youtube",
           source_url: String(row.source_url ?? ""),
@@ -1160,7 +1275,8 @@ async function runDiscover(
     pending_review: true,
     unclassified,
     classified_existing: classifiedExisting,
-    classify_pending_needed: unclassified > 0,
+    queued,
+    classify_pending_needed: unclassified > 0 && !redisConfigured(),
   };
 }
 

@@ -1,5 +1,10 @@
 import Constants from 'expo-constants';
 
+import {
+  COMMENT_REPLIES_PER_THREAD,
+  COMMENT_THREADS_FETCH,
+  filterMeaningfulThreads,
+} from './commentQuality';
 import { supabase } from './supabase';
 import { isShortFormYoutube, isoDurationToSeconds } from './youtubeDuration';
 
@@ -228,6 +233,85 @@ export interface LiveYoutubeComment {
   authorDisplayName: string;
   body: string;
   youtubeVideoId: string;
+  parentId: string | null;
+  likeCount: number;
+  evidenceScore: number;
+  isMeaningful: boolean;
+  replies: LiveYoutubeComment[];
+}
+
+type YoutubeThreadItem = {
+  id?: string;
+  snippet?: {
+    topLevelComment?: {
+      id?: string;
+      snippet?: {
+        authorDisplayName?: string;
+        textDisplay?: string;
+        likeCount?: number;
+      };
+    };
+    totalReplyCount?: number;
+  };
+  replies?: {
+    comments?: Array<{
+      id?: string;
+      snippet?: {
+        authorDisplayName?: string;
+        textDisplay?: string;
+        likeCount?: number;
+        parentId?: string;
+      };
+    }>;
+  };
+};
+
+function mapThreadItems(videoId: string, items: YoutubeThreadItem[]): LiveYoutubeComment[] {
+  const raw = (items ?? []).map((item) => {
+    const top = item.snippet?.topLevelComment;
+    const topId = top?.id ?? item.id ?? '';
+    const replies = (item.replies?.comments ?? [])
+      .slice(0, COMMENT_REPLIES_PER_THREAD)
+      .map((reply) => ({
+        id: reply.id ?? '',
+        youtubeVideoId: videoId,
+        authorDisplayName: decodeEntities(reply.snippet?.authorDisplayName ?? 'YouTube viewer'),
+        body: decodeEntities(reply.snippet?.textDisplay ?? ''),
+        parentId: topId,
+        likeCount: Number(reply.snippet?.likeCount ?? 0),
+      }));
+    return {
+      id: topId,
+      youtubeVideoId: videoId,
+      authorDisplayName: decodeEntities(top?.snippet?.authorDisplayName ?? 'YouTube viewer'),
+      body: decodeEntities(top?.snippet?.textDisplay ?? ''),
+      parentId: null as string | null,
+      likeCount: Number(top?.snippet?.likeCount ?? 0),
+      replies,
+    };
+  });
+
+  return filterMeaningfulThreads(raw).map((thread) => ({
+    id: thread.id,
+    youtubeVideoId: thread.youtubeVideoId,
+    authorDisplayName: thread.authorDisplayName,
+    body: thread.body,
+    parentId: null,
+    likeCount: thread.likeCount,
+    evidenceScore: thread.evidenceScore,
+    isMeaningful: thread.isMeaningful,
+    replies: thread.replies.map((reply) => ({
+      id: reply.id,
+      youtubeVideoId: reply.youtubeVideoId,
+      authorDisplayName: reply.authorDisplayName,
+      body: reply.body,
+      parentId: thread.id,
+      likeCount: reply.likeCount,
+      evidenceScore: reply.evidenceScore,
+      isMeaningful: true,
+      replies: [],
+    })),
+  }));
 }
 
 export async function loadYoutubeComments(videoId: string): Promise<LiveYoutubeComment[]> {
@@ -245,32 +329,15 @@ export async function loadYoutubeComments(videoId: string): Promise<LiveYoutubeC
   const key = youtubeKey();
   if (!key) return [];
   const params = new URLSearchParams({
-    part: 'snippet',
+    part: 'snippet,replies',
     videoId,
-    maxResults: '5',
+    maxResults: String(COMMENT_THREADS_FETCH),
+    order: 'relevance',
     textFormat: 'plainText',
     key,
   });
   const response = await fetch(`https://www.googleapis.com/youtube/v3/commentThreads?${params.toString()}`);
   if (!response.ok) return [];
-  const json = (await response.json()) as {
-    items?: Array<{
-      id?: string;
-      snippet?: {
-        topLevelComment?: {
-          snippet?: { authorDisplayName?: string; textDisplay?: string };
-        };
-      };
-    }>;
-  };
-  return (json.items ?? [])
-    .map((item) => ({
-      id: item.id ?? '',
-      youtubeVideoId: videoId,
-      authorDisplayName: decodeEntities(
-        item.snippet?.topLevelComment?.snippet?.authorDisplayName ?? 'YouTube viewer',
-      ),
-      body: decodeEntities(item.snippet?.topLevelComment?.snippet?.textDisplay ?? ''),
-    }))
-    .filter((comment) => Boolean(comment.body));
+  const json = (await response.json()) as { items?: YoutubeThreadItem[] };
+  return mapThreadItems(videoId, json.items ?? []);
 }

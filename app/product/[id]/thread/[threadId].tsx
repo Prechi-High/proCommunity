@@ -76,9 +76,20 @@ export default function ThreadScreen() {
     const live = liveComments.map((comment) => ({
       authorDisplayName: comment.authorDisplayName,
       body: comment.body,
+      replies: (comment.replies ?? []).map((reply) => ({
+        authorDisplayName: reply.authorDisplayName,
+        body: reply.body,
+      })),
     }));
     if (live.length) return live.slice(0, 3);
-    return seedComments;
+    return seedComments.map((comment) => ({
+      authorDisplayName: comment.authorDisplayName,
+      body: comment.body,
+      replies: comment.replies?.map((reply) => ({
+        authorDisplayName: reply.authorDisplayName,
+        body: reply.body,
+      })),
+    }));
   }, [liveComments, seedComments]);
 
   if (isLoading) {

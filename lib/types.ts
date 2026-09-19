@@ -103,6 +103,9 @@ export interface YoutubeComment {
   authorDisplayName: string;
   body: string;
   fetchedAt: string;
+  parentId?: string | null;
+  likeCount?: number;
+  replies?: YoutubeComment[];
 }
 
 export interface SatchelItem {
