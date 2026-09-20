@@ -41,13 +41,13 @@ export function Card({
     <View
       style={[
         {
-          backgroundColor: colors.white,
-          borderColor: colors.mist,
-          borderWidth: 1,
+          backgroundColor: colors.lac,
+          borderColor: colors.line,
+          borderWidth: 0,
           borderRadius: radii.card,
-          padding: 12,
+          padding: 18,
         },
-        elevation[level],
+        elevation[level] === elevation.flat ? null : elevation[level],
         style,
       ]}
       {...rest}
@@ -57,14 +57,13 @@ export function Card({
   );
 }
 
-export function Eyebrow({ children, color = colors.inkSoft }: { children: string; color?: string }) {
+export function Eyebrow({ children, color = colors.bone3 }: { children: string; color?: string }) {
   return (
     <Text
       style={{
-        fontFamily: fonts.semibold,
+        fontFamily: fonts.medium,
         fontSize: type.eyebrow,
-        letterSpacing: 0.8,
-        textTransform: 'uppercase',
+        letterSpacing: 0.2,
         color,
       }}
     >
@@ -76,7 +75,7 @@ export function Eyebrow({ children, color = colors.inkSoft }: { children: string
 export function Heading({
   children,
   size = type.hLg,
-  color = colors.ink,
+  color = colors.bone,
   style,
 }: {
   children: ReactNode;
@@ -88,11 +87,12 @@ export function Heading({
     <Text
       style={[
         {
-          fontFamily: fonts.semibold,
+          fontFamily: fonts.serif,
+          fontWeight: '500',
           fontSize: size,
-          letterSpacing: size >= 20 ? -0.4 : -0.2,
+          letterSpacing: size >= 24 ? -0.5 : -0.3,
           color,
-          lineHeight: size * 1.2,
+          lineHeight: size * 1.1,
         },
         style,
       ]}
@@ -102,25 +102,25 @@ export function Heading({
   );
 }
 
-export function Body({ children, color = colors.inkSoft }: { children: ReactNode; color?: string }) {
+export function Body({ children, color = colors.bone2 }: { children: ReactNode; color?: string }) {
   return (
-    <Text style={{ fontFamily: fonts.regular, fontSize: type.body, lineHeight: 20, color }}>
+    <Text style={{ fontFamily: fonts.regular, fontSize: type.body, lineHeight: 21, color }}>
       {children}
     </Text>
   );
 }
 
-export function Caption({ children, color = colors.inkSoft }: { children: ReactNode; color?: string }) {
+export function Caption({ children, color = colors.bone3 }: { children: ReactNode; color?: string }) {
   return (
-    <Text style={{ fontFamily: fonts.regular, fontSize: type.caption, lineHeight: 16, color }}>
+    <Text style={{ fontFamily: fonts.regular, fontSize: type.caption, lineHeight: 18, color }}>
       {children}
     </Text>
   );
 }
 
-export function Title({ children, color = colors.ink }: { children: ReactNode; color?: string }) {
+export function Title({ children, color = colors.bone }: { children: ReactNode; color?: string }) {
   return (
-    <Text style={{ fontFamily: fonts.semibold, fontSize: type.hSm, color, letterSpacing: -0.1 }}>
+    <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color, letterSpacing: -0.1, lineHeight: 20 }}>
       {children}
     </Text>
   );
@@ -142,30 +142,25 @@ export function SectionHeader({
   onAction?: () => void;
 }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Heading size={type.hMd}>{title}</Heading>
-        {hint ? <Caption>{hint}</Caption> : null}
+    <View style={{ marginTop: 28, gap: 7 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+        <Heading size={25} style={{ flex: 1 }}>
+          {title}
+        </Heading>
+        {actionLabel && onAction ? (
+          <Pressable onPress={onAction} hitSlop={8} accessibilityRole="link">
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: colors.bone2 }}>
+              {actionLabel}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
-      {actionLabel && onAction ? (
-        <Pressable
-          onPress={onAction}
-          hitSlop={8}
-          accessibilityRole="link"
-          accessibilityLabel={`${actionLabel} — ${title}`}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 2, paddingBottom: 2 }}
-        >
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.rosewood }}>
-            {actionLabel}
-          </Text>
-          <CaretRight size={12} color={colors.rosewood} weight="bold" />
-        </Pressable>
-      ) : null}
+      {hint ? <Caption color={colors.bone2}>{hint}</Caption> : null}
     </View>
   );
 }
 
-type BtnKind = 'primary' | 'outline' | 'text' | 'quiet';
+type BtnKind = 'primary' | 'outline' | 'text' | 'quiet' | 'hl';
 
 export function Button({
   label,
@@ -180,9 +175,19 @@ export function Button({
   style?: StyleProp<ViewStyle>;
 }) {
   const background =
-    kind === 'primary' ? colors.rosewood : kind === 'quiet' ? colors.white : 'transparent';
+    kind === 'primary'
+      ? colors.bone
+      : kind === 'hl'
+        ? colors.hi
+        : kind === 'quiet'
+          ? 'transparent'
+          : 'transparent';
   const textColor =
-    kind === 'primary' ? colors.white : kind === 'text' ? colors.rosewood : colors.ink;
+    kind === 'primary' || kind === 'hl'
+      ? colors.wine
+      : kind === 'text'
+        ? colors.bone2
+        : colors.bone;
   const borderWidth = kind === 'outline' || kind === 'quiet' ? 1.5 : 0;
 
   return (
@@ -194,23 +199,22 @@ export function Button({
         {
           backgroundColor: background,
           borderRadius: radii.button,
-          paddingVertical: 14,
+          paddingVertical: 16,
           paddingHorizontal: 16,
           borderWidth,
-          borderColor: colors.mist,
+          borderColor: colors.line,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
           gap: 8,
           opacity: rest.disabled ? 0.45 : 1,
         },
-        kind === 'primary' && !rest.disabled ? elevation.raised : null,
         style,
       ]}
       {...rest}
     >
       {IconCmp ? <IconCmp size={17} color={textColor} weight="bold" /> : null}
-      <Text style={{ fontFamily: fonts.semibold, fontSize: type.button, color: textColor, letterSpacing: -0.1 }}>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: type.button, color: textColor }}>
         {label}
       </Text>
     </Pressable>
@@ -227,11 +231,11 @@ export function Badge({
   icon?: ComponentType<{ size?: number; color?: string; weight?: never | 'regular' | 'bold' | 'fill' }>;
 }) {
   const map = {
-    sage: { bg: colors.sageSoft, fg: colors.sageInk },
-    honey: { bg: colors.honeySoft, fg: colors.honeyBadge },
-    rose: { bg: colors.rosewoodSoft, fg: colors.rosewood },
-    neutral: { bg: colors.mist, fg: colors.inkSoft },
-    ink: { bg: 'rgba(42,33,29,0.72)', fg: colors.white },
+    sage: { bg: colors.sageSoft, fg: colors.sage },
+    honey: { bg: colors.honeySoft, fg: colors.honey },
+    rose: { bg: 'rgba(242,210,91,0.16)', fg: colors.hi },
+    neutral: { bg: 'transparent', fg: colors.bone2 },
+    ink: { bg: colors.redact, fg: colors.bone },
   }[tone];
   return (
     <View
@@ -277,7 +281,7 @@ export function Chip({
   onPress?: () => void;
   icon?: ComponentType<{ size?: number; color?: string; weight?: never | 'regular' | 'bold' | 'fill' }>;
 }) {
-  const fg = selected ? colors.white : colors.ink;
+  const fg = selected ? colors.wine : colors.bone2;
   const progress = useRef(new Animated.Value(selected ? 1 : 0)).current;
 
   useEffect(() => {
@@ -291,11 +295,11 @@ export function Chip({
 
   const backgroundColor = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [colors.white, colors.rosewood],
+    outputRange: ['transparent', colors.bone],
   });
   const borderColor = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [colors.mist, colors.rosewood],
+    outputRange: [colors.line, colors.bone],
   });
 
   return (
@@ -308,9 +312,9 @@ export function Chip({
       <Animated.View
         style={{
           borderRadius: radii.chip,
-          paddingHorizontal: 13,
-          paddingVertical: 7,
-          borderWidth: 1.5,
+          paddingHorizontal: 14,
+          paddingVertical: 9,
+          borderWidth: 1,
           borderColor,
           backgroundColor,
           flexDirection: 'row',
@@ -319,7 +323,9 @@ export function Chip({
         }}
       >
         {IconCmp ? <IconCmp size={13} color={fg} weight={selected ? 'fill' : 'regular'} /> : null}
-        <Text style={{ fontFamily: fonts.medium, fontSize: type.chip, color: fg }}>{label}</Text>
+        <Text style={{ fontFamily: selected ? fonts.medium : fonts.regular, fontSize: type.chip, color: fg }}>
+          {label}
+        </Text>
       </Animated.View>
     </Pressable>
   );
@@ -466,25 +472,16 @@ export function Field({
 
 export function Disclaimer({ compact = false }: { compact?: boolean }) {
   return (
-    <View
-      style={{
-        backgroundColor: colors.honeySoft,
-        borderRadius: radii.notice,
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        borderLeftWidth: 3,
-        borderLeftColor: colors.honey,
-      }}
-    >
+    <View style={{ borderLeftWidth: 2, borderLeftColor: colors.honey, paddingLeft: 12, paddingVertical: 2 }}>
       <Text
         style={{
           fontFamily: fonts.regular,
-          fontSize: compact ? 11 : 12,
-          lineHeight: 17,
-          color: colors.honeyInk,
+          fontSize: compact ? 12.5 : 13,
+          lineHeight: 20,
+          color: colors.bone2,
         }}
       >
-        Not medical advice. Patch-test before first use — individual reactions vary.
+        General information, not medical advice. Patch-test before first use.
       </Text>
     </View>
   );
@@ -502,29 +499,23 @@ export function Notice({
   return (
     <View
       style={{
-        backgroundColor: quiet ? colors.white : colors.honeySoft,
-        borderRadius: radii.notice,
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        borderLeftWidth: 3,
-        borderLeftColor: quiet ? colors.mist : colors.honey,
-        borderWidth: quiet ? 1 : 0,
-        borderColor: colors.mist,
+        borderLeftWidth: 2,
+        borderLeftColor: quiet ? colors.line : colors.honey,
+        paddingLeft: 12,
+        paddingVertical: 2,
         flexDirection: 'row',
         gap: 10,
         alignItems: 'flex-start',
       }}
     >
-      {IconCmp ? (
-        <IconCmp size={15} color={quiet ? colors.inkSoft : colors.honeyInk} weight="regular" />
-      ) : null}
+      {IconCmp ? <IconCmp size={15} color={colors.bone2} weight="regular" /> : null}
       <Text
         style={{
           flex: 1,
           fontFamily: fonts.regular,
-          fontSize: 12,
-          lineHeight: 18,
-          color: quiet ? colors.inkSoft : colors.honeyInk,
+          fontSize: 13,
+          lineHeight: 20,
+          color: colors.bone2,
         }}
       >
         {children}
@@ -618,21 +609,21 @@ export function ScoreMeter({ breakdown }: { breakdown: ConfidenceBreakdown }) {
   );
 }
 
-export function Check({ done, size = 24 }: { done: boolean; size?: number }) {
+export function Check({ done, size = 28 }: { done: boolean; size?: number }) {
   return (
     <View
       style={{
         width: size,
         height: size,
-        borderRadius: size / 2,
+        borderRadius: 10,
         borderWidth: 1.5,
-        borderColor: done ? colors.sage : colors.mist,
+        borderColor: done ? colors.sage : colors.line,
         backgroundColor: done ? colors.sage : 'transparent',
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      {done ? <CheckIcon size={size * 0.55} color={colors.white} weight="bold" /> : null}
+      {done ? <CheckIcon size={size * 0.55} color={colors.wine} weight="bold" /> : null}
     </View>
   );
 }
@@ -758,14 +749,14 @@ export function QuoteTile({ body, height }: { body: string; height: number }) {
   );
 }
 
-export function Wordmark({ size = type.wordmark, color = colors.rosewood }: { size?: number; color?: string }) {
+export function Wordmark({ size = type.wordmark, color = colors.bone }: { size?: number; color?: string }) {
   return (
     <Text
       style={{
-        fontFamily: fonts.bold,
+        fontFamily: fonts.serifBold,
         fontSize: size,
         color,
-        letterSpacing: -0.63,
+        letterSpacing: -0.5,
       }}
     >
       Sourced

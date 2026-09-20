@@ -30,9 +30,9 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('');
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.shell }} edges={['bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.wine }} edges={['bottom']}>
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, backgroundColor: colors.shell }}
+        contentContainerStyle={{ flexGrow: 1, backgroundColor: colors.wine }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

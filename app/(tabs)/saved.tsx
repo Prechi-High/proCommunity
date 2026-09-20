@@ -1,126 +1,244 @@
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 
 import { Screen } from '@/components/Screen';
-import { Caption, Card, Heading, SectionHeader, Thumb, Title } from '@/components/ui';
-import { Bell, BellSlash, CaretRight, Heart } from '@/components/icons';
+import {
+  Avatar,
+  Button,
+  Caption,
+  Card,
+  Check,
+  Heading,
+  Notice,
+  Thumb,
+  Title,
+  Wordmark,
+} from '@/components/ui';
 import { colors, fonts } from '@/constants/theme';
-import { getProduct } from '@/lib/catalog';
-import { useAppStore } from '@/lib/store';
+import { getProduct, getProductPosts } from '@/lib/catalog';
+import { computeConfidence } from '@/lib/confidence';
+import { currentStreak, useAppStore } from '@/lib/store';
+import { daysUntil, withUsageDates } from '@/lib/usage';
 import { useProducts } from '@/lib/useProduct';
 
 /**
- * 10 — Saved & price alerts.
- *
- * The feeling is being quietly looked after between visits, which only works
- * if the app never pings without a real reason. So the alert toggle states
- * exactly what would trigger it, and we say plainly that we will not invent a
- * drop or pad the frequency to get someone opening the app more often.
+ * Shelf tab — routine + saved, wine/bone V1 card language.
  */
-export default function SavedScreen() {
+export default function ShelfScreen() {
   const router = useRouter();
+  const profile = useAppStore((s) => s.profile);
+  const ownerships = useAppStore((s) => s.ownerships);
+  const steps = useAppStore((s) => s.routineSteps);
+  const logs = useAppStore((s) => s.routineLogs);
+  const toggleRoutineStep = useAppStore((s) => s.toggleRoutineStep);
   const favorites = useAppStore((s) => s.favorites);
-  const setPriceAlert = useAppStore((s) => s.setPriceAlert);
-  useProducts(favorites.map((fav) => fav.productId));
+  const usage = useAppStore((s) => s.usageEstimates);
+  const userPosts = useAppStore((s) => s.userPosts);
+  const eveningDefault = new Date().getHours() >= 17;
+  const [mode, setMode] = useState<'am' | 'pm'>(eveningDefault ? 'pm' : 'am');
 
-  const rows = favorites
-    .map((fav) => {
-      const product = getProduct(fav.productId);
-      if (!product) return null;
-      return { fav, product };
+  const active = steps.filter((s) => s.timeOfDay === mode);
+  const today = new Date().toISOString().slice(0, 10);
+  const log = logs.find((item) => item.date === today && item.timeOfDay === mode);
+  const doneCount = Math.min(log?.completedStepIds.length ?? 0, active.length);
+  const streak = currentStreak(logs, steps);
+
+  useProducts([
+    ...ownerships.map((o) => o.productId),
+    ...favorites.map((f) => f.productId),
+    ...usage.map((u) => u.productId),
+  ]);
+
+  const refill = usage
+    .map((item) => {
+      const product = getProduct(item.productId);
+      if (!product?.typicalDurationDays) return null;
+      const dated = withUsageDates(item, product);
+      const days = daysUntil(dated.estimatedEmptyDate);
+      if (days == null || days > 10) return null;
+      return { product, days };
     })
-    .filter(Boolean);
-
-  const watching = favorites.filter((fav) => fav.priceAlertEnabled).length;
+    .find(Boolean);
 
   return (
     <Screen>
-      <Heading size={21}>Saved</Heading>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 }}>
+        <Wordmark />
+        <Pressable onPress={() => router.push('/(tabs)/you')}>
+          <Avatar name={profile?.displayName} size={44} />
+        </Pressable>
+      </View>
 
-      {rows.length === 0 ? (
-        <Card style={{ alignItems: 'center', gap: 7, paddingVertical: 30 }}>
-          <Heart size={26} color={colors.inkSoft} weight="regular" />
-          <Title>Nothing saved yet</Title>
-          <Text
+      <Heading size={32} style={{ marginTop: 14 }}>
+        Your shelf
+      </Heading>
+
+      {active.length ? (
+        <Card style={{ marginTop: 18 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View>
+              <Caption>{mode === 'pm' ? 'Evening routine' : 'Morning routine'}</Caption>
+              <Text
+                style={{
+                  fontFamily: fonts.serif,
+                  fontSize: 24,
+                  color: colors.bone,
+                  marginTop: 2,
+                  fontWeight: '500',
+                }}
+              >
+                {`${doneCount} of ${active.length} done`}
+              </Text>
+            </View>
+            {streak > 0 ? (
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ fontFamily: fonts.serif, fontSize: 30, color: colors.bone, fontWeight: '500' }}>
+                  {streak}
+                </Text>
+                <Caption>days in a row</Caption>
+              </View>
+            ) : null}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 5, marginTop: 14 }}>
+            {active.map((step) => {
+              const done = Boolean(log?.completedStepIds.includes(step.id));
+              return (
+                <View
+                  key={step.id}
+                  style={{
+                    flex: 1,
+                    height: 4,
+                    borderRadius: 3,
+                    backgroundColor: done ? colors.sage : 'rgba(243,235,226,0.2)',
+                  }}
+                />
+              );
+            })}
+          </View>
+        </Card>
+      ) : null}
+
+      <View style={{ flexDirection: 'row', gap: 6, marginTop: 14 }}>
+        {(['am', 'pm'] as const).map((m) => (
+          <Pressable
+            key={m}
+            onPress={() => setMode(m)}
             style={{
-              fontFamily: fonts.regular,
-              fontSize: 12.5,
-              lineHeight: 19,
-              color: colors.inkSoft,
-              textAlign: 'center',
-              maxWidth: 280,
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: mode === m ? colors.bone : colors.line,
+              backgroundColor: mode === m ? colors.bone : 'transparent',
+              alignItems: 'center',
             }}
           >
-            Tap the heart on any product. You save the product itself, not a store — so an alert follows
-            the best price anywhere, not one seller.
-          </Text>
-        </Card>
+            <Text
+              style={{
+                fontFamily: fonts.medium,
+                fontSize: 14,
+                color: mode === m ? colors.wine : colors.bone2,
+              }}
+            >
+              {m === 'am' ? 'Morning' : 'Evening'}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <View style={{ marginTop: 10 }}>
+        {active.map((step, index) => {
+          const product = getProduct(step.productId);
+          const done = Boolean(log?.completedStepIds.includes(step.id));
+          return (
+            <Pressable
+              key={step.id}
+              onPress={() => toggleRoutineStep(step.id, mode)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 14,
+                paddingVertical: 14,
+                borderTopWidth: 1,
+                borderTopColor: colors.line,
+              }}
+            >
+              <Check done={done} />
+              <View style={{ flex: 1 }}>
+                <Title>{product?.name ?? 'Step'}</Title>
+                <Caption>{`Step ${index + 1}`}</Caption>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {active.length ? (
+        <Caption>Miss a day and you simply pick up where you left off.</Caption>
       ) : (
-        <SectionHeader
-          title={`${rows.length} saved`}
-          hint={
-            watching
-              ? `Watching ${watching} for a real price movement.`
-              : 'Turn on the bell to hear about an actual price drop.'
-          }
-        />
+        <View style={{ marginTop: 12, gap: 12 }}>
+          <Caption color={colors.bone2}>No routine yet. Add products from a case file.</Caption>
+          <Button label="Find a product" onPress={() => router.push('/(tabs)')} />
+        </View>
       )}
 
-      {rows.map((row) => {
-        const { fav, product } = row!;
-        return (
-          <Pressable
-            key={product.id}
-            accessibilityRole="link"
-            accessibilityLabel={product.name}
-            onPress={() => router.push(`/product/${product.id}`)}
-          >
-            <Card style={{ padding: 10 }}>
-              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                <Thumb imageUrl={product.heroImageUrl} category={product.category} size={56} />
-                <View style={{ flex: 1, gap: 3 }}>
-                  <Title>{product.name}</Title>
-                  <Caption>{product.brand}</Caption>
-                  <Caption color={fav.priceAlertEnabled ? colors.sage : colors.inkSoft}>
-                    {fav.priceAlertEnabled
-                      ? 'You will hear only if the price actually falls'
-                      : 'No alerts on this one'}
-                  </Caption>
-                </View>
-                <Pressable
-                  onPress={() => setPriceAlert(product.id, !fav.priceAlertEnabled)}
-                  hitSlop={10}
-                  accessibilityRole="switch"
-                  accessibilityState={{ checked: fav.priceAlertEnabled }}
-                  accessibilityLabel={`Price alerts for ${product.name}`}
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 19,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: fav.priceAlertEnabled ? colors.sageSoft : colors.shell,
-                  }}
-                >
-                  {fav.priceAlertEnabled ? (
-                    <Bell size={18} color={colors.sage} weight="fill" />
-                  ) : (
-                    <BellSlash size={18} color={colors.inkSoft} weight="regular" />
-                  )}
-                </Pressable>
-                <CaretRight size={13} color={colors.mist} weight="bold" />
-              </View>
-            </Card>
-          </Pressable>
-        );
-      })}
-
-      {rows.length ? (
-        <Caption>
-          Store prices are not connected yet. When they are, an alert fires on a genuine drop and
-          nothing else — we will not simulate one or send a reminder just to get you back.
-        </Caption>
+      {refill ? (
+        <View style={{ marginTop: 20 }}>
+          <Notice>{`Running low: your ${refill.product.name.toLowerCase()} should last about ${Math.max(refill.days, 0)} more days.`}</Notice>
+        </View>
       ) : null}
+
+      <Heading size={23} style={{ marginTop: 34 }}>
+        Saved
+      </Heading>
+      {favorites.length ? (
+        favorites.map((fav) => {
+          const product = getProduct(fav.productId);
+          if (!product) return null;
+          const score = computeConfidence(product, profile, getProductPosts(product.id, userPosts))
+            .compositeScore;
+          return (
+            <Pressable
+              key={fav.productId}
+              onPress={() => router.push(`/product/${product.id}`)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 13,
+                paddingVertical: 14,
+                borderTopWidth: 1,
+                borderTopColor: colors.line,
+              }}
+            >
+              <Thumb imageUrl={product.heroImageUrl} category={product.category} size={48} />
+              <View style={{ flex: 1 }}>
+                <Title>{product.name}</Title>
+                <Caption>{score == null ? 'No score yet' : `Verdict ${score}`}</Caption>
+              </View>
+            </Pressable>
+          );
+        })
+      ) : (
+        <Caption color={colors.bone2}>
+          Tap the bookmark on any case to collect it here while you keep researching.
+        </Caption>
+      )}
+
+      {favorites.length ? (
+        <Button
+          label="Ready to buy"
+          kind="hl"
+          style={{ marginTop: 14 }}
+          onPress={() => router.push(`/product/${favorites[0].productId}/stores`)}
+        />
+      ) : null}
+
+      <Pressable onPress={() => router.push('/feed' as Href)} style={{ marginTop: 28 }}>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone2 }}>
+          Browse community →
+        </Text>
+      </Pressable>
     </Screen>
   );
 }

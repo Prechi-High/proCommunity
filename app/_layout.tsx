@@ -35,23 +35,19 @@ function AuthGate({ children }: { children: ReactNode }) {
     const inAuth = group === '(auth)';
     const inOnboarding = group === '(onboarding)';
 
-    if (!profile && !inAuth) {
-      router.replace('/(auth)/sign-in');
-      return;
-    }
-    if (profile && !profile.onboardingComplete && !inOnboarding) {
-      router.replace('/(onboarding)/profile');
-      return;
-    }
+    // HTML V1: search needs no account. Auth is a sheet for save/post/fit — not a gate.
     if (profile?.onboardingComplete && inAuth) {
+      router.replace('/(tabs)');
+    }
+    if (!profile && inOnboarding) {
       router.replace('/(tabs)');
     }
   }, [hydrated, profile, segments, router]);
 
   if (!hydrated) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.shell }}>
-        <ActivityIndicator color={colors.rosewood} />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.wine }}>
+        <ActivityIndicator color={colors.hi} />
       </View>
     );
   }
@@ -65,6 +61,8 @@ function RootLayout() {
     'GeneralSans-Medium': require('../assets/fonts/GeneralSans-Medium.ttf'),
     'GeneralSans-Semibold': require('../assets/fonts/GeneralSans-Semibold.ttf'),
     'GeneralSans-Bold': require('../assets/fonts/GeneralSans-Bold.ttf'),
+    'Boska-Medium': require('../assets/fonts/Boska-Medium.ttf'),
+    'Boska-Bold': require('../assets/fonts/Boska-Bold.ttf'),
   });
   const setHydrated = useAppStore((state) => state.setHydrated);
   const persistHydrated = useAppStore((state) => state.hydrated);
@@ -96,13 +94,15 @@ function RootLayout() {
               <Stack
                 screenOptions={{
                   headerShown: false,
-                  contentStyle: { backgroundColor: colors.shell },
+                  contentStyle: { backgroundColor: colors.wine },
                   animation: 'fade',
                 }}
               >
                 <Stack.Screen name="(auth)" />
                 <Stack.Screen name="(onboarding)" />
                 <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="results" />
+                <Stack.Screen name="probe/[id]" options={{ animation: 'fade' }} />
                 <Stack.Screen name="product" />
                 <Stack.Screen name="routine/index" />
                 <Stack.Screen name="user/[id]" />

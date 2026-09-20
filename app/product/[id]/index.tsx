@@ -1,93 +1,36 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { MasonryFeed, ThreadRow } from '@/components/CommunityBits';
+import { ThreadRow } from '@/components/CommunityBits';
 import { Screen } from '@/components/Screen';
 import { OfficialEmbed } from '@/components/VideoEmbed';
-import {
-  Badge,
-  Body,
-  Button,
-  Caption,
-  Card,
-  Chip,
-  Disclaimer,
-  Eyebrow,
-  Heading,
-  ScoreMeter,
-  ScoreRing,
-  SectionHeader,
-  Title,
-} from '@/components/ui';
-import {
-  ArrowLeft,
-  BookOpen,
-  Camera,
-  CheckCircle,
-  Flask,
-  Handbag,
-  Heart,
-  Lightbulb,
-  NotePencil,
-  Play,
-  Plus,
-  Scales,
-  Storefront,
-  TrendUp,
-  User,
-  Warning,
-  YoutubeLogo,
-  TiktokLogo,
-  InstagramLogo,
-  FacebookLogo,
-  PinterestLogo,
-} from '@/components/icons';
-import { colors, elevation, radii, type } from '@/constants/theme';
+import { Caption, Chip, Disclaimer, Heading, SectionHeader } from '@/components/ui';
+import { ArrowLeft, Heart, Play } from '@/components/icons';
+import { colors, fonts } from '@/constants/theme';
 import { track } from '@/lib/analytics';
 import {
-  getFeedPosts,
   getLiteracyForProduct,
-  getProductPosts,
   getProductThreads,
   routeId,
   tagLabel,
-  trackingCount,
 } from '@/lib/catalog';
-import { computeConfidence } from '@/lib/confidence';
-import { isVerifiedForProduct, useAppStore } from '@/lib/store';
+import {
+  computeFitScore,
+  loadProductCase,
+  renderMarkedText,
+} from '@/lib/productCase';
+import { useAppStore } from '@/lib/store';
 import { FALLBACK_TAGS, PAGE_SIZE, loadTaxonomy, type ContentTagKey } from '@/lib/taxonomy';
+import type { Profile, SkinType } from '@/lib/types';
 import { useProduct } from '@/lib/useProduct';
-import { loadJourneyForTag, platformLabel, voterKeyFor } from '@/lib/videos';
-
-const PLATFORM_ICONS = {
-  youtube: YoutubeLogo,
-  tiktok: TiktokLogo,
-  instagram: InstagramLogo,
-  facebook: FacebookLogo,
-  pinterest: PinterestLogo,
-} as const;
-
-const TAG_ICONS = {
-  how_it_works: Lightbulb,
-  how_to_use: BookOpen,
-  composition: Flask,
-  who_its_for: User,
-  results_over_time: TrendUp,
-  precautions: Warning,
-  comparisons: Scales,
-} as const;
+import { loadJourneyForTag, voterKeyFor } from '@/lib/videos';
 
 /**
- * 04 — Product detail.
- *
- * Clarity journey (HTML order): hero → brand/name → score with reasoning →
- * what's in it → disclaimer → video journey → community masonry → named
- * threads → sticky Get This / satchel. Each section makes the next worth
- * opening — never a document dump.
+ * Case file — Product Score from lived comments (LLM/heuristic), Fit Score separate.
  */
-export default function ProductDetailScreen() {
+export default function ProductCaseScreen() {
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
   const id = routeId(rawId);
   const router = useRouter();
@@ -97,15 +40,23 @@ export default function ProductDetailScreen() {
   const userThreads = useAppStore((s) => s.userThreads);
   const favorites = useAppStore((s) => s.favorites);
   const toggleFavorite = useAppStore((s) => s.toggleFavorite);
-  const addToSatchel = useAppStore((s) => s.addToSatchel);
-  const satchelItems = useAppStore((s) => s.satchelItems);
-  const markPurchased = useAppStore((s) => s.markPurchased);
-  const ownerships = useAppStore((s) => s.ownerships);
-  const addRoutineStep = useAppStore((s) => s.addRoutineStep);
   const [journey, setJourney] = useState<ContentTagKey>('who_its_for');
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [skin, setSkin] = useState<SkinType | null>(
+    profile?.skinType && profile.skinType !== 'unknown' ? profile.skinType : null,
+  );
+  const [hiOn, setHiOn] = useState(false);
+  const scoreAnim = useRef(new Animated.Value(0)).current;
+  const [displayScore, setDisplayScore] = useState(0);
   const voterKey = voterKeyFor(profile?.id);
+
+  const caseQuery = useQuery({
+    queryKey: ['product-case', product?.id],
+    queryFn: () => loadProductCase(product!, userPosts),
+    enabled: Boolean(product),
+    staleTime: 30 * 60 * 1000,
+  });
+  const analysis = caseQuery.data;
 
   const taxonomyQuery = useQuery({
     queryKey: ['skincare-taxonomy'],
@@ -120,378 +71,500 @@ export default function ProductDetailScreen() {
     enabled: Boolean(product),
     staleTime: 10 * 60 * 1000,
   });
-  const clips = journeyQuery.data?.clips ?? [];
-  const videosLoading = journeyQuery.isFetching;
-  const fillingGap = journeyQuery.isFetching && (journeyQuery.data?.clips.length ?? 0) < PAGE_SIZE;
+  const clips = (journeyQuery.data?.clips ?? []).slice(0, PAGE_SIZE);
 
   useEffect(() => {
     if (product) track('product_viewed', { productId: product.id, source: product.source });
   }, [product]);
 
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-    setPlayingId(null);
-  }, [journey]);
+    if (!analysis || analysis.productScore == null) {
+      setDisplayScore(0);
+      setHiOn(false);
+      return;
+    }
+    scoreAnim.setValue(0);
+    setHiOn(false);
+    const idAnim = scoreAnim.addListener(({ value }) => setDisplayScore(Math.round(value)));
+    Animated.timing(scoreAnim, {
+      toValue: analysis.productScore,
+      duration: 1500,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start(() => setHiOn(true));
+    return () => scoreAnim.removeListener(idAnim);
+  }, [analysis?.analyzedAt, analysis?.productScore, scoreAnim]);
 
-  if (isLoading) {
+  if (isLoading || !product) {
     return (
       <Screen>
-        <ActivityIndicator color={colors.rosewood} />
+        {isLoading ? <ActivityIndicator color={colors.hi} /> : <Heading>Product not found</Heading>}
       </Screen>
     );
   }
 
-  if (!product) {
-    return (
-      <Screen>
-        <Heading>Product not found</Heading>
-        <Button label="Back to search" onPress={() => router.back()} />
-      </Screen>
-    );
-  }
-
-  const posts = getProductPosts(product.id, userPosts);
-  const breakdown = computeConfidence(product, profile, posts);
   const literacy = getLiteracyForProduct(product);
   const saved = favorites.some((item) => item.productId === product.id);
-  const inSatchel = satchelItems.some((item) => item.productId === product.id);
-  const owned = ownerships.some((item) => item.productId === product.id);
-  const verified = isVerifiedForProduct(ownerships, product.id);
-  const feedPreview = getFeedPosts(product.id, userPosts).slice(0, 4);
   const threads = getProductThreads(product.id, userThreads, userPosts).slice(0, 2);
-  const tracked = trackingCount(product.id);
-  const shown = clips.slice(0, visibleCount);
-  const currentTag = tags.find((tag) => tag.tagKey === journey);
+  const fitProfile: Profile | null = skin
+    ? {
+        id: profile?.id ?? 'guest',
+        email: profile?.email ?? '',
+        displayName: profile?.displayName ?? 'Guest',
+        skinType: skin,
+        skinTypeSource: profile?.skinTypeSource ?? 'self_selected',
+        concerns: profile?.concerns ?? [],
+        onboardingComplete: profile?.onboardingComplete ?? false,
+      }
+    : profile;
+  const fit = computeFitScore(product, fitProfile);
+  const thin = analysis?.tooFew || analysis?.productScore == null;
+  const split = analysis?.split ?? { positive: 0, mixed: 0, negative: 0 };
 
   return (
     <Screen
       padded={false}
       footer={
-        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-          <SatchelAddButton
-            inSatchel={inSatchel}
-            onPress={() => addToSatchel(product.id)}
-          />
-          <View style={{ flex: 1 }}>
-            <Button
-              label="Get This Product"
-              icon={Storefront}
-              onPress={() => router.push(`/product/${product.id}/stores`)}
-            />
-          </View>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
           <Pressable
-            onPress={() => toggleFavorite(product.id)}
+            onPress={() => router.push(`/product/${product.id}/community`)}
             style={{
-              width: 50,
-              height: 50,
-              borderRadius: 12,
-              borderWidth: 1.5,
-              borderColor: colors.mist,
+              flex: 1,
+              height: 54,
+              borderRadius: 16,
+              backgroundColor: colors.lac,
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 16,
+              gap: 10,
+            }}
+          >
+            <Text style={{ color: colors.hi, fontSize: 16 }}>✦</Text>
+            <Text
+              numberOfLines={1}
+              style={{ flex: 1, fontFamily: fonts.regular, fontSize: 15, color: colors.bone2 }}
+            >
+              Ask about this product
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push(`/product/${product.id}/stores`)}
+            style={{
+              height: 54,
+              paddingHorizontal: 18,
+              borderRadius: 16,
+              backgroundColor: colors.bone,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: colors.white,
             }}
-            accessibilityRole="button"
-            accessibilityLabel={saved ? 'Saved' : 'Save this product'}
           >
-            <Heart
-              size={22}
-              color={saved ? colors.rosewood : colors.ink}
-              weight={saved ? 'fill' : 'regular'}
-            />
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.wine }}>Where to buy</Text>
           </Pressable>
         </View>
       }
     >
-      {/* Hero — product first, brand/name land below (HTML 04) */}
-      <View style={{ height: 220, backgroundColor: colors.mist }}>
-        {product.heroImageUrl ? (
-          <Image
-            source={{ uri: product.heroImageUrl }}
-            style={{ width: '100%', height: 220 }}
-            resizeMode="cover"
-          />
-        ) : null}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: 14,
+          paddingTop: 8,
+        }}
+      >
         <Pressable
           onPress={() => router.back()}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          style={[
-            {
-              position: 'absolute',
-              top: 12,
-              left: 16,
-              width: 38,
-              height: 38,
-              borderRadius: 19,
-              backgroundColor: colors.white,
-              alignItems: 'center',
-              justifyContent: 'center',
-            },
-            elevation.raised,
-          ]}
+          style={{ width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}
         >
-          <ArrowLeft size={18} color={colors.ink} weight="bold" />
+          <ArrowLeft size={22} color={colors.bone} weight="bold" />
+        </Pressable>
+        <Pressable
+          onPress={() => toggleFavorite(product.id)}
+          style={{ width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Heart size={22} color={saved ? colors.hi : colors.bone} weight={saved ? 'fill' : 'regular'} />
         </Pressable>
       </View>
 
-      <View style={{ paddingHorizontal: 16, paddingTop: 14, gap: 18, paddingBottom: 8 }}>
-        <View style={{ gap: 2 }}>
-          <Eyebrow>{product.brand}</Eyebrow>
-          <Heading size={20}>{product.name}</Heading>
-          {tracked > 0 ? (
-            <Caption>{`${tracked} ${tracked === 1 ? 'person is' : 'people are'} tracking this`}</Caption>
-          ) : null}
-        </View>
-
-        {/* Score + reasoning — never a bare number */}
-        <Card level="raised" style={{ gap: 14 }}>
-          <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-            <ScoreRing score={breakdown.compositeScore} />
-            <View style={{ flex: 1, gap: 4 }}>
-              <Title>
-                {breakdown.tooFewReviews ? 'Not enough to score yet' : `${breakdown.headline} for you`}
-              </Title>
-              <Caption>{breakdown.explanation}</Caption>
+      <View style={{ paddingHorizontal: 24, paddingTop: 6 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 14 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>{product.brand}</Text>
+            <Heading size={31} style={{ marginTop: 4 }}>
+              {product.name}
+            </Heading>
+          </View>
+          {product.heroImageUrl ? (
+            <Image
+              source={{ uri: product.heroImageUrl }}
+              style={{ width: 54, height: 80, borderRadius: 12, backgroundColor: colors.lac }}
+              resizeMode="cover"
+            />
+          ) : (
+            <View
+              style={{
+                width: 54,
+                height: 80,
+                borderRadius: 12,
+                backgroundColor: colors.lac2,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 28 }}>🧴</Text>
             </View>
-          </View>
-          <View style={{ height: 1, backgroundColor: colors.mist }} />
-          <ScoreMeter breakdown={breakdown} />
-          <Caption>
-            Built from these three parts and nothing else. No brand or store can change this number.
-          </Caption>
-        </Card>
-
-        <View style={{ gap: 9 }}>
-          <Heading size={type.hMd}>What&apos;s in it</Heading>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {product.ingredients.slice(0, 4).map((tag) => (
-              <Chip key={tag} label={tagLabel(tag)} />
-            ))}
-            {product.attributeTags.slice(0, 3).map((tag) => (
-              <Chip key={tag} label={tagLabel(tag)} />
-            ))}
-          </View>
-          <Body>
-            {literacy[0]?.body ??
-              product.description ??
-              'Ingredient details are still being completed for this product.'}
-          </Body>
-          {product.source === 'open_beauty_facts' ? (
-            <Caption>Ingredients via Open Beauty Facts, an open community database.</Caption>
-          ) : null}
+          )}
         </View>
 
-        <Disclaimer />
+        <View style={{ marginTop: 16, alignSelf: 'flex-start' }}>
+          <LivePill
+            label={
+              caseQuery.isFetching
+                ? 'Reading comments…'
+                : `${(analysis?.counts.yt ?? 0) + (analysis?.counts.own ?? 0)} comments in this case`
+            }
+          />
+        </View>
 
-        {/* Video journey */}
-        <View style={{ gap: 10 }}>
-          <Heading size={type.hMd}>Video journey</Heading>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8, paddingRight: 4 }}
-          >
-            {tags.map((tag) => (
+        {caseQuery.isLoading ? (
+          <ActivityIndicator color={colors.hi} style={{ marginTop: 40 }} />
+        ) : thin ? (
+          <View style={{ marginTop: 28 }}>
+            <Heading size={30}>Not enough to score yet.</Heading>
+            <Caption color={colors.bone2}>
+              {analysis?.basis ??
+                'We need more lived comments from YouTube and owners before a Product Score.'}
+            </Caption>
+          </View>
+        ) : (
+          <View style={{ marginTop: 28 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16 }}>
+              <Text
+                style={{
+                  fontFamily: fonts.serif,
+                  fontWeight: '500',
+                  fontSize: 100,
+                  lineHeight: 78,
+                  letterSpacing: -4,
+                  color: colors.bone,
+                  minWidth: 90,
+                }}
+              >
+                {displayScore}
+              </Text>
+              <View style={{ paddingBottom: 4, flex: 1 }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 17, color: colors.bone }}>
+                  Product Score
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.regular,
+                    fontSize: 14,
+                    color: colors.bone2,
+                    marginTop: 2,
+                    lineHeight: 20,
+                  }}
+                >
+                  Out of 100. What everyone who used it said — not a skin match score.
+                </Text>
+              </View>
+            </View>
+
+            <Text
+              style={{
+                marginTop: 22,
+                fontFamily: fonts.serif,
+                fontWeight: '500',
+                fontSize: 24,
+                lineHeight: 29,
+                letterSpacing: -0.3,
+                color: colors.bone,
+              }}
+            >
+              {renderMarkedText(analysis?.verdict ?? '', analysis?.verdictMarks ?? []).map((part, i) =>
+                part.marked && hiOn ? (
+                  <Text key={i} style={{ backgroundColor: colors.hi, color: colors.wine }}>
+                    {part.text}
+                  </Text>
+                ) : (
+                  <Text key={i}>{part.text}</Text>
+                ),
+              )}
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 3, marginTop: 22, height: 12 }}>
+              <View style={{ flex: Math.max(split.positive, 1), borderRadius: 6, backgroundColor: colors.sage }} />
+              <View style={{ flex: Math.max(split.mixed, 1), borderRadius: 6, backgroundColor: colors.honey }} />
+              <View style={{ flex: Math.max(split.negative, 1), borderRadius: 6, backgroundColor: colors.coral }} />
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 10 }}>
+              <LegendDot color={colors.sage} label={`Positive ${split.positive}%`} />
+              <LegendDot color={colors.honey} label={`Mixed ${split.mixed}%`} />
+              <LegendDot color={colors.coral} label={`Negative ${split.negative}%`} />
+            </View>
+
+            <Text style={{ marginTop: 16, fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.bone2 }}>
+              {analysis?.basis}
+              {analysis?.source === 'llm' ? ' · Scored by model from real comments.' : ' · Scored from comment text while the model is offline.'}
+            </Text>
+          </View>
+        )}
+
+        <View
+          style={{
+            marginTop: 40,
+            backgroundColor: colors.lac,
+            borderRadius: 26,
+            padding: 22,
+          }}
+        >
+          <Heading size={25}>Is it good for you?</Heading>
+          <Caption color={colors.bone2}>
+            Pick your skin type. This Fit Score is separate from the Product Score above.
+          </Caption>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+            {(['oily', 'combination', 'dry', 'sensitive'] as const).map((k) => (
+              <Pressable
+                key={k}
+                onPress={() => setSkin(k)}
+                style={{
+                  width: '47%',
+                  paddingVertical: 15,
+                  paddingHorizontal: 14,
+                  borderRadius: 14,
+                  borderWidth: 1.5,
+                  borderColor: skin === k ? colors.bone : colors.line,
+                  backgroundColor: skin === k ? colors.bone : 'transparent',
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: fonts.medium,
+                    fontSize: 15,
+                    color: skin === k ? colors.wine : colors.bone,
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {k}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {skin ? (
+            <View style={{ marginTop: 18, paddingTop: 18, borderTopWidth: 1, borderTopColor: colors.line }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 14 }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.serif,
+                    fontSize: 84,
+                    lineHeight: 68,
+                    letterSpacing: -3,
+                    color: colors.bone,
+                    fontWeight: '500',
+                  }}
+                >
+                  {fit.score || '—'}
+                </Text>
+                <View>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 17, color: colors.bone }}>{fit.label}</Text>
+                  <Caption>Your Fit Score</Caption>
+                </View>
+              </View>
+              <Text style={{ marginTop: 12, fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.bone }}>
+                {fit.why}
+              </Text>
+            </View>
+          ) : null}
+          <Pressable onPress={() => router.push('/(onboarding)/quiz')} style={{ marginTop: 12 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone2 }}>
+              Not sure? Take a 3-question quiz
+            </Text>
+          </Pressable>
+        </View>
+
+        {analysis?.clusters?.length ? (
+          <View style={{ marginTop: 40 }}>
+            <Heading size={27}>What people keep saying</Heading>
+            <Caption color={colors.bone2}>Share of comments that mention each theme.</Caption>
+            {analysis.clusters.map((cl, i) => (
+              <View key={cl.title} style={{ borderTopWidth: 1, borderTopColor: colors.line, paddingVertical: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 5,
+                      backgroundColor:
+                        cl.tone === 'sage' ? colors.sage : cl.tone === 'coral' ? colors.coral : colors.honey,
+                    }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 17, color: colors.bone }}>{cl.title}</Text>
+                    <Caption>{cl.who}</Caption>
+                  </View>
+                  <Text style={{ fontFamily: fonts.serif, fontSize: 24, color: colors.bone, fontWeight: '500' }}>
+                    {cl.percent}%
+                  </Text>
+                </View>
+                {cl.quotes.slice(0, 2).map((q, qi) => (
+                  <Text
+                    key={qi}
+                    style={{
+                      marginTop: 10,
+                      marginLeft: 22,
+                      fontFamily: fonts.regular,
+                      fontSize: 16,
+                      lineHeight: 24,
+                      color: colors.bone,
+                    }}
+                  >
+                    {renderMarkedText(q.text, q.mark ? [q.mark] : []).map((part, pi) =>
+                      part.marked ? (
+                        <Text key={pi} style={{ backgroundColor: colors.hi, color: colors.wine }}>
+                          {part.text}
+                        </Text>
+                      ) : (
+                        <Text key={pi}>{part.text}</Text>
+                      ),
+                    )}
+                  </Text>
+                ))}
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        <View style={{ marginTop: 40 }}>
+          <Heading size={27}>What’s in it</Heading>
+          <Caption color={colors.bone2}>Plain-language notes on ingredients people mention most.</Caption>
+          <View style={{ marginTop: 12 }}>
+            {product.ingredients.slice(0, 5).map((tag) => (
+              <View
+                key={tag}
+                style={{
+                  flexDirection: 'row',
+                  gap: 12,
+                  paddingVertical: 13,
+                  borderTopWidth: 1,
+                  borderTopColor: colors.line,
+                }}
+              >
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: colors.bone, minWidth: 100 }}>
+                  {tagLabel(tag)}
+                </Text>
+                <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14.5, color: colors.bone2, lineHeight: 22 }}>
+                  {literacy.find((l) => l.title.toLowerCase().includes(tag.toLowerCase()))?.body ??
+                    'Mentioned in reports for this product.'}
+                </Text>
+              </View>
+            ))}
+          </View>
+          <View style={{ marginTop: 12 }}>
+            <Disclaimer />
+          </View>
+        </View>
+
+        <View style={{ marginTop: 40 }}>
+          <Heading size={27}>Watch</Heading>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginTop: 12 }}>
+            {tags.slice(0, 5).map((tag) => (
               <Chip
                 key={tag.tagKey}
                 label={tag.tagLabel}
-                icon={TAG_ICONS[tag.tagKey]}
                 selected={journey === tag.tagKey}
                 onPress={() => setJourney(tag.tagKey)}
               />
             ))}
           </ScrollView>
-          {videosLoading && !clips.length ? <Caption>Looking up short reviews…</Caption> : null}
-          {fillingGap ? <Caption>Finding reviews for this topic…</Caption> : null}
-          {!clips.length && !videosLoading ? (
-            <Caption>
-              {currentTag
-                ? `Nothing tagged as ${currentTag.tagLabel.toLowerCase()} yet.`
-                : 'Nothing tagged for this topic yet.'}
-            </Caption>
-          ) : null}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 9, paddingRight: 4 }}
-          >
-            {shown.map((clip) => {
-              const PlatformMark = PLATFORM_ICONS[clip.platform];
-              const playing = playingId === clip.id;
-              if (playing) {
-                return (
-                  <View key={clip.id} style={{ width: 280 }}>
-                    <OfficialEmbed clip={clip} voterKey={voterKey} />
-                  </View>
-                );
-              }
-              return (
-                <Pressable
-                  key={clip.id}
-                  onPress={() => setPlayingId(clip.id)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Play ${clip.title}`}
-                  style={{ width: 112 }}
-                >
-                  <View
-                    style={{
-                      width: 112,
-                      height: 72,
-                      borderRadius: radii.card,
-                      overflow: 'hidden',
-                      backgroundColor: colors.ink,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {clip.thumbnailUrl ? (
-                      <Image
-                        source={{ uri: clip.thumbnailUrl }}
-                        style={{ position: 'absolute', width: 112, height: 72 }}
-                        resizeMode="cover"
-                      />
-                    ) : null}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, marginTop: 14 }}>
+            {clips.map((clip) => (
+              <Pressable key={clip.id} onPress={() => setPlayingId(clip.id)} style={{ width: 208 }}>
+                {playingId === clip.id ? (
+                  <OfficialEmbed clip={clip} voterKey={voterKey} />
+                ) : (
+                  <>
                     <View
                       style={{
-                        width: 28,
-                        height: 28,
+                        height: 118,
                         borderRadius: 14,
-                        backgroundColor: 'rgba(255,255,255,0.92)',
+                        backgroundColor: colors.lac2,
                         alignItems: 'center',
                         justifyContent: 'center',
+                        overflow: 'hidden',
                       }}
                     >
-                      <Play size={13} color={colors.ink} weight="fill" />
+                      {clip.thumbnailUrl ? (
+                        <Image
+                          source={{ uri: clip.thumbnailUrl }}
+                          style={{ position: 'absolute', width: '100%', height: '100%' }}
+                          resizeMode="cover"
+                        />
+                      ) : null}
+                      <View
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 20,
+                          backgroundColor: 'rgba(243,235,226,0.92)',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Play size={16} color={colors.wine} weight="fill" />
+                      </View>
                     </View>
-                  </View>
-                  <TextClamp>{clip.title}</TextClamp>
-                  <View style={{ flexDirection: 'row', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
-                    <Badge label={platformLabel(clip.platform)} icon={PlatformMark} />
-                  </View>
-                </Pressable>
-              );
-            })}
+                    <Text
+                      numberOfLines={2}
+                      style={{ marginTop: 9, fontFamily: fonts.regular, fontSize: 14, lineHeight: 19, color: colors.bone }}
+                    >
+                      {clip.title}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            ))}
           </ScrollView>
-          {clips.length > visibleCount ? (
-            <Button
-              label="Show more"
-              kind="quiet"
-              onPress={() => setVisibleCount((count) => count + PAGE_SIZE)}
-            />
-          ) : null}
         </View>
 
-        <View style={{ gap: 10 }}>
+        <View style={{ marginTop: 40, marginBottom: 24 }}>
           <SectionHeader
-            title="From the community"
+            title="Talk it through"
             actionLabel="See all"
-            onAction={() => router.push(`/product/${product.id}/feed`)}
-          />
-          <MasonryFeed
-            posts={feedPreview}
-            onPressPost={() => router.push(`/product/${product.id}/feed`)}
-          />
-        </View>
-
-        <View style={{ gap: 10 }}>
-          <SectionHeader
-            title="Discussions"
-            actionLabel="+ New thread"
             onAction={() => router.push(`/product/${product.id}/community`)}
           />
           {threads.map((thread) => (
             <ThreadRow key={thread.id} thread={thread} productId={product.id} />
           ))}
         </View>
-
-        <View style={{ gap: 8, paddingBottom: 8 }}>
-          <View style={{ height: 1, backgroundColor: colors.mist, marginBottom: 6 }} />
-          <Button
-            label={
-              owned
-                ? verified
-                  ? 'You can post as a verified owner'
-                  : 'Purchase logged — verification pending'
-                : 'I already own this'
-            }
-            kind="quiet"
-            icon={CheckCircle}
-            onPress={() => markPurchased(product.id)}
-          />
-          <Button
-            label="Add to my routine"
-            kind="text"
-            icon={Plus}
-            onPress={() => {
-              markPurchased(product.id);
-              addRoutineStep(product.id, 'am');
-              router.push('/routine');
-            }}
-          />
-          <Button
-            label="Start a private progress journal"
-            kind="text"
-            icon={NotePencil}
-            onPress={() => router.push(`/product/${product.id}/progress`)}
-          />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-            <Camera size={12} color={colors.inkSoft} weight="regular" />
-            <Caption>Journal entries stay private unless you choose to share one.</Caption>
-          </View>
-        </View>
       </View>
     </Screen>
   );
 }
 
-function TextClamp({ children }: { children: string }) {
+function LivePill({ label }: { label: string }) {
   return (
-    <Caption color={colors.ink}>
-      {children.length > 42 ? `${children.slice(0, 42)}…` : children}
-    </Caption>
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 9,
+        backgroundColor: 'rgba(243,235,226,0.07)',
+        borderRadius: 999,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+      }}
+    >
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.sage }} />
+      <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.bone2 }}>{label}</Text>
+    </View>
   );
 }
 
-/** Press → confirm: soft scale then settle when adding to Satchel. */
-function SatchelAddButton({ inSatchel, onPress }: { inSatchel: boolean; onPress: () => void }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const confirm = () => {
-    onPress();
-    Animated.sequence([
-      Animated.timing(scale, {
-        toValue: 0.88,
-        duration: 90,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.spring(scale, { toValue: 1.08, friction: 4, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, friction: 5, useNativeDriver: true }),
-    ]).start();
-  };
-
+function LegendDot({ color, label }: { color: string; label: string }) {
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
-      <Pressable
-        onPress={confirm}
-        style={{
-          width: 50,
-          height: 50,
-          borderRadius: 12,
-          backgroundColor: inSatchel ? colors.rosewood : colors.rosewoodSoft,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={inSatchel ? 'In your Satchel' : 'Add to Satchel'}
-      >
-        <Handbag
-          size={22}
-          color={inSatchel ? colors.white : colors.rosewood}
-          weight={inSatchel ? 'fill' : 'regular'}
-        />
-      </Pressable>
-    </Animated.View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
+      <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>{label}</Text>
+    </View>
   );
 }

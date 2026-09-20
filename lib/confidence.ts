@@ -122,9 +122,9 @@ function transparency(product: Product): { score: number; label: string } {
 
 export function scoreLabel(composite: number | null, tooFew: boolean): string {
   if (tooFew || composite == null) return 'Too few reviews yet';
-  if (composite >= 80) return 'Strong match';
+  if (composite >= 80) return 'Mostly liked';
   if (composite >= 60) return 'Mixed feedback';
-  return 'Weak match';
+  return 'Cautious overall';
 }
 
 export function computeConfidence(
@@ -136,16 +136,13 @@ export function computeConfidence(
   const community = sentiment(posts);
   const claim = transparency(product);
 
-  const compositeScore =
-    community.score == null
-      ? null
-      : Math.round(fit.score * 0.4 + community.score * 0.35 + claim.score * 0.25);
+  const compositeScore = community.score;
 
   const headline = scoreLabel(compositeScore, community.tooFew);
   const skin = profile?.skinType && profile.skinType !== 'unknown' ? profile.skinType : 'your';
   const explanation = community.tooFew
-    ? `Fit is based on ${skin} skin and how complete the ingredient list is. Community sentiment is not scored yet because fewer than two lived-experience posts are visible.`
-    : `Based on your ${skin} skin type, ${community.verifiedCount} verified owners, and ${claim.label.toLowerCase()}.`;
+    ? `Product Score needs lived comments (YouTube / owners). Fit for ${skin} skin is shown separately when you open a case.`
+    : `Product Score reflects what people who used it reported (${community.verifiedCount} verified owners in-app). Fit for your skin is separate.`;
 
   return {
     fitMatchScore: fit.score,

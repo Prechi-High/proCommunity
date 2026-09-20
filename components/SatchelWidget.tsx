@@ -6,6 +6,8 @@ import { colors, elevation, fonts } from '@/constants/theme';
 import { Cat, Handbag, X } from '@/components/icons';
 import { useAppStore } from '@/lib/store';
 
+// Satchel FAB — bone/wine V1 accents (rosewood alias = hi yellow).
+
 export function SatchelLayer() {
   const hydrated = useAppStore((state) => state.hydrated);
   const profile = useAppStore((state) => state.profile);

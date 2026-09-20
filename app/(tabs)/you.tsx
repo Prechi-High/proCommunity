@@ -46,13 +46,25 @@ export default function YouScreen() {
   const satchelItems = useAppStore((s) => s.satchelItems);
   const flagged = useAppStore((s) => s.flaggedPostIds);
 
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <Screen>
+        <Heading size={34}>You</Heading>
+        <Caption color={colors.bone2}>
+          You can search without an account. Sign in to keep your skin details, saved products and routine.
+        </Caption>
+        <Button label="Continue with Google" kind="hl" onPress={() => router.push('/(auth)/sign-in')} style={{ marginTop: 18 }} />
+        <Button label="Use email instead" kind="quiet" onPress={() => router.push('/(auth)/sign-in')} style={{ marginTop: 10 }} />
+        <Button label="Not now" kind="text" onPress={() => router.push('/(tabs)')} style={{ marginTop: 6 }} />
+      </Screen>
+    );
+  }
 
   const verified = ownerships.length > 0;
 
   return (
     <Screen>
-      <Heading size={21}>You</Heading>
+      <Heading size={34}>You</Heading>
 
       <Card level="raised" style={{ alignItems: 'center', gap: 8, paddingVertical: 20 }}>
         <Avatar name={profile.displayName} size={76} verified={verified} />

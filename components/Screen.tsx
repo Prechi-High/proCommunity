@@ -23,14 +23,14 @@ export function Screen({
 }) {
   const bodyStyle: ViewStyle = {
     flex: 1,
-    backgroundColor: colors.shell,
-    paddingHorizontal: padded ? 16 : 0,
+    backgroundColor: colors.wine,
+    paddingHorizontal: padded ? 20 : 0,
     paddingTop: 4,
-    gap: 14,
+    gap: 0,
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.shell }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.wine }} edges={['top']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -50,11 +50,11 @@ export function Screen({
           <View
             style={{
               paddingHorizontal: 16,
-              paddingBottom: Platform.OS === 'web' ? 16 : 8,
-              paddingTop: 10,
-              backgroundColor: colors.shell,
+              paddingBottom: Platform.OS === 'web' ? 14 : 8,
+              paddingTop: 12,
+              backgroundColor: colors.wine,
               borderTopWidth: 1,
-              borderTopColor: colors.mist,
+              borderTopColor: colors.line,
               gap: 8,
             }}
           >
@@ -68,23 +68,32 @@ export function Screen({
 
 export function WebShell({ children }: { children: ReactNode }) {
   if (Platform.OS !== 'web') {
-    return <View style={{ flex: 1, backgroundColor: colors.shell }}>{children}</View>;
+    return <View style={{ flex: 1, backgroundColor: colors.wine }}>{children}</View>;
   }
   return (
     <View
       style={{
         flex: 1,
-        backgroundColor: colors.webShell,
+        backgroundColor: colors.stage,
         alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
       <View
         style={{
           flex: 1,
           width: '100%',
-          maxWidth: 430,
-          backgroundColor: colors.shell,
+          maxWidth: 390,
+          maxHeight: Platform.OS === 'web' ? ('min(844px, calc(100dvh - 32px))' as unknown as number) : undefined,
+          backgroundColor: colors.wine,
           overflow: 'hidden',
+          ...(Platform.OS === 'web'
+            ? ({
+                borderRadius: 44,
+                marginVertical: 16,
+                boxShadow: '0 0 0 8px #0b0407, 0 30px 80px rgba(0,0,0,0.6)',
+              } as object)
+            : null),
         }}
       >
         {children}
