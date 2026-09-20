@@ -77,7 +77,7 @@ export default function ResultsScreen() {
       ) : null}
 
       <Text style={{ marginTop: 16, marginBottom: 4, fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>
-        {isFetching ? 'Looking…' : `${sorted.length} products, sorted by Product Score`}
+        {isFetching ? 'Looking…' : `${sorted.length} products, sorted by verdict`}
       </Text>
 
       {isFetching ? <ActivityIndicator color={colors.hi} style={{ marginTop: 24 }} /> : null}

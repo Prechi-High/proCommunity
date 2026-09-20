@@ -12,16 +12,18 @@ import {
   renderMarkedText,
   type MarkedFrag,
 } from '@/lib/productCase';
-import { hapticPeel, hapticSourceDone, hapticTap } from '@/lib/haptics';
+import { hapticPeel, hapticSourceDone, hapticTap, hapticVerdictLand } from '@/lib/haptics';
+import { playPeelSound, unlockAudio } from '@/lib/sounds';
 import { useAppStore } from '@/lib/store';
 import { useProduct } from '@/lib/useProduct';
 
 const STAGES = [
-  'Opening the case.',
-  'Reading YouTube comments.',
+  'Let’s look at it.',
+  'Reading YouTube reviews.',
   'Reading the Reddit threads brands never see.',
   'Checking the ingredient list.',
   'Sorting praise from complaints.',
+  'Grouping it by skin type.',
 ] as const;
 
 /**
@@ -154,11 +156,15 @@ export default function ProbeScreen() {
       if (!alive()) return;
 
       const total = (analysis.counts.yt ?? 0) + (analysis.counts.own ?? 0);
-      setStage(
-        analysis.tooFew
-          ? `${total} comments read. That’s not enough for a score.`
-          : `${Math.max(total, targets.yt).toLocaleString()} comments read. Here’s what they say.`,
-      );
+      if (!analysis.tooFew) {
+        setStage(STAGES[5]);
+        await wait(650);
+        if (!alive()) return;
+        setStage(`${Math.max(total, targets.yt).toLocaleString()} comments read. Here’s what they say.`);
+      } else {
+        setStage(`${total} comments read. That’s not enough for a score.`);
+      }
+      hapticVerdictLand();
       await wait(1100);
       if (!alive()) return;
       finish();
@@ -201,7 +207,7 @@ export default function ProbeScreen() {
 
         <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 4 }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone3, marginBottom: 6 }}>
-            Opening the case on
+            Let’s Source it
           </Text>
           <Text
             style={{
@@ -252,7 +258,7 @@ export default function ProbeScreen() {
 
           <View style={{ marginTop: 'auto', paddingBottom: 12 }}>
             <SourceRow
-              label="YouTube comments"
+              label="YouTube reviews"
               value={counts.yt}
               unit="comments"
               done={done.yt}
@@ -330,7 +336,9 @@ function QuoteLine({
   useEffect(() => {
     if (lifted && !didPeel.current) {
       didPeel.current = true;
+      unlockAudio();
       hapticPeel();
+      playPeelSound();
     }
     Animated.timing(anim, {
       toValue: lifted ? 0 : 1,

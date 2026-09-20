@@ -1,8 +1,8 @@
 import { Platform, type ViewStyle } from 'react-native';
 
 /**
- * Sourced V1 visual system — exact tokens from
- * `project info/sourced-v1 (1).html`.
+ * Sourced V1 visual system — tokens from
+ * `project info/sourced-v1 (2).html`.
  *
  * Dark wine canvas, bone type, Boska display + General Sans UI.
  * Highlight yellow (`hi`) marks focus / active chrome; CTAs are bone-on-wine.

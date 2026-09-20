@@ -24,7 +24,7 @@ import {
   Trash,
 } from '@/components/icons';
 import { colors, fonts, radii } from '@/constants/theme';
-import { hapticTap } from '@/lib/haptics';
+import { hapticFeelSignature, hapticTap } from '@/lib/haptics';
 import { CONCERN_LABEL, SKIN_TYPE_LABEL } from '@/lib/quiz';
 import { useAppStore, type HapticsMode } from '@/lib/store';
 
@@ -245,7 +245,7 @@ function PrefsBlock({
   return (
     <View style={{ marginTop: 8, gap: 18 }}>
       <View>
-        <SectionHeader title="Haptics" hint="How Sourced feels in your hand." />
+        <SectionHeader title="Haptics" hint="Sourced speaks through touch. Off, Subtle, or Full." />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
           {modes.map((m) => (
             <Chip
@@ -259,6 +259,12 @@ function PrefsBlock({
             />
           ))}
         </View>
+        <Button
+          label="Feel our signature"
+          kind="text"
+          onPress={() => hapticFeelSignature()}
+          style={{ marginTop: 4, alignSelf: 'flex-start' }}
+        />
       </View>
 
       <View>

@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2A0E16">
+<title>Sourced V1</title>
+<style>
+@import url('https://api.fontshare.com/v2/css?f[]=boska@400,500,700&f[]=general-sans@400,500,600&display=swap');
+:root{
+  --wine:#2A0E16;--wine-deep:#210A11;--lac:#3A1622;--lac2:#4B2030;--redact:#0B0306;
+  --bone:#F3EBE2;--bone2:rgba(243,235,226,.70);--bone3:rgba(243,235,226,.45);--line:rgba(243,235,226,.14);
+  --sage:#9FD0AB;--honey:#E8B95A;--coral:#EE8C7C;--hi:#F2D25B;
+  --serif:'Boska',Georgia,'Times New Roman',serif;
+  --sans:'General Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#12060A;color:var(--bone);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:inherit}
+ul{list-style:none}
+input{font-family:inherit}
+:focus-visible{outline:2px solid var(--hi);outline-offset:2px}
+.press{transition:transform .18s var(--ease),background .2s,border-color .2s}
+.press:active{transform:scale(.95)}
+[hidden]{display:none!important}
+
+mark{color:inherit;background:linear-gradient(var(--hi),var(--hi)) no-repeat 0 0/0% 100%;padding:0 .14em;margin:0 -.14em;border-radius:3px;
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;transition:background-size .55s cubic-bezier(.6,0,.2,1) .25s,color .2s .4s}
+.hi-on mark,.cl.open mark,.ln.lift mark,.mmr.on mark,.static mark{background-size:100% 100%;color:var(--wine)}
+
+/* ---------- device ---------- */
+.stage{min-height:100dvh;display:grid;place-items:center}
+.device{position:relative;width:100vw;height:100dvh;background:var(--wine);overflow:hidden;overflow:clip;isolation:isolate}
+@media(min-width:520px){.device{width:390px;height:min(844px,calc(100dvh - 32px));border-radius:44px;box-shadow:0 0 0 8px #0b0407,0 30px 80px rgba(0,0,0,.6)}}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;visibility:hidden;padding-top:env(safe-area-inset-top);
+  transition:opacity .4s var(--ease),visibility 0s .4s}
+.screen.on{opacity:1;visibility:visible;transition:opacity .4s var(--ease),visibility 0s}
+.screen.hastab{padding-bottom:calc(74px + env(safe-area-inset-bottom))}
+.body{flex:1;overflow-y:auto;padding:0 20px 24px;scrollbar-width:none;min-height:0}
+.body::-webkit-scrollbar{display:none}
+#case{opacity:1;transform:translateY(100%);z-index:5;background:var(--wine);transition:transform .75s var(--ease),visibility 0s .75s}
+#case.on{transform:none;transition:transform .75s var(--ease),visibility 0s}
+
+.tabbar{position:absolute;left:0;right:0;bottom:0;z-index:8;display:flex;background:var(--wine);border-top:1px solid var(--line);
+  padding:9px 0 calc(13px + env(safe-area-inset-bottom));transition:transform .45s var(--ease)}
+.tabbar.hide{transform:translateY(110%)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--bone3);padding:2px 0}
+.tab svg{width:22px;height:22px;transition:transform .3s var(--ease)}
+.tab.on{color:var(--bone);font-weight:600}.tab.on svg{color:var(--hi);transform:translateY(-1px)}
+
+/* ---------- shared bits ---------- */
+.top{display:flex;justify-content:space-between;align-items:center;padding:16px 22px 0;position:relative;z-index:2}
+.mark{font-family:var(--serif);font-weight:700;font-size:25px;letter-spacing:-.02em}
+.linkbtn{font-size:14px;font-weight:500;color:var(--bone2);padding:10px 2px}
+.ib{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;color:var(--bone)}
+.ib svg{width:22px;height:22px}
+.h2{font-family:var(--serif);font-weight:500;font-size:27px;letter-spacing:-.02em;line-height:1.1}
+.sm{font-size:14px;line-height:1.5;color:var(--bone2)}
+.cap{font-size:12.5px;line-height:1.45;color:var(--bone3)}
+.sec{margin-top:44px}.sec>.sm{margin:7px 0 15px}
+.rh{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.rh button{font-size:13.5px;font-weight:600;color:var(--bone2);padding:6px 0;white-space:nowrap;flex-shrink:0}
+.btn{display:block;width:100%;padding:16px;border-radius:16px;font-weight:600;font-size:16px;text-align:center}
+.btn.solid{background:var(--bone);color:var(--wine)}.btn.ghost{border:1.5px solid var(--line)}.btn.hl{background:var(--hi);color:var(--wine)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chips.sc{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -20px;padding:0 20px}
+.chip{padding:9px 14px;border:1px solid var(--line);border-radius:999px;font-size:14px;color:var(--bone2);white-space:nowrap;transition:background .2s,color .2s,border-color .2s}
+.chip.on{background:var(--bone);color:var(--wine);border-color:var(--bone);font-weight:500}
+.pv{display:inline-block;font-size:12px;font-weight:500;color:var(--bone2);border:1px solid var(--line);border-radius:999px;padding:2px 9px;white-space:nowrap}
+.pv.own{border-color:transparent;background:rgba(159,208,171,.16);color:var(--sage)}
+.pvrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.notice{font-size:13px;line-height:1.5;color:var(--bone2);border-left:2px solid var(--honey);padding:2px 0 2px 12px}
+.p{background:var(--sage)}.m{background:var(--honey)}.n{background:var(--coral)}
+.mini{display:flex;gap:2px;height:7px}.mini i{display:block;height:100%;border-radius:4px}
+
+/* ---------- HOME ---------- */
+.bars{position:absolute;left:0;right:0;top:0;height:620px;overflow:hidden;pointer-events:none;z-index:0;-webkit-mask-image:linear-gradient(#000 50%,transparent);mask-image:linear-gradient(#000 50%,transparent);transition:opacity .2s}
+.rb{position:absolute;left:24px;height:15px;border-radius:3px;background:var(--wine-deep);transition:transform .8s var(--ease)}
+.peel .rb{transform:translateX(var(--dx))}
+.hmain{position:relative;z-index:2;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;justify-content:center;padding:0 24px 8px;scrollbar-width:none}
+.hmain::-webkit-scrollbar{display:none}
+.hero{font-family:var(--serif);font-weight:500;font-size:clamp(40px,12.6vw,50px);line-height:1.03;letter-spacing:-.025em}
+.rd{position:relative;display:inline-block}
+.rd::after{content:"";position:absolute;inset:.1em -.06em .02em -.06em;background:var(--redact);transform-origin:100% 50%;animation:unredact .85s var(--ease) forwards;animation-delay:var(--d)}
+@keyframes unredact{to{transform:scaleX(0)}}
+.sub{margin-top:18px;font-size:17px;line-height:1.45;color:var(--bone2);max-width:31ch}
+.search{position:relative;margin-top:28px;display:flex;align-items:center;background:var(--bone);border-radius:22px;height:66px;padding:0 9px 0 20px;transition:box-shadow .25s,transform .3s var(--ease);flex-shrink:0}
+.search:focus-within{box-shadow:0 0 0 3px rgba(242,210,91,.6);transform:translateY(-2px)}
+.search input{flex:1;min-width:0;height:100%;background:none;border:0;outline:0;font:500 17px var(--sans);color:var(--wine)}
+.ph{position:absolute;left:20px;right:70px;top:50%;transform:translateY(-50%);font-size:17px;font-weight:500;color:rgba(42,14,22,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.search.has .ph{display:none}
+.sbtn{width:48px;height:48px;border-radius:16px;background:var(--wine);color:var(--bone);display:grid;place-items:center;transition:background .2s,color .2s,transform .25s var(--ease)}
+.sbtn:active{transform:scale(.9)}.search.has .sbtn{background:var(--hi);color:var(--wine)}
+.shake{animation:shake .35s}@keyframes shake{25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-3px)}}
+.try{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.try .chip:hover{border-color:var(--bone3)}
+.sugg{margin-top:8px}
+.srow{display:flex;align-items:center;gap:12px;padding:13px 2px;border-top:1px solid var(--line);width:100%}
+.srow b{flex:1;font-size:16px;font-weight:600;line-height:1.25}.srow small{display:block;font-weight:400;font-size:12.5px;color:var(--bone3);margin-top:1px}
+.snum{font-family:var(--serif);font-size:26px;font-weight:500;letter-spacing:-.02em}
+.snum.none{font-family:var(--sans);font-size:13px;color:var(--bone3);font-weight:500}
+.seeall{padding:14px 2px;border-top:1px solid var(--line);font-size:14.5px;font-weight:600;color:var(--bone2);width:100%}
+.recent{margin-top:24px}
+.foot{position:relative;z-index:2;padding:6px 24px 14px;font-size:13px;line-height:1.55;color:var(--bone3)}
+
+/* ---------- RESULTS ---------- */
+.rfield{margin:8px 0 0;background:var(--bone);color:var(--wine);border-radius:16px;height:54px;display:flex;align-items:center;gap:10px;padding:0 16px;font-weight:500;font-size:16px;width:100%}
+.rfield svg{width:20px;height:20px;opacity:.6}
+.res{display:grid;grid-template-columns:auto 1fr auto;gap:3px 14px;align-items:center;padding:16px 0;border-top:1px solid var(--line);width:100%}
+.res .thumb{grid-row:1/4}
+.res b{font-size:16px;font-weight:600;line-height:1.25}.res small{font-size:12.5px;color:var(--bone3)}
+.res .rs{grid-row:1/3;grid-column:3;text-align:right;font-family:var(--serif);font-size:32px;font-weight:500;letter-spacing:-.03em;line-height:1}
+.res .rs small{display:block;font-family:var(--sans);font-size:12px;letter-spacing:0;margin-top:4px}
+.res .mini{grid-column:2/4}
+.thumb{width:48px;height:60px;border-radius:12px;background:var(--lac);display:grid;place-items:center}
+
+/* ---------- INVESTIGATION ---------- */
+.ptop{display:flex;padding:12px 14px 0}
+.pbody{flex:1;display:flex;flex-direction:column;padding:4px 24px 0;min-height:0}
+.pq{font-family:var(--serif);font-weight:500;font-size:26px;line-height:1.1;letter-spacing:-.02em}
+.pq small{display:block;font-family:var(--sans);font-size:14px;font-weight:400;color:var(--bone3);margin-bottom:6px;letter-spacing:0}
+.doc{margin-top:18px;background:var(--lac);border-radius:20px;padding:12px 18px}
+.ln{position:relative;padding:7px 0;font-family:var(--serif);font-size:17px;line-height:1.25;overflow:hidden}
+.ln .bar{position:absolute;inset:4px 0;background:var(--redact);border-radius:2px;transform-origin:var(--o) 50%;transition:transform .6s var(--ease)}
+.ln.lift .bar{transform:scaleX(0)}
+.stg{margin-top:22px;font-family:var(--serif);font-weight:500;font-size:30px;line-height:1.08;letter-spacing:-.02em;min-height:2.2em}
+.stg.swap{animation:swap .4s var(--ease)}@keyframes swap{from{opacity:0;transform:translateY(8px)}}
+.srcs{margin-top:auto;padding-bottom:12px}
+.srcs li{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px 10px;padding:12px 0;border-top:1px solid var(--line);font-size:15px;color:var(--bone3);transition:color .3s}
+.srcs li.act{color:var(--bone)}.srcs li.done .val{color:var(--sage)}
+.val{font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:8px}
+.val svg{width:16px;height:16px;opacity:0;transform:scale(.4);transition:all .35s var(--ease)}
+.srcs li.done .val svg{opacity:1;transform:none}
+.pg{grid-column:1/-1;height:2px;background:var(--line);border-radius:2px;overflow:hidden}
+.pg i{display:block;height:100%;width:0;background:var(--bone)}.srcs li.done .pg i{background:var(--sage)}
+.pfoot{display:flex;justify-content:space-between;align-items:center;padding:6px 24px calc(18px + env(safe-area-inset-bottom));font-size:13px;color:var(--bone3);min-height:56px}
+.skip{padding:10px 4px;font-weight:500;color:var(--bone2);opacity:0;pointer-events:none;transition:opacity .4s}.skip.show{opacity:1;pointer-events:auto}
+
+/* ---------- CASE ---------- */
+.ctop{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 6px;flex-shrink:0}
+.ctt{font-size:14px;font-weight:600;opacity:0;transform:translateY(4px);transition:all .3s var(--ease);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.ctt.on{opacity:1;transform:none}
+#save.on svg{fill:var(--hi);color:var(--hi)}
+.phead{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;padding-top:6px}
+.brand{font-size:14px;color:var(--bone2)}
+.phead h1{font-family:var(--serif);font-weight:500;font-size:31px;line-height:1.05;letter-spacing:-.025em;margin-top:4px}
+.score{margin-top:28px}
+.srow2{display:flex;align-items:flex-end;gap:16px}
+.bignum{font-family:var(--serif);font-weight:500;font-size:132px;line-height:.78;letter-spacing:-.05em;font-variant-numeric:tabular-nums;min-width:1.15ch}
+.slab{padding-bottom:4px}.slab b{display:block;font-size:17px;font-weight:600}.slab span{font-size:14px;color:var(--bone2);line-height:1.4;display:block;margin-top:2px}
+.verdict{margin-top:22px;font-family:var(--serif);font-weight:500;font-size:24px;line-height:1.22;letter-spacing:-.015em}
+.split{display:flex;gap:3px;margin-top:22px}
+.split i{display:block;height:12px;border-radius:6px;flex:none;width:0;transition:width 1.1s var(--ease)}
+.split.go .p{width:calc(var(--w)*1% - 2px)}.split.go .m{width:calc(var(--w)*1% - 2px);transition-delay:.12s}.split.go .n{width:calc(var(--w)*1% - 2px);transition-delay:.24s}
+.legend{display:flex;gap:16px;margin-top:10px;font-size:14px;color:var(--bone2);flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:6px}.legend i{width:8px;height:8px;border-radius:50%}
+.basis{margin-top:16px;font-size:14px;line-height:1.5;color:var(--bone2)}
+.how{margin-top:10px;font-size:14px;color:var(--bone2)}
+.how summary{cursor:pointer;font-weight:500;color:var(--bone);list-style:none;display:inline-flex;align-items:center;gap:6px;padding:6px 0}
+.how summary::-webkit-details-marker{display:none}.how summary svg{width:14px;height:14px;transition:transform .3s var(--ease)}.how[open] summary svg{transform:rotate(180deg)}
+.how p{line-height:1.55;margin-top:4px;max-width:44ch}
+.calc{margin-top:8px;background:var(--lac);border-radius:14px;padding:12px 14px;line-height:1.7}
+
+.fit{margin-top:40px;background:var(--lac);border-radius:26px;padding:22px}
+.fit .h2{font-size:25px}
+.skin{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.skin button{padding:15px 14px;border-radius:14px;border:1.5px solid var(--line);font-weight:500;font-size:15px;transition:all .2s}
+.skin button.on{background:var(--bone);color:var(--wine);border-color:var(--bone)}
+.quizlink{margin-top:12px;font-size:14px;font-weight:600;color:var(--bone2);padding:6px 0}
+.fres{display:none;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+.fit.done .fres{display:block}
+.frow{display:flex;align-items:flex-end;gap:14px}
+.fnum{font-family:var(--serif);font-weight:500;font-size:84px;line-height:.8;letter-spacing:-.045em;font-variant-numeric:tabular-nums;min-width:1.15ch}
+.flab b{display:block;font-size:17px;font-weight:600}.flab span{font-size:14px;color:var(--bone2)}
+.fwhy{margin-top:16px;font-size:15px;line-height:1.55}.fwhy em{font-style:normal;color:var(--bone2)}
+
+.cl{border-top:1px solid var(--line)}.cl:last-child{border-bottom:1px solid var(--line)}
+.clh{width:100%;display:flex;align-items:center;gap:12px;padding:16px 0}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.clt{flex:1;min-width:0}.clt b{display:block;font-size:17px;font-weight:600;line-height:1.25}.clt small{display:block;margin-top:3px;font-size:13px;color:var(--bone3)}
+.clp{font-family:var(--serif);font-size:24px;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.chev{width:18px;height:18px;color:var(--bone3);transition:transform .35s var(--ease);flex-shrink:0}.cl.open .chev{transform:rotate(180deg)}
+.clb{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s var(--ease)}.cl.open .clb{grid-template-rows:1fr}
+.cli{overflow:hidden}
+.cli blockquote{padding:0 0 14px 22px;font-size:16px;line-height:1.55}.cli blockquote .pv{margin-right:8px;vertical-align:1px}
+.seen{padding:2px 0 16px 22px;display:flex;flex-direction:column;gap:8px}
+.mom{display:flex;gap:12px;align-items:center;background:var(--lac);border-radius:14px;padding:10px 12px;font-size:14px;line-height:1.35;width:100%}
+.mom .pl{width:32px;height:32px;border-radius:50%;background:var(--bone);color:var(--wine);display:grid;place-items:center;flex-shrink:0}
+.mom .pl svg{width:14px;height:14px;margin-left:2px}
+.mom b{font-variant-numeric:tabular-nums;margin-right:5px}
+.mom em{margin-left:auto;font-style:normal;font-size:12px;color:var(--bone3);white-space:nowrap}
+
+.ph2{position:relative;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.26),rgba(255,255,255,0) 62%),var(--t);overflow:hidden}
+.ph2 i{position:absolute;width:7px;height:7px;border-radius:50%;background:rgba(80,30,20,.34)}
+.ph2 em{position:absolute;left:6px;bottom:5px;font-style:normal;font-size:10.5px;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.row{display:flex;gap:12px;overflow-x:auto;margin:0 -20px;padding:0 20px 4px;scrollbar-width:none;scroll-snap-type:x proximity;scroll-padding-left:20px}
+.row::-webkit-scrollbar{display:none}
+.row>*{scroll-snap-align:start}
+.row.grid{display:grid;grid-template-columns:1fr 1fr;margin:0;padding:0;gap:18px 12px}
+.reflow{animation:reflow .5s var(--ease)}@keyframes reflow{from{opacity:0;transform:translateY(8px)}}
+.tl{width:238px;flex-shrink:0;text-align:left}
+.row.grid .tl,.row.grid .vc{width:auto}
+.tl-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;border-radius:14px;overflow:hidden;height:120px}
+.tl-cap{margin-top:9px;font-size:14px;line-height:1.4}.tl .pvrow{margin-top:7px}
+.vc{width:208px;flex-shrink:0;text-align:left}
+.vt{position:relative;height:118px;border-radius:14px;background:var(--lac2);display:grid;place-items:center;overflow:hidden}
+.vt .plb{width:40px;height:40px;border-radius:50%;background:rgba(243,235,226,.92);color:var(--wine);display:grid;place-items:center;transition:transform .2s var(--ease)}
+.vc:active .plb{transform:scale(.9)}
+.vt .plb svg{width:16px;height:16px;margin-left:2px}
+.vt .dur{position:absolute;right:8px;top:8px;font-size:11px;font-weight:600;background:rgba(11,3,6,.7);border-radius:6px;padding:2px 6px}
+.ticks{position:absolute;left:0;right:0;bottom:0;height:5px;background:rgba(243,235,226,.18)}.ticks i{position:absolute;top:0;bottom:0;background:var(--hi)}
+.vc p{margin-top:9px;font-size:14px;line-height:1.35}.vc .pvrow{margin-top:6px}
+.ptag{margin:0 0 14px}
+
+.who li{padding:14px 0;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:9px 12px;align-items:center;transition:padding .35s var(--ease),background .35s,box-shadow .35s}
+.who li:last-child{border-bottom:1px solid var(--line)}
+.who .nm{font-weight:600;font-size:16px}.who .nm small{font-weight:400;color:var(--bone3);font-size:13px;margin-left:8px}
+.who .mini{grid-column:1/-1}
+.who li.me{padding-left:14px;background:rgba(243,235,226,.06);box-shadow:inset 3px 0 0 var(--hi)}
+.ing{display:flex;gap:12px;padding:13px 0;border-top:1px solid var(--line);font-size:14.5px;line-height:1.5}
+.ing:last-of-type{border-bottom:1px solid var(--line)}
+.ing b{min-width:100px;font-weight:600}.ing span{color:var(--bone2)}
+.thr{display:block;padding:15px 0;border-top:1px solid var(--line);width:100%;text-align:left}
+.thr b{font-size:16px;font-weight:600;display:block}.thr p{font-size:14px;color:var(--bone2);margin-top:3px;line-height:1.45}.thr small{display:block;margin-top:6px;font-size:12.5px;color:var(--bone3)}
+.fine{margin-top:40px;font-size:13px;line-height:1.6;color:var(--bone3)}
+.dock{display:flex;gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:var(--wine);border-top:1px solid var(--line);flex-shrink:0}
+.askbar{flex:1;min-width:0;display:flex;align-items:center;gap:10px;height:54px;padding:0 16px;border-radius:16px;background:var(--lac);font-size:15px;color:var(--bone2)}
+.askbar svg{width:20px;height:20px;color:var(--hi);flex-shrink:0}.askbar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.buy{height:54px;padding:0 18px;border-radius:16px;background:var(--bone);color:var(--wine);font-weight:600;font-size:15px;white-space:nowrap;text-align:center}
+.thin h2{font-size:36px}
+
+/* ---------- TABS: shelf / saved / you ---------- */
+.card{background:var(--lac);border-radius:22px;padding:18px}
+.dash{display:flex;gap:5px;margin-top:14px}.dash i{flex:1;height:4px;border-radius:3px;background:rgba(243,235,226,.2);transition:background .3s}.dash i.d{background:var(--sage)}
+.seg{display:flex;gap:6px}.seg button{flex:1;text-align:center;padding:10px;border-radius:12px;border:1px solid var(--line);font-size:14px;font-weight:500;color:var(--bone2);transition:all .2s}
+.seg button.on{background:var(--bone);color:var(--wine);border-color:var(--bone)}
+.task{display:flex;align-items:center;gap:14px;padding:14px 0;border-top:1px solid var(--line);width:100%;text-align:left}
+.task .ck{width:28px;height:28px;border-radius:10px;border:1.5px solid var(--line);display:grid;place-items:center;flex-shrink:0;transition:all .25s var(--ease)}
+.task .ck svg{width:16px;height:16px;transform:scale(0);transition:transform .25s var(--ease)}
+.task.d .ck{background:var(--sage);border-color:var(--sage);color:var(--wine)}.task.d .ck svg{transform:scale(1)}
+.task b{font-size:16px;font-weight:600;display:block}.task small{font-size:12.5px;color:var(--bone3)}
+.tlm{display:flex;gap:14px;padding:14px 0;border-top:1px solid var(--line)}
+.tlm .ph2{width:76px;height:96px;border-radius:12px;flex-shrink:0}
+.tlm b{font-size:15.5px;font-weight:600}.tlm p{font-size:14px;color:var(--bone2);margin-top:3px;line-height:1.4}
+.tlm button{margin-top:7px;font-size:13px;font-weight:600;color:var(--bone2);padding:4px 0;display:block}
+.si{display:flex;align-items:center;gap:13px;padding:14px 0;border-top:1px solid var(--line)}
+.si .nm{flex:1;text-align:left}.si b{font-size:16px;font-weight:600;display:block}.si small{font-size:12.5px;color:var(--bone3)}
+.si .drop{color:var(--sage)}
+.iconbtn{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:var(--bone3);border:1.5px solid var(--line);transition:all .2s}
+.iconbtn svg{width:18px;height:18px}.iconbtn.on{background:var(--hi);border-color:var(--hi);color:var(--wine)}
+.tog{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:15px 0;border-top:1px solid var(--line);width:100%;text-align:left}
+.tog b{font-size:15.5px;font-weight:600;display:block}.tog small{font-size:13px;line-height:1.45;color:var(--bone3);display:block;margin-top:2px}
+.sw{width:46px;height:28px;border-radius:14px;background:var(--line);position:relative;flex-shrink:0;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--bone);transition:transform .25s var(--ease)}
+.sw.on{background:var(--sage)}.sw.on::after{transform:translateX(18px);background:var(--wine)}
+
+/* ---------- SHEETS ---------- */
+.scrim{position:absolute;inset:0;background:rgba(10,3,6,.62);opacity:0;pointer-events:none;transition:opacity .4s;z-index:20}.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:30;background:var(--lac);border-radius:28px 28px 0 0;transform:translateY(105%);visibility:hidden;
+  transition:transform .55s var(--ease),visibility 0s .55s;display:flex;flex-direction:column;max-height:92%;padding-bottom:env(safe-area-inset-bottom)}
+.sheet.on{transform:none;visibility:visible;transition:transform .55s var(--ease),visibility 0s}
+.sheet.tall{height:92%}
+.grab{width:38px;height:4px;border-radius:2px;background:var(--line);margin:10px auto 0;flex-shrink:0}
+.shead{display:flex;align-items:center;justify-content:space-between;padding:6px 8px 4px 22px;flex-shrink:0}
+.shead h3{font-family:var(--serif);font-weight:500;font-size:22px;letter-spacing:-.015em}
+.sbody{padding:8px 22px 22px;overflow-y:auto;flex:1;min-height:0}
+.sbody .seg{margin-bottom:14px}
+.subhead{padding:0 22px;flex-shrink:0}
+/* video */
+.vp{position:relative;height:200px;background:var(--redact);border-radius:16px;display:grid;place-items:center;overflow:hidden}
+.vp .plb{width:56px;height:56px;border-radius:50%;background:rgba(243,235,226,.94);color:var(--wine);display:grid;place-items:center;transition:transform .2s var(--ease)}
+.vp .plb:active{transform:scale(.92)}.vp .plb svg{width:22px;height:22px}
+.vp .tm{position:absolute;left:14px;bottom:10px;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.scrub{position:relative;height:10px;border-radius:5px;background:var(--line);margin:16px 6px 0;cursor:pointer}
+.scrub i{position:absolute;top:0;bottom:0;background:var(--hi);border-radius:5px}
+.scrub b{position:absolute;top:-4px;width:18px;height:18px;border-radius:50%;background:var(--bone);transform:translateX(-50%);box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.mmr{display:flex;gap:14px;align-items:flex-start;width:100%;padding:14px 0;border-top:1px solid var(--line);font-size:15px;line-height:1.4;text-align:left}
+.mmr time{font-variant-numeric:tabular-nums;font-weight:600;min-width:40px;color:var(--bone2)}.mmr.on time{color:var(--hi)}
+/* before/after */
+.ba{position:relative;height:330px;border-radius:20px;overflow:hidden;touch-action:none;--x:50%;cursor:ew-resize}
+.ba .ph2{position:absolute;inset:0}.ba .ph2 i{width:13px;height:13px;background:rgba(80,30,20,.4)}
+.ba .before{clip-path:inset(0 calc(100% - var(--x)) 0 0)}
+.ba .hd{position:absolute;top:0;bottom:0;left:var(--x);width:2px;background:var(--bone);transform:translateX(-1px)}
+.ba .hd::after{content:"";position:absolute;top:50%;left:50%;width:38px;height:38px;border-radius:50%;background:var(--bone);transform:translate(-50%,-50%);box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.ba .hd::before{content:"‹ ›";position:absolute;top:50%;left:50%;transform:translate(-50%,-52%);z-index:2;color:var(--wine);font-weight:700;font-size:16px;letter-spacing:2px;white-space:nowrap}
+.ba .tag{position:absolute;top:12px;font-size:12px;font-weight:600;background:rgba(11,3,6,.7);padding:4px 10px;border-radius:999px;z-index:2}
+/* chat + threads */
+.msg{font-size:16px;line-height:1.55}
+.bubble{background:var(--lac2);border-radius:18px 18px 4px 18px;padding:10px 15px;font-size:15.5px;line-height:1.45;max-width:82%;margin-left:auto}
+.chat{display:flex;flex-direction:column;gap:14px}
+.dots{display:inline-flex;gap:5px;padding:6px 0}.dots i{width:7px;height:7px;border-radius:50%;background:var(--bone2);animation:pulse 1s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes pulse{0%,80%,100%{opacity:.25;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+.srcrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.srcrow span{font-size:12px;color:var(--bone2);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
+.suggs{display:flex;flex-direction:column;gap:8px}.suggs button{padding:13px 16px;border:1px solid var(--line);border-radius:14px;font-size:15px}
+.askin{display:flex;gap:8px;padding:10px 16px 14px;border-top:1px solid var(--line);flex-shrink:0}
+.askin input{flex:1;min-width:0;height:50px;border-radius:14px;border:1.5px solid var(--line);background:none;color:var(--bone);padding:0 16px;font:500 16px var(--sans);outline:0}
+.askin input:focus{border-color:var(--hi)}
+.askin button{width:50px;height:50px;border-radius:14px;background:var(--hi);color:var(--wine);display:grid;place-items:center}
+.post{padding:15px 0;border-top:1px solid var(--line)}
+.post p{font-size:15.5px;line-height:1.55;margin-top:8px}
+.rel{display:inline-block;font-size:12px;font-weight:600;color:var(--bone2);background:var(--lac2);border-radius:999px;padding:3px 10px;margin-top:12px}
+.oinfo{font-size:13px;color:var(--bone2);margin-top:8px;padding:8px 12px;background:rgba(243,235,226,.06);border-radius:10px}
+.ext{background:rgba(243,235,226,.05);border:1px dashed var(--line);border-radius:14px;padding:12px;margin:10px 0}
+.back{font-size:14px;font-weight:600;color:var(--bone2);padding:4px 0 12px;display:flex;align-items:center;gap:6px}.back svg{width:16px;height:16px}
+.store{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:16px 0;border-top:1px solid var(--line);align-items:center;width:100%;text-align:left}
+.store b{font-size:16px;font-weight:600}.store small{font-size:13px;color:var(--bone3)}
+.store .pr{font-family:var(--serif);font-size:22px;font-weight:500;grid-row:1/3;grid-column:2;text-align:right}
+.store .pr em{display:block;font-family:var(--sans);font-style:normal;font-size:12px;color:var(--sage);font-weight:500}
+.stk{margin:0 -10px;padding:16px 10px;border-radius:14px;background:rgba(159,208,171,.08);border-top-color:transparent}
+.authp{font-size:15px;line-height:1.55;color:var(--bone2);margin:2px 0 18px;max-width:36ch}
+.stack{display:flex;flex-direction:column;gap:10px}
+.txt{display:block;width:100%;text-align:center;padding:14px;color:var(--bone2);font-weight:500}
+.qopt{width:100%;padding:16px;border:1.5px solid var(--line);border-radius:14px;font-size:15px;font-weight:500;margin-top:10px;text-align:left;transition:all .2s}
+.qopt.sel{background:var(--bone);color:var(--wine);border-color:var(--bone)}
+.qprog{height:4px;background:var(--line);border-radius:4px;overflow:hidden}.qprog i{display:block;height:100%;background:var(--hi);transition:width .4s var(--ease)}
+.toast{position:absolute;left:50%;bottom:104px;transform:translate(-50%,16px);opacity:0;background:var(--bone);color:var(--wine);padding:11px 18px;border-radius:999px;font-size:14px;font-weight:500;z-index:40;pointer-events:none;white-space:nowrap;transition:all .4s var(--ease);max-width:92%;overflow:hidden;text-overflow:ellipsis}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+/* ---------- V1.1: banger home + living community ---------- */
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--sage);position:relative;flex-shrink:0;display:inline-block}
+.pulse::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:1.5px solid var(--sage);animation:ring 1.8s ease-out infinite}
+@keyframes ring{from{transform:scale(.5);opacity:.9}to{transform:scale(1.7);opacity:0}}
+.live{display:inline-flex;align-items:center;gap:9px;font-size:13.5px;font-weight:500;color:var(--bone2);background:rgba(243,235,226,.07);border-radius:999px;padding:8px 14px}
+#home .hmain{justify-content:flex-start;padding-top:10px;padding-bottom:30px}
+#home .top{padding-bottom:10px}
+.hero2{font-family:var(--serif);font-weight:500;font-size:clamp(54px,17.4vw,74px);line-height:.95;letter-spacing:-.035em;margin-top:20px}
+.rd{cursor:pointer}
+.rd.cover::after{animation:none;transform:scaleX(1)}
+.rd.replay::after{animation-delay:.05s}
+.search.big{height:78px;border-radius:28px;margin-top:26px;padding:0 10px 0 24px;animation:breathe 2.4s ease-in-out 1.8s 3}
+.search.big input{font-size:18px}
+.search.big .ph{left:24px;font-size:18px}
+.search.big .sbtn{width:56px;height:56px;border-radius:20px}
+@keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(242,210,91,0)}50%{box-shadow:0 0 0 7px rgba(242,210,91,.22)}}
+.ticker{display:flex;align-items:center;gap:11px;margin-top:6px;padding:14px 4px;font-size:14.5px;color:var(--bone2);width:100%;text-align:left}
+.ticker .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .3s,transform .3s var(--ease)}
+.ticker .t.out{opacity:0;transform:translateY(-6px)}
+.ticker .go{color:var(--bone3);font-size:13px;font-weight:600}
+.hfeed{margin-top:22px}
+.dig{display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid var(--line);width:100%;text-align:left}
+.dig b{flex:1;font-size:16px;font-weight:600;line-height:1.25}.dig small{display:block;font-weight:400;font-size:13px;color:var(--bone3);margin-top:2px}
+.dig .dn{font-variant-numeric:tabular-nums;font-size:13.5px;color:var(--sage);display:flex;align-items:center;gap:8px;white-space:nowrap;font-weight:500}
+.q{display:block;padding:16px 0;border-top:1px solid var(--line);width:100%;text-align:left}
+.q .qt{font-family:var(--serif);font-size:21px;line-height:1.2;letter-spacing:-.01em}
+.q .qm{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center;font-size:13px;color:var(--bone3)}
+.foot2{margin-top:26px;font-size:12.5px;line-height:1.55;color:var(--bone3)}
+.pagetitle{font-family:var(--serif);font-weight:500;font-size:34px;letter-spacing:-.02em}
+.pv.exp{border-color:transparent;background:rgba(232,185,90,.16);color:var(--honey)}
+.av{width:44px;height:44px;border-radius:50%;background:var(--lac2);display:grid;place-items:center;font-family:var(--serif);font-size:19px;flex-shrink:0}
+.av.exp{background:rgba(232,185,90,.2);color:var(--honey)}
+.av.big{width:88px;height:88px;font-size:36px;margin:6px auto 0}
+.av.speak{animation:speak 1.5s infinite}
+@keyframes speak{0%{box-shadow:0 0 0 0 rgba(232,185,90,.5)}80%,100%{box-shadow:0 0 0 18px rgba(232,185,90,0)}}
+.roomhero{display:block;width:100%;text-align:left;margin-top:20px;background:var(--lac);border-radius:26px;padding:20px;position:relative;overflow:hidden}
+.rtag{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--sage)}
+.rt{display:block;font-family:var(--serif);font-weight:500;font-size:26px;line-height:1.1;letter-spacing:-.02em;margin-top:12px}
+.rhost{display:flex;align-items:center;gap:12px;margin-top:16px}
+.rhost b{font-size:15px;font-weight:600;display:block}.rhost small{font-size:13px;color:var(--bone2)}
+.rjoin{display:block;margin-top:18px;background:var(--hi);color:var(--wine);text-align:center;font-weight:600;font-size:16px;padding:15px;border-radius:16px}
+.urow{display:flex;align-items:center;gap:12px;padding:15px 0;border-top:1px solid var(--line)}
+.urow .ut{flex:1;min-width:0;text-align:left}.urow b{font-size:16px;font-weight:600;line-height:1.25;display:block}.urow small{display:block;font-size:13px;color:var(--bone3);margin-top:3px}
+.remind{flex-shrink:0;padding:10px 14px;border-radius:12px;border:1.5px solid var(--line);font-size:13.5px;font-weight:600;transition:all .2s;white-space:nowrap}
+.remind.on{background:var(--sage);border-color:var(--sage);color:var(--wine)}
+.composer{margin-top:34px;background:var(--lac);border-radius:26px;padding:22px}
+.composer .chips{margin-top:14px}
+.jc{width:224px;flex-shrink:0;text-align:left;display:block}
+.jc .tl-strip{height:108px}
+.jc b{display:block;margin-top:10px;font-size:15.5px;font-weight:600}.jc small{display:block;font-size:13px;color:var(--bone3);margin-top:2px}
+.jrow{display:flex;align-items:center;justify-content:space-between;margin-top:9px;gap:8px}
+.fbtn{padding:8px 15px;border-radius:12px;border:1.5px solid var(--bone3);font-size:13.5px;font-weight:600;transition:all .2s}
+.fbtn.on{background:var(--bone);color:var(--wine);border-color:var(--bone)}
+.exrow{display:flex;align-items:center;gap:13px;padding:15px 0;border-top:1px solid var(--line)}
+.exrow .x{flex:1;min-width:0}.exrow b{font-size:16px;font-weight:600;display:block}.exrow small{display:block;font-size:13px;color:var(--bone2);margin-top:2px;line-height:1.4}
+.exrow .askx{padding:10px 16px;border-radius:12px;background:var(--bone);color:var(--wine);font-weight:600;font-size:14px}
+.ta{width:100%;min-height:140px;border-radius:16px;border:1.5px solid var(--line);background:none;color:var(--bone);padding:14px 16px;font:500 16px/1.5 var(--sans);outline:0;resize:none;margin-top:12px}
+.ta:focus{border-color:var(--hi)}
+.jhead{display:flex;align-items:center;gap:13px}
+.jhead .x{flex:1;min-width:0}.jhead b{font-size:17px;font-weight:600;display:block}.jhead small{font-size:13px;color:var(--bone2)}
+.react{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.react button{padding:10px 14px;border-radius:999px;border:1.5px solid var(--line);font-size:14px;font-weight:500;transition:all .2s var(--ease)}
+.react button.on{background:var(--hi);border-color:var(--hi);color:var(--wine)}
+.up{display:flex;gap:14px;padding:14px 0;border-top:1px solid var(--line)}
+.up .ph2{width:64px;height:80px;border-radius:12px;flex-shrink:0}
+.up b{font-size:15px;font-weight:600}.up p{font-size:14.5px;line-height:1.45;color:var(--bone2);margin-top:3px}
+.qbub{background:var(--lac2);border-radius:16px 16px 4px 16px;padding:10px 14px;font-size:15px;margin:10px 0 0 auto;max-width:86%}
+.rchat{margin-top:14px;max-height:250px;overflow-y:auto;scrollbar-width:none;min-height:150px}
+.rc{padding:11px 0;border-top:1px solid var(--line);font-size:15px;line-height:1.45;animation:swap .4s var(--ease)}
+.rc b{font-weight:600}.rc small{color:var(--bone3);font-weight:400}
+.rc.ex{background:rgba(232,185,90,.07);border-radius:12px;padding:11px 12px;margin:4px 0;border-top:0}.rc.ex b{color:var(--honey)}
+.rctl{display:flex;gap:8px;margin-top:14px}
+.rbtn{flex:1;text-align:center;padding:14px 8px;border-radius:14px;border:1.5px solid var(--line);font-weight:600;font-size:14.5px;transition:all .2s}
+.rbtn.on{background:var(--hi);color:var(--wine);border-color:var(--hi)}.rbtn:disabled{opacity:.45}
+.roomt{font-family:var(--serif);font-weight:500;font-size:24px;line-height:1.15;letter-spacing:-.015em;text-align:center;margin-top:16px}
+.bigremind{display:block;width:100%;padding:17px;border-radius:16px;font-weight:600;font-size:16px;text-align:center;background:var(--hi);color:var(--wine);transition:all .2s}
+.bigremind.on{background:var(--sage)}
+.about li{padding:11px 0;border-top:1px solid var(--line);font-size:15px}
+.follow-new{font-size:11.5px;font-weight:600;background:var(--hi);color:var(--wine);border-radius:999px;padding:2px 9px;margin-left:8px;vertical-align:1px}
+
+/* ---------- V2: focus, chapters, haptic language ---------- */
+.forline{margin-top:16px;font-size:17px;line-height:1.4;color:var(--bone2);min-height:1.4em;transition:opacity .35s,transform .35s var(--ease)}
+.forline.out{opacity:0;transform:translateY(-6px)}
+.hero2{font-size:clamp(56px,17.6vw,78px)}
+#home .hmain{justify-content:center;padding-bottom:16px}
+.digrow{margin-top:8px}
+.digrow .cap{margin-bottom:10px}
+.dchips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -24px;padding:0 24px}
+.dchips::-webkit-scrollbar{display:none}
+.dc{display:flex;align-items:center;gap:10px;flex-shrink:0;padding:11px 15px;border:1px solid var(--line);border-radius:999px;font-size:14.5px;font-weight:500;color:var(--bone)}
+.dc .dn{font-variant-numeric:tabular-nums;font-size:13px;color:var(--sage);display:flex;align-items:center;gap:7px}
+.ctop2{display:flex;align-items:center;gap:4px;padding:12px 10px 2px;flex-shrink:0}
+.prog{flex:1;display:flex;gap:6px;padding:0 4px}
+.prog button{flex:1;height:26px;display:flex;align-items:center}
+.prog i{display:block;width:100%;height:4px;border-radius:2px;background:var(--line);transition:background .35s}
+.prog button.done i{background:var(--bone3)}.prog button.on i{background:var(--hi)}
+.cstage{flex:1;min-height:0;overflow-y:auto;padding:0 22px 20px;scrollbar-width:none}
+.cstage::-webkit-scrollbar{display:none}
+.cpage.rin{animation:slideR .45s var(--ease)}.cpage.lin{animation:slideL .45s var(--ease)}
+@keyframes slideR{from{opacity:0;transform:translateX(34px)}}
+@keyframes slideL{from{opacity:0;transform:translateX(-34px)}}
+.kick{font-size:14px;color:var(--bone2);font-weight:500;padding-top:6px}
+.dock2{display:flex;gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:var(--wine);border-top:1px solid var(--line);flex-shrink:0}
+.cta{flex:1;height:58px;border-radius:18px;background:var(--hi);color:var(--wine);font-weight:600;font-size:17px;text-align:center;transition:transform .18s var(--ease),background .3s}
+.cta.quiet{background:var(--bone)}.cta:active{transform:scale(.97)}
+.savebtn{width:58px;height:58px;border-radius:18px;border:1.5px solid var(--line);display:grid;place-items:center;flex-shrink:0;color:var(--bone);transition:all .2s}
+.savebtn svg{width:22px;height:22px}.savebtn.on{background:var(--lac2);border-color:var(--lac2)}.savebtn.on svg{fill:var(--hi);color:var(--hi)}
+.live-line{display:flex;align-items:center;gap:11px;margin-top:16px;font-size:14px;color:var(--bone2)}
+.links{display:flex;gap:20px;margin-top:12px}
+.links button{font-size:14px;font-weight:600;color:var(--bone2);padding:8px 0;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--bone3)}
+.dropnote{margin-top:22px;background:rgba(232,185,90,.09);border-radius:16px;padding:14px 16px;font-size:13.5px;line-height:1.5;color:var(--bone2)}
+.dropnote b{color:var(--honey);font-weight:600}
+.fres2{display:none;margin-top:22px;padding-top:22px;border-top:1px solid var(--line)}
+.pager{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;margin:14px -22px 0;padding:0 22px 2px;scroll-padding-left:22px;scrollbar-width:none}
+.pager::-webkit-scrollbar{display:none}
+.pcard{flex:0 0 calc(100% - 30px);scroll-snap-align:start;background:var(--lac);border-radius:26px;padding:22px;text-align:left;display:block}
+.pct{font-family:var(--serif);font-weight:500;font-size:64px;line-height:.9;letter-spacing:-.04em}
+.ct{font-family:var(--serif);font-weight:500;font-size:23px;line-height:1.15;letter-spacing:-.015em;margin-top:10px}
+.bq{font-size:15.5px;line-height:1.55;margin-top:10px}.bq .pv{margin-right:6px;vertical-align:1px}
+.dots{display:flex;gap:6px;justify-content:center;margin-top:16px}
+.dots i{width:6px;height:6px;border-radius:3px;background:var(--line);transition:all .25s var(--ease)}.dots i.on{width:20px;background:var(--bone)}
+.say{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;padding:21px 22px;border-radius:22px;background:var(--lac);font-size:17px;color:var(--bone2);margin-top:18px;text-align:left}
+.say svg{width:22px;height:22px;color:var(--hi);flex-shrink:0}
+.roomrow{display:flex;align-items:center;gap:13px;width:100%;text-align:left;margin-top:14px;padding:15px;border-radius:20px;background:rgba(232,185,90,.08)}
+.roomrow .rr{flex:1;min-width:0}.roomrow b{font-size:15px;font-weight:600;display:block;line-height:1.3}.roomrow small{font-size:13px;color:var(--bone2)}
+.drop{margin-top:22px;background:var(--lac);border-radius:26px;padding:22px}
+.drop .dt{font-family:var(--serif);font-size:23px;line-height:1.25;letter-spacing:-.01em;margin-top:8px}
+.hbtn{display:block;width:100%;text-align:left;padding:15px 0;border-top:1px solid var(--line)}
+.hbtn b{font-size:15.5px;font-weight:600}.hbtn small{display:block;font-size:13px;color:var(--bone3);margin-top:2px}
+.sourced{font-size:12.5px;font-weight:600;color:var(--wine);background:var(--sage);border-radius:999px;padding:3px 11px;opacity:0;transform:scale(.6);transition:all .45s var(--ease)}
+.sourced.on{opacity:1;transform:none}
+.mstep{padding:16px 0;border-top:1px solid var(--line)}.mstep b{font-size:16px;font-weight:600;display:block}.mstep p{font-size:14.5px;line-height:1.55;color:var(--bone2);margin-top:4px}
+.hseg{margin-top:10px}
+.calc b{display:inline!important;font-size:inherit!important;font-weight:600}
+.dc .dn{margin-left:6px}
+.dc .pulse{margin:0 2px}
+
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition-duration:.01s!important;transition-delay:0s!important}.rd::after{display:none}}
+</style>
+</head>
+<body>
+<div class="stage"><div class="device" id="device">
+
+<!-- HOME -->
+<section class="screen on hastab" id="home">
+  <div class="bars" id="bars"></div>
+  <div class="top"><div class="mark">Sourced</div><button class="linkbtn" id="signinBtn">Sign in</button></div>
+  <div class="hmain" id="hmain">
+    <h1 class="hero2">Someone’s<br>already<br><span class="rd" style="--d:.9s" id="rdHero">tried it.</span></h1>
+    <p class="forline" id="forLine">For people who read the comments first.</p>
+    <div class="search big" id="search">
+      <div class="ph" id="ph" aria-hidden="true"></div>
+      <input id="q" type="text" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Search a product">
+      <button class="sbtn" id="go" aria-label="Find what they said"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
+    </div>
+    <button class="ticker press" id="ticker"><i class="pulse"></i><span class="t" id="tickT"></span><span class="go">Open</span></button>
+    <div class="sugg" id="sugg" hidden></div>
+    <div class="digrow" id="hfeed"></div>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section class="screen hastab" id="results">
+  <div class="body" id="resBody"></div>
+</section>
+
+<!-- INVESTIGATION -->
+<section class="screen" id="probe">
+  <div class="ptop"><button class="ib press" id="probeClose" aria-label="Cancel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="pbody">
+    <p class="pq"><small>Let’s Source it</small><span id="pq"></span></p>
+    <div class="doc" id="doc"></div>
+    <p class="stg" id="stg" aria-live="polite"></p>
+    <ul class="srcs" id="srcs">
+      <li data-k="yt"><span>YouTube reviews</span><span class="val"><span class="v">0</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><b class="pg"><i></i></b></li>
+      <li data-k="rd"><span>Reddit threads</span><span class="val"><span class="v">0</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><b class="pg"><i></i></b></li>
+      <li data-k="ig"><span>Ingredient list</span><span class="val"><span class="v">0</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><b class="pg"><i></i></b></li>
+    </ul>
+  </div>
+  <div class="pfoot"><span>Nothing paid for. Nothing removed.</span><button class="skip" id="skip">Skip</button></div>
+</section>
+
+<!-- CASE FILE: one chapter at a time -->
+<section class="screen" id="case">
+  <div class="ctop2">
+    <button class="ib press" id="back" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="prog" id="prog"></div>
+    <button class="ib press" id="askOpen" aria-label="Ask about this product"><svg viewBox="0 0 24 24" fill="currentColor" style="color:var(--hi)"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg></button>
+  </div>
+  <div class="cstage" id="cstage"><div class="cpage" id="cpage"></div></div>
+  <div class="dock2">
+    <button class="savebtn press" id="save" aria-label="Save to Satchel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12v17l-6-4.5L6 21z"/></svg></button>
+    <button class="cta" id="cta">Is it for me?</button>
+  </div>
+</section>
+
+<!-- SHELF -->
+<section class="screen hastab" id="shelf"><div class="body" id="shelfBody"></div></section>
+<!-- COMMUNITY -->
+<section class="screen hastab" id="community"><div class="body" id="comBody"></div></section>
+
+<!-- YOU -->
+<section class="screen hastab" id="you"><div class="body" id="youBody"></div></section>
+
+<nav class="tabbar" id="tabs">
+  <button class="tab on" data-go="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Search</button>
+  <button class="tab" data-go="community"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>Community</button>
+  <button class="tab" data-go="shelf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10a1 1 0 01-1 1H4a1 1 0 01-1-1z"/></svg>Shelf</button>
+  <button class="tab" data-go="you"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>You</button>
+</nav>
+
+<!-- SHEETS -->
+<div class="scrim" id="scrim"></div>
+
+<div class="sheet tall" id="evSheet" role="dialog" aria-modal="true" aria-label="Evidence">
+  <div class="grab"></div>
+  <div class="shead"><h3 id="evTitle">Evidence</h3><button class="ib press" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="sbody" id="evBody"></div>
+</div>
+
+<div class="sheet tall" id="askSheet" role="dialog" aria-modal="true" aria-label="Ask">
+  <div class="grab"></div>
+  <div class="shead"><h3 id="askTitle">Ask about this product</h3><button class="ib press" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="subhead"><div class="seg" id="askSeg" style="margin-bottom:12px"><button class="on" data-p="ai">Ask Sourced</button><button data-p="own">Ask owners</button></div></div>
+  <div class="sbody" id="chatlog"></div>
+  <div class="sbody" id="ownlog" hidden></div>
+  <div class="askin" id="askin"><input id="askq" type="text" placeholder="Ask a question" aria-label="Ask a question" autocomplete="off"><button id="asksend" aria-label="Send"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
+</div>
+
+<div class="sheet" id="buySheet" role="dialog" aria-modal="true" aria-label="Where to buy">
+  <div class="grab"></div>
+  <div class="shead"><h3>Where to buy</h3><button class="ib press" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="sbody" id="buyBody"></div>
+</div>
+
+<div class="sheet" id="authSheet" role="dialog" aria-modal="true" aria-label="Verify">
+  <div class="grab"></div>
+  <div class="shead"><h3 id="authTitle"></h3></div>
+  <div class="sbody"><p class="authp" id="authText"></p>
+    <div class="stack"><button class="btn solid press" id="authGoogle">Continue with Google</button><button class="btn ghost press" id="authEmail">Use email instead</button><button class="txt" id="authNo">Not now</button></div></div>
+</div>
+
+<div class="sheet" id="quizSheet" role="dialog" aria-modal="true" aria-label="Skin type quiz">
+  <div class="grab"></div>
+  <div class="shead"><h3>Find your skin type</h3><button class="ib press" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="sbody" id="quizBody"></div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+</div></div>
+
+<script>
+/* =============== helpers =============== */
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const cap=s=>s?s[0].toUpperCase()+s.slice(1):s;
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const svg=(d,f='none',sw=1.9)=>`<svg viewBox="0 0 24 24" fill="${f}" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const IC={
+  check:svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>','none',2.6),chev:svg('<path d="M6 9l6 6 6-6"/>','none',2.2).replace('<svg','<svg class="chev"'),chevp:svg('<path d="M6 9l6 6 6-6"/>','none',2.4),
+  play:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',pause:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>',
+  bell:svg('<path d="M6 16V11a6 6 0 0112 0v5l2 2H4z"/><path d="M10 21h4"/>'),back:svg('<path d="M15 5l-7 7 7 7"/>','none',2.2),lock:svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>'),
+  plus:svg('<path d="M12 5v14M5 12h14"/>','none',2.2)
+};
+const bottle=`<svg viewBox="0 0 80 120" width="54" height="80" aria-hidden="true"><rect x="31" y="3" width="18" height="26" rx="9" fill="#F3EBE2"/><rect x="26" y="27" width="28" height="12" rx="3" fill="#B79C8C"/><rect x="15" y="39" width="50" height="77" rx="12" fill="#4B2030" stroke="#F3EBE2" stroke-width="2"/><rect x="23" y="62" width="34" height="36" rx="4" fill="#F3EBE2"/><rect x="28" y="70" width="24" height="3" rx="1.5" fill="#2A0E16"/><rect x="28" y="77" width="16" height="3" rx="1.5" fill="#2A0E16"/></svg>`;
+const bottleS=bottle.replace('width="54" height="80"','width="26" height="40"');
+
+/* haptics: vibrate on Android, switch-input trick on iOS Safari (best effort). Native build: expo-haptics. */
+const hl=document.createElement('label');hl.style.cssText='position:fixed;left:-99px;top:-99px;opacity:0;pointer-events:none';
+const hi=document.createElement('input');hi.type='checkbox';hi.setAttribute('switch','');hl.appendChild(hi);document.body.appendChild(hl);
+let lastHap=0;
+const HP={tap:[12],select:[16],soft:[8],tick:[5],heavy:[40],open:[14,50,24],close:[10],
+ peel:[6,24,10,24,20],source:[16,60,28],verdict:[20,45,26,45,36,60,64],mark:[8,22,12,22,18,22,28],
+ chapter:[14,44,30],presence:[10,70,18],owner:[20,70,20],expert:[20,60,20,60,36],
+ success:[14,60,14,60,30],error:[40,40,40],sign:[30,90,30,90,70]};
+function haptic(k){
+  const f=state.hapScale;if(!f)return;lastHap=Date.now();
+  const p=(HP[k]||HP.tap).map((d,i)=>i%2===0?Math.max(4,Math.round(d*f)):d);
+  if(navigator.vibrate){navigator.vibrate(p);return}
+  let t=0;p.forEach((d,i)=>{if(i%2===0){const n=1+Math.floor(d/26);for(let j=0;j<n;j++)setTimeout(()=>hl.click(),t+j*26)}t+=d});
+}
+/* every interaction gets feedback; the first touch plays the Sourced signature */
+document.addEventListener('click',()=>{if(Date.now()-lastHap>90)haptic('tap')});
+addEventListener('pointerdown',()=>{if(!state.sig){state.sig=1;haptic('sign')}},{once:true});
+function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('on'),2400)}
+
+/* =============== catalog (sample data) =============== */
+const TONES=['#C99D80','#A87456','#E6C7AC','#7B5340','#D8B192','#93634A'];
+const DOTS=[[22,30],[60,26],[40,58],[72,64],[30,74],[55,44]];
+const dots=n=>DOTS.slice(0,n).map(([x,y])=>`<i style="left:${x}%;top:${y}%"></i>`).join('');
+const ph=(t,n,lab)=>`<div class="ph2" style="--t:${TONES[t%6]}">${dots(n)}${lab?`<em>${lab}</em>`:''}</div>`;
+const pv=k=>({own:'<span class="pv own" data-owner>✓ Verified owner</span>',exp:'<span class="pv exp">✓ Verified expert</span>',yt:'<span class="pv">YouTube</span>',rd:'<span class="pv">Reddit</span>'}[k]);
+const COL={sage:'var(--sage)',honey:'var(--honey)',coral:'var(--coral)'};
+
+const PROD={
+niac:{key:'niac',name:'Niacinamide 10% + Zinc 1%',brand:'The Ordinary',cat:'Serum',tags:'niacinamide serum zinc oily pores',score:74,split:[63,21,16],yt:1204,rd:643,own:41,ig:14,price:8400,
+ verdict:'Mostly liked. <mark>Strongest for oily and combination skin</mark>, weakest for sensitive.',
+ skin:{oily:[512,80,8,12,'less midday shine.'],combination:[341,70,12,18,'less shine on the T-zone, some pilling under sunscreen.'],dry:[233,44,16,40,'tightness and flaking in the first few weeks.'],sensitive:[148,31,20,49,'stinging or redness early on.']},
+ frag:['took a good <mark>three weeks</mark> before I saw anything','it <mark>pills so badly</mark> under my sunscreen','my T-zone <mark>stopped shining by noon</mark>','<mark>stung a little</mark> the first week, then settled','dry skin here, <mark>it broke me out</mark>','the 5% version was <mark>gentler for me</mark>'],
+ cl:[
+  {t:'Less shine and smaller-looking pores',who:'Mostly oily and combination skin',p:44,c:'sage',q:[['rd','Oily T-zone here. <mark>Stopped looking greasy by noon</mark>, which never happened before.'],['own','Week five: <mark>midday shine is way down</mark>, my nose looks calmer.']],mom:[[0,1],[0,2]]},
+  {t:'Pills under sunscreen or makeup',who:'All skin types',p:19,c:'honey',q:[['rd','It pilled until I <mark>used fewer drops and waited two minutes</mark> before SPF.'],['own','<mark>Serum first, fully dry, then sunscreen</mark> and the pilling stopped.']],mom:[[1,1]]},
+  {t:'Takes weeks before you notice anything',who:'Everyone',p:17,c:'honey',q:[['rd','Nothing at week two. <mark>Around week six</mark> I finally saw a difference.'],['own','Be patient. <mark>Most of the change came after a month</mark>.']],mom:[[2,0]]},
+  {t:'Stinging, redness or breakouts',who:'Mostly dry and sensitive skin',p:13,c:'coral',q:[['rd','Dry skin here and <mark>it stung for the first week</mark>.'],['own','<mark>Broke me out around my chin</mark>. Might just not be for my skin.']],mom:[]}],
+ ing:[['Niacinamide','Often used to help with oil and the look of pores. Results reported over weeks, not days.'],['Zinc PCA','Commonly paired with niacinamide in oil-control products.'],['Fragrance','None listed. People with fragrance sensitivity often look for this.']],
+ tlTitle:'Seen over time',tlLab:['Wk 1','Wk 4','Wk 8'],
+ tl:[{t:2,d:[3,2,1],cap:'Shine down around my nose, pores look calmer.',skin:'combination',src:'own',w:'8 weeks in',q:'Shine around my nose is way down. Pores look calmer, but <mark>some dryness on my cheeks</mark> at week 4.'},
+     {t:0,d:[5,3,1],cap:'Texture smoother by week 8.',skin:'oily',src:'own',w:'8 weeks in',q:'Week 8 and <mark>texture is noticeably smoother</mark>. Took patience.'},
+     {t:3,d:[4,3,2],cap:'Slower for me. Some dryness at week 4.',skin:'dry',src:'own',w:'8 weeks in',q:'Slower for me. <mark>Dryness around week 4</mark>, better once I moisturized more.'}],
+ vids:[
+  {tag:'who',t:'Oily and combination skin routine, week by week',dur:'6:12',ch:'Skin Notes',marks:[[8,14],[34,40],[64,70]],mo:['Texture and how it spreads','Midday shine after four weeks','Week 1 and week 8, side by side'],cm:[82,214],src:'yt'},
+  {tag:'who',t:'Who should skip niacinamide? An honest take',dur:'4:48',ch:'Dr. Lena',marks:[[20,26],[52,60]],mo:['When it may not suit you','Pilling and how to fix it'],cm:[68,176],src:'yt'},
+  {tag:'results',t:'Eight weeks of niacinamide, honestly',dur:'7:20',ch:'Balance Diaries',marks:[[12,18],[70,78]],mo:['Week 2: nothing yet','Week 8 verdict'],cm:[79,301],src:'yt'},
+  {tag:'how',t:'How much to use and what order',dur:'1:45',ch:'Skin Notes',marks:[[10,30]],mo:['The right amount and order'],cm:[85,98],src:'yt'}],
+ threads:[{t:'Alternatives for oily skin?',q:`Tried this for a month, didn't work for me. Anyone found something that actually helped with an oily T-zone?`,n:14,o:6,when:'active today',ci:0},{t:'3 weeks in: results',q:`Three weeks in and I can't tell if anything is happening. What did week 3 look like for you?`,n:34,o:12,when:'active 2h ago',ci:2},{t:'Does this work under makeup?',q:'Been wondering if it pills with foundation.',n:6,o:2,when:'active yesterday',ci:1}],
+ qa:[{k:/pill|sunscreen|spf|makeup|foundation/,t:`It's the second most common complaint. About 1 in 5 comments (19%) mention pilling under sunscreen or makeup, across every skin type. People who got past it mostly used fewer drops and waited about two minutes before sunscreen.`,s:['Reddit 118 comments','YouTube 233 comments'],m:[1,1]},
+     {k:/sensitive|redness|sting|irritat|reaction/,t:'Mixed. Of 148 comments from people with sensitive skin, 31% were positive and 49% were negative, mostly stinging or redness in the first week or two. A few said it settled, and several moved to the 5% version. This is reported experience, not medical advice, so patch-test first.',s:['Reddit 92 comments','YouTube 56 comments']},
+     {k:/week|long|result|when|fast|time/,t:'Most people who noticed a change say it took 4 to 8 weeks. Less midday shine tended to show up first, around weeks 3 to 5, while texture and pore comments came later. About 17% said they noticed nothing at all.',s:['YouTube 214 comments','Reddit 101 comments'],m:[2,0]}],
+ sq:['Does it pill under sunscreen?','Is it okay for sensitive skin?','How long until I see results?']},
+clean:{key:'clean',name:'Foaming Facial Cleanser',brand:'CeraVe',cat:'Cleanser',tags:'cleanser foaming face wash cerave',score:80,split:[71,17,12],yt:2310,rd:1180,own:88,ig:17,price:6900,
+ verdict:'Widely liked. <mark>Strongest for oily skin</mark>, some find it drying.',
+ skin:{oily:[980,82,10,8,'clean feeling without a film.'],combination:[760,74,14,12,'a clean feel, occasional tightness in winter.'],dry:[520,41,19,40,'tightness right after rinsing.'],sensitive:[310,52,20,28,'mostly fine, some tightness.']},
+ frag:['leaves my skin <mark>clean but not squeaky</mark>','<mark>too drying</mark> for me in winter','been using it <mark>two years</mark>, no complaints','<mark>big bottle</mark>, lasts forever','dry skin here, <mark>tight after rinsing</mark>','smells like <mark>nothing</mark>, which I love'],
+ cl:[
+  {t:'Leaves skin clean without a film',who:'Mostly oily and combination skin',p:46,c:'sage',q:[['yt','Doesn\'t leave a film. My oily skin feels <mark>clean but not stripped</mark>.'],['own','Two months in, <mark>no tightness at all</mark> and my T-zone stays calmer.']],mom:[[0,0],[2,0]]},
+  {t:'Feels tight or dry afterwards',who:'Mostly dry and sensitive skin',p:22,c:'coral',q:[['rd','Tight the second I towel off. <mark>Dry skin here, too stripping</mark>.'],['own','Fine in summer, <mark>too drying in winter</mark> for me.']],mom:[[1,0]]},
+  {t:'Good value for the size',who:'Everyone',p:18,c:'sage',q:[['rd','<mark>Lasts me four months</mark> at twice a day.'],['yt','Big bottle, <mark>hard to beat the price</mark>.']],mom:[[2,1]]}],
+ ing:[['Ceramides','Lipids naturally found in skin, often included to support the skin barrier.'],['Hyaluronic acid','A humectant that holds water. Common in cleansers marketed as gentle.'],['Fragrance','None listed. People with fragrance sensitivity often look for this.']],
+ tlTitle:'Seen after a few weeks',tlLab:['Day 1','Wk 2','Wk 6'],
+ tl:[{t:4,d:[3,2,1],cap:'Calmer T-zone after six weeks.',skin:'oily',src:'own',w:'6 weeks in',q:'T-zone is calmer and <mark>no tightness at all</mark> after six weeks.'},
+     {t:1,d:[4,3,3],cap:'Fine at first, tight by week 6.',skin:'dry',src:'own',w:'6 weeks in',q:'Fine at first, then <mark>my cheeks felt tight by week 6</mark>. Switching to a creamier one.'},
+     {t:2,d:[3,2,2],cap:'No real change, but nice and gentle.',skin:'combination',src:'own',w:'6 weeks in',q:'No dramatic change, but <mark>skin feels balanced</mark> and nothing stings.'}],
+ vids:[
+  {tag:'who',t:'Does a foaming cleanser suit oily skin?',dur:'6:40',ch:'Skin Notes',marks:[[10,16],[40,48]],mo:['Texture and lather','Feel after rinsing'],cm:[79,301],src:'yt'},
+  {tag:'who',t:'Dry skin and foaming cleansers: what to know',dur:'5:15',ch:'Dr. Lena',marks:[[22,30],[60,66]],mo:['Why it can feel tight','What dry-skin users switched to'],cm:[46,188],src:'yt'},
+  {tag:'results',t:'Two weeks morning and night',dur:'7:02',ch:'Balance Diaries',marks:[[30,38],[74,80]],mo:['Day 3 versus day 14','Final thoughts on value'],cm:[77,254],src:'yt'},
+  {tag:'how',t:'How much to use and how long to massage',dur:'2:20',ch:'Glow Lab',marks:[[15,45]],mo:['Amount and technique'],cm:[85,102],src:'yt'}],
+ threads:[{t:'Too drying in winter?',q:'Loved it in summer, now my cheeks feel tight. Does anyone use it year-round?',n:18,o:7,when:'active today',ci:1},{t:'Is it okay twice a day?',q:'Can I use it morning and night, or is once enough?',n:9,o:3,when:'active yesterday',ci:0},{t:'How long does one bottle last?',q:'Trying to work out the real cost per month.',n:5,o:2,when:'active 3 days ago',ci:2}],
+ qa:[{k:/dry|tight|strip|winter/,t:'It depends on skin type. 22% of comments mention tightness afterwards, mostly from dry and sensitive skin. Oily and combination skin were mostly happy, and several people switched to a gentler cleanser in winter.',s:['Reddit 402 comments','YouTube 366 comments'],m:[1,0]},
+     {k:/film|residue|clean|feel/,t:'Most say no. Among the 46% who praise how it feels, the recurring words are clean and light, with no film left behind. A handful of hard-water households mention a slight residue.',s:['YouTube 902 comments','Reddit 703 comments']},
+     {k:/price|worth|value|cost|last/,t:'Value is a frequent positive. About 18% of comments mention the size and price, and many say a bottle lasts three to four months.',s:['Reddit 214 comments','YouTube 414 comments'],m:[2,1]}],
+ sq:['Is it too drying?','Does it leave a film?','Is it worth the price?']},
+spf:{key:'spf',name:'Mineral SPF 50',brand:'Solène',cat:'Sunscreen',tags:'sunscreen spf mineral sun',score:64,split:[52,24,24],yt:890,rd:412,own:23,ig:12,price:12000,
+ verdict:'Mixed feedback. <mark>Loved for gentleness</mark>, criticized for a white cast on deeper skin tones.',
+ skin:{oily:[301,49,22,29,'feeling heavy by midday.'],combination:[244,55,23,22,'a slight cast and some pilling under makeup.'],dry:[198,62,20,18,'a comfortable feel with no tightness.'],sensitive:[176,71,17,12,'no stinging around the eyes.']},
+ frag:['<mark>white cast</mark> on my brown skin','finally one that <mark>doesn\'t sting</mark> my eyes','<mark>pills</mark> under my foundation','feels <mark>heavy</mark> by noon','my sensitive skin <mark>tolerates</mark> it','fine for <mark>daily use</mark>'],
+ cl:[
+  {t:'Gentle on sensitive skin',who:'Mostly sensitive and dry skin',p:38,c:'sage',q:[['rd','Finally one that <mark>doesn\'t sting my eyes</mark>.'],['own','Sensitive skin here, <mark>no redness after a month</mark>.']],mom:[[1,0]]},
+  {t:'Leaves a white cast',who:'Reported most on deeper skin tones',p:31,c:'coral',q:[['rd','On my brown skin it <mark>left a grey-white cast</mark> even after blending.'],['own','<mark>Blend it into moisturizer first</mark> and the cast is much lighter.']],mom:[[0,0],[0,1]]},
+  {t:'Feels heavy or pills under makeup',who:'Oily and combination skin',p:17,c:'honey',q:[['yt','Fine alone, but <mark>it pilled under my foundation</mark>.'],['own','<mark>Feels heavy by noon</mark> on my oily skin.']],mom:[[2,1]]}],
+ ing:[['Zinc oxide','A mineral filter that sits on top of skin. Often the cause of a visible cast.'],['Titanium dioxide','A second mineral filter, commonly paired with zinc oxide.'],['Fragrance','None listed. People with fragrance sensitivity often look for this.']],
+ tlTitle:'Seen on different skin tones',tlLab:['Bare','Applied','4 hrs'],
+ tl:[{t:3,d:[0,4,3],cap:'Visible cast on deeper skin until blended well.',skin:'combination',src:'own',w:'after 4 hours',q:'<mark>Visible cast on my skin tone</mark> until I blended it into moisturizer.'},
+     {t:2,d:[0,1,1],cap:'Barely visible on lighter skin.',skin:'sensitive',src:'own',w:'after 4 hours',q:'<mark>Barely visible</mark> on me, and no stinging around my eyes.'},
+     {t:5,d:[1,3,4],cap:'Heavy by midday on oily skin.',skin:'oily',src:'own',w:'after 4 hours',q:'<mark>Felt heavy by midday</mark> and a bit shiny on my oily skin.'}],
+ vids:[
+  {tag:'who',t:'Mineral SPF on deeper skin tones: the white cast test',dur:'8:10',ch:'Tone Lab',marks:[[18,26],[55,63]],mo:['Application on brown skin','After blending, in daylight'],cm:[58,240],src:'yt'},
+  {tag:'who',t:'Sunscreen for sensitive skin, tested for a month',dur:'6:00',ch:'Calm Skin',marks:[[12,20],[70,78]],mo:['Why mineral','Any stinging?'],cm:[74,190],src:'yt'},
+  {tag:'results',t:'Wear test: four hours outdoors',dur:'4:45',ch:'Everyday Glow',marks:[[35,45],[80,88]],mo:['Midday check','Under makeup'],cm:[61,143],src:'yt'},
+  {tag:'how',t:'How much to apply, and reapplying over makeup',dur:'3:12',ch:'Glow Lab',marks:[[20,40]],mo:['The two-finger amount'],cm:[80,92],src:'yt'}],
+ threads:[{t:'White cast on deeper skin tones?',q:'Anyone with brown skin using this? Does the cast really show?',n:26,o:11,when:'active today',ci:1},{t:'Any stinging around the eyes?',q:'Sensitive skin here, my eyes react to everything.',n:12,o:5,when:'active 2h ago',ci:0},{t:'Under foundation or not?',q:'Does it pill if I put makeup on top?',n:8,o:3,when:'active yesterday',ci:2}],
+ qa:[{k:/white|cast|tone|brown|dark/,t:`31% of comments mention it, and it's the biggest complaint. It's reported more often on deeper skin tones, and several people say blending well or applying over moisturizer helps. Lighter skin tones report it less.`,s:['Reddit 190 comments','YouTube 214 comments'],m:[0,0]},
+     {k:/sensitive|sting|irritat|eyes/,t:'This is where it does best. 38% of comments praise how gentle it is, and sensitive-skin users rate it highest at 71% positive. This is reported experience, not medical advice, so patch-test first.',s:['Reddit 168 comments','YouTube 327 comments'],m:[1,1]},
+     {k:/makeup|foundation|pill|heavy/,t:'Mixed. About 17% say it feels heavy or pills under makeup, while others say it works fine when given a couple of minutes to set.',s:['Reddit 96 comments','YouTube 125 comments'],m:[2,1]}],
+ sq:['Does it leave a white cast?','Is it okay for sensitive skin?','Does it work under makeup?']},
+ess:{key:'ess',name:'Pore Minimizing Essence',brand:'Skin & Co',cat:'Essence',tags:'essence pores toner',thin:true,yt:8,rd:4,own:0,ig:16,price:9800,
+ frag:['nice texture, but only <mark>ten days</mark> in','<mark>no change</mark> so far','smells <mark>fine, a bit floral</mark>','will update at <mark>week six</mark>'],
+ quotes:[['yt','Nice texture, but I\'ve only used it <mark>for ten days</mark>.'],['rd','<mark>No change so far</mark>, I\'ll update at week six.'],['yt','Smells <mark>fine, a bit floral</mark>.']],
+ ing:[['Glycerin','A common humectant that helps skin hold water.'],['Fragrance','Listed. People with fragrance sensitivity often avoid it.']],
+ tl:[],vids:[],threads:[],qa:[],sq:['How is the texture?','Does it have fragrance?']}
+};
+const ORDER=['niac','clean','spf','ess'];
+const PLAINTEXT=(s)=>s.replace(/<[^>]+>/g,'');
+const total=p=>p.yt+p.rd;
+const secs=d=>{const [m,s]=d.split(':').map(Number);return m*60+s};
+const fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+const vmoments=v=>v.marks.map((m,i)=>({t:Math.round(secs(v.dur)*m[0]/100),label:v.mo[i],m}));
+
+/* =============== state + nav =============== */
+const state={hapScale:1.1,drops:false,ch:0,chs:['verdict'],cp:'say',cs:'talk',sh:'today',dropOpen:false,following:new Set(),remind:{},pending:null,authKeep:false,skin:null,skinSrc:null,signed:false,recent:[],saved:{spf:{alert:true,bought:false,drop:'₦11,200'}},cur:null,from:'home',fitAuthShown:false,tag:'who',grid:{tl:false,vid:false},
+  routine:{am:[['Gentle cleanser',1],['Niacinamide serum',1],['Moisturizer',0],['Mineral SPF 50',0]],pm:[['Gentle cleanser',0],['Niacinamide serum',0],['Moisturizer',0]],mode:'am',streak:5},
+  entries:[{wk:'Week 8 · Today',note:'Shine is way down. Tiny bit of dryness on cheeks.',d:1,shared:false},{wk:'Week 4',note:'Starting to see a difference around my nose.',d:3,shared:true},{wk:'Week 1',note:'Day one. No reaction from patch test.',d:6,shared:false}],
+  history:true};
+const P=()=>PROD[state.cur];
+const TABBED=['home','results','community','shelf','you'];
+function go(id){
+  $$('.screen').forEach(s=>{if(s.id===id)s.classList.add('on');else if(!(id==='case'&&s.id==='probe'))s.classList.remove('on')});
+  if(id==='case')setTimeout(()=>{if($('#case').classList.contains('on'))$('#probe').classList.remove('on')},800);
+  $('#tabs').classList.toggle('hide',!TABBED.includes(id));
+  const t=id==='results'?'home':id;$$('.tab').forEach(b=>b.classList.toggle('on',b.dataset.go===t));
+  if(id==='shelf')renderShelf();if(id==='community')renderCommunity();if(id==='you')renderYou();if(id==='home'){input.value='';search.classList.remove('has');$('#bars').classList.remove('peel');renderSugg('')}
+  state.screen=id;
+}
+$$('.tab').forEach(b=>b.addEventListener('click',()=>{haptic('select');go(b.dataset.go)}));
+
+/* sheets */
+const SH=['evSheet','askSheet','buySheet','authSheet','quizSheet'];
+function openSheet(id,keep){if(!keep)closeSheets();$('#'+id).classList.add('on');$('#scrim').classList.add('on');haptic('open')}
+function closeSheets(){SH.forEach(i=>$('#'+i).classList.remove('on'));$('#scrim').classList.remove('on');vStop()}
+$('#scrim').addEventListener('click',()=>{haptic('close');closeSheets()});
+document.addEventListener('click',e=>{if(e.target.closest('[data-close]')){haptic('close');closeSheets()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheets()});
+
+/* auth */
+const AUTH={fit:['Keep your skin details','Save your skin type once and every product shows your Fit Score. One quick verification, no password to remember.'],
+  post:['Join the conversation','Verify with Google or email to post. Owners who have used a product for two weeks get a verified badge.'],
+  bought:['Mark as bought','Verify once and we’ll unlock your verified owner badge for this product after two weeks.'],
+  share:['Share to the community','Verify with Google or email before sharing. Only this one entry is shared, and you can make it private again.'],
+  in:['Sign in','You can search without an account. Sign in to keep your skin details, saved products and routine.']};
+function openAuth(k,cb,keep){state.pending=cb||null;state.authKeep=!!keep;$('#authTitle').textContent=AUTH[k][0];$('#authText').textContent=AUTH[k][1];openSheet('authSheet',keep)}
+function finishAuth(msg,hap){state.signed=true;if(state.authKeep)$('#authSheet').classList.remove('on');else closeSheets();haptic(hap);toast(msg);if(state.screen==='you')renderYou();const f=state.pending;state.pending=null;if(f)setTimeout(f,350)}
+$('#authGoogle').addEventListener('click',()=>finishAuth('Verified. You’re in.','success'));
+$('#authEmail').addEventListener('click',()=>finishAuth('Verified with email. You’re in.','select'));
+$('#authNo').addEventListener('click',()=>{state.pending=null;if(state.authKeep)$('#authSheet').classList.remove('on');else closeSheets()});
+$('#signinBtn').addEventListener('click',()=>openAuth('in'));
+
+/* =============== COMMUNITY DATA (sample) =============== */
+const SHORT={niac:'Niacinamide serum',clean:'Foaming cleanser',spf:'Mineral SPF 50',ess:'Pore essence'};
+const EXPERTS=[
+ {id:'lena',name:'Dr. Lena Okafor',role:'Dermatologist',cred:'Licence verified',topic:'Oily, acne-prone and sensitive skin'},
+ {id:'tobi',name:'Tobi Adeyemi',role:'Licensed esthetician',cred:'Licence verified',topic:'Sunscreen, routines and skin tones'},
+ {id:'sam',name:'Sam Mensah',role:'Cosmetic chemist',cred:'Credentials verified',topic:'Ingredients and formulas'}];
+const expOf=k=>({niac:'lena',clean:'lena',spf:'tobi',ess:'sam'}[k]);
+const EXP_REPLY={
+ niac:'Niacinamide is generally well tolerated, but every skin is different. Introduce it slowly, patch-test first, and if irritation or breakouts continue, stop and speak to a professional.',
+ clean:'Skin reacts differently to every cleanser. Rinse with lukewarm water, follow with a moisturizer, and if tightness or irritation continues, try a gentler option and speak to a professional.',
+ spf:'Mineral formulas suit many sensitive skins, but a white cast is common on deeper tones. Warming the product between your fingers and layering thin coats often helps. Patch-test first.',
+ ess:'With so little feedback so far, I’d wait for more reports before drawing conclusions.'};
+PROD.niac.threads[0].x=1;PROD.spf.threads[0].x=1;PROD.clean.threads[0].x=1;
+const ROOMS=[
+ {id:1,title:'Building a routine for oily skin',host:'lena',live:true,n:47},
+ {id:2,title:'Sunscreen and skin tones: ask me anything',host:'tobi',when:'Today, 7:00 PM',hh:19,mm:0,going:38,about:['Choosing a mineral sunscreen','Avoiding a white cast','Reapplying over makeup']},
+ {id:3,title:'Niacinamide: what to expect in 8 weeks',host:'lena',when:'Thursday, 6:30 PM',hh:18,mm:30,going:112,about:['A realistic timeline','Pilling and layering','Who should be careful']}];
+const NAMES=['Amara O.','Tobi A.','Nneka C.','Zainab B.','Kemi L.','Ife R.','Halima S.','Dayo M.','Chidi E.'];
+const JOURNEYS=[];
+ORDER.forEach(k=>PROD[k].tl.forEach((c,i)=>{const n=JOURNEYS.length;JOURNEYS.push({id:k+'-'+i,key:k,i,c,name:NAMES[n%NAMES.length],followers:[128,86,54,203,47,91,66,142,39][n%9],react:[34-n,12+n%3,9+n%4],
+  ups:[[PROD[k].tlLab[0],'Starting out. Patch-tested first.',c.d[0]],[PROD[k].tlLab[1],c.cap,c.d[1]],[PROD[k].tlLab[2],PLAINTEXT(c.q),c.d[2]]]})}));
+const DIG=[{k:'niac',n:312,hot:'pilling under sunscreen'},{k:'clean',n:208,hot:'drying in winter'},{k:'spf',n:147,hot:'white cast on deeper skin'},{k:'ess',n:61,hot:'too new to score'}];
+const ASKED=[{k:'spf',ti:0,ex:1},{k:'niac',ti:0,ex:1},{k:'clean',ti:0}];
+const TICKER=[
+ {t:'Amara shared week 8 of her niacinamide journey',a:['journey','niac-0']},
+ {t:'Someone just asked: “White cast on deeper skin tones?”',a:['thread','spf',0]},
+ {t:'Dr. Lena goes live now: building a routine for oily skin',a:['room',1]},
+ {t:'Tobi replied to a question about sunscreen',a:['thread','spf',0]}];
+state.here=1284;
+
+/* =============== HOME =============== */
+(function bars(){const H=$('#device').clientHeight||780,n=Math.floor(H/31),w=$('#bars');
+  for(let i=1;i<n-2;i++){const b=document.createElement('i');b.className='rb';b.style.top=(i*31+30)+'px';b.style.width=(28+Math.random()*58)+'%';b.style.setProperty('--dx',(i%2?'':'-')+'120vw');b.style.transitionDelay=(Math.abs(i-n/2)*18)+'ms';w.appendChild(b)}})();
+const input=$('#q'),search=$('#search'),suggBox=$('#sugg');
+input.addEventListener('focus',()=>{$('#bars').classList.add('peel');haptic('open')});
+input.addEventListener('blur',()=>{if(!input.value)$('#bars').classList.remove('peel')});
+input.addEventListener('input',()=>{const v=input.value.trim();search.classList.toggle('has',!!v);renderSugg(v)});
+input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit()}});
+$('#go').addEventListener('click',submit);
+function match(q){const toks=q.toLowerCase().split(/\s+/).filter(t=>t.length>2);if(!toks.length)return[];return ORDER.filter(k=>{const p=PROD[k],h=(p.name+' '+p.brand+' '+p.cat+' '+p.tags).toLowerCase();return toks.some(t=>h.includes(t))})}
+function renderSugg(v){
+  const hide=v.length>=2;['#hfeed','#ticker','#forLine'].forEach(s=>$(s).hidden=hide);
+  if(!hide){suggBox.hidden=true;return}
+  const m=match(v);suggBox.hidden=false;
+  suggBox.innerHTML=m.slice(0,3).map(k=>{const p=PROD[k];return `<button class="srow press" data-k="${k}"><span class="thumb" style="width:38px;height:48px">${bottleS}</span><b>${p.name}<small>${p.brand}</small></b>${p.thin?'<span class="snum none">No score</span>':`<span class="snum">${p.score}</span>`}</button>`}).join('')+`<button class="seeall press" data-all>${m.length?'See all results for':'Nothing matched. Browse what we cover for'} “${esc(v)}”</button>`;
+}
+suggBox.addEventListener('click',e=>{const r=e.target.closest('.srow');if(r){investigate(r.dataset.k);return}if(e.target.closest('[data-all]'))submit()});
+function submit(){
+  const q=input.value.trim();
+  if(!q){search.classList.remove('shake');void search.offsetWidth;search.classList.add('shake');haptic('heavy');input.focus();return}
+  input.blur();const m=match(q);if(m.length===1)investigate(m[0]);else renderResults(q,m)
+}
+/* tap the headline to re-cover and peel it again */
+$('#rdHero').addEventListener('click',()=>{const el=$('#rdHero');el.classList.remove('replay');el.classList.add('cover');haptic('heavy');setTimeout(()=>{el.classList.remove('cover');el.classList.add('replay');haptic('peel')},600)});
+/* the crowd: what people are digging into right now */
+function renderFeed(){
+  $('#hfeed').innerHTML=`<p class="cap">Digging into right now</p><div class="dchips">${DIG.map(d=>`<button class="dc press" data-k="${d.k}">${SHORT[d.k]}<span class="dn"><i class="pulse"></i><span data-dn="${d.k}">${d.n}</span></span></button>`).join('')}</div>`;
+}
+$('#hfeed').addEventListener('click',e=>{const el=e.target.closest('.dc');if(el)investigate(el.dataset.k)});
+TICKER.unshift({t:()=>`${state.here.toLocaleString()} people digging right now`,a:['none']});
+const tickText=i=>{const e=TICKER[i%TICKER.length];return typeof e.t==='function'?e.t():e.t};
+let tk=0;const tickEl=$('#tickT');tickEl.textContent=tickText(0);
+setInterval(()=>{if(state.screen!=='home'||input.value)return;tk++;tickEl.classList.add('out');setTimeout(()=>{tickEl.textContent=tickText(tk);tickEl.classList.remove('out');haptic('presence')},300)},4600);
+$('#ticker').addEventListener('click',()=>{const a=TICKER[tk%TICKER.length].a;if(a[0]==='none')return haptic('presence');haptic('open');runAct(a)});
+function runAct(a){if(a[0]==='journey')openJourney(a[1]);else if(a[0]==='thread')openThreadFor(a[1],a[2]);else if(a[0]==='room')openRoom(a[1])}
+setInterval(()=>{state.here=Math.max(900,state.here+Math.round(Math.random()*8-3));$$('.hereN').forEach(e=>e.textContent=state.here.toLocaleString());
+  DIG.forEach(d=>{d.n=Math.max(20,d.n+Math.round(Math.random()*4-1.5));const el=$(`[data-dn="${d.k}"]`);if(el)el.textContent=d.n})},3000);
+renderFeed();
+/* who it's for */
+const FOR=['For people who read the comments first.','For anyone who’s been burned before.','For the ones about to add to cart.'];let fi=0;
+setInterval(()=>{if(state.screen!=='home'||input.value)return;const el=$('#forLine');el.classList.add('out');setTimeout(()=>{fi++;el.textContent=FOR[fi%FOR.length];el.classList.remove('out')},350)},4200);
+/* placeholder: the ritual starts with a question */
+const EX=['What are you thinking about?','Is CeraVe Foaming Cleanser worth it?','Does this sunscreen leave a white cast?','Will this moisturiser break me out?'];
+(async function typePh(){const ph=$('#ph');if(RM){ph.textContent=EX[0];return}let i=0;
+  for(;;){const s=EX[i++%EX.length];
+    for(let c=0;c<=s.length;c++){if(input.value||(state.screen&&state.screen!=='home')){await sleep(300);c--;continue}ph.textContent=s.slice(0,c);await sleep(40)}
+    await sleep(1700);for(let c=s.length;c>=0;c--){if(input.value)break;ph.textContent=s.slice(0,c);await sleep(14)}await sleep(350)}})();
+
+/* =============== RESULTS =============== */
+function renderResults(q,m){
+  const list=m.length?m:ORDER;
+  $('#resBody').innerHTML=`<button class="rfield press" id="rBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span>${esc(q)}</span></button>
+  <div class="chips sc" style="margin-top:12px"><span class="chip on">Skincare</span><span class="chip">Oily skin</span><span class="chip">Fragrance-free</span></div>
+  ${m.length?'':`<div class="notice" style="margin-top:14px">We don’t cover that one yet. Here’s everything we can investigate right now.</div>`}
+  <p class="sm" style="margin:16px 0 4px">${list.length} products, sorted by verdict</p>
+  <div>${list.slice().sort((a,b)=>(PROD[b].score||0)-(PROD[a].score||0)).map(k=>{const p=PROD[k];
+   return `<button class="res press" data-k="${k}"><span class="thumb">${bottleS}</span><span><b>${p.name}</b><br><small>${p.brand}</small></span>${p.thin?`<span class="rs" style="font-size:15px;font-family:var(--sans);color:var(--bone3);font-weight:500;line-height:1.3">No score<small>Too little evidence</small></span>`:`<span class="rs">${p.score}<small>${state.skin&&p.skin?'For you '+fit(p,state.skin):''}</small></span>`}${p.thin?'<span class="mini" style="opacity:0"></span>':`<span class="mini"><i class="p" style="flex:${p.split[0]}"></i><i class="m" style="flex:${p.split[1]}"></i><i class="n" style="flex:${p.split[2]}"></i></span>`}<small style="grid-column:2/4">${total(p).toLocaleString()} comments${p.thin?' so far':' from 2 sources'}</small></button>`}).join('')}</div>`;
+  $('#rBack').onclick=()=>{go('home');input.focus()};
+  $$('#resBody .res').forEach(b=>b.onclick=()=>investigate(b.dataset.k));
+  state.from='results';go('results');
+}
+const fit=(p,k)=>{const d=p.skin[k];return Math.round(d[1]+d[2]/2)};
+
+/* =============== INVESTIGATION =============== */
+function stage(t){const el=$('#stg');el.textContent=t;el.classList.remove('swap');void el.offsetWidth;el.classList.add('swap')}
+function countTo(el,target,ms,o={}){return new Promise(res=>{
+  if(RM||ms<=1){el.textContent=target.toLocaleString();o.onFrame&&o.onFrame(1);return res()}
+  const t0=performance.now();let last=-1;
+  (function f(now){if(o.alive&&!o.alive())return res();const k=Math.min(1,(now-t0)/ms),e=1-Math.pow(1-k,3),v=Math.round(target*e);
+    el.textContent=v.toLocaleString();o.onFrame&&o.onFrame(k);
+    if(o.tick){const s=Math.floor(v/o.tick);if(s!==last){last=s;haptic('tick')}}
+    k<1?requestAnimationFrame(f):res()})(t0)})}
+let run=0;
+async function investigate(key,drop){state.dropOpen=!!drop;
+  const p=PROD[key],id=++run,alive=()=>id===run,T=RM?.35:1,w=ms=>sleep(ms*T);
+  state.cur=key;state.from=(state.screen==='probe'||state.screen==='case')?state.from:state.screen;
+  if(!state.recent.includes(key)){state.recent.unshift(key);state.recent=state.recent.slice(0,3)}
+  $('#pq').textContent=p.name;$('#stg').textContent='';
+  $('#doc').innerHTML=p.frag.map((f,i)=>`<div class="ln" style="--o:${i%2?'100%':'0%'}">“…${f}…”<i class="bar"></i></div>`).join('');
+  $$('#srcs li').forEach(li=>{li.className='';$('.v',li).textContent='0';$('.pg i',li).style.width='0'});
+  $('#skip').classList.remove('show');closeSheets();go('probe');haptic('open');
+  setTimeout(()=>{if(alive())$('#skip').classList.add('show')},2600);
+  const lines=$$('.ln'),lift=i=>{if(alive()&&lines[i]){lines[i].classList.add('lift');haptic('peel')}};
+  const src=async(k,target,ms,unit)=>{const li=$(`#srcs li[data-k="${k}"]`),v=$('.v',li),pg=$('.pg i',li);li.classList.add('act');
+    await countTo(v,target,ms*T,{alive,onFrame:q=>pg.style.width=(q*100)+'%'});if(!alive())return;
+    v.textContent=target.toLocaleString()+' '+unit;li.classList.add('done');li.classList.remove('act');haptic('source')};
+  const big=!p.thin,yms=big?1600:900,rms=big?1400:700;
+  await w(450);if(!alive())return;stage('Let’s look at it.');await w(700);if(!alive())return;
+  stage('Reading YouTube reviews.');await Promise.all([src('yt',p.yt,yms,'comments'),(async()=>{await w(400);lift(0);await w(550);lift(1)})()]);if(!alive())return;
+  stage('Reading the Reddit threads brands never see.');await Promise.all([src('rd',p.rd,rms,'comments'),(async()=>{await w(350);lift(2);await w(500);lift(3)})()]);if(!alive())return;
+  stage('Checking the ingredient list.');await Promise.all([src('ig',p.ig,900,'ingredients'),(async()=>{await w(400);lift(4)})()]);if(!alive())return;
+  stage('Sorting praise from complaints.');await w(500);lift(5);await w(650);if(!alive())return;
+  if(big){stage('Grouping it by skin type.');await w(650);if(!alive())return;stage(`${total(p).toLocaleString()} comments read. Here’s what they say.`)}
+  else{stage(`${total(p)} comments read. That’s not enough for a score.`)}
+  haptic('verdict');await w(1100);if(!alive())return;
+  openCase();
+}
+$('#probeClose').addEventListener('click',()=>{run++;haptic('soft');go(state.from||'home')});
+$('#skip').addEventListener('click',()=>{run++;haptic('select');openCase()});
+
+/* =============== CASE FILE: one chapter at a time =============== */
+const CHN={verdict:'The verdict',fit:'Confidence for you',proof:'The proof',people:'The people'};
+const sortSkin=a=>state.skin?a.slice().sort((x,y)=>(y.skin===state.skin)-(x.skin===state.skin)):a;
+const roomFor=k=>({niac:3,spf:2}[k]);
+const ARROW=svg('<path d="M5 12h14M13 6l6 6-6 6"/>','none',2.2);
+const presenceN=k=>(DIG.find(d=>d.k===k)||{n:40}).n;
+function ctaLabel(){const c=state.chs[state.ch],p=P();return c==='verdict'?(p.thin?'Meet the people':'Is it for me?'):c==='fit'?(state.skin?'See the proof':'Skip for now'):c==='proof'?'Meet the people':'Where to buy'}
+function openCase(){
+  const p=P();state.chs=p.thin?['verdict','people']:['verdict','fit','proof','people'];state.cp='say';state.tag='who';
+  $('#save').classList.toggle('on',!!state.saved[p.key]);renderChapter(0,0);go('case')}
+function renderChapter(i,dir){
+  const p=P(),c=state.chs[i];state.ch=i;
+  const pg=$('#cpage');pg.className='cpage'+(dir>0?' rin':dir<0?' lin':'');
+  pg.innerHTML=({verdict:p.thin?chThin:chVerdict,fit:chFit,proof:chProof,people:chPeople}[c])(p);
+  $('#prog').innerHTML=state.chs.map((x,j)=>`<button data-ch="${j}" class="${j===i?'on':j<i?'done':''}" aria-label="${CHN[x]}"><i></i></button>`).join('');
+  $('#cstage').scrollTop=0;const cta=$('#cta');cta.textContent=ctaLabel();cta.classList.toggle('quiet',c==='people');
+  if(dir)haptic('chapter');
+  if(c==='verdict'&&!p.thin)playVerdict();
+  if(c==='fit'&&state.skin)applySkin(state.skin,false);
+  if(c==='proof')renderProofBody();
+  if(c==='people'){setTimeout(()=>haptic('presence'),380);setTimeout(()=>{const s=$('#sourcedMark');if(s){s.classList.add('on');haptic('success')}},900)}
+}
+function chVerdict(p){
+  const T=total(p),drop=state.dropOpen&&p.key==='spf';
+  return `<p class="kick">The verdict</p>
+  <div class="phead" style="margin-top:6px"><div><p class="brand">${p.brand}</p><h1>${p.name}</h1></div>${bottle}</div>
+  <div class="srow2" style="margin-top:22px"><div class="bignum" id="scoreNum">0</div><div class="slab"><b>Product Score</b><span>Out of 100. What everyone says.</span></div></div>
+  <p class="verdict" id="verdict">${p.verdict}</p>
+  <div class="split" id="split"><i class="p" style="--w:${p.split[0]}"></i><i class="m" style="--w:${p.split[1]}"></i><i class="n" style="--w:${p.split[2]}"></i></div>
+  <div class="legend"><span><i style="background:var(--sage)"></i>Positive ${p.split[0]}%</span><span><i style="background:var(--honey)"></i>Mixed ${p.split[1]}%</span><span><i style="background:var(--coral)"></i>Negative ${p.split[2]}%</span></div>
+  <p class="basis">Read from ${T.toLocaleString()} comments and ${p.own} verified owners.</p>
+  <p class="live-line"><i class="pulse"></i>${presenceN(p.key)} people are reading this right now</p>
+  <div class="links"><button data-l="method">How the score works</button><button data-l="ing">What’s in it</button></div>
+  ${drop?`<div class="dropnote"><b>Sponsored.</b> Solène paid Sourced to introduce this product. The testers received it free. The score is theirs, and Solène can’t change it. It’s mixed overall, and that’s shown.</div>`:''}`}
+function chThin(p){
+  return `<p class="kick">The verdict</p><div class="phead" style="margin-top:6px"><div><p class="brand">${p.brand}</p><h1>${p.name}</h1></div>${bottle}</div>
+  <h2 class="h2" style="font-size:36px;margin-top:26px;line-height:1.05">Not enough to score yet.</h2>
+  <p class="sm" style="margin-top:10px;font-size:15.5px">We found ${total(p)} comments across YouTube and Reddit. A score from that few would mislead you, so we’re not giving one.</p>
+  <div style="margin-top:22px">${p.quotes.slice(0,2).map(q=>`<div class="post" style="border-top:1px solid var(--line)"><div class="pvrow">${pv(q[0])}</div><p class="static">“${q[1]}”</p></div>`).join('')}</div>
+  <div class="card" style="margin-top:14px"><b style="font-size:16px">Own this product?</b><p class="sm" style="margin:5px 0 14px">You’ve used it. Leave a Trace for the next person.</p><button class="btn solid press" data-act="post">Leave a Trace</button><button class="btn ghost press" data-act="notify" style="margin-top:10px">Tell me when it has a score</button></div>`}
+function chFit(p){
+  return `<p class="kick">Confidence for you</p><h2 class="h2" style="font-size:36px;margin-top:8px;line-height:1.05">Is it right for your skin?</h2>
+  <p class="sm" style="margin-top:10px;font-size:15px">Pick your skin type. We’ll check it against people like you.</p>
+  <div class="skin" id="skinrow">${['oily','combination','dry','sensitive'].map(k=>`<button class="press" data-k="${k}">${cap(k)}</button>`).join('')}</div>
+  <button class="quizlink" id="quizLink">Not sure? Take the 3-question quiz</button>
+  <div class="fres2" id="fres"><div class="frow"><div class="fnum" id="fnum">0</div><div class="flab"><b id="flabel"></b><span>Confidence for you</span></div></div><div class="mini" id="fmini" style="margin-top:16px;height:9px"></div><p class="fwhy" id="fwhy"></p></div>`}
+const claimCard=c=>`<div class="pcard static"><p class="pct" style="color:${COL[c.c]}">${c.p}%</p><h3 class="ct">${c.t}</h3><p class="cap" style="margin-top:4px">${c.who}</p><div style="margin-top:10px">${c.q.map(q=>`<blockquote class="bq">${pv(q[0])} “${q[1]}”</blockquote>`).join('')}</div>${c.mom.length?`<div style="margin-top:12px">${c.mom.slice(0,1).map(([vi,mi])=>{const v=P().vids[vi],m=vmoments(v)[mi];return `<button class="mom press" data-vid="${vi}" data-t="${m.t}"><span class="pl">${IC.play}</span><span><b>${fmt(m.t)}</b>${m.label}</span><em>YouTube</em></button>`}).join('')}</div>`:''}</div>`;
+const vidBig=(v,i)=>`<button class="pcard press" data-vid="${i}"><div class="vt" style="height:172px"><span class="plb">${IC.play}</span><span class="dur">${v.dur}</span><div class="ticks">${v.marks.map(([a,b])=>`<i style="left:${a}%;width:${b-a}%"></i>`).join('')}</div></div><h3 class="ct" style="margin-top:14px">${v.t}</h3><div class="pvrow" style="margin-top:9px">${pv(v.src)}<span class="cap">${v.ch}</span></div><p class="cap" style="margin-top:10px">Yellow marks show where it talks about what people keep saying.</p></button>`;
+const jBig=j=>{const P0=PROD[j.key],c=j.c,on=state.following.has(j.id);return `<div class="pcard" role="button" tabindex="0" data-j="${j.id}"><div class="tl-strip" style="height:150px">${ph(c.t,c.d[0],P0.tlLab[0])}${ph(c.t,c.d[1],P0.tlLab[1])}${ph(c.t,c.d[2],P0.tlLab[2])}</div><h3 class="ct" style="margin-top:14px">${j.name}</h3><p class="cap" style="margin-top:3px">${SHORT[j.key]} · ${cap(c.skin)} · ${c.w}</p><p style="margin-top:9px;font-size:15px;line-height:1.45">${c.cap}</p><div class="jrow" style="margin-top:14px"><span class="cap">${j.followers+(on?1:0)} following</span><button class="fbtn${on?' on':''}" data-follow="${j.id}">${on?'Following':'Follow'}</button></div></div>`};
+function pagerInit(el,dotsEl){
+  if(!el||!dotsEl)return;const cards=[...el.children];dotsEl.innerHTML=cards.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join('');let cur=0;
+  el.addEventListener('scroll',()=>{const w=(cards[0]?cards[0].offsetWidth:300)+12,i=Math.max(0,Math.min(cards.length-1,Math.round(el.scrollLeft/w)));if(i!==cur){cur=i;$$('i',dotsEl).forEach((d,j)=>d.classList.toggle('on',j===i));haptic('select')}},{passive:true})}
+function chProof(p){
+  return `<p class="kick">The proof</p><div class="seg" id="pseg" style="margin-top:10px"><button data-s="say">They say</button><button data-s="watch">Watch</button><button data-s="follow">Journeys</button></div><div id="pbody"></div>`}
+function renderProofBody(){
+  const p=P(),s=state.cp;$$('#pseg button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));let h='';
+  if(s==='say')h=`<p class="sm" style="margin-top:14px">Share of comments that mention each. Swipe for the next one.</p><div class="pager" id="pager">${p.cl.map(claimCard).join('')}</div><div class="dots" id="pdots"></div>`;
+  else if(s==='watch'){const vs=p.vids.map((v,i)=>({...v,i})).filter(v=>v.tag===state.tag);
+    h=`<div class="chips sc ptag" style="margin:14px -22px 0;padding:0 22px">${[['who','Who it’s for'],['results','Results over time'],['how','How to use']].map(([k,l])=>`<button class="chip${state.tag===k?' on':''}" data-tag="${k}">${l}</button>`).join('')}</div><div class="pager" id="pager" style="margin-top:14px">${vs.map(v=>vidBig(v,v.i)).join('')}</div><div class="dots" id="pdots"></div>`}
+  else{const js=sortSkin(JOURNEYS.filter(j=>j.key===p.key).map(j=>({...j,skin:j.c.skin})));
+    h=`<p class="sm" style="margin-top:14px">Real journeys from verified owners. ${state.skin?cap(state.skin)+' skin first. ':''}Follow one to see every update.</p><div class="pager" id="pager">${js.map(jBig).join('')}</div><div class="dots" id="pdots"></div>`}
+  $('#pbody').innerHTML=h;pagerInit($('#pager'),$('#pdots'));
+}
+function chPeople(p){
+  const rid=roomFor(p.key),r=rid&&ROOMS.find(x=>x.id===rid),replies=p.threads.reduce((a,t)=>a+t.n,0);
+  return `<p class="kick" style="display:flex;align-items:center;gap:10px">The people <span class="sourced" id="sourcedMark">Sourced ✓</span></p>
+  <h2 class="h2" style="font-size:36px;margin-top:8px;line-height:1.05">You’re not the first to wonder.</h2>
+  <p class="sm" style="margin-top:10px;font-size:15px">${p.own?(replies?replies+' replies across '+p.threads.length+' conversations. ':'')+p.own+' verified owners can answer.':'No owner experiences yet. Be the first person to leave something behind.'}</p>
+  <button class="say press" data-compose="question"><span>What’s on your mind?</span>${ARROW}</button>
+  ${p.threads.length?`<ul style="margin-top:10px">${p.threads.slice(0,2).map((t,i)=>`<li><button class="thr press" data-thread="${i}"><b>${t.t}</b><small>${t.n} replies, ${t.o} from verified owners${t.x?' · Expert replied':''}</small></button></li>`).join('')}</ul>`:''}
+  ${r?`<button class="roomrow press" data-room="${r.id}"><span class="av exp">${exOf(r.host).name.replace('Dr. ','')[0]}</span><span class="rr"><b>${exOf(r.host).name} goes live ${r.when.toLowerCase()}</b><small>${r.title}</small></span><span class="pv exp">Remind me</span></button>`:''}
+  <p class="cap" style="margin-top:20px">You don’t have to buy it just because you found it.</p>`}
+async function playVerdict(){
+  const p=P(),num=$('#scoreNum'),split=$('#split'),v=$('#verdict');await sleep(RM?0:450);if(state.ch!==0||!num)return;
+  split.classList.add('go');await countTo(num,p.score,1500,{tick:6});if(state.ch!==0)return;
+  haptic('verdict');await sleep(RM?0:320);if(state.ch!==0)return;v.classList.add('hi-on');haptic('mark')}
+function openMethod(){
+  const p=P();vStop();$('#evTitle').textContent='How the score works';const calc=(p.split[0]+p.split[1]/2).toFixed(1);
+  $('#evBody').innerHTML=`<p class="sm" style="font-size:15px">No black box. Here’s everything behind the Product Score, including what it can’t tell you.</p>
+  <div class="mstep"><b>1. We collect what people said</b><p>Public comments from YouTube and Reddit, plus posts from verified owners on Sourced. Every source is labeled wherever it appears.</p></div>
+  <div class="mstep"><b>2. We read every comment</b><p>Each one is sorted as positive, mixed or negative, and by skin type when the person mentions it.</p></div>
+  <div class="mstep"><b>3. We do the sum</b><p>The score is the positive share plus half the mixed share.</p><div class="calc">${p.split[0]}% positive + (${p.split[1]}% mixed ÷ 2) = <b>${calc}</b>, shown as <b>${p.score}</b></div></div>
+  <div class="mstep"><b>4. What never changes it</b><p>No brand or store can pay to move a score. Criticism is never removed or down-weighted.</p></div>
+  <div class="card" style="margin-top:14px;background:var(--lac2)"><b style="font-size:15px">What it can’t tell you</b><p class="sm" style="margin-top:6px">People with strong opinions comment more, so scores can lean to the extremes. Skin type is self-reported. Small samples are labeled as small.</p></div>`;
+  openSheet('evSheet')}
+function openIngredients(){
+  const p=P();vStop();$('#evTitle').textContent='What’s in it';
+  $('#evBody').innerHTML=`<p class="sm" style="font-size:15px">Plain-language notes on the ingredients people mention most.</p><div style="margin-top:10px">${p.ing.map(i=>`<div class="ing"><b>${i[0]}</b><span>${i[1]}</span></div>`).join('')}</div><div class="notice" style="margin-top:16px">General information, not medical advice. Patch-test before first use.</div>`;
+  openSheet('evSheet')}
+/* skin type -> Confidence for you */
+function applySkin(k,count=true){
+  const p=P();if(p.thin)return;state.skin=k;if(!$('#skinrow'))return;
+  $$('#skinrow button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
+  const d=p.skin[k],f=Math.round(d[1]+d[2]/2),lab=f>=75?['Strong match','var(--sage)']:f>=55?['Mixed match','var(--honey)']:['Weak match','var(--coral)'];
+  const l=$('#flabel');l.textContent=lab[0];l.style.color=lab[1];
+  $('#fwhy').innerHTML=`Based on ${d[0]} comments from people with ${k} skin: ${d[1]}% positive, ${d[2]}% mixed, ${d[3]}% negative. <em>Most mentioned: ${d[4]}${state.skinSrc==='quiz'?' (Skin type estimated from your quiz.)':''}</em>`;
+  $('#fmini').innerHTML=`<i class="p" style="flex:${d[1]}"></i><i class="m" style="flex:${d[2]}"></i><i class="n" style="flex:${d[3]}"></i>`;
+  $('#fres').style.display='block';$('#cta').textContent=ctaLabel();
+  if(count){haptic('select');countTo($('#fnum'),f,800,{tick:8}).then(()=>{haptic('success')})}else $('#fnum').textContent=f}
+async function chooseSkin(k,src){
+  state.skinSrc=src;applySkin(k,true);
+  if(!state.signed&&!state.fitAuthShown){state.fitAuthShown=true;await sleep(2400);if(state.screen==='case'&&state.chs[state.ch]==='fit')openAuth('fit')}}
+$('#cstage').addEventListener('click',e=>{const t=e.target;let el;
+  if(el=t.closest('#skinrow button'))return chooseSkin(el.dataset.k,'self');
+  if(t.closest('#quizLink'))return openQuiz();
+  if(el=t.closest('[data-l]'))return el.dataset.l==='method'?openMethod():openIngredients();
+  if(el=t.closest('#pseg button')){state.cp=el.dataset.s;haptic('select');return renderProofBody()}
+  if(el=t.closest('[data-tag]')){state.tag=el.dataset.tag;haptic('select');return renderProofBody()}
+  if(el=t.closest('[data-follow]')){e.stopPropagation();return toggleFollow(el.dataset.follow)}
+  if(el=t.closest('.mom'))return openVideo(+el.dataset.vid,+el.dataset.t);
+  if(el=t.closest('[data-vid]'))return openVideo(+el.dataset.vid,0);
+  if(el=t.closest('[data-j]'))return openJourney(el.dataset.j);
+  if(el=t.closest('[data-room]'))return openRoom(+el.dataset.room);
+  if(el=t.closest('[data-thread]'))return openAsk('own',+el.dataset.thread);
+  if(el=t.closest('[data-compose]'))return openCompose({kind:el.dataset.compose,k:state.cur});
+  if(el=t.closest('[data-act]')){const a=el.dataset.act;if(a==='post')return openAuth('post');if(a==='notify'){haptic('success');return toast('We’ll tell you once, when it has a score')}}});
+$('#back').addEventListener('click',()=>{if(state.ch>0)renderChapter(state.ch-1,-1);else{haptic('close');go(state.from&&state.from!=='probe'?state.from:'home')}});
+$('#cta').addEventListener('click',()=>{if(state.ch===state.chs.length-1){haptic('heavy');openBuy(state.cur)}else renderChapter(state.ch+1,1)});
+$('#prog').addEventListener('click',e=>{const b=e.target.closest('button');if(b){const i=+b.dataset.ch;if(i!==state.ch)renderChapter(i,i>state.ch?1:-1)}});
+$('#save').addEventListener('click',()=>{const k=state.cur;if(state.saved[k]){delete state.saved[k];$('#save').classList.remove('on');toast('Removed from your Satchel');haptic('close')}else{state.saved[k]={alert:true,bought:false};$('#save').classList.add('on');toast('In your Satchel. Still deciding? That’s okay.');haptic('success')}});
+
+/* =============== EVIDENCE SHEET =============== */
+let vt=null,vs={i:0,t:0,dur:0,play:false};
+function vStop(){clearInterval(vt);vt=null;vs.play=false;stopRoom()}
+function openVideo(i,start){
+  const p=P(),v=p.vids[i];vStop();vs={i,t:start||0,dur:secs(v.dur),play:false};
+  const mo=vmoments(v);$('#evTitle').textContent='Video';
+  $('#evBody').innerHTML=`<div class="vp"><button class="plb" id="vPlay" aria-label="Play">${IC.play}</button><span class="tm" id="vTm"></span></div>
+   <div class="scrub" id="scrub">${v.marks.map(([a,b])=>`<i style="left:${a}%;width:${b-a}%"></i>`).join('')}<b id="vHead"></b></div>
+   <h2 class="serif" style="font-family:var(--serif);font-weight:500;font-size:23px;margin-top:20px;line-height:1.15;letter-spacing:-.015em">${v.t}</h2>
+   <div class="pvrow" style="margin-top:9px">${pv(v.src)}<span class="cap">${v.ch} · ${v.cm[1]} comments read</span></div>
+   <div style="margin-top:22px"><h3 class="h2" style="font-size:21px">Marked moments</h3><p class="sm" style="margin:5px 0 4px">Where this video talks about what people keep saying.</p>
+   <div id="moms">${mo.map((m,j)=>`<button class="mmr" data-t="${m.t}"><time>${fmt(m.t)}</time><span><mark>${m.label}</mark></span></button>`).join('')}</div></div>
+   <div class="card" style="margin-top:16px;background:var(--lac2)"><b style="font-size:15px">What the comments under it say</b><p class="sm" style="margin:5px 0 12px">${v.cm[0]}% of ${v.cm[1]} comments were positive.</p><div class="mini" style="height:10px"><i class="p" style="flex:${v.cm[0]}"></i><i class="m" style="flex:${Math.round((100-v.cm[0])/2)}"></i><i class="n" style="flex:${Math.round((100-v.cm[0])/2)}"></i></div></div>
+   <p class="cap" style="margin-top:14px">Plays in YouTube’s own player. Creators keep the views.</p>`;
+  vUpdate(mo);openSheet('evSheet');
+  $('#vPlay').onclick=()=>{if(vs.play){vStop();$('#vPlay').innerHTML=IC.play}else{vs.play=true;$('#vPlay').innerHTML=IC.pause;vt=setInterval(()=>{vs.t+=.25;if(vs.t>=vs.dur){vs.t=vs.dur;vStop();$('#vPlay').innerHTML=IC.play}vUpdate(mo)},250)}haptic('tap')};
+  $('#scrub').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();vs.t=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*vs.dur;vUpdate(mo);haptic('soft')};
+  $$('#moms .mmr').forEach(b=>b.onclick=()=>{vs.t=+b.dataset.t;vUpdate(mo);haptic('select')});
+}
+function vUpdate(mo){
+  $('#vTm').textContent=`${fmt(vs.t)} / ${fmt(vs.dur)}`;$('#vHead').style.left=(vs.t/vs.dur*100)+'%';
+  let on=-1;mo.forEach((m,j)=>{if(vs.t>=m.t-1)on=j});
+  $$('#moms .mmr').forEach((b,j)=>{const was=b.classList.contains('on');b.classList.toggle('on',j===on);if(j===on&&!was&&vs.play)haptic('mark')});
+}
+function openPhoto(i){
+  const p=P(),c=p.tl[i];vStop();$('#evTitle').textContent=p.tlTitle;
+  $('#evBody').innerHTML=`<div class="ba" id="ba"><div class="ph2" style="--t:${TONES[c.t%6]}">${dots(c.d[2])}</div><div class="ph2 before" style="--t:${TONES[c.t%6]}">${dots(c.d[0])}</div><span class="tag" style="left:12px">${p.tlLab[0]}</span><span class="tag" style="right:12px">${p.tlLab[2]}</span><div class="hd"></div></div>
+   <p class="cap" style="text-align:center;margin-top:8px">Drag to compare</p>
+   <div class="pvrow" style="margin-top:14px">${pv(c.src)}<span class="pv">${cap(c.skin)}</span><span class="pv">${c.w}</span></div>
+   <div class="oinfo" id="oinfo" hidden>Known for: ${cap(c.skin)} skin · 14 answers · Member since March 2026</div>
+   <p style="margin-top:14px;font-size:17px;line-height:1.5" class="static">“${c.q}”</p>
+   <div class="notice" style="margin-top:20px">Individual results. Lighting, angle and filters change how skin looks. Not medical advice.</div>
+   <div class="rh" style="margin-top:16px"><span class="sm">34 found this helpful</span><button>Report</button></div>`;
+  openSheet('evSheet');
+  const ba=$('#ba');let on=false,last=50;
+  const set=x=>{const r=ba.getBoundingClientRect(),q=Math.max(2,Math.min(98,(x-r.left)/r.width*100));ba.style.setProperty('--x',q+'%');if((last-50)*(q-50)<0)haptic('soft');last=q};
+  ba.addEventListener('pointerdown',e=>{on=true;ba.setPointerCapture(e.pointerId);set(e.clientX)});
+  ba.addEventListener('pointermove',e=>{if(on)set(e.clientX)});ba.addEventListener('pointerup',()=>on=false);
+  $('#evBody .pv.own').onclick=()=>{$('#oinfo').hidden=!$('#oinfo').hidden;haptic('soft')};
+}
+
+/* =============== ASK + COMMUNITY SHEET =============== */
+const chatlog=$('#chatlog'),ownlog=$('#ownlog');
+function askPane(k){
+  $$('#askSeg button').forEach(b=>b.classList.toggle('on',b.dataset.p===k));
+  chatlog.hidden=k!=='ai';ownlog.hidden=k!=='own';$('#askin').hidden=k!=='ai';haptic('select');
+}
+$('#askSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(b){askPane(b.dataset.p);if(b.dataset.p==='own')renderThreads()}});
+function initChat(){
+  const p=P();$('#askTitle').textContent=p.thin?'Ask about this product':'Ask about this product';
+  chatlog.innerHTML=`<div class="chat"><p class="msg">${p.thin?`I only found ${total(p)} comments on this one, so I can’t say much yet. Ask anyway and I’ll tell you what I do know.`:`I’ve read all ${total(p).toLocaleString()} comments. Ask me anything, or tell me what you’re after.`}</p><div class="suggs" id="suggs">${p.sq.map(q=>`<button class="press" data-q="${esc(q)}">${q}</button>`).join('')}</div><div id="log" class="chat"></div></div>`;
+}
+function openAsk(pane,threadIdx){
+  initChat();openSheet('askSheet');askPane(pane||'ai');
+  if(pane==='own'){renderThreads();if(threadIdx!=null)openThread(threadIdx)}
+}
+$('#askOpen').addEventListener('click',()=>openAsk('ai'));
+async function ask(q){
+  q=q.trim();if(!q||state.busy)return;state.busy=true;const p=P();
+  const s=$('#suggs');if(s)s.style.display='none';$('#askq').value='';haptic('tap');
+  const log=$('#log'),to=()=>{chatlog.scrollTop=chatlog.scrollHeight};
+  log.insertAdjacentHTML('beforeend',`<div class="bubble">${esc(q)}</div>`);
+  const a=document.createElement('div');a.className='msg';a.innerHTML='<span class="dots"><i></i><i></i><i></i></span>';log.appendChild(a);to();
+  await sleep(RM?100:900);
+  const hit=p.qa.find(x=>x.k.test(q.toLowerCase())),ans=hit||{t:p.thin?'There isn’t enough to answer that reliably yet. The few comments we found are listed on the case page.':'In the full product I’d answer that straight from the comments. For now, try one of the suggested questions.',s:[]};
+  a.textContent='';const words=ans.t.split(' ');
+  for(let i=0;i<words.length;i++){a.textContent+=(i?' ':'')+words[i];to();await sleep(RM?0:24)}
+  if(ans.s.length){const r=document.createElement('div');r.className='srcrow';r.innerHTML=ans.s.map(x=>`<span>${x}</span>`).join('');a.appendChild(r)}
+  if(ans.m){const [vi,mi]=[ans.m[0],ans.m[1]],v=p.vids[vi],m=vmoments(v)[mi];const b=document.createElement('button');b.className='mom press';b.style.marginTop='12px';b.innerHTML=`<span class="pl">${IC.play}</span><span><b>${fmt(m.t)}</b>${m.label}</span><em>YouTube</em>`;b.onclick=()=>openVideo(vi,m.t);a.appendChild(b)}
+  to();haptic('soft');state.busy=false;
+}
+chatlog.addEventListener('click',e=>{const b=e.target.closest('#suggs button');if(b)ask(b.dataset.q)});
+$('#asksend').addEventListener('click',()=>ask($('#askq').value));
+$('#askq').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();ask($('#askq').value)}});
+const ownPost=(skin,text,helpful)=>`<div class="post" style="border-top:0"><div class="pvrow">${pv('own')}<span class="pv">${cap(skin)}</span></div><div class="oinfo" hidden>Known for: ${cap(skin)} skin · 14 answers · Member since March 2026</div><p class="static">${text}</p>${helpful?`<p class="cap" style="margin-top:8px">${helpful} helpful</p>`:''}</div>`;
+const expPost=(ex,text)=>`<div class="post" style="background:rgba(232,185,90,.07);border-radius:16px;padding:14px;margin-top:12px;border-top:0"><div class="pvrow"><span class="av exp" style="width:32px;height:32px;font-size:15px">${ex.name.replace('Dr. ','')[0]}</span><b style="font-size:15px">${ex.name}</b><span class="pv exp">✓ Verified expert</span></div><p class="cap" style="margin-top:5px">${ex.role} · ${ex.cred}</p><p class="static" style="margin-top:8px">${text}</p><p class="cap" style="margin-top:8px">General information, not medical advice.</p></div>`;
+function renderThreads(){
+  const p=P();
+  ownlog.innerHTML=`<div class="chips" style="margin-bottom:14px"><button class="chip" data-compose="fear">My fear</button><button class="chip" data-compose="why">Why I want it</button><button class="chip" data-compose="question">A question</button></div>`
+  +(p.threads.length?`<p class="sm">${p.name}</p><ul>${p.threads.map((t,i)=>`<li><button class="thr press" data-th="${i}"><b>${t.t}</b><p>“${PLAINTEXT(t.q)}”</p><small>${t.n} replies, ${t.o} from verified owners${t.x?' · Expert replied':''} · ${t.when}</small></button></li>`).join('')}</ul>`
+   :`<div class="card"><b style="font-size:17px">No conversations yet</b><p class="sm" style="margin-top:5px">Be the first to ask, or share what you’ve seen if you own it.</p></div>`)
+  +`<p class="cap" style="margin-top:14px">Only verified owners’ replies are marked as owner experience, and only verified experts carry the expert badge. Everything else is labeled by source.</p>`;
+}
+ownlog.addEventListener('click',e=>{
+  let el;
+  if(el=e.target.closest('[data-compose]'))return renderCompose({kind:el.dataset.compose,k:state.cur});
+  if(el=e.target.closest('[data-th]'))return openThread(+el.dataset.th);
+  if(e.target.closest('#reply'))return openAuth('post',null,true);
+  if(e.target.closest('#thBack')){renderThreads();return haptic('soft')}
+  const o=e.target.closest('[data-owner]');if(o){const n=o.closest('.post').querySelector('.oinfo');n.hidden=!n.hidden;haptic('soft')}
+});
+function openThread(i){
+  const p=P(),t=p.threads[i],ex=EXPERTS.find(x=>x.id===expOf(p.key));askPane('own');state.openT=t;
+  let posts='';
+  if(t.mine){
+    posts=t.replies.length?t.replies.map(r=>r[0]==='exp'?expPost(ex,r[1]):ownPost(r[2]||'combination',r[1])).join(''):`<div class="card" style="margin-top:14px"><b style="font-size:16px">Waiting for replies</b><p class="sm" style="margin-top:4px">Verified owners and experts can see this. We’ll notify you as soon as someone replies.</p></div>`;
+  }else{
+    const c=p.cl[t.ci];
+    posts=`<span class="rel">Related, not a direct reply</span>`+c.q.map((q,j)=>q[0]==='own'?ownPost(p.tl.length?p.tl[j%p.tl.length].skin:'oily',q[1],34-j*12)
+      :`<div class="ext"><div class="pvrow">${pv(q[0])}<span class="cap">Borrowed from ${q[0]==='yt'?'a review video':'a Reddit thread'}</span></div><p style="font-size:15px;line-height:1.5;margin-top:8px" class="static">“${q[1]}”</p></div>`).join('')+(t.x?expPost(ex,EXP_REPLY[p.key]):'');
+  }
+  ownlog.innerHTML=`<button class="back press" id="thBack">${IC.back}All conversations</button>
+  <h2 style="font-family:var(--serif);font-weight:500;font-size:24px;line-height:1.15">${t.t}</h2><p class="cap" style="margin-top:4px">${p.name}${t.kind?' · '+({fear:'A worry',why:'Why they want it',question:'A question',trace:'A Trace'}[t.kind]):''}</p>
+  <div class="post" style="margin-top:14px"><div class="pvrow"><span class="pv">${t.mine?'Your post':'Question'}</span><span class="cap">${t.mine?'just now':'2 days ago'}</span></div><p>${esc(PLAINTEXT(t.q))}</p></div>
+  ${posts}
+  <button class="btn solid press" id="reply" style="margin-top:14px">Reply to this thread</button>`;
+  ownlog.scrollTop=0;haptic('select');
+}
+function openThreadFor(k,ti){state.cur=k;initChat();$('#askTitle').textContent='Community';openSheet('askSheet');askPane('own');openThread(ti)}
+/* compose: share a fear, a reason, or a question */
+const KINDS=k=>[['fear','My fear'],['why','Why I want it'],['question','A question']].concat(k==='trace'||Object.values(state.saved).some(x=>x.bought)?[['trace','Leave a Trace']]:[]);
+const PH={fear:'What worries you about this product? For example breakouts, price, or whether it will suit your skin.',why:'What made you want it? What are you hoping it will help with?',question:'What do you want to know?',trace:'What surprised you? What do you wish you knew before buying? Anything the next person should know?'};
+function openCompose(o={}){state.cur=o.k||state.cur||'niac';initChat();$('#askTitle').textContent='Community';openSheet('askSheet');askPane('own');renderCompose(o)}
+function renderCompose(o){
+  const kind=o.kind||'fear',k=o.k||state.cur||'niac',ex=o.expert?EXPERTS.find(e=>e.id===o.expert):null;state.cd={kind,k};
+  ownlog.innerHTML=`<button class="back press" id="thBack">${IC.back}Back</button>
+  <h2 style="font-family:var(--serif);font-weight:500;font-size:25px;line-height:1.1">${ex?'Ask '+ex.name:(kind==='trace'?'Leave a Trace':'Share with the community')}</h2>
+  <p class="sm" style="margin-top:6px">${ex?'Your question goes to '+ex.name+' and the community. Experts give general information, not medical advice.':(kind==='trace'?'You’ve used it. What should the next person know?':'Verified owners and experts will see this. We’ll tell you when someone replies.')}</p>
+  <div class="chips" id="cKind" style="margin-top:14px">${KINDS(kind).map(([a,l])=>`<button class="chip${a===kind?' on':''}" data-kind="${a}">${l}</button>`).join('')}</div>
+  <p class="cap" style="margin-top:14px">About</p><div class="chips" id="cProd" style="margin-top:6px">${ORDER.map(x=>`<button class="chip${x===k?' on':''}" data-pk="${x}">${SHORT[x]}</button>`).join('')}</div>
+  <textarea class="ta" id="cText" placeholder="${PH[kind]}"></textarea>
+  <button class="btn solid press" id="cPost" style="margin-top:14px">Post</button>
+  <p class="cap" style="margin-top:10px">Be kind and specific. Posts that give medical advice or attack people are removed. Honest criticism of a product never is.</p>`;
+  ownlog.querySelector('#cKind').onclick=e=>{const b=e.target.closest('[data-kind]');if(!b)return;state.cd.kind=b.dataset.kind;$$('#cKind .chip').forEach(c=>c.classList.toggle('on',c===b));$('#cText').placeholder=PH[b.dataset.kind];haptic('select')};
+  ownlog.querySelector('#cProd').onclick=e=>{const b=e.target.closest('[data-pk]');if(!b)return;state.cd.k=b.dataset.pk;state.cur=b.dataset.pk;$$('#cProd .chip').forEach(c=>c.classList.toggle('on',c===b));haptic('select')};
+  ownlog.querySelector('#cPost').onclick=()=>{
+    const txt=$('#cText').value.trim();
+    if(txt.length<8){$('#cText').classList.remove('shake');void $('#cText').offsetWidth;$('#cText').classList.add('shake');haptic('heavy');return}
+    const doPost=()=>postThread(txt);
+    if(!state.signed)openAuth('post',doPost,true);else doPost()};
+}
+function postThread(txt){
+  const {kind,k}=state.cd,p=PROD[k];state.cur=k;
+  const title=txt.length>58?txt.slice(0,56).trim()+'…':txt;
+  const t={t:title,q:txt,n:0,o:0,when:'just now',ci:0,mine:1,kind,replies:[]};p.threads.unshift(t);haptic('success');toast('Posted. We’ll tell you when someone replies.');
+  initChat();askPane('own');openThread(0);
+  if(kind==='trace'){toast('Left behind. The next person can find it.');haptic('owner');return}
+  const ownTxt={fear:'I had the same worry before I started. I patch-tested for a few days and used it every other night at first. It went fine for me.',why:'Same reason I bought it. Two months in, my skin feels more balanced. Worth it for me, but give it time.',question:'Happy to help. Which skin type do you have? That changes my answer.'}[kind];
+  setTimeout(()=>{t.replies.push(['own',ownTxt,p.tl.length?p.tl[0].skin:'combination']);t.n++;t.o++;haptic('owner');toast('A verified owner replied to your post');if(state.openT===t&&$('#askSheet').classList.contains('on')&&!ownlog.hidden)openThread(p.threads.indexOf(t))},4500);
+  setTimeout(()=>{t.replies.push(['exp',EXP_REPLY[k]]);t.n++;haptic('expert');toast(EXPERTS.find(e=>e.id===expOf(k)).name+' replied to your post');if(state.openT===t&&$('#askSheet').classList.contains('on')&&!ownlog.hidden)openThread(p.threads.indexOf(t))},10500);
+}
+
+/* =============== WHERE TO BUY =============== */
+function openBuy(k){
+  const p=PROD[k],st=[['Glow Depot NG',0,'Ships in 2–3 days',1],['SkinLab Store',550,'Ships in 1–2 days',1],['Pure Beauty Co',800,'Ships in 4–6 days',1],['The Serum Room',300,'Out of stock',0]].sort((a,b)=>a[1]-b[1]);
+  $('#buyBody').innerHTML=`<p class="sm">${p.name} · ${st.length} stores</p><div class="chips" style="margin:12px 0 4px"><span class="chip on">Price, low to high</span><span class="chip">Ships to me</span><span class="chip">In stock</span></div>
+  ${st.map((s,i)=>`<button class="store press${i===0?' stk':''}" data-store><b>${s[0]}</b><small>${s[2]}</small><span class="pr" style="${s[3]?'':'color:var(--bone3)'}">₦${(p.price+s[1]).toLocaleString()}${i===0?'<em>Lowest price</em>':''}</span></button>`).join('')}
+  <p class="cap" style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">Sorted by your filter only. No store can pay to appear higher. You don’t have to buy it just because you found it.</p>`;
+  openSheet('buySheet');
+}
+$('#buyBody').addEventListener('click',e=>{if(e.target.closest('[data-store]')){haptic('select');closeSheets();toast('Opens the store inside Sourced')}});
+
+/* =============== QUIZ =============== */
+const QZ=[
+ ['By midday, how does your skin usually feel?',[['Shiny all over','oily'],['Shiny on forehead and nose, normal elsewhere','combination'],['Tight, dry or flaky','dry'],['Comfortable, not much change','combination']]],
+ ['After washing your face, it feels…',[['Tight right away','dry'],['Fine for an hour, then shiny','oily'],['Comfortable all day','combination'],['Stingy or red','sensitive']]],
+ ['How do your pores look?',[['Large and visible all over','oily'],['Visible on nose and forehead','combination'],['Barely visible','dry'],['I react easily to new products','sensitive']]]];
+let qz={i:0,a:[]};
+function openQuiz(){qz={i:0,a:[]};renderQuiz();openSheet('quizSheet')}
+function renderQuiz(){
+  const q=QZ[qz.i];
+  $('#quizBody').innerHTML=`<div class="qprog"><i style="width:${(qz.i+1)/QZ.length*100}%"></i></div><p class="cap" style="margin-top:14px">Question ${qz.i+1} of ${QZ.length}</p><h2 class="h2" style="font-size:24px;margin-top:6px">${q[0]}</h2>${q[1].map((o,j)=>`<button class="qopt press" data-j="${j}">${o[0]}</button>`).join('')}<p class="cap" style="margin-top:16px">Your answers give us a starting point. You can change your skin type any time.</p>`;
+}
+$('#quizBody').addEventListener('click',async e=>{
+  const b=e.target.closest('.qopt');if(!b)return;b.classList.add('sel');haptic('select');await sleep(280);
+  qz.a.push(QZ[qz.i][1][+b.dataset.j][1]);
+  if(qz.i<QZ.length-1){qz.i++;renderQuiz();return}
+  const c={};qz.a.forEach(x=>c[x]=(c[x]||0)+1);const k=Object.entries(c).sort((a,b)=>b[1]-a[1])[0][0];
+  $('#quizBody').innerHTML=`<p class="cap">Based on what you told us</p><h2 class="h2" style="font-size:30px;margin-top:6px">You’re likely ${k}.</h2><p class="sm" style="margin:10px 0 20px">This is an estimate, not a diagnosis. You can change it any time.</p><button class="btn hl press" id="useSkin">Use this</button>`;haptic('success');
+  $('#useSkin').onclick=()=>{closeSheets();if(state.screen==='case')chooseSkin(k,'quiz');else{state.skin=k;state.skinSrc='quiz';if(state.screen==='you')renderYou()}};
+});
+
+/* =============== SHELF: Today / Saved / Journeys =============== */
+function dropHTML(){
+  if(!state.drops)return `<button class="hbtn press" data-dropon style="margin-top:22px"><b>Want a message when something’s been community-tested for your skin?</b><small>Sponsored ones are always labeled. Off unless you turn it on.</small></button>`;
+  const sk=state.skin;
+  if(!sk)return `<div class="drop"><p class="cap">From Sourced</p><p class="dt" style="font-size:20px">Tell us your skin type and drops will actually match you.</p><button class="btn ghost press" data-quiz style="margin-top:14px">Take the 3-question quiz</button></div>`;
+  if(sk==='sensitive'||sk==='dry')return `<div class="drop"><p class="cap">A message from Sourced</p><p class="dt">“This one’s for ${sk} skin like yours. 23 owners tried it, and ${PROD.spf.skin[sk][1]}% of ${sk}-skin owners liked it.”</p><p class="cap" style="margin-top:12px">Sponsored. Solène paid Sourced to introduce this. Testers received it free. The score is theirs, and it’s mixed overall.</p><button class="btn hl press" data-drop style="margin-top:16px">See what the testers said</button></div>`;
+  return `<p class="sm" style="margin-top:22px">Nothing has been community-tested for ${sk} skin right now. We’ll message you when there is.</p>`;
+}
+function renderShelf(){
+  const r=state.routine,steps=r[r.mode],done=steps.filter(s=>s[1]).length,s=state.sh;
+  const fol=[...state.following].map(id=>JOURNEYS.find(j=>j.id===id)).filter(Boolean),sv=Object.keys(state.saved),rem=ROOMS.filter(x=>state.remind[x.id]);
+  let body='';
+  if(s==='today'){
+    body=`<div class="card" style="margin-top:16px"><div class="rh"><div><p class="cap">${r.mode==='am'?'Morning':'Evening'} routine</p><p style="font-family:var(--serif);font-size:24px;margin-top:2px">${done} of ${steps.length} done</p></div><div style="text-align:right"><p style="font-family:var(--serif);font-size:30px">${r.streak}</p><p class="cap">days in a row</p></div></div><div class="dash">${steps.map(x=>`<i class="${x[1]?'d':''}"></i>`).join('')}</div></div>
+    <div class="seg" style="margin-top:14px"><button class="${r.mode==='am'?'on':''}" data-m="am">Morning</button><button class="${r.mode==='pm'?'on':''}" data-m="pm">Evening</button></div>
+    <div style="margin-top:8px">${steps.map((x,i)=>`<button class="task${x[1]?' d':''}" data-i="${i}"><span class="ck">${IC.check}</span><span><b>${x[0]}</b><small>Step ${i+1}</small></span></button>`).join('')}</div>
+    <p class="cap" style="margin-top:10px">Miss a day and you simply pick up where you left off.</p>
+    <div class="notice" style="margin-top:18px">Your cleanser may be running low. It should last about 5 more days.</div>
+    ${rem.length?`<button class="si press" style="width:100%;margin-top:14px" data-room="${rem[0].id}"><span class="nm"><b>${rem[0].title}</b><small>${exOf(rem[0].host).name} · ${rem[0].when} · alarm at ${alarmLabel(rem[0])}</small></span></button>`:''}
+    ${dropHTML()}`;
+  }else if(s==='saved'){
+    const bought=sv.filter(k=>state.saved[k].bought);
+    body=sv.length?`<p class="sm" style="margin-top:14px">Things you’re considering. Still deciding? That’s okay.</p><div style="margin-top:8px">${sv.map(k=>{const p=PROD[k],x=state.saved[k];return `<div class="si"><button class="nm press" data-open="${k}"><b>${p.name}</b><small class="${x.drop?'drop':''}">${x.drop?'Price dropped to '+x.drop:p.thin?'No score yet':'Product Score '+p.score}</small></button><button class="iconbtn${x.bought?' on':''}" data-bought="${k}" aria-label="Mark as bought">${IC.check}</button><button class="iconbtn${x.alert?' on':''}" data-alert="${k}" aria-label="Price alert">${IC.bell}</button></div>`}).join('')}</div>
+      <p class="cap" style="margin-top:12px">Tick a product once you’ve bought it. The bell turns on price alerts, which fire only on real changes.</p>
+      ${bought.length?`<button class="btn ghost press" data-trace="${bought[0]}" style="margin-top:14px">You’ve used it. Leave a Trace</button><p class="cap" style="margin-top:8px">In the real app this unlocks 14 days after you mark it as bought.</p>`:''}
+      <button class="btn hl press" id="readyBuy" style="margin-top:14px">Ready to buy</button>`
+      :`<div class="card" style="margin-top:16px"><b style="font-size:17px">Nothing here yet.</b><p class="sm" style="margin-top:5px">Tap the bookmark on any case to keep it here while you decide.</p></div>`;
+    if(state.recent.length)body+=`<div class="rh" style="margin-top:28px"><h2 class="h2" style="font-size:21px">Recently opened</h2><button id="clearRecent">Clear</button></div><div style="margin-top:6px">${state.recent.map(k=>{const p=PROD[k];return `<button class="srow press" data-k="${k}"><b>${p.name}<small>Only you can see this</small></b>${p.thin?'<span class="snum none">No score</span>':`<span class="snum">${p.score}</span>`}</button>`}).join('')}</div>`;
+  }else{
+    body=`<div class="rh" style="margin-top:16px"><h2 class="h2" style="font-size:22px">Your progress</h2><button id="addEntry">Add entry</button></div><p class="pvrow" style="margin:8px 0 4px"><span class="pv" style="display:inline-flex;gap:6px;align-items:center"><span style="width:12px;height:12px;display:inline-block">${IC.lock}</span>Private by default</span></p>
+    <div>${state.entries.map((e,i)=>`<div class="tlm"><div class="ph2" style="--t:${TONES[2]}">${dots(e.d)}</div><div><b>${e.wk}</b><p>${e.note}</p><button data-share="${i}">${e.shared?'Shared. Make private':'Share this entry'}</button></div></div>`).join('')}</div>
+    <p class="cap" style="margin-top:10px">Share a journey and people can follow it, react, and ask you questions. Only the entries you choose.</p>
+    <h2 class="h2" style="font-size:22px;margin-top:30px">Following</h2>
+    ${fol.length?`<div style="margin-top:8px">${fol.map(j=>`<button class="si press" style="width:100%" data-j="${j.id}"><span class="av">${j.name[0]}</span><span class="nm"><b>${j.name}<span class="follow-new">New</span></b><small>${SHORT[j.key]} · Week ${j.ups.length+6} posted 2h ago</small></span></button>`).join('')}</div>`:`<p class="sm" style="margin-top:6px">Follow someone’s journey and their new updates land here.</p><button class="btn ghost press" id="goCom" style="margin-top:12px">Find journeys to follow</button>`}`;
+  }
+  $('#shelfBody').innerHTML=`<div class="top" style="padding:16px 0 0"><h1 class="pagetitle">Your shelf</h1>${state.signed?'<div class="ib" style="background:var(--lac);border-radius:50%;font-size:14px;font-weight:600">A</div>':'<span></span>'}</div>
+  <div class="seg" id="shseg" style="margin-top:14px"><button data-sh="today" class="${s==='today'?'on':''}">Today</button><button data-sh="saved" class="${s==='saved'?'on':''}">Saved</button><button data-sh="journeys" class="${s==='journeys'?'on':''}">Journeys</button></div>${body}`;
+}
+$('#shelfBody').addEventListener('click',e=>{
+  let el;
+  if(el=e.target.closest('[data-sh]')){state.sh=el.dataset.sh;haptic('select');return renderShelf()}
+  if(el=e.target.closest('[data-m]')){state.routine.mode=el.dataset.m;haptic('select');return renderShelf()}
+  if(el=e.target.closest('.task')){const r=state.routine,s=r[r.mode][+el.dataset.i];s[1]=s[1]?0:1;haptic('select');const all=r[r.mode].every(x=>x[1]);
+    if(all&&!r.doneToday){r.doneToday=1;r.streak++;renderShelf();haptic('success');toast('Done for now. Nice.')}else renderShelf();return}
+  if(el=e.target.closest('.srow[data-k]'))return openFrom(el.dataset.k,'shelf');
+  if(el=e.target.closest('[data-open]'))return openFrom(el.dataset.open,'shelf');
+  if(el=e.target.closest('[data-room]'))return openRoom(+el.dataset.room);
+  if(el=e.target.closest('[data-j]'))return openJourney(el.dataset.j);
+  if(e.target.closest('[data-dropon]')){state.drops=true;haptic('success');toast('Drops on. You can turn them off any time.');return renderShelf()}
+  if(e.target.closest('[data-drop]')){haptic('open');return investigate('spf',true)}
+  if(e.target.closest('[data-quiz]'))return openQuiz();
+  if(el=e.target.closest('[data-trace]'))return openCompose({kind:'trace',k:el.dataset.trace});
+  if(e.target.closest('#goCom'))return go('community');
+  if(e.target.closest('#clearRecent')){state.recent=[];haptic('select');return renderShelf()}
+  if(el=e.target.closest('[data-alert]')){const s=state.saved[el.dataset.alert];s.alert=!s.alert;haptic('select');return renderShelf()}
+  if(el=e.target.closest('[data-bought]')){const s=state.saved[el.dataset.bought];if(!s.bought&&!state.signed)return openAuth('bought');s.bought=!s.bought;haptic(s.bought?'success':'select');if(s.bought)toast('Marked as bought. You can leave a Trace in 14 days.');return renderShelf()}
+  if(e.target.closest('#readyBuy')){const k=Object.keys(state.saved)[0];if(k)openBuy(k);return}
+  if(e.target.closest('#addEntry')){state.entries.unshift({wk:'Week 9 · Today',note:'Added a photo. Skin feels balanced.',d:1,shared:false});haptic('success');toast('Saved privately');return renderShelf()}
+  if(el=e.target.closest('[data-share]')){const en=state.entries[+el.dataset.share];if(!en.shared&&!state.signed)return openAuth('share');en.shared=!en.shared;haptic('select');toast(en.shared?'Shared. Only this entry.':'Private again');renderShelf()}
+});
+function openFrom(k,from){state.from=from;state.cur=k;state.dropOpen=false;openCase()}
+
+/* =============== COMMUNITY TAB: one thing at a time =============== */
+const exOf=id=>EXPERTS.find(e=>e.id===id);
+const alarmLabel=r=>{const t=r.hh*60+r.mm-5,h=Math.floor(t/60),m=t%60;return `${((h+11)%12)+1}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`};
+function renderCommunity(){
+  const live=ROOMS.find(r=>r.live),lh=exOf(live.host),s=state.cs,ups=ROOMS.filter(r=>!r.live);
+  let body='';
+  if(s==='talk'){
+    const dis=[['niac',0],['spf',0],['clean',0]];
+    body=`<button class="say press" data-compose="fear"><span>What’s on your mind?</span>${ARROW}</button>
+    <p class="cap" style="margin-top:10px">A worry, why you want something, or a question. Owners and experts reply.</p>
+    <div style="margin-top:14px">${dis.map(([k,i])=>{const t=PROD[k].threads[i];return `<button class="q press" data-th="${k}:${i}"><p class="qt">“${t.t}”</p><div class="qm"><span class="pv">${SHORT[k]}</span><span>${t.n} replies, ${t.o} from owners</span>${t.x?'<span class="pv exp">Expert replied</span>':''}</div></button>`}).join('')}</div>`;
+  }else if(s==='journeys'){
+    body=`<p class="sm" style="margin-top:14px">Real people sharing progress week by week. Follow one to see every update.</p><div class="pager" id="cpager" style="margin:14px -20px 0;padding:0 20px;scroll-padding-left:20px">${JOURNEYS.filter(j=>!PROD[j.key].thin).slice(0,6).map(jBig).join('')}</div><div class="dots" id="cdots"></div>`;
+  }else{
+    body=`<h2 class="h2" style="font-size:22px;margin-top:10px">Live sessions</h2>${ups.map(r=>{const h=exOf(r.host);return `<div class="urow"><button class="ut" data-room="${r.id}"><b>${r.title}</b><small>${h.name} · ${r.when} · ${r.going} going</small></button><button class="remind${state.remind[r.id]?' on':''}" data-remind="${r.id}">${state.remind[r.id]?'Reminder set':'Remind me'}</button></div>`}).join('')}
+    <h2 class="h2" style="font-size:22px;margin-top:30px">Ask an expert</h2><p class="cap" style="margin-top:4px">Verified professionals. General information, not medical advice.</p>
+    <div style="margin-top:6px">${EXPERTS.map(e=>`<div class="exrow"><span class="av exp">${e.name.replace('Dr. ','')[0]}</span><div class="x"><b>${e.name}</b><small>${e.role} · ${e.cred}<br>${e.topic}</small></div><button class="askx press" data-ask="${e.id}">Ask</button></div>`).join('')}</div>`;
+  }
+  $('#comBody').innerHTML=`<div class="top" style="padding:16px 0 0"><h1 class="pagetitle">Community</h1><span class="live"><i class="pulse"></i><span class="hereN">${state.here.toLocaleString()}</span> here</span></div>
+  <button class="roomhero press" data-room="${live.id}" style="margin-top:16px;padding:18px"><span class="rtag"><i class="pulse"></i>Live now</span><b class="rt" style="font-size:23px">${live.title}</b><span class="rhost" style="margin-top:12px"><span class="av exp">${lh.name.replace('Dr. ','')[0]}</span><span><b>${lh.name}</b><small>${lh.role} · ${live.n} listening</small></span></span></button>
+  <div class="seg" id="cseg" style="margin-top:18px"><button data-cs="talk" class="${s==='talk'?'on':''}">Talk</button><button data-cs="journeys" class="${s==='journeys'?'on':''}">Journeys</button><button data-cs="experts" class="${s==='experts'?'on':''}">Experts</button></div>
+  <div id="cbody">${body}</div><p class="cap" style="margin-top:26px">Live figures on this prototype are sample numbers.</p>`;
+  if(s==='journeys')pagerInit($('#cpager'),$('#cdots'));
+}
+$('#comBody').addEventListener('click',e=>{let el;
+  if(el=e.target.closest('[data-cs]')){state.cs=el.dataset.cs;haptic('select');return renderCommunity()}
+  if(el=e.target.closest('[data-remind]')){e.stopPropagation();return toggleRemind(+el.dataset.remind)}
+  if(el=e.target.closest('[data-follow]')){e.stopPropagation();return toggleFollow(el.dataset.follow)}
+  if(el=e.target.closest('[data-room]'))return openRoom(+el.dataset.room);
+  if(el=e.target.closest('[data-j]'))return openJourney(el.dataset.j);
+  if(el=e.target.closest('[data-th]')){const [k,i]=el.dataset.th.split(':');return openThreadFor(k,+i)}
+  if(el=e.target.closest('[data-ask]'))return openCompose({kind:'question',expert:el.dataset.ask,k:'niac'});
+  if(el=e.target.closest('[data-compose]'))return openCompose({kind:el.dataset.compose})});
+function toggleFollow(id){
+  const on=!state.following.has(id);on?state.following.add(id):state.following.delete(id);haptic(on?'success':'select');
+  if(on)toast('Following. New updates will show on your Shelf.');
+  if(state.screen==='community')renderCommunity();
+  if(state.screen==='case'&&state.chs[state.ch]==='proof'&&state.cp==='follow')renderProofBody();
+  if($('#evSheet').classList.contains('on')&&state.jid===id)openJourney(id,true)}
+function toggleRemind(id){
+  const r=ROOMS.find(x=>x.id===id),on=!state.remind[id];state.remind[id]=on;
+  if(on){/* native: iOS 26 alarm framework schedules a real alarm; Android uses AlarmClock.ACTION_SET_ALARM with SKIP_UI */haptic('success');toast(`Alarm set for ${alarmLabel(r)}. It rings even on silent.`)}
+  else{haptic('select');toast('Reminder removed')}
+  if(state.screen==='community')renderCommunity();if($('#evSheet').classList.contains('on')&&state.rid===id)openRoom(id,true)}
+
+/* =============== JOURNEY (follow someone's progress) =============== */
+function openJourney(id,keep){
+  const j=JOURNEYS.find(x=>x.id===id),p=PROD[j.key],c=j.c;vStop();state.jid=id;$('#evTitle').textContent='Journey';
+  const on=state.following.has(id),reacted=state.reacted||(state.reacted={});
+  $('#evBody').innerHTML=`<div class="jhead"><span class="av">${j.name[0]}</span><div class="x"><b>${j.name}</b><small>${pv('own')} · ${cap(c.skin)} · ${c.w}</small></div><button class="fbtn${on?' on':''}" id="jFollow">${on?'Following':'Follow'}</button></div>
+   <p class="sm" style="margin-top:10px">Using ${p.name}. ${j.followers+(on?1:0)} people are following this journey.</p>
+   <div class="ba" id="ba" style="margin-top:14px"><div class="ph2" style="--t:${TONES[c.t%6]}">${dots(c.d[2])}</div><div class="ph2 before" style="--t:${TONES[c.t%6]}">${dots(c.d[0])}</div><span class="tag" style="left:12px">${p.tlLab[0]}</span><span class="tag" style="right:12px">${p.tlLab[2]}</span><div class="hd"></div></div>
+   <p class="cap" style="text-align:center;margin-top:8px">Drag to compare first day with now</p>
+   <div class="react" id="react">${['Helpful','Same for me','Inspiring'].map((l,i)=>`<button data-r="${i}" class="${reacted[id+i]?'on':''}">${l} ${j.react[i]+(reacted[id+i]?1:0)}</button>`).join('')}</div>
+   <div style="margin-top:20px"><h3 class="h2" style="font-size:21px">Updates</h3>${j.ups.slice().reverse().map(u=>`<div class="up"><div class="ph2" style="--t:${TONES[c.t%6]}">${dots(u[2])}</div><div><b>${u[0]}</b><p>${esc(u[1])}</p></div></div>`).join('')}</div>
+   <div id="jq"></div>
+   <div class="askin" style="padding:14px 0 0;border-top:1px solid var(--line);margin-top:6px"><input id="jqIn" placeholder="Ask ${j.name.split(' ')[0]} a question" aria-label="Ask a question"><button id="jqSend" aria-label="Send"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
+   <div class="notice" style="margin-top:18px">Individual results. Lighting, angle and filters change how skin looks. Not medical advice.</div>`;
+  if(!keep)openSheet('evSheet');
+  $('#jFollow').onclick=()=>toggleFollow(id);
+  $('#react').onclick=e=>{const b=e.target.closest('[data-r]');if(!b)return;const k=id+b.dataset.r;reacted[k]=!reacted[k];haptic(reacted[k]?'success':'select');const n=j.react[+b.dataset.r]+(reacted[k]?1:0);b.classList.toggle('on',!!reacted[k]);b.textContent=['Helpful','Same for me','Inspiring'][+b.dataset.r]+' '+n};
+  const send=()=>{const v=$('#jqIn').value.trim();if(!v)return;const go=()=>{$('#jq').insertAdjacentHTML('beforeend',`<div class="qbub">${esc(v)}</div><p class="cap" style="text-align:right;margin-top:4px">${j.name.split(' ')[0]} will be notified</p>`);$('#jqIn').value='';haptic('success')};if(!state.signed)openAuth('post',go,true);else go()};
+  $('#jqSend').onclick=send;$('#jqIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();send()}});
+  const ba=$('#ba');let dn=false,last=50;
+  const set=x=>{const r=ba.getBoundingClientRect(),q=Math.max(2,Math.min(98,(x-r.left)/r.width*100));ba.style.setProperty('--x',q+'%');if((last-50)*(q-50)<0)haptic('soft');last=q};
+  ba.addEventListener('pointerdown',e=>{dn=true;ba.setPointerCapture(e.pointerId);set(e.clientX)});ba.addEventListener('pointermove',e=>{if(dn)set(e.clientX)});ba.addEventListener('pointerup',()=>dn=false);
+}
+
+/* =============== LIVE ROOMS =============== */
+let roomT=null;
+const CHAT=[['Nneka C.','Oily','Does a toner before serum matter?'],['Dr. Lena','','Toner first if you use one, then serum, then moisturizer. Thin to thick.',1],['Kemi L.','Combination','How long before I should expect results?'],['Dr. Lena','','Usually a few weeks, and some people notice nothing. That’s a normal range.',1],['Ife R.','Dry','My cleanser makes my face feel tight. Should I stop?'],['Dr. Lena','','If it stays tight, try a gentler one and tell a professional if it persists.',1],['Zainab B.','Sensitive','Thank you, this is really helpful.']];
+function stopRoom(){clearInterval(roomT);roomT=null}
+function openRoom(id,keep){
+  const r=ROOMS.find(x=>x.id===id),ex=exOf(r.host);vStop();stopRoom();state.rid=id;
+  $('#evTitle').textContent=r.live?'Live room':'Live session';
+  if(!r.live){
+    const on=!!state.remind[id];
+    $('#evBody').innerHTML=`<div class="jhead"><span class="av exp">${ex.name.replace('Dr. ','')[0]}</span><div class="x"><b>${ex.name}</b><small><span class="pv exp">✓ Verified expert</span> ${ex.role}</small></div></div>
+    <h2 class="roomt" style="text-align:left;font-size:27px;margin-top:18px">${r.title}</h2>
+    <div class="pvrow" style="margin-top:12px"><span class="pv">${r.when}</span><span class="pv">${r.going} going</span><span class="pv">Voice and text</span></div>
+    <div style="margin-top:22px"><h3 class="h2" style="font-size:20px">What we’ll cover</h3><ul class="about" style="margin-top:6px">${r.about.map(a=>`<li>${a}</li>`).join('')}</ul></div>
+    <button class="bigremind press${on?' on':''}" id="rmBtn" style="margin-top:22px">${on?'Alarm set for '+alarmLabel(r)+'. Tap to remove':'Remind me with an alarm'}</button>
+    <p class="cap" style="margin-top:10px">Rings 5 minutes before, even on silent. On iPhone this is a real alarm on iOS 26 and later. On Android it’s added to your alarm app.</p>
+    <p class="sm" style="margin-top:22px;font-weight:600;color:var(--bone)">Send a question in advance</p>
+    <div class="askin" style="padding:8px 0 0;border:0"><input id="rqIn" placeholder="What would you like answered?" aria-label="Question"><button id="rqSend" aria-label="Send"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
+    <p class="cap" style="margin-top:14px">Experts give general information, not medical advice.</p>`;
+    if(!keep)openSheet('evSheet');
+    $('#rmBtn').onclick=()=>toggleRemind(id);
+    const s=()=>{const v=$('#rqIn').value.trim();if(!v)return;const go=()=>{$('#rqIn').value='';haptic('success');toast('Question sent to '+ex.name.split(' ')[0])};if(!state.signed)openAuth('post',go,true);else go()};
+    $('#rqSend').onclick=s;$('#rqIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();s()}});
+  }else{
+    let n=r.n,hand=false;
+    $('#evBody').innerHTML=`<div style="text-align:center"><span class="av exp big speak">${ex.name.replace('Dr. ','')[0]}</span><h2 style="font-family:var(--serif);font-weight:500;font-size:24px;margin-top:14px">${ex.name}</h2><p class="cap" style="margin-top:4px"><span class="pv exp">✓ Verified expert</span> ${ex.role}</p></div>
+     <h3 class="roomt">${r.title}</h3><p class="cap" style="text-align:center;margin-top:8px"><i class="pulse" style="margin-right:8px"></i><span id="lstn">${n}</span> listening</p>
+     <div class="rchat" id="rchat"></div>
+     <div class="rctl"><button class="rbtn press" id="hand">Raise hand</button><button class="rbtn" id="mic" disabled>Muted</button><button class="rbtn press" id="leave">Leave</button></div>
+     <div class="askin" style="padding:12px 0 0;border:0"><input id="rmIn" placeholder="Send a question" aria-label="Send a question"><button id="rmSend" aria-label="Send"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
+     <p class="cap" style="margin-top:12px">You can listen without an account. Verify to ask a question. Experts give general information, not medical advice.</p>`;
+    if(!keep)openSheet('evSheet');
+    const chat=$('#rchat');let i=0;
+    const add=(m)=>{const d=document.createElement('div');d.className='rc'+(m[3]?' ex':'');d.innerHTML=`<b>${esc(m[0])}</b> ${m[1]?`<small>${m[1]}</small> `:''}<div>${esc(m[2])}</div>`;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;if(m[3])haptic('expert')};
+    add(CHAT[0]);i=1;
+    roomT=setInterval(()=>{if(i<CHAT.length)add(CHAT[i++]);n+=Math.round(Math.random()*3);$('#lstn')&&($('#lstn').textContent=n)},2600);
+    $('#hand').onclick=()=>{hand=!hand;$('#hand').classList.toggle('on',hand);$('#hand').textContent=hand?'Hand raised':'Raise hand';haptic(hand?'success':'select');if(hand)toast('The host will invite you to speak')};
+    $('#leave').onclick=()=>{closeSheets();haptic('select')};
+    const s=()=>{const v=$('#rmIn').value.trim();if(!v)return;const go=()=>{add(['You','',v]);$('#rmIn').value='';haptic('select')};if(!state.signed)openAuth('post',go,true);else go()};
+    $('#rmSend').onclick=s;$('#rmIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();s()}});
+  }
+}
+
+/* =============== YOU =============== */
+function renderYou(){
+  const hs=state.hapScale;
+  $('#youBody').innerHTML=`<h1 class="pagetitle" style="margin-top:20px">You</h1>
+  <div class="card" style="margin-top:16px"><div class="rh"><div><p class="cap">Skin type</p><p style="font-family:var(--serif);font-size:26px;margin-top:2px">${state.skin?cap(state.skin):'Not set yet'}</p></div><button id="setSkin">${state.skin?'Change':'Set it'}</button></div><p class="cap" style="margin-top:8px">${state.skin?(state.skinSrc==='quiz'?'Estimated from your quiz. You can change it any time.':'Chosen by you.'):'Set it once and every product shows Confidence for you.'}</p></div>
+  <div class="sec" style="margin-top:28px"><h2 class="h2" style="font-size:22px">Haptics</h2><p class="sm" style="margin-top:6px">Sourced speaks through touch. Every peel, verdict and reply has its own feel.</p>
+   <div class="seg hseg" id="hseg"><button data-hs="0" class="${hs===0?'on':''}">Off</button><button data-hs="0.6" class="${hs===0.6?'on':''}">Subtle</button><button data-hs="1.1" class="${hs===1.1?'on':''}">Full</button></div>
+   <button class="btn ghost press" id="hDemo" style="margin-top:12px">Feel our signature</button></div>
+  <div class="sec" style="margin-top:28px"><h2 class="h2" style="font-size:22px">Where the data comes from</h2><p class="sm" style="margin-top:6px">Public YouTube comments and Reddit threads, plus posts from verified owners on Sourced. Every source is labeled wherever it appears. Nothing is paid for and nothing is removed.</p></div>
+  <div class="sec" style="margin-top:28px"><h2 class="h2" style="font-size:22px">Privacy</h2>
+   <button class="tog" style="margin-top:8px" data-t="hist"><span><b>Save my search history</b><small>Visible to you only. Delete any time.</small></span><span class="sw${state.history?' on':''}"></span></button>
+   <button class="tog" data-t="drops"><span><b>Drops from Sourced</b><small>A message when something has been community-tested for your skin. Sponsored ones are always labeled. Off unless you turn it on.</small></span><span class="sw${state.drops?' on':''}"></span></button>
+   <div class="tog" style="border-bottom:1px solid var(--line)"><span><b>Progress photos</b><small>Always private until you share, one entry at a time.</small></span></div></div>
+  <div class="sec" style="margin-top:28px"><h2 class="h2" style="font-size:22px">Account</h2><p class="sm" style="margin:6px 0 14px">${state.signed?'Verified. Your skin details and saved products are kept.':'You’re using Sourced without an account. You only need one to save your profile, post, or mark something as bought.'}</p>${state.signed?'':'<button class="btn solid press" id="youIn">Verify with Google or email</button>'}<button class="btn ghost press" id="delData" style="margin-top:10px">Delete my data</button></div>`;
+}
+$('#youBody').addEventListener('click',async e=>{
+  let el;
+  if(e.target.closest('#setSkin'))return openQuiz();
+  if(el=e.target.closest('[data-hs]')){state.hapScale=+el.dataset.hs;renderYou();return haptic('success')}
+  if(e.target.closest('#hDemo')){const seq=[['sign','Sourced signature'],['peel','A redaction lifts'],['source','A source is read'],['verdict','The verdict lands'],['mark','A highlight is marked'],['presence','Someone’s here'],['owner','A verified owner replies'],['expert','An expert replies']];
+    for(const [k,l] of seq){toast(l);haptic(k);await sleep(1300)}return}
+  if(e.target.closest('[data-t="hist"]')){state.history=!state.history;haptic('select');return renderYou()}
+  if(e.target.closest('[data-t="drops"]')){state.drops=!state.drops;haptic(state.drops?'success':'select');return renderYou()}
+  if(e.target.closest('#youIn'))return openAuth('in');
+  if(e.target.closest('#delData')){state.recent=[];state.skin=null;state.saved={};state.drops=false;haptic('heavy');toast('Your data has been deleted');renderYou()}
+});
+
+go('home');
+</script>
+</body>
+</html>

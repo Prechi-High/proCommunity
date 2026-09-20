@@ -4,8 +4,30 @@ import { useAppStore, type HapticsMode } from './store';
 
 export type { HapticsMode };
 
-type Impact = 'light' | 'medium' | 'heavy';
-type Notification = 'success' | 'warning' | 'error';
+/** Vibration patterns from sourced-v1 (2).html HP map. Even indices = buzz ms. */
+const HP: Record<string, number[]> = {
+  tap: [12],
+  select: [16],
+  soft: [8],
+  tick: [5],
+  heavy: [40],
+  open: [14, 50, 24],
+  close: [10],
+  peel: [6, 24, 10, 24, 20],
+  source: [16, 60, 28],
+  verdict: [20, 45, 26, 45, 36, 60, 64],
+  mark: [8, 22, 12, 22, 18, 22, 28],
+  chapter: [14, 44, 30],
+  presence: [10, 70, 18],
+  owner: [20, 70, 20],
+  expert: [20, 60, 20, 60, 36],
+  success: [14, 60, 14, 60, 30],
+  error: [40, 40, 40],
+  sign: [30, 90, 30, 90, 70],
+};
+
+let lastHap = 0;
+let signed = false;
 
 function mode(): HapticsMode {
   try {
@@ -15,8 +37,15 @@ function mode(): HapticsMode {
   }
 }
 
-function webVibrate(pattern: number | number[]) {
-  if (Platform.OS !== 'web' || mode() === 'off') return;
+function scale(): number {
+  const m = mode();
+  if (m === 'off') return 0;
+  if (m === 'subtle') return 0.6;
+  return 1.1;
+}
+
+function webVibrate(pattern: number[]) {
+  if (Platform.OS !== 'web') return;
   try {
     const nav = typeof navigator !== 'undefined' ? navigator : null;
     if (nav && typeof nav.vibrate === 'function') nav.vibrate(pattern);
@@ -25,121 +54,118 @@ function webVibrate(pattern: number | number[]) {
   }
 }
 
-async function impact(style: Impact) {
-  const m = mode();
-  if (m === 'off') return;
-  if (m === 'subtle' && style === 'heavy') {
-    style = 'medium';
-  }
-  if (Platform.OS === 'web') {
-    webVibrate(style === 'light' ? 8 : style === 'medium' ? 14 : 24);
-    return;
-  }
+async function nativeBurst(pattern: number[]) {
   try {
     const Haptics = await import('expo-haptics');
-    const map = {
-      light: Haptics.ImpactFeedbackStyle.Light,
-      medium: Haptics.ImpactFeedbackStyle.Medium,
-      heavy: Haptics.ImpactFeedbackStyle.Heavy,
-    };
-    await Haptics.impactAsync(map[style]);
+    let t = 0;
+    pattern.forEach((d, i) => {
+      if (i % 2 === 1) {
+        t += d;
+        return;
+      }
+      const style =
+        d >= 36
+          ? Haptics.ImpactFeedbackStyle.Heavy
+          : d >= 16
+            ? Haptics.ImpactFeedbackStyle.Medium
+            : Haptics.ImpactFeedbackStyle.Light;
+      setTimeout(() => {
+        void Haptics.impactAsync(style);
+      }, t);
+      t += Math.max(4, d);
+    });
   } catch {
     /* ignore */
   }
 }
 
-async function notify(type: Notification) {
-  const m = mode();
-  if (m === 'off') return;
+/** Core haptic keyed like the HTML prototype. */
+export function haptic(key: keyof typeof HP | string) {
+  const f = scale();
+  if (!f) return;
+  lastHap = Date.now();
+  const raw = HP[key] ?? HP.tap;
+  const pattern = raw.map((d, i) => (i % 2 === 0 ? Math.max(4, Math.round(d * f)) : d));
   if (Platform.OS === 'web') {
-    webVibrate(type === 'success' ? [10, 40, 16] : 12);
+    webVibrate(pattern);
     return;
   }
-  try {
-    const Haptics = await import('expo-haptics');
-    const map = {
-      success: Haptics.NotificationFeedbackType.Success,
-      warning: Haptics.NotificationFeedbackType.Warning,
-      error: Haptics.NotificationFeedbackType.Error,
-    };
-    await Haptics.notificationAsync(map[type]);
-  } catch {
-    /* ignore */
-  }
+  void nativeBurst(pattern);
 }
 
-async function selection() {
-  if (mode() === 'off') return;
-  if (Platform.OS === 'web') {
-    webVibrate(6);
-    return;
-  }
-  try {
-    const Haptics = await import('expo-haptics');
-    await Haptics.selectionAsync();
-  } catch {
-    /* ignore */
-  }
-}
-
-/** First meaningful touch / brand beat. */
+/** First pointer / press of the session. */
 export function hapticSignature() {
-  void impact(mode() === 'subtle' ? 'light' : 'medium');
+  if (signed) {
+    haptic('tap');
+    return;
+  }
+  signed = true;
+  haptic('sign');
 }
 
-/** Redaction bar peeling. */
 export function hapticPeel() {
-  void impact('light');
+  haptic('peel');
 }
 
-/** A source row finishes reading. */
 export function hapticSourceDone() {
-  void notify('success');
+  haptic('source');
 }
 
-/** Score digit ticking up. */
 export function hapticVerdictTick() {
   if (mode() === 'subtle') return;
-  void selection();
+  haptic('tick');
 }
 
-/** Score lands. */
 export function hapticVerdictLand() {
-  void impact(mode() === 'subtle' ? 'medium' : 'heavy');
+  haptic('verdict');
 }
 
-/** Highlighter mark fills. */
 export function hapticMarked() {
-  void impact('light');
+  haptic('mark');
 }
 
-/** Case chapter pager turns. */
 export function hapticChapterTurn() {
-  void impact('medium');
+  haptic('chapter');
 }
 
-/** Soft presence pulse. */
 export function hapticPresence() {
-  if (mode() === 'subtle') return;
-  void selection();
+  haptic('presence');
 }
 
-/** Verified owner reply. */
 export function hapticOwnerVoice() {
-  void impact('medium').then(() => {
-    setTimeout(() => void impact('light'), 80);
-  });
+  haptic('owner');
 }
 
-/** Expert reply. */
 export function hapticExpertVoice() {
-  void impact('medium').then(() => {
-    setTimeout(() => void impact('light'), 70);
-    setTimeout(() => void impact('light'), 140);
-  });
+  haptic('expert');
 }
 
-/** Generic control tap. */
+/** Generic control tap — debounce so nested presses don’t double-fire. */
 export function hapticTap() {
-  void selection();
+  if (Date.now() - lastHap < 90) return;
+  haptic('tap');
+}
+
+export function hapticSelect() {
+  haptic('select');
+}
+
+export function hapticHeavy() {
+  haptic('heavy');
+}
+
+export function hapticSoft() {
+  haptic('soft');
+}
+
+export function hapticSuccess() {
+  haptic('success');
+}
+
+/** Demo sequence for You → Feel our signature. */
+export function hapticFeelSignature() {
+  haptic('sign');
+  setTimeout(() => haptic('peel'), 220);
+  setTimeout(() => haptic('mark'), 520);
+  setTimeout(() => haptic('verdict'), 860);
 }

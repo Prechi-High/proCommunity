@@ -27,6 +27,8 @@ import {
 } from '@/components/icons';
 import { badgeTone, type ConfidenceBreakdown, scoreLabel } from '@/lib/confidence';
 import { authorAvatar, initials } from '@/lib/catalog';
+import { hapticTap } from '@/lib/haptics';
+import { unlockAudio } from '@/lib/sounds';
 import type { CommunityPost, ProductCategory } from '@/lib/types';
 
 type Level = 'flat' | 'raised' | 'lifted';
@@ -195,6 +197,12 @@ export function Button({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: Boolean(rest.disabled) }}
+      {...rest}
+      onPressIn={(e) => {
+        unlockAudio();
+        hapticTap();
+        rest.onPressIn?.(e);
+      }}
       style={[
         {
           backgroundColor: background,
@@ -211,7 +219,6 @@ export function Button({
         },
         style,
       ]}
-      {...rest}
     >
       {IconCmp ? <IconCmp size={17} color={textColor} weight="bold" /> : null}
       <Text style={{ fontFamily: fonts.semibold, fontSize: type.button, color: textColor }}>
