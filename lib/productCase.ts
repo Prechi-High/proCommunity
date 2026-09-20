@@ -268,7 +268,7 @@ function heuristicFromBodies(
       title: negative >= 15 ? 'Irritation, pilling or dryness comes up' : 'A few caution notes',
       who: 'Mentioned across sources',
       percent: Math.max(5, negative),
-      tone: negative >= 20 ? 'coral' : 'honey',
+      tone: (negative >= 20 ? 'coral' : 'honey') as ClaimCluster['tone'],
       quotes: tagged
         .filter((t) => t.pol === 'negative')
         .slice(0, 2)
