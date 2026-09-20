@@ -38,6 +38,8 @@ function todayStamp(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+export type HapticsMode = 'off' | 'subtle' | 'full';
+
 export interface AppState {
   hydrated: boolean;
   setHydrated: () => void;
@@ -58,6 +60,12 @@ export interface AppState {
   satchelPulse: number;
   satchelNudgeSeenOn: string | null;
   userThreads: DiscussionThread[];
+  /** Device feel — survives sign-out. */
+  hapticsMode: HapticsMode;
+  /** Product drops opt-in — default off; never affects search rank. */
+  dropsOptIn: boolean;
+  setHapticsMode: (mode: HapticsMode) => void;
+  setDropsOptIn: (on: boolean) => void;
   signIn: (email: string, displayName?: string) => void;
   signOut: () => void;
   completeOnboarding: (input: {
@@ -150,6 +158,10 @@ export const useAppStore = create<AppState>()(
       hydrated: false,
       setHydrated: () => set({ hydrated: true }),
       ...emptyUserSlice,
+      hapticsMode: 'full' as HapticsMode,
+      dropsOptIn: false,
+      setHapticsMode: (mode) => set({ hapticsMode: mode }),
+      setDropsOptIn: (on) => set({ dropsOptIn: on }),
       signIn: (email, displayName) => {
         const existing = get().profile;
         if (existing && existing.email === email.trim().toLowerCase()) return;

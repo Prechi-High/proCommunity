@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { Animated, Easing, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter, type Href } from 'expo-router';
 
 import { Screen } from '@/components/Screen';
 import { Caption, Chip, Wordmark } from '@/components/ui';
-import { MagnifyingGlass } from '@/components/icons';
+import { MagnifyingGlass, categoryIcon } from '@/components/icons';
 import { colors, fonts, radii } from '@/constants/theme';
-import { getFeedPosts, getProduct, getProductPosts, getProductThreads } from '@/lib/catalog';
+import { getFeedPosts, getProductPosts } from '@/lib/catalog';
 import { computeConfidence } from '@/lib/confidence';
+import { hapticPeel, hapticSignature, hapticTap } from '@/lib/haptics';
 import { searchCatalog } from '@/lib/products';
 import { useAppStore } from '@/lib/store';
 
@@ -19,30 +20,28 @@ const PLACEHOLDERS = [
   'Will this moisturiser break me out?',
 ];
 
-const TICKER = [
-  'Someone just opened a case on a popular serum',
-  'A verified owner posted week-8 photos',
-  'People are asking about white cast right now',
+const FOR_LINES = [
+  'For people who read the comments first',
+  'For people who want the complaints too',
+  'For people who check before they buy',
+  'For people who trust owners over ads',
 ];
 
 /**
- * Home / Search — exact sourced-v1 dig process.
- * Type → suggestions; Enter → results (many) or probe (one). Data is live catalog.
+ * Home — search only. Hero, rotating For…, search, live line, digging chips.
  */
 export default function HomeScreen() {
   const router = useRouter();
   const profile = useAppStore((s) => s.profile);
   const userPosts = useAppStore((s) => s.userPosts);
-  const userThreads = useAppStore((s) => s.userThreads);
-  const addSearch = useAppStore((s) => s.addSearch);
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
-  const [tick, setTick] = useState(0);
-  const [phIndex, setPhIndex] = useState(0);
+  const [forIndex, setForIndex] = useState(0);
+  const [heroKey, setHeroKey] = useState(0);
   const [phText, setPhText] = useState('');
 
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => (t + 1) % TICKER.length), 4200);
+    const id = setInterval(() => setForIndex((i) => (i + 1) % FOR_LINES.length), 4200);
     return () => clearInterval(id);
   }, []);
 
@@ -88,28 +87,19 @@ export default function HomeScreen() {
   });
 
   const feedPosts = getFeedPosts(undefined, userPosts);
-  const asked = feedPosts
-    .filter((p) => p.type === 'question')
-    .slice(0, 3)
-    .map((p) => {
-      const product = getProduct(p.productId);
-      const threads = getProductThreads(p.productId, userThreads, userPosts);
-      return { post: p, product, thread: threads[0] };
-    });
-
-  const hereNow = 1200 + (feedPosts.length * 17) % 200;
+  const samplePresence = 18 + (feedPosts.length % 40);
   const has = query.length > 0;
   const showingSugg = debounced.length >= 2;
 
   const investigate = (productId: string) => {
-    addSearch(query || productId);
+    hapticTap();
     router.push(`/probe/${productId}`);
   };
 
   const submit = () => {
     const q = query.trim();
     if (!q) return;
-    addSearch(q);
+    hapticSignature();
     if (suggestions.length === 1) investigate(suggestions[0].id);
     else router.push({ pathname: '/results', params: { q } } as Href);
   };
@@ -129,41 +119,57 @@ export default function HomeScreen() {
       </View>
 
       <View style={{ marginTop: 10, alignSelf: 'flex-start' }}>
-        <LivePill label={`${hereNow.toLocaleString()} people digging right now`} />
+        <LivePill label={`Sample · ${samplePresence} people reading cases right now`} />
       </View>
 
       <Pressable
-        onPress={() => setPhIndex((i) => i + 1)}
+        onPress={() => {
+          hapticPeel();
+          setHeroKey((k) => k + 1);
+        }}
         accessibilityRole="button"
         accessibilityLabel="Replay headline"
-        style={{ marginTop: 20 }}
+        style={{ marginTop: 22 }}
       >
         <Text
           style={{
             fontFamily: fonts.serif,
-            fontSize: 54,
-            lineHeight: 52,
-            letterSpacing: -1.8,
+            fontSize: 46,
+            lineHeight: 46,
+            letterSpacing: -1.4,
             color: colors.bone,
             fontWeight: '500',
           }}
         >
-          What’s
+          Someone’s
         </Text>
-        <UnredactPhrase key={phIndex} text="the catch?" delayMs={900} />
+        <UnredactPhrase key={heroKey} text="already tried it." delayMs={900} size={46} />
       </Pressable>
 
       <Text
         style={{
-          marginTop: 18,
+          marginTop: 10,
           fontFamily: fonts.regular,
-          fontSize: 17,
-          lineHeight: 25,
-          color: colors.bone2,
-          maxWidth: 310,
+          fontSize: 14,
+          lineHeight: 20,
+          color: colors.bone3,
         }}
       >
-        Type any product. We read what real people said about it: the good, the bad, and what brands skip.
+        Don’t buy blind.
+      </Text>
+
+      <Text
+        key={forIndex}
+        style={{
+          marginTop: 14,
+          fontFamily: fonts.regular,
+          fontSize: 17,
+          lineHeight: 24,
+          color: colors.bone2,
+          maxWidth: 320,
+        }}
+      >
+        {FOR_LINES[forIndex]}
       </Text>
 
       <View
@@ -221,7 +227,7 @@ export default function HomeScreen() {
             alignItems: 'center',
             justifyContent: 'center',
           }}
-          accessibilityLabel="Investigate"
+          accessibilityLabel="Source it"
         >
           <MagnifyingGlass size={24} color={has ? colors.wine : colors.bone} weight="bold" />
         </Pressable>
@@ -235,6 +241,7 @@ export default function HomeScreen() {
               profile,
               getProductPosts(product.id, userPosts),
             ).compositeScore;
+            const Icon = categoryIcon(product.category);
             return (
               <Pressable
                 key={product.id}
@@ -258,7 +265,7 @@ export default function HomeScreen() {
                     justifyContent: 'center',
                   }}
                 >
-                  <Text>🧴</Text>
+                  <Icon size={20} color={colors.bone2} weight="regular" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone }}>
@@ -291,136 +298,26 @@ export default function HomeScreen() {
           </Pressable>
         </View>
       ) : (
-        <>
-          <Pressable
-            onPress={() => {
-              const first = digging[0];
-              if (first) investigate(first.id);
-            }}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: 6, paddingVertical: 14 }}
+        <View style={{ marginTop: 28 }}>
+          <Text style={{ fontFamily: fonts.serif, fontSize: 22, fontWeight: '500', color: colors.bone }}>
+            Digging right now
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8, paddingTop: 14, paddingBottom: 8 }}
           >
-            <PulseDot />
-            <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14.5, color: colors.bone2 }}>
-              {TICKER[tick]}
-            </Text>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.bone3 }}>Open</Text>
-          </Pressable>
-
-          <View style={{ marginTop: 22 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <Text style={{ fontFamily: fonts.serif, fontSize: 25, fontWeight: '500', color: colors.bone }}>
-                Digging into right now
-              </Text>
-            </View>
-            <View style={{ marginTop: 8 }}>
-              {digging.slice(0, 3).map((product, i) => {
-                const n = 60 + ((product.id.charCodeAt(0) + i * 17) % 280);
-                return (
-                  <Pressable
-                    key={product.id}
-                    onPress={() => investigate(product.id)}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 12,
-                      paddingVertical: 13,
-                      borderTopWidth: 1,
-                      borderTopColor: colors.line,
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 40,
-                        height: 50,
-                        borderRadius: 10,
-                        backgroundColor: colors.lac,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Text>🧴</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone, lineHeight: 20 }}>
-                        {product.name}
-                      </Text>
-                      <Caption>{`Hot topic: ${product.attributeTags[0] ?? product.category}`}</Caption>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <PulseDot />
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.sage }}>{n}</Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-
-          <View style={{ marginTop: 36 }}>
-            <Text style={{ fontFamily: fonts.serif, fontSize: 25, fontWeight: '500', color: colors.bone }}>
-              Being asked right now
-            </Text>
-            <View style={{ marginTop: 6 }}>
-              {(asked.length ? asked : digging.slice(0, 2).map((p) => ({ product: p, post: null, thread: null }))).map(
-                (row, i) => {
-                  const title =
-                    row.post?.body?.slice(0, 72) ??
-                    row.thread?.title ??
-                    `What do people say about ${row.product?.name}?`;
-                  return (
-                    <Pressable
-                      key={row.post?.id ?? row.product?.id ?? i}
-                      onPress={() => row.product && investigate(row.product.id)}
-                      style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.line }}
-                    >
-                      <Text
-                        style={{
-                          fontFamily: fonts.serif,
-                          fontSize: 21,
-                          lineHeight: 25,
-                          letterSpacing: -0.2,
-                          color: colors.bone,
-                          fontWeight: '500',
-                        }}
-                      >
-                        “{title}
-                        {title.length >= 72 ? '…' : ''}”
-                      </Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, alignItems: 'center' }}>
-                        {row.product ? <Pill label={row.product.name.slice(0, 22)} /> : null}
-                        {row.post?.isVerifiedOwner ? <Pill label="✓ Verified owner" tone="sage" /> : null}
-                      </View>
-                    </Pressable>
-                  );
-                },
-              )}
-            </View>
-          </View>
-
-          <View
-            style={{
-              marginTop: 26,
-              backgroundColor: colors.lac,
-              borderRadius: 26,
-              padding: 22,
-            }}
-          >
-            <Text style={{ fontFamily: fonts.serif, fontSize: 24, fontWeight: '500', color: colors.bone }}>
-              Got a worry about something?
-            </Text>
-            <Caption color={colors.bone2}>
-              Share your fear, or why you want it. People who’ve used it will reply.
-            </Caption>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
-              <Chip label="My fear" onPress={() => router.push('/(tabs)/search')} />
-              <Chip label="Why I want it" onPress={() => router.push('/(tabs)/search')} />
-              <Chip label="A question" onPress={() => router.push('/(tabs)/search')} />
-            </View>
-          </View>
-
+            {digging.slice(0, 5).map((product) => (
+              <Chip
+                key={product.id}
+                label={product.name.length > 22 ? `${product.name.slice(0, 20)}…` : product.name}
+                onPress={() => investigate(product.id)}
+              />
+            ))}
+          </ScrollView>
           <Text
             style={{
-              marginTop: 26,
+              marginTop: 28,
               fontFamily: fonts.regular,
               fontSize: 12.5,
               lineHeight: 19,
@@ -429,7 +326,7 @@ export default function HomeScreen() {
           >
             Starting with skincare and cosmetics. No account needed to search. Nothing paid for. Nothing removed.
           </Text>
-        </>
+        </View>
       )}
     </Screen>
   );
@@ -439,12 +336,20 @@ function sleep(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms));
 }
 
-/** Black redact peel — matches HTML `.rd` / `unredact` on the home hero. */
-function UnredactPhrase({ text, delayMs = 900 }: { text: string; delayMs?: number }) {
+function UnredactPhrase({
+  text,
+  delayMs = 900,
+  size = 54,
+}: {
+  text: string;
+  delayMs?: number;
+  size?: number;
+}) {
   const peel = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     peel.setValue(1);
+    hapticPeel();
     const anim = Animated.sequence([
       Animated.delay(delayMs),
       Animated.timing(peel, {
@@ -463,9 +368,9 @@ function UnredactPhrase({ text, delayMs = 900 }: { text: string; delayMs?: numbe
       <Text
         style={{
           fontFamily: fonts.serif,
-          fontSize: 54,
-          lineHeight: 52,
-          letterSpacing: -1.8,
+          fontSize: size,
+          lineHeight: size,
+          letterSpacing: -1.4,
           color: colors.bone,
           fontWeight: '500',
         }}
@@ -505,37 +410,8 @@ function LivePill({ label }: { label: string }) {
         paddingVertical: 8,
       }}
     >
-      <PulseDot />
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.sage }} />
       <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.bone2 }}>{label}</Text>
-    </View>
-  );
-}
-
-function PulseDot() {
-  return <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.sage }} />;
-}
-
-function Pill({ label, tone }: { label: string; tone?: 'sage' }) {
-  return (
-    <View
-      style={{
-        borderRadius: 999,
-        paddingHorizontal: 9,
-        paddingVertical: 2,
-        borderWidth: tone === 'sage' ? 0 : 1,
-        borderColor: colors.line,
-        backgroundColor: tone === 'sage' ? colors.sageSoft : 'transparent',
-      }}
-    >
-      <Text
-        style={{
-          fontFamily: fonts.medium,
-          fontSize: 12,
-          color: tone === 'sage' ? colors.sage : colors.bone2,
-        }}
-      >
-        {label}
-      </Text>
     </View>
   );
 }

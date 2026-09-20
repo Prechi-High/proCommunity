@@ -5,10 +5,11 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 
 import { Screen } from '@/components/Screen';
 import { Caption, Chip } from '@/components/ui';
-import { MagnifyingGlass } from '@/components/icons';
+import { MagnifyingGlass, categoryIcon } from '@/components/icons';
 import { colors, fonts } from '@/constants/theme';
 import { getProductPosts } from '@/lib/catalog';
 import { computeConfidence } from '@/lib/confidence';
+import { hapticTap } from '@/lib/haptics';
 import { searchCatalog } from '@/lib/products';
 import { useAppStore } from '@/lib/store';
 import type { Product } from '@/lib/types';
@@ -85,7 +86,10 @@ export default function ResultsScreen() {
         <ResultRow
           key={product.id}
           product={product}
-          onPress={() => router.push(`/probe/${product.id}`)}
+          onPress={() => {
+            hapticTap();
+            router.push(`/probe/${product.id}`);
+          }}
         />
       ))}
     </Screen>
@@ -101,6 +105,7 @@ function ResultRow({ product, onPress }: { product: Product; onPress: () => void
   const mix = Math.max(8, Math.min(30, 100 - pos - 18));
   const neg = Math.max(5, 100 - pos - mix);
   const thin = score == null;
+  const Icon = categoryIcon(product.category);
 
   return (
     <Pressable
@@ -123,7 +128,7 @@ function ResultRow({ product, onPress }: { product: Product; onPress: () => void
             justifyContent: 'center',
           }}
         >
-          <Text style={{ fontSize: 22 }}>🧴</Text>
+          <Icon size={22} color={colors.bone2} weight="regular" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone, lineHeight: 20 }}>
@@ -158,7 +163,7 @@ function ResultRow({ product, onPress }: { product: Product; onPress: () => void
             </Text>
             {profile?.skinType && profile.skinType !== 'unknown' && breakdown.fitMatchScore != null ? (
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3, marginTop: 4 }}>
-                Fit {breakdown.fitMatchScore}
+                For you {breakdown.fitMatchScore}
               </Text>
             ) : null}
           </View>

@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Switch, Text, View } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 
 import { Screen } from '@/components/Screen';
@@ -24,16 +24,13 @@ import {
   Trash,
 } from '@/components/icons';
 import { colors, fonts, radii } from '@/constants/theme';
+import { hapticTap } from '@/lib/haptics';
 import { CONCERN_LABEL, SKIN_TYPE_LABEL } from '@/lib/quiz';
-import { useAppStore } from '@/lib/store';
+import { useAppStore, type HapticsMode } from '@/lib/store';
 
 /**
- * "You" — the account surface.
- *
- * Framed around control rather than settings: what we know about you, why we
- * know it, and how to remove it. Search history sits next to a one-tap delete
- * for the same reason the store list names its own fairness — stating it is
- * what makes it believable.
+ * You — control surface: skin, feel, drops (default off), history, delete.
+ * Prefs work signed-out; account extras need sign-in.
  */
 export default function YouScreen() {
   const router = useRouter();
@@ -45,6 +42,10 @@ export default function YouScreen() {
   const userPosts = useAppStore((s) => s.userPosts);
   const satchelItems = useAppStore((s) => s.satchelItems);
   const flagged = useAppStore((s) => s.flaggedPostIds);
+  const hapticsMode = useAppStore((s) => s.hapticsMode);
+  const setHapticsMode = useAppStore((s) => s.setHapticsMode);
+  const dropsOptIn = useAppStore((s) => s.dropsOptIn);
+  const setDropsOptIn = useAppStore((s) => s.setDropsOptIn);
 
   if (!profile) {
     return (
@@ -53,9 +54,26 @@ export default function YouScreen() {
         <Caption color={colors.bone2}>
           You can search without an account. Sign in to keep your skin details, saved products and routine.
         </Caption>
-        <Button label="Continue with Google" kind="hl" onPress={() => router.push('/(auth)/sign-in')} style={{ marginTop: 18 }} />
-        <Button label="Use email instead" kind="quiet" onPress={() => router.push('/(auth)/sign-in')} style={{ marginTop: 10 }} />
+        <Button
+          label="Continue with Google"
+          kind="hl"
+          onPress={() => router.push('/(auth)/sign-in')}
+          style={{ marginTop: 18 }}
+        />
+        <Button
+          label="Use email instead"
+          kind="quiet"
+          onPress={() => router.push('/(auth)/sign-in')}
+          style={{ marginTop: 10 }}
+        />
         <Button label="Not now" kind="text" onPress={() => router.push('/(tabs)')} style={{ marginTop: 6 }} />
+
+        <PrefsBlock
+          hapticsMode={hapticsMode}
+          setHapticsMode={setHapticsMode}
+          dropsOptIn={dropsOptIn}
+          setDropsOptIn={setDropsOptIn}
+        />
       </Screen>
     );
   }
@@ -75,13 +93,13 @@ export default function YouScreen() {
 
       <Card>
         <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-          <StatBlock value={String(userPosts.length)} label="Posts" />
+          <StatBlock value={String(userPosts.length)} label="Traces" />
           <StatBlock value={String(ownerships.length)} label="Owned" />
           <StatBlock value={String(satchelItems.length)} label="In Satchel" />
         </View>
       </Card>
 
-      <SectionHeader title="Your skin profile" hint="Shapes your fit scores. Nothing else." />
+      <SectionHeader title="Your skin profile" hint="Shapes Confidence for you. Always an estimate you can change." />
       <Card style={{ gap: 11 }}>
         <Title>
           {profile.skinType === 'unknown'
@@ -107,6 +125,13 @@ export default function YouScreen() {
         />
       </Card>
 
+      <PrefsBlock
+        hapticsMode={hapticsMode}
+        setHapticsMode={setHapticsMode}
+        dropsOptIn={dropsOptIn}
+        setDropsOptIn={setDropsOptIn}
+      />
+
       <Pressable
         onPress={() => router.push('/satchel' as Href)}
         accessibilityRole="link"
@@ -115,9 +140,7 @@ export default function YouScreen() {
           flexDirection: 'row',
           alignItems: 'center',
           gap: 12,
-          backgroundColor: colors.white,
-          borderWidth: 1,
-          borderColor: colors.mist,
+          backgroundColor: colors.lac,
           borderRadius: radii.card,
           padding: 13,
         }}
@@ -127,12 +150,12 @@ export default function YouScreen() {
             width: 38,
             height: 38,
             borderRadius: 19,
-            backgroundColor: colors.rosewoodSoft,
+            backgroundColor: colors.lac2,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Handbag size={19} color={colors.rosewood} weight="fill" />
+          <Handbag size={19} color={colors.bone} weight="fill" />
         </View>
         <View style={{ flex: 1 }}>
           <Title>Your Satchel</Title>
@@ -142,35 +165,30 @@ export default function YouScreen() {
               : 'Empty right now'}
           </Caption>
         </View>
-        <CaretRight size={14} color={colors.inkSoft} weight="bold" />
+        <CaretRight size={14} color={colors.bone3} weight="bold" />
       </Pressable>
 
-      <SectionHeader title="Search history" hint="Stored on your account so you can delete it." />
+      <SectionHeader title="Search history" hint="Stored on this device so you can delete it." />
       {searchHistory.length === 0 ? (
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <MagnifyingGlass size={17} color={colors.inkSoft} weight="regular" />
-          <Caption>Nothing searched yet. Whatever you search shows here, and only here.</Caption>
+          <MagnifyingGlass size={17} color={colors.bone3} weight="regular" />
+          <Caption>Nothing searched yet. Whatever you search can show here, and only here.</Caption>
         </Card>
       ) : (
         <Card style={{ gap: 2 }}>
           {searchHistory.slice(0, 8).map((item) => (
             <Pressable
               key={item.id}
-              onPress={() => router.push('/(tabs)/search')}
+              onPress={() => router.push('/(tabs)')}
               style={{ paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 9 }}
             >
-              <MagnifyingGlass size={13} color={colors.inkSoft} weight="regular" />
-              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.ink }}>
+              <MagnifyingGlass size={13} color={colors.bone3} weight="regular" />
+              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.bone }}>
                 {item.query}
               </Text>
             </Pressable>
           ))}
-          <Button
-            label="Delete all of it"
-            kind="text"
-            icon={Trash}
-            onPress={clearSearchHistory}
-          />
+          <Button label="Delete all of it" kind="text" icon={Trash} onPress={clearSearchHistory} />
         </Card>
       )}
 
@@ -186,7 +204,7 @@ export default function YouScreen() {
       >
         <Lock size={16} color={colors.sage} weight="fill" />
         <Caption>
-          Your skin profile, journal and search history are used only to rank products for you. They are
+          Your skin profile, journal and search history are used only to shape Confidence for you. They are
           never sold, and never shown to other members.
         </Caption>
       </View>
@@ -209,5 +227,65 @@ export default function YouScreen() {
         }}
       />
     </Screen>
+  );
+}
+
+function PrefsBlock({
+  hapticsMode,
+  setHapticsMode,
+  dropsOptIn,
+  setDropsOptIn,
+}: {
+  hapticsMode: HapticsMode;
+  setHapticsMode: (m: HapticsMode) => void;
+  dropsOptIn: boolean;
+  setDropsOptIn: (on: boolean) => void;
+}) {
+  const modes: HapticsMode[] = ['off', 'subtle', 'full'];
+  return (
+    <View style={{ marginTop: 8, gap: 18 }}>
+      <View>
+        <SectionHeader title="Haptics" hint="How Sourced feels in your hand." />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+          {modes.map((m) => (
+            <Chip
+              key={m}
+              label={m === 'off' ? 'Off' : m === 'subtle' ? 'Subtle' : 'Full'}
+              selected={hapticsMode === m}
+              onPress={() => {
+                setHapticsMode(m);
+                hapticTap();
+              }}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View>
+        <SectionHeader
+          title="Product drops"
+          hint="Opt in separately. Default off. Never changes search or scores."
+        />
+        <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
+          <View style={{ flex: 1 }}>
+            <Title>Drops</Title>
+            <Caption>
+              {dropsOptIn
+                ? 'On — matched invites only, labeled sponsored.'
+                : 'Off — you won’t see drop invites.'}
+            </Caption>
+          </View>
+          <Switch
+            value={dropsOptIn}
+            onValueChange={(on) => {
+              hapticTap();
+              setDropsOptIn(on);
+            }}
+            trackColor={{ false: colors.line, true: colors.sage }}
+            thumbColor={colors.bone}
+          />
+        </Card>
+      </View>
+    </View>
   );
 }

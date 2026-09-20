@@ -35,6 +35,7 @@ export default function ShelfScreen() {
   const favorites = useAppStore((s) => s.favorites);
   const usage = useAppStore((s) => s.usageEstimates);
   const userPosts = useAppStore((s) => s.userPosts);
+  const dropsOptIn = useAppStore((s) => s.dropsOptIn);
   const eveningDefault = new Date().getHours() >= 17;
   const [mode, setMode] = useState<'am' | 'pm'>(eveningDefault ? 'pm' : 'am');
 
@@ -188,6 +189,33 @@ export default function ShelfScreen() {
           <Notice>{`Running low: your ${refill.product.name.toLowerCase()} should last about ${Math.max(refill.days, 0)} more days.`}</Notice>
         </View>
       ) : null}
+
+      <Pressable
+        onPress={() => router.push('/(tabs)/you')}
+        style={{
+          marginTop: 28,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingVertical: 14,
+          borderTopWidth: 1,
+          borderTopColor: colors.line,
+        }}
+        accessibilityRole="button"
+        accessibilityLabel="Product drops setting"
+      >
+        <View style={{ flex: 1, paddingRight: 12 }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone }}>Drops</Text>
+          <Caption>
+            {dropsOptIn
+              ? 'On · matched invites only, labeled sponsored'
+              : 'Off · opt in from You when you want them'}
+          </Caption>
+        </View>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.bone3 }}>
+          {dropsOptIn ? 'On' : 'Off'}
+        </Text>
+      </Pressable>
 
       <Heading size={23} style={{ marginTop: 34 }}>
         Saved

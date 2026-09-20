@@ -20,7 +20,7 @@ import { useAppStore } from '@/lib/store';
  */
 const PROMISES = [
   { icon: Scales, text: 'No store pays to rank higher here' },
-  { icon: ShieldCheck, text: 'Critical reviews stay up, not just the glowing ones' },
+  { icon: ShieldCheck, text: 'Critical traces stay up, not just the glowing ones' },
   { icon: Check, text: 'Browse the whole catalog before you tell us anything' },
 ];
 

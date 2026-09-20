@@ -346,14 +346,14 @@ export function computeFitScore(
       ? `Stronger reports for ${profile.skinType} skin`
       : score >= 55
         ? `Mixed for ${profile.skinType} skin`
-        : `Weaker fit signal for ${profile.skinType} skin`;
+        : `Weaker signal for ${profile.skinType} skin`;
 
   return {
     score,
     label,
     why: listed.includes(profile.skinType)
-      ? `This product lists ${profile.skinType} among skin types it suits, based on catalog data — not the Product Score.`
-      : `Catalog skin tags and your ${profile.skinType} profile. Separate from what commenters said overall.`,
+      ? `Catalog lists ${profile.skinType} among skin types it suits. This is Confidence for you — not the Product Score.`
+      : `Based on catalog skin tags and your ${profile.skinType} profile. Separate from what commenters said overall.`,
   };
 }
 

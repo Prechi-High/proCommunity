@@ -139,10 +139,9 @@ export function computeConfidence(
   const compositeScore = community.score;
 
   const headline = scoreLabel(compositeScore, community.tooFew);
-  const skin = profile?.skinType && profile.skinType !== 'unknown' ? profile.skinType : 'your';
   const explanation = community.tooFew
-    ? `Product Score needs lived comments (YouTube / owners). Fit for ${skin} skin is shown separately when you open a case.`
-    : `Product Score reflects what people who used it reported (${community.verifiedCount} verified owners in-app). Fit for your skin is separate.`;
+    ? `Product Score needs lived comments (YouTube / owners). Confidence for you is shown separately when you open a case.`
+    : `Product Score reflects what people who used it reported (${community.verifiedCount} verified owners in-app). Confidence for you is separate.`;
 
   return {
     fitMatchScore: fit.score,

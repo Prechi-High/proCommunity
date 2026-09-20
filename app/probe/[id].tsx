@@ -12,12 +12,13 @@ import {
   renderMarkedText,
   type MarkedFrag,
 } from '@/lib/productCase';
+import { hapticPeel, hapticSourceDone, hapticTap } from '@/lib/haptics';
 import { useAppStore } from '@/lib/store';
 import { useProduct } from '@/lib/useProduct';
 
 const STAGES = [
   'Opening the case.',
-  'Reading YouTube reviews.',
+  'Reading YouTube comments.',
   'Reading the Reddit threads brands never see.',
   'Checking the ingredient list.',
   'Sorting praise from complaints.',
@@ -76,6 +77,7 @@ export default function ProbeScreen() {
     const countTo = async (key: 'yt' | 'rd' | 'ig', target: number, ms: number) => {
       if (target <= 0) {
         setDone((d) => ({ ...d, [key]: true }));
+        hapticSourceDone();
         return;
       }
       const start = Date.now();
@@ -88,6 +90,7 @@ export default function ProbeScreen() {
           if (k < 1) requestAnimationFrame(tick);
           else {
             setDone((d) => ({ ...d, [key]: true }));
+            hapticSourceDone();
             resolve();
           }
         };
@@ -249,7 +252,7 @@ export default function ProbeScreen() {
 
           <View style={{ marginTop: 'auto', paddingBottom: 12 }}>
             <SourceRow
-              label="YouTube reviews"
+              label="YouTube comments"
               value={counts.yt}
               unit="comments"
               done={done.yt}
@@ -287,7 +290,13 @@ export default function ProbeScreen() {
             Nothing paid for. Nothing removed.
           </Text>
           {showSkip ? (
-            <Pressable onPress={finish} hitSlop={8}>
+            <Pressable
+              onPress={() => {
+                hapticTap();
+                finish();
+              }}
+              hitSlop={8}
+            >
               <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.bone2 }}>Skip</Text>
             </Pressable>
           ) : (
@@ -302,8 +311,8 @@ export default function ProbeScreen() {
 function placeholderFrags(name: string): MarkedFrag[] {
   return [
     { text: `Looking for lived comments on ${name}`, mark: name, source: 'yt' },
-    { text: 'Pulling YouTube review threads', mark: 'YouTube review', source: 'yt' },
-    { text: 'Checking verified owner notes on Sourced', mark: 'verified owner', source: 'own' },
+    { text: 'Pulling YouTube comment threads', mark: 'YouTube comment', source: 'yt' },
+    { text: 'Checking Verified Owner traces on Sourced', mark: 'Verified Owner', source: 'own' },
   ];
 }
 
@@ -317,7 +326,12 @@ function QuoteLine({
   fromRight: boolean;
 }) {
   const anim = useRef(new Animated.Value(1)).current;
+  const didPeel = useRef(false);
   useEffect(() => {
+    if (lifted && !didPeel.current) {
+      didPeel.current = true;
+      hapticPeel();
+    }
     Animated.timing(anim, {
       toValue: lifted ? 0 : 1,
       duration: 600,
