@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { Screen } from '@/components/Screen';
 import { Caption, Card, Chip, Heading, Thumb, Title } from '@/components/ui';
 import { CaretRight, MagnifyingGlass, Scales, X } from '@/components/icons';
-import { colors, fonts, radii } from '@/constants/theme';
+import { colors, fonts, radii, type } from '@/constants/theme';
 import { track } from '@/lib/analytics';
 import { categoryLabel, getProductPosts } from '@/lib/catalog';
 import { computeConfidence } from '@/lib/confidence';
@@ -16,8 +16,8 @@ import { useAppStore } from '@/lib/store';
 
 /** Recognition over recall: colour carries the verdict before any reading starts. */
 function matchTone(score: number): { bg: string; fg: string; label: string } {
-  if (score >= 80) return { bg: colors.sageSoft, fg: colors.sage, label: 'Good fit' };
-  if (score >= 60) return { bg: colors.honeySoft, fg: '#8A6A1C', label: 'Partial fit' };
+  if (score >= 80) return { bg: colors.sageSoft, fg: colors.sageInk, label: 'Good fit' };
+  if (score >= 60) return { bg: colors.honeySoft, fg: colors.honeyInk, label: 'Partial fit' };
   return { bg: colors.mist, fg: colors.inkSoft, label: 'Weak fit' };
 }
 
@@ -61,7 +61,10 @@ export default function SearchScreen() {
 
   return (
     <Screen>
-      <Heading size={21}>Find a product</Heading>
+      <View style={{ gap: 4 }}>
+        <Heading size={type.hLg}>Find a product</Heading>
+        <Caption>Scan by fit first — no prices, no urgency labels.</Caption>
+      </View>
 
       <View
         style={{
@@ -105,7 +108,11 @@ export default function SearchScreen() {
         ) : null}
       </View>
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+      >
         {BROWSE_CHIPS.map((item) => (
           <Chip
             key={item.id}
@@ -114,7 +121,7 @@ export default function SearchScreen() {
             onPress={() => setChip((current) => (current === item.value ? undefined : item.value))}
           />
         ))}
-      </View>
+      </ScrollView>
 
       {/* Naming the absence of manipulation directly does more for trust than
           quietly hoping the ordering is assumed fair. */}

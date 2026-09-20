@@ -239,21 +239,22 @@ export function YoutubeCommentCard({
   return (
     <View
       style={{
-        backgroundColor: '#F7F4F1',
-        borderColor: colors.mist,
+        backgroundColor: '#F7F2EE',
+        borderColor: '#C9BBB1',
         borderWidth: 1,
         borderStyle: 'dashed',
-        borderRadius: radii.card,
-        padding: 13,
+        borderRadius: 10,
+        paddingHorizontal: 10,
+        paddingVertical: 9,
         gap: 8,
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <YoutubeLogo size={15} color={colors.inkSoft} weight="fill" />
+        <YoutubeLogo size={13} color="#8A7A6C" weight="fill" />
         <Text
-          style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.inkSoft, letterSpacing: 0.5 }}
+          style={{ fontFamily: fonts.bold, fontSize: 9, color: '#8A7A6C', letterSpacing: 0.4 }}
         >
-          FROM A YOUTUBE REVIEW · NOT A SOURCED OWNER
+          FROM A YOUTUBE REVIEW
         </Text>
       </View>
       <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.ink, lineHeight: 19 }}>

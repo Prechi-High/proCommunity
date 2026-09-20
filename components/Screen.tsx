@@ -74,7 +74,7 @@ export function WebShell({ children }: { children: ReactNode }) {
     <View
       style={{
         flex: 1,
-        backgroundColor: '#E8E2DC',
+        backgroundColor: colors.webShell,
         alignItems: 'center',
       }}
     >

@@ -1,5 +1,8 @@
 import type { ComponentType, ReactNode } from 'react';
+import { useEffect, useRef } from 'react';
 import {
+  Animated,
+  Easing,
   Image,
   Pressable,
   Text,
@@ -11,14 +14,13 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, elevation, fonts, radii } from '@/constants/theme';
+import { colors, elevation, fonts, radii, type } from '@/constants/theme';
 import {
   ArrowFatUp,
   CaretRight,
   Check as CheckIcon,
   categoryIcon,
   ChatCircle,
-  Info,
   Quotes,
   SealCheck,
   User as UserIcon,
@@ -43,7 +45,7 @@ export function Card({
           borderColor: colors.mist,
           borderWidth: 1,
           borderRadius: radii.card,
-          padding: 14,
+          padding: 12,
         },
         elevation[level],
         style,
@@ -60,8 +62,8 @@ export function Eyebrow({ children, color = colors.inkSoft }: { children: string
     <Text
       style={{
         fontFamily: fonts.semibold,
-        fontSize: 10,
-        letterSpacing: 0.9,
+        fontSize: type.eyebrow,
+        letterSpacing: 0.8,
         textTransform: 'uppercase',
         color,
       }}
@@ -73,7 +75,7 @@ export function Eyebrow({ children, color = colors.inkSoft }: { children: string
 
 export function Heading({
   children,
-  size = 21,
+  size = type.hLg,
   color = colors.ink,
   style,
 }: {
@@ -88,9 +90,9 @@ export function Heading({
         {
           fontFamily: fonts.semibold,
           fontSize: size,
-          letterSpacing: size > 24 ? -0.9 : -0.4,
+          letterSpacing: size >= 20 ? -0.4 : -0.2,
           color,
-          lineHeight: size * 1.18,
+          lineHeight: size * 1.2,
         },
         style,
       ]}
@@ -102,19 +104,23 @@ export function Heading({
 
 export function Body({ children, color = colors.inkSoft }: { children: ReactNode; color?: string }) {
   return (
-    <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color }}>{children}</Text>
+    <Text style={{ fontFamily: fonts.regular, fontSize: type.body, lineHeight: 20, color }}>
+      {children}
+    </Text>
   );
 }
 
 export function Caption({ children, color = colors.inkSoft }: { children: ReactNode; color?: string }) {
   return (
-    <Text style={{ fontFamily: fonts.regular, fontSize: 11, lineHeight: 16, color }}>{children}</Text>
+    <Text style={{ fontFamily: fonts.regular, fontSize: type.caption, lineHeight: 16, color }}>
+      {children}
+    </Text>
   );
 }
 
 export function Title({ children, color = colors.ink }: { children: ReactNode; color?: string }) {
   return (
-    <Text style={{ fontFamily: fonts.semibold, fontSize: 13.5, color, letterSpacing: -0.1 }}>
+    <Text style={{ fontFamily: fonts.semibold, fontSize: type.hSm, color, letterSpacing: -0.1 }}>
       {children}
     </Text>
   );
@@ -138,7 +144,7 @@ export function SectionHeader({
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
       <View style={{ flex: 1, gap: 2 }}>
-        <Heading size={16}>{title}</Heading>
+        <Heading size={type.hMd}>{title}</Heading>
         {hint ? <Caption>{hint}</Caption> : null}
       </View>
       {actionLabel && onAction ? (
@@ -204,7 +210,7 @@ export function Button({
       {...rest}
     >
       {IconCmp ? <IconCmp size={17} color={textColor} weight="bold" /> : null}
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: textColor, letterSpacing: -0.1 }}>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: type.button, color: textColor, letterSpacing: -0.1 }}>
         {label}
       </Text>
     </Pressable>
@@ -221,8 +227,8 @@ export function Badge({
   icon?: ComponentType<{ size?: number; color?: string; weight?: never | 'regular' | 'bold' | 'fill' }>;
 }) {
   const map = {
-    sage: { bg: colors.sageSoft, fg: colors.sage },
-    honey: { bg: colors.honeySoft, fg: '#8A6A1C' },
+    sage: { bg: colors.sageSoft, fg: colors.sageInk },
+    honey: { bg: colors.honeySoft, fg: colors.honeyBadge },
     rose: { bg: colors.rosewoodSoft, fg: colors.rosewood },
     neutral: { bg: colors.mist, fg: colors.inkSoft },
     ink: { bg: 'rgba(42,33,29,0.72)', fg: colors.white },
@@ -233,7 +239,7 @@ export function Badge({
         alignSelf: 'flex-start',
         backgroundColor: map.bg,
         borderRadius: radii.chip,
-        paddingHorizontal: IconCmp ? 7 : 8,
+        paddingHorizontal: IconCmp ? 8 : 9,
         paddingVertical: 4,
         flexDirection: 'row',
         alignItems: 'center',
@@ -241,7 +247,7 @@ export function Badge({
       }}
     >
       {IconCmp ? <IconCmp size={11} color={map.fg} weight="fill" /> : null}
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: map.fg }}>{label}</Text>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: type.badge, color: map.fg }}>{label}</Text>
     </View>
   );
 }
@@ -271,27 +277,50 @@ export function Chip({
   onPress?: () => void;
   icon?: ComponentType<{ size?: number; color?: string; weight?: never | 'regular' | 'bold' | 'fill' }>;
 }) {
-  const fg = selected ? colors.rosewood : colors.ink;
+  const fg = selected ? colors.white : colors.ink;
+  const progress = useRef(new Animated.Value(selected ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: selected ? 1 : 0,
+      duration: 180,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    }).start();
+  }, [selected, progress]);
+
+  const backgroundColor = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [colors.white, colors.rosewood],
+  });
+  const borderColor = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [colors.mist, colors.rosewood],
+  });
+
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={label}
       accessibilityState={{ selected: Boolean(selected) }}
-      style={{
-        borderRadius: radii.chip,
-        paddingHorizontal: 13,
-        paddingVertical: 8,
-        borderWidth: 1,
-        borderColor: selected ? colors.rosewood : colors.mist,
-        backgroundColor: selected ? colors.rosewoodSoft : colors.white,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-      }}
     >
-      {IconCmp ? <IconCmp size={13} color={fg} weight={selected ? 'fill' : 'regular'} /> : null}
-      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: fg }}>{label}</Text>
+      <Animated.View
+        style={{
+          borderRadius: radii.chip,
+          paddingHorizontal: 13,
+          paddingVertical: 7,
+          borderWidth: 1.5,
+          borderColor,
+          backgroundColor,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 4,
+        }}
+      >
+        {IconCmp ? <IconCmp size={13} color={fg} weight={selected ? 'fill' : 'regular'} /> : null}
+        <Text style={{ fontFamily: fonts.medium, fontSize: type.chip, color: fg }}>{label}</Text>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -317,7 +346,7 @@ export function Thumb({
       style={{
         width: size,
         height: size,
-        borderRadius: radius ?? (size > 40 ? 12 : size / 2),
+        borderRadius: radius ?? (size > 40 ? radii.thumb : size / 2),
         backgroundColor: colors.mist,
         alignItems: 'center',
         justifyContent: 'center',
@@ -440,21 +469,19 @@ export function Disclaimer({ compact = false }: { compact?: boolean }) {
     <View
       style={{
         backgroundColor: colors.honeySoft,
-        borderRadius: 12,
-        padding: 12,
-        flexDirection: 'row',
-        gap: 10,
-        alignItems: 'flex-start',
+        borderRadius: radii.notice,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderLeftWidth: 3,
+        borderLeftColor: colors.honey,
       }}
     >
-      <Info size={15} color="#8A6A1C" weight="fill" />
       <Text
         style={{
-          flex: 1,
           fontFamily: fonts.regular,
           fontSize: compact ? 11 : 12,
           lineHeight: 17,
-          color: colors.ink,
+          color: colors.honeyInk,
         }}
       >
         Not medical advice. Patch-test before first use — individual reactions vary.
@@ -476,8 +503,11 @@ export function Notice({
     <View
       style={{
         backgroundColor: quiet ? colors.white : colors.honeySoft,
-        borderRadius: 12,
-        padding: 12,
+        borderRadius: radii.notice,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderLeftWidth: 3,
+        borderLeftColor: quiet ? colors.mist : colors.honey,
         borderWidth: quiet ? 1 : 0,
         borderColor: colors.mist,
         flexDirection: 'row',
@@ -486,10 +516,16 @@ export function Notice({
       }}
     >
       {IconCmp ? (
-        <IconCmp size={15} color={quiet ? colors.inkSoft : '#8A6A1C'} weight="regular" />
+        <IconCmp size={15} color={quiet ? colors.inkSoft : colors.honeyInk} weight="regular" />
       ) : null}
       <Text
-        style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.ink }}
+        style={{
+          flex: 1,
+          fontFamily: fonts.regular,
+          fontSize: 12,
+          lineHeight: 18,
+          color: quiet ? colors.inkSoft : colors.honeyInk,
+        }}
       >
         {children}
       </Text>
@@ -504,7 +540,7 @@ function toneFor(score: number | null): string {
   return colors.rosewood;
 }
 
-export function ScoreRing({ score, size = 72 }: { score: number | null; size?: number }) {
+export function ScoreRing({ score, size = 58 }: { score: number | null; size?: number }) {
   const ring = toneFor(score);
   return (
     <View
@@ -512,18 +548,33 @@ export function ScoreRing({ score, size = 72 }: { score: number | null; size?: n
         width: size,
         height: size,
         borderRadius: size / 2,
-        borderWidth: 3.5,
+        borderWidth: 4,
         borderColor: score == null ? colors.mist : ring,
         backgroundColor: colors.white,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Text style={{ fontFamily: fonts.bold, fontSize: size * 0.3, color: colors.ink, letterSpacing: -0.5 }}>
+      <Text
+        style={{
+          fontFamily: fonts.bold,
+          fontSize: size * 0.31,
+          color: colors.ink,
+          letterSpacing: -0.5,
+          lineHeight: size * 0.34,
+        }}
+      >
         {score == null ? '—' : score}
       </Text>
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 7.5, color: colors.inkSoft, letterSpacing: 0.7 }}>
-        OUT OF 100
+      <Text
+        style={{
+          fontFamily: fonts.semibold,
+          fontSize: 7,
+          color: colors.inkSoft,
+          letterSpacing: 0.4,
+        }}
+      >
+        SCORE
       </Text>
     </View>
   );
@@ -707,14 +758,14 @@ export function QuoteTile({ body, height }: { body: string; height: number }) {
   );
 }
 
-export function Wordmark({ size = 21, color = colors.rosewood }: { size?: number; color?: string }) {
+export function Wordmark({ size = type.wordmark, color = colors.rosewood }: { size?: number; color?: string }) {
   return (
     <Text
       style={{
         fontFamily: fonts.bold,
         fontSize: size,
         color,
-        letterSpacing: -0.7,
+        letterSpacing: -0.63,
       }}
     >
       Sourced

@@ -73,7 +73,7 @@ export default function ProfileSetup() {
       }
     >
       <View style={{ gap: 6, paddingTop: 8 }}>
-        <Eyebrow>Optional</Eyebrow>
+        <Eyebrow>Optional — skip anytime</Eyebrow>
         <Heading size={26}>A little about your skin</Heading>
         <Body>
           Only used to work out how well a product fits you. Search works fine without it, and you can

@@ -23,12 +23,8 @@ import { loadProductVideos, loadYoutubeComments } from '@/lib/youtube';
 /**
  * 06b — Thread detail.
  *
- * Two things have to happen at once. Someone should feel accompanied ("other
- * people wondered exactly this"), and they should be able to tell, without
- * effort, which of the things on screen is a real reply, which we surfaced by
- * matching words, and which we borrowed from YouTube. The three are given
- * visibly different containers and explicit headers — the moment the borrowed
- * content could pass as a genuine answer, the validation turns into suspicion.
+ * Real replies vs related vs YouTube bootstrap get visibly different containers
+ * and explicit headers — borrowed content must never pass as a native reply.
  */
 export default function ThreadScreen() {
   const { id: rawId, threadId: rawThread } = useLocalSearchParams<{ id: string; threadId: string }>();
@@ -149,19 +145,18 @@ export default function ThreadScreen() {
             />
           </View>
         ) : (
-          <Button label="Add your experience" icon={HandHeart} onPress={() => setReplying(true)} />
+          <Button label="Reply to this thread" icon={HandHeart} onPress={() => setReplying(true)} />
         )
       }
     >
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
         <BackButton />
         <View style={{ flex: 1, gap: 3 }}>
-          <Heading size={19}>{thread.title}</Heading>
+          <Heading size={16}>{thread.title}</Heading>
           <Caption>{product.name}</Caption>
         </View>
       </View>
 
-      {/* "Someone else asked exactly this" — stated plainly, with a real count. */}
       {posts.length ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
           <ChatsCircle size={13} color={colors.sage} weight="fill" />
@@ -217,13 +212,8 @@ export default function ThreadScreen() {
       )}
 
       {related.length ? (
-        <View style={{ gap: 10 }}>
-          <SourceHeader
-            icon={Sparkle}
-            label="Surfaced by us — not replies"
-            note="Other posts on this product that share wording with this question."
-            tone={colors.honey}
-          />
+        <View style={{ gap: 8 }}>
+          <RelatedTag />
           {related.map((post) => (
             <View
               key={post.id}
@@ -237,6 +227,7 @@ export default function ThreadScreen() {
               <PostCard post={post} onPressAuthor={() => router.push(`/user/${post.userId}`)} />
             </View>
           ))}
+          <Caption>Other posts on this product that share wording — not a direct reply.</Caption>
         </View>
       ) : null}
 
@@ -246,7 +237,7 @@ export default function ThreadScreen() {
             icon={YoutubeLogo}
             label="Borrowed from YouTube"
             note="Not written here and not verified. Shown so a new thread isn't empty; it fades as replies arrive."
-            tone={colors.inkSoft}
+            tone="#8A7A6C"
           />
           {youtubeBootstrap.map((comment, index) => (
             <YoutubeCommentCard key={`${comment.authorDisplayName}-${index}`} comment={comment} />
@@ -254,6 +245,28 @@ export default function ThreadScreen() {
         </View>
       ) : null}
     </Screen>
+  );
+}
+
+function RelatedTag() {
+  return (
+    <View
+      style={{
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: colors.mist,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 999,
+      }}
+    >
+      <Sparkle size={10} color="#6B5F57" weight="fill" />
+      <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: '#6B5F57', letterSpacing: 0.4 }}>
+        RELATED — not a direct reply
+      </Text>
+    </View>
   );
 }
 

@@ -8,10 +8,14 @@ export const colors = {
   rosewoodSoft: '#F4E8EA',
   honey: '#D9A441',
   honeySoft: '#FBF1DC',
+  honeyInk: '#6B4D0F',
   sage: '#6E8F73',
   sageSoft: '#E8F0E9',
+  sageInk: '#3F5C44',
+  honeyBadge: '#8A6414',
   mist: '#E7DED7',
   white: '#FFFFFF',
+  webShell: '#E8E2DC',
 } as const;
 
 export const radii = {
@@ -19,6 +23,32 @@ export const radii = {
   button: 12,
   photo: 18,
   chip: 999,
+  notice: 8,
+  thumb: 10,
+} as const;
+
+/** Match HTML screen-body rhythm (14px gaps). */
+export const space = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 14,
+  xl: 16,
+  xxl: 24,
+} as const;
+
+/** Type scale aligned to ui-screens-v1 HTML. */
+export const type = {
+  wordmark: 21,
+  hLg: 24,
+  hMd: 16,
+  hSm: 13,
+  body: 13,
+  caption: 11,
+  eyebrow: 10,
+  button: 14,
+  chip: 12,
+  badge: 10,
 } as const;
 
 /**

@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Image, Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
@@ -45,7 +44,7 @@ import {
   FacebookLogo,
   PinterestLogo,
 } from '@/components/icons';
-import { colors, elevation, scrimGradient } from '@/constants/theme';
+import { colors, elevation, radii, type } from '@/constants/theme';
 import { track } from '@/lib/analytics';
 import {
   getFeedPosts,
@@ -83,12 +82,10 @@ const TAG_ICONS = {
 /**
  * 04 — Product detail.
  *
- * Read top to bottom this should go "I don't know anything about this" ->
- * "I understand this and trust what I'm seeing", one section at a time. The
- * Confidence Score therefore never appears as a bare number: its three parts
- * and their reasoning sit right underneath it, always open. Below that, the
- * video journey and the photo feed each open a genuine curiosity gap that the
- * next section actually pays off.
+ * Clarity journey (HTML order): hero → brand/name → score with reasoning →
+ * what's in it → disclaimer → video journey → community masonry → named
+ * threads → sticky Get This / satchel. Each section makes the next worth
+ * opening — never a document dump.
  */
 export default function ProductDetailScreen() {
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
@@ -105,7 +102,7 @@ export default function ProductDetailScreen() {
   const markPurchased = useAppStore((s) => s.markPurchased);
   const ownerships = useAppStore((s) => s.ownerships);
   const addRoutineStep = useAppStore((s) => s.addRoutineStep);
-  const [journey, setJourney] = useState<ContentTagKey>('how_to_use');
+  const [journey, setJourney] = useState<ContentTagKey>('who_its_for');
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const voterKey = voterKeyFor(profile?.id);
@@ -171,28 +168,13 @@ export default function ProductDetailScreen() {
       padded={false}
       footer={
         <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-          <Pressable
+          <SatchelAddButton
+            inSatchel={inSatchel}
             onPress={() => addToSatchel(product.id)}
-            style={{
-              width: 50,
-              height: 50,
-              borderRadius: 12,
-              backgroundColor: inSatchel ? colors.rosewood : colors.rosewoodSoft,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={inSatchel ? 'In your Satchel' : 'Add to Satchel'}
-          >
-            <Handbag
-              size={22}
-              color={inSatchel ? colors.white : colors.rosewood}
-              weight={inSatchel ? 'fill' : 'regular'}
-            />
-          </Pressable>
+          />
           <View style={{ flex: 1 }}>
             <Button
-              label="See where to buy"
+              label="Get This Product"
               icon={Storefront}
               onPress={() => router.push(`/product/${product.id}/stores`)}
             />
@@ -221,22 +203,15 @@ export default function ProductDetailScreen() {
         </View>
       }
     >
-      {/* Full-bleed product photography. Name and brand ride on the image so the
-          first thing the eye lands on is the thing itself. */}
-      <View style={{ height: 300 }}>
+      {/* Hero — product first, brand/name land below (HTML 04) */}
+      <View style={{ height: 220, backgroundColor: colors.mist }}>
         {product.heroImageUrl ? (
           <Image
             source={{ uri: product.heroImageUrl }}
-            style={{ width: '100%', height: 300 }}
+            style={{ width: '100%', height: 220 }}
             resizeMode="cover"
           />
-        ) : (
-          <View style={{ width: '100%', height: 300, backgroundColor: colors.mist }} />
-        )}
-        <LinearGradient
-          colors={scrimGradient.strong}
-          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 168 }}
-        />
+        ) : null}
         <Pressable
           onPress={() => router.back()}
           hitSlop={12}
@@ -259,25 +234,22 @@ export default function ProductDetailScreen() {
         >
           <ArrowLeft size={18} color={colors.ink} weight="bold" />
         </Pressable>
-
-        <View style={{ position: 'absolute', left: 16, right: 16, bottom: 16, gap: 4 }}>
-          <Eyebrow color="#ffffffcc">{product.brand}</Eyebrow>
-          <Heading size={24} color={colors.white}>
-            {product.name}
-          </Heading>
-          {tracked > 0 ? (
-            <Caption color="#ffffffcc">{`${tracked} ${tracked === 1 ? 'person is' : 'people are'} tracking this`}</Caption>
-          ) : null}
-        </View>
       </View>
 
-      <View style={{ paddingHorizontal: 16, paddingTop: 16, gap: 22 }}>
-        {/* The score, with its reasoning. Never one without the other. */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 14, gap: 18, paddingBottom: 8 }}>
+        <View style={{ gap: 2 }}>
+          <Eyebrow>{product.brand}</Eyebrow>
+          <Heading size={20}>{product.name}</Heading>
+          {tracked > 0 ? (
+            <Caption>{`${tracked} ${tracked === 1 ? 'person is' : 'people are'} tracking this`}</Caption>
+          ) : null}
+        </View>
+
+        {/* Score + reasoning — never a bare number */}
         <Card level="raised" style={{ gap: 14 }}>
           <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
             <ScoreRing score={breakdown.compositeScore} />
             <View style={{ flex: 1, gap: 4 }}>
-              <Eyebrow>Confidence score</Eyebrow>
               <Title>
                 {breakdown.tooFewReviews ? 'Not enough to score yet' : `${breakdown.headline} for you`}
               </Title>
@@ -291,8 +263,8 @@ export default function ProductDetailScreen() {
           </Caption>
         </Card>
 
-        <View style={{ gap: 10 }}>
-          <SectionHeader title="What's actually in it" />
+        <View style={{ gap: 9 }}>
+          <Heading size={type.hMd}>What&apos;s in it</Heading>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {product.ingredients.slice(0, 4).map((tag) => (
               <Chip key={tag} label={tagLabel(tag)} />
@@ -313,14 +285,14 @@ export default function ProductDetailScreen() {
 
         <Disclaimer />
 
-        {/* Curiosity gap, opened honestly: real reviews, organised by the question
-            someone is actually asking at this point. */}
+        {/* Video journey */}
         <View style={{ gap: 10 }}>
-          <SectionHeader
-            title="Watch someone else's weeks"
-            hint="Real reviews, grouped by what you're trying to find out."
-          />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <Heading size={type.hMd}>Video journey</Heading>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+          >
             {tags.map((tag) => (
               <Chip
                 key={tag.tagKey}
@@ -330,7 +302,7 @@ export default function ProductDetailScreen() {
                 onPress={() => setJourney(tag.tagKey)}
               />
             ))}
-          </View>
+          </ScrollView>
           {videosLoading && !clips.length ? <Caption>Looking up short reviews…</Caption> : null}
           {fillingGap ? <Caption>Finding reviews for this topic…</Caption> : null}
           {!clips.length && !videosLoading ? (
@@ -340,66 +312,68 @@ export default function ProductDetailScreen() {
                 : 'Nothing tagged for this topic yet.'}
             </Caption>
           ) : null}
-          {shown.map((clip) => {
-            const PlatformMark = PLATFORM_ICONS[clip.platform];
-            const playing = playingId === clip.id;
-            return (
-              <View key={clip.id}>
-                {playing ? (
-                  <OfficialEmbed clip={clip} voterKey={voterKey} />
-                ) : (
-                  <Pressable
-                    onPress={() => setPlayingId(clip.id)}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 9, paddingRight: 4 }}
+          >
+            {shown.map((clip) => {
+              const PlatformMark = PLATFORM_ICONS[clip.platform];
+              const playing = playingId === clip.id;
+              if (playing) {
+                return (
+                  <View key={clip.id} style={{ width: 280 }}>
+                    <OfficialEmbed clip={clip} voterKey={voterKey} />
+                  </View>
+                );
+              }
+              return (
+                <Pressable
+                  key={clip.id}
+                  onPress={() => setPlayingId(clip.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Play ${clip.title}`}
+                  style={{ width: 112 }}
+                >
+                  <View
+                    style={{
+                      width: 112,
+                      height: 72,
+                      borderRadius: radii.card,
+                      overflow: 'hidden',
+                      backgroundColor: colors.ink,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
                   >
-                    <Card style={{ padding: 10 }}>
-                      <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                        <View
-                          style={{
-                            width: 96,
-                            height: 62,
-                            borderRadius: 10,
-                            overflow: 'hidden',
-                            backgroundColor: colors.mist,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          {clip.thumbnailUrl ? (
-                            <Image
-                              source={{ uri: clip.thumbnailUrl }}
-                              style={{ width: 96, height: 62 }}
-                              resizeMode="cover"
-                            />
-                          ) : null}
-                          <View
-                            style={{
-                              position: 'absolute',
-                              width: 28,
-                              height: 28,
-                              borderRadius: 14,
-                              backgroundColor: 'rgba(255,255,255,0.92)',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <Play size={13} color={colors.ink} weight="fill" />
-                          </View>
-                        </View>
-                        <View style={{ flex: 1, gap: 5 }}>
-                          <Title>{clip.title}</Title>
-                          <Caption>{clip.author || platformLabel(clip.platform)}</Caption>
-                          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-                            <Badge label={currentTag?.tagLabel ?? 'Review'} />
-                            <Badge label={platformLabel(clip.platform)} icon={PlatformMark} />
-                          </View>
-                        </View>
-                      </View>
-                    </Card>
-                  </Pressable>
-                )}
-              </View>
-            );
-          })}
+                    {clip.thumbnailUrl ? (
+                      <Image
+                        source={{ uri: clip.thumbnailUrl }}
+                        style={{ position: 'absolute', width: 112, height: 72 }}
+                        resizeMode="cover"
+                      />
+                    ) : null}
+                    <View
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 14,
+                        backgroundColor: 'rgba(255,255,255,0.92)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Play size={13} color={colors.ink} weight="fill" />
+                    </View>
+                  </View>
+                  <TextClamp>{clip.title}</TextClamp>
+                  <View style={{ flexDirection: 'row', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                    <Badge label={platformLabel(clip.platform)} icon={PlatformMark} />
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
           {clips.length > visibleCount ? (
             <Button
               label="Show more"
@@ -411,8 +385,7 @@ export default function ProductDetailScreen() {
 
         <View style={{ gap: 10 }}>
           <SectionHeader
-            title="What it looked like for them"
-            hint="Photos from people who used it. The critical ones stay up."
+            title="From the community"
             actionLabel="See all"
             onAction={() => router.push(`/product/${product.id}/feed`)}
           />
@@ -424,9 +397,8 @@ export default function ProductDetailScreen() {
 
         <View style={{ gap: 10 }}>
           <SectionHeader
-            title="Conversations about this"
-            hint="Named threads, so you can find your exact question."
-            actionLabel="All threads"
+            title="Discussions"
+            actionLabel="+ New thread"
             onAction={() => router.push(`/product/${product.id}/community`)}
           />
           {threads.map((thread) => (
@@ -434,7 +406,6 @@ export default function ProductDetailScreen() {
           ))}
         </View>
 
-        {/* Quieter than the sticky bar above: these are for people who already own it. */}
         <View style={{ gap: 8, paddingBottom: 8 }}>
           <View style={{ height: 1, backgroundColor: colors.mist, marginBottom: 6 }} />
           <Button
@@ -472,5 +443,55 @@ export default function ProductDetailScreen() {
         </View>
       </View>
     </Screen>
+  );
+}
+
+function TextClamp({ children }: { children: string }) {
+  return (
+    <Caption color={colors.ink}>
+      {children.length > 42 ? `${children.slice(0, 42)}…` : children}
+    </Caption>
+  );
+}
+
+/** Press → confirm: soft scale then settle when adding to Satchel. */
+function SatchelAddButton({ inSatchel, onPress }: { inSatchel: boolean; onPress: () => void }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const confirm = () => {
+    onPress();
+    Animated.sequence([
+      Animated.timing(scale, {
+        toValue: 0.88,
+        duration: 90,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(scale, { toValue: 1.08, friction: 4, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, friction: 5, useNativeDriver: true }),
+    ]).start();
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Pressable
+        onPress={confirm}
+        style={{
+          width: 50,
+          height: 50,
+          borderRadius: 12,
+          backgroundColor: inSatchel ? colors.rosewood : colors.rosewoodSoft,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={inSatchel ? 'In your Satchel' : 'Add to Satchel'}
+      >
+        <Handbag
+          size={22}
+          color={inSatchel ? colors.white : colors.rosewood}
+          weight={inSatchel ? 'fill' : 'regular'}
+        />
+      </Pressable>
+    </Animated.View>
   );
 }
