@@ -169,3 +169,22 @@ export function hapticFeelSignature() {
   setTimeout(() => haptic('mark'), 520);
   setTimeout(() => haptic('verdict'), 860);
 }
+
+const FEEL_TOUR: [keyof typeof HP, string][] = [
+  ['sign', 'Sourced signature'],
+  ['peel', 'A redaction lifts'],
+  ['source', 'A source is read'],
+  ['verdict', 'The verdict lands'],
+  ['mark', 'A highlight is marked'],
+  ['presence', 'Someone’s here'],
+  ['owner', 'A verified owner replies'],
+  ['expert', 'An expert replies'],
+];
+
+export async function playHapticTour(onLabel: (label: string) => void) {
+  for (const [key, label] of FEEL_TOUR) {
+    onLabel(label);
+    haptic(key);
+    await new Promise((resolve) => setTimeout(resolve, 1300));
+  }
+}

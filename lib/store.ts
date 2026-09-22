@@ -64,8 +64,23 @@ export interface AppState {
   hapticsMode: HapticsMode;
   /** Product drops opt-in — default off; never affects search rank. */
   dropsOptIn: boolean;
+  /** HTML `state.history` — searches stay on-device when on. */
+  saveSearchHistory: boolean;
+  /** Skin type without an account (HTML `state.skin`). */
+  guestSkinType: SkinType | null;
+  guestSkinSource: Profile['skinTypeSource'];
+  followingJourneyIds: string[];
+  roomReminders: Record<string, boolean>;
+  recentProductIds: string[];
   setHapticsMode: (mode: HapticsMode) => void;
   setDropsOptIn: (on: boolean) => void;
+  setSaveSearchHistory: (on: boolean) => void;
+  setGuestSkin: (type: SkinType | null, source: Profile['skinTypeSource']) => void;
+  toggleFollowJourney: (id: string) => void;
+  toggleRoomRemind: (id: string) => void;
+  addRecentProduct: (productId: string) => void;
+  clearRecentProducts: () => void;
+  deleteMyData: () => void;
   signIn: (email: string, displayName?: string) => void;
   signOut: () => void;
   completeOnboarding: (input: {
@@ -160,8 +175,53 @@ export const useAppStore = create<AppState>()(
       ...emptyUserSlice,
       hapticsMode: 'full' as HapticsMode,
       dropsOptIn: false,
+      saveSearchHistory: true,
+      guestSkinType: null as SkinType | null,
+      guestSkinSource: null as Profile['skinTypeSource'],
+      followingJourneyIds: [] as string[],
+      roomReminders: {} as Record<string, boolean>,
+      recentProductIds: [] as string[],
       setHapticsMode: (mode) => set({ hapticsMode: mode }),
       setDropsOptIn: (on) => set({ dropsOptIn: on }),
+      setSaveSearchHistory: (on) => set({ saveSearchHistory: on }),
+      setGuestSkin: (type, source) => set({ guestSkinType: type, guestSkinSource: source }),
+      toggleFollowJourney: (id) => {
+        const ids = get().followingJourneyIds;
+        set({
+          followingJourneyIds: ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
+        });
+      },
+      toggleRoomRemind: (id) => {
+        const next = { ...get().roomReminders, [id]: !get().roomReminders[id] };
+        if (!next[id]) delete next[id];
+        set({ roomReminders: next });
+      },
+      addRecentProduct: (productId) => {
+        set({
+          recentProductIds: [productId, ...get().recentProductIds.filter((id) => id !== productId)].slice(
+            0,
+            8,
+          ),
+        });
+      },
+      clearRecentProducts: () => set({ recentProductIds: [] }),
+      deleteMyData: () => {
+        const profile = get().profile;
+        set({
+          searchHistory: [],
+          favorites: [],
+          dropsOptIn: false,
+          recentProductIds: [],
+          progressEntries: [],
+          followingJourneyIds: [],
+          roomReminders: {},
+          guestSkinType: null,
+          guestSkinSource: null,
+          profile: profile
+            ? { ...profile, skinType: 'unknown', skinTypeSource: null, concerns: [] }
+            : null,
+        });
+      },
       signIn: (email, displayName) => {
         const existing = get().profile;
         if (existing && existing.email === email.trim().toLowerCase()) return;
@@ -327,7 +387,7 @@ export const useAppStore = create<AppState>()(
       },
       addSearch: (query) => {
         const trimmed = query.trim();
-        if (!trimmed) return;
+        if (!trimmed || !get().saveSearchHistory) return;
         set({
           searchHistory: [
             { id: uid('search'), query: trimmed, at: new Date().toISOString() },
@@ -457,6 +517,15 @@ export function currentStreak(logs: RoutineLog[], steps: RoutineStep[]): number 
   }
   void completeDates;
   return streak;
+}
+
+export function resolvedSkinType(state: {
+  profile: Profile | null;
+  guestSkinType: SkinType | null;
+}): SkinType | null {
+  const typed = state.profile?.skinType;
+  if (typed && typed !== 'unknown') return typed;
+  return state.guestSkinType;
 }
 
 export function isVerifiedForProduct(ownerships: Ownership[], productId: string): boolean {

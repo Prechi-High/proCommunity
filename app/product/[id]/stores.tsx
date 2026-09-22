@@ -1,147 +1,105 @@
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 
 import { Screen } from '@/components/Screen';
-import { Caption, Card, Heading, Notice, Thumb, Title } from '@/components/ui';
-import { ArrowSquareOut, BackButton, Handbag, Scales, Storefront } from '@/components/icons';
-import { colors, elevation, fonts, radii } from '@/constants/theme';
-import { track } from '@/lib/analytics';
-import { routeId } from '@/lib/catalog';
+import { Caption, Chip, Heading } from '@/components/ui';
+import { BackButton } from '@/components/icons';
+import { colors, fonts } from '@/constants/theme';
+import { getListingsForProduct, routeId } from '@/lib/catalog';
+import { hapticSelect } from '@/lib/haptics';
 import { useProduct } from '@/lib/useProduct';
 
+type Filter = 'price' | 'ships' | 'stock';
+
 /**
- * 05 — Store list.
- *
- * By the time someone is here the decision is already made emotionally; this
- * screen just has to not undo it. The fairness statement is placed above the
- * list rather than buried below it, because naming the absence of manipulation
- * is what actually lowers reactance. There is no stock or price urgency
- * anywhere on this screen, because we have no real data to support any.
+ * Where to buy — store rows + fairness line from sourced-v1 (2).html.
  */
 export default function StoresScreen() {
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
   const id = routeId(rawId);
   const router = useRouter();
-  const { data: product, isLoading } = useProduct(id);
+  const { data: product } = useProduct(id);
+  const [filter, setFilter] = useState<Filter>('price');
 
-  if (isLoading) {
-    return (
-      <Screen>
-        <ActivityIndicator color={colors.rosewood} />
-      </Screen>
-    );
-  }
+  const listings = useMemo(() => {
+    const raw = getListingsForProduct(id);
+    const list = [...raw];
+    if (filter === 'price') list.sort((a, b) => a.price - b.price);
+    if (filter === 'stock') list.sort((a, b) => Number(b.inStock) - Number(a.inStock));
+    return list;
+  }, [id, filter]);
+
+  const lowest = listings.filter((l) => l.inStock).sort((a, b) => a.price - b.price)[0]?.id;
 
   if (!product) return null;
-
-  const openFactsUrl =
-    product.productUrl ??
-    (product.barcode ? `https://world.openbeautyfacts.org/product/${product.barcode}` : null);
-
-  const openInApp = (url: string) => {
-    track('store_clickthrough', { productId: product.id, url });
-    router.push(
-      `/browse?url=${encodeURIComponent(url)}&host=${encodeURIComponent(hostFrom(url))}` as Href,
-    );
-  };
 
   return (
     <Screen>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <BackButton />
-        <View style={{ flex: 1 }}>
-          <Heading size={18}>Where to buy</Heading>
-        </View>
+        <Heading size={18}>Where to buy</Heading>
+      </View>
+      <Caption>
+        {product.name} · {listings.length} stores
+      </Caption>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 12 }}>
+        <Chip label="Price, low to high" selected={filter === 'price'} onPress={() => setFilter('price')} />
+        <Chip label="Ships to me" selected={filter === 'ships'} onPress={() => setFilter('ships')} />
+        <Chip label="In stock" selected={filter === 'stock'} onPress={() => setFilter('stock')} />
       </View>
 
-      <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10 }}>
-        <Thumb imageUrl={product.heroImageUrl} category={product.category} size={48} />
-        <View style={{ flex: 1 }}>
-          <Title>{product.name}</Title>
-          <Caption>{product.brand}</Caption>
-        </View>
-      </Card>
-
-      {/* Said out loud, and said first. */}
-      <View
-        style={{
-          flexDirection: 'row',
-          gap: 11,
-          alignItems: 'flex-start',
-          backgroundColor: colors.sageSoft,
-          borderRadius: radii.card,
-          padding: 13,
-        }}
-      >
-        <Scales size={16} color={colors.sage} weight="fill" />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: colors.ink }}>
-            No store paid to be here
-          </Text>
-          <Caption>
-            This order is not for sale. We take nothing from the seller, so nobody can buy a higher
-            position on this page.
-          </Caption>
-        </View>
-      </View>
-
-      {openFactsUrl ? (
-        <Pressable
-          onPress={() => openInApp(openFactsUrl)}
-          style={[
-            {
-              backgroundColor: colors.white,
-              borderColor: colors.mist,
-              borderWidth: 1,
-              borderRadius: radii.card,
-              padding: 13,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-            },
-            elevation.raised,
-          ]}
-        >
-          <View
+      {listings.length === 0 ? (
+        <Caption>No merchant listings for this product yet.</Caption>
+      ) : (
+        listings.map((s) => (
+          <Pressable
+            key={s.id}
+            onPress={() => {
+              hapticSelect();
+              router.push(
+                `/browse?url=${encodeURIComponent(s.productUrl)}&host=${encodeURIComponent(s.merchantName)}` as Href,
+              );
+            }}
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 19,
-              backgroundColor: colors.rosewoodSoft,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
               alignItems: 'center',
-              justifyContent: 'center',
+              paddingVertical: 16,
+              borderTopWidth: 1,
+              borderTopColor: colors.line,
+              gap: 12,
             }}
           >
-            <Storefront size={19} color={colors.rosewood} weight="regular" />
-          </View>
-          <View style={{ flex: 1, gap: 3 }}>
-            <Title>Open Beauty Facts</Title>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <Handbag size={11} color={colors.inkSoft} weight="regular" />
-              <Caption>Opens inside Sourced — your Satchel comes with you</Caption>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone }}>{s.merchantName}</Text>
+              <Caption>{s.shipsNote}</Caption>
             </View>
-          </View>
-          <ArrowSquareOut size={16} color={colors.rosewood} weight="regular" />
-        </Pressable>
-      ) : (
-        <Notice quiet>
-          No merchant link exists for this product yet. We would rather show nothing than invent a
-          listing.
-        </Notice>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text
+                style={{
+                  fontFamily: fonts.serif,
+                  fontSize: 22,
+                  fontWeight: '500',
+                  color: s.inStock ? colors.bone : colors.bone3,
+                }}
+              >
+                ₦{s.price.toLocaleString()}
+              </Text>
+              {s.id === lowest ? (
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.sage }}>Lowest price</Text>
+              ) : null}
+            </View>
+          </Pressable>
+        ))
       )}
 
-      <Notice quiet>
-        Live prices and stock are not connected yet. When they are, they will come from the store's own
-        feed — we will not estimate a price or imply something is running out.
-      </Notice>
+      <View style={{ marginTop: 16, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 14 }}>
+        <Caption>
+          Sorted by your filter only. No store can pay to appear higher. You don’t have to buy it just because
+          you found it.
+        </Caption>
+      </View>
     </Screen>
   );
-}
-
-function hostFrom(url: string): string {
-  try {
-    return new URL(url).host;
-  } catch {
-    return 'store';
-  }
 }

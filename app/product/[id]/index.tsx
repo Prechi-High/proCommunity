@@ -9,14 +9,14 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { ThreadRow } from '@/components/CommunityBits';
 import { Screen } from '@/components/Screen';
 import { OfficialEmbed } from '@/components/VideoEmbed';
 import { Caption, Chip, Disclaimer, Heading, SectionHeader } from '@/components/ui';
-import { ArrowLeft, ChatCircle, Heart, Play, categoryIcon } from '@/components/icons';
+import { ArrowLeft, ArrowRight, ChatCircle, Heart, Play, categoryIcon } from '@/components/icons';
 import { colors, fonts } from '@/constants/theme';
 import { track } from '@/lib/analytics';
 import {
@@ -40,7 +40,7 @@ import {
   renderMarkedText,
   type ProductCaseAnalysis,
 } from '@/lib/productCase';
-import { useAppStore } from '@/lib/store';
+import { resolvedSkinType, useAppStore } from '@/lib/store';
 import { FALLBACK_TAGS, PAGE_SIZE, loadTaxonomy, type ContentTagKey } from '@/lib/taxonomy';
 import type { Product, Profile, SkinType } from '@/lib/types';
 import { useProduct } from '@/lib/useProduct';
@@ -62,17 +62,18 @@ export default function ProductCaseScreen() {
   const router = useRouter();
   const { data: product, isLoading } = useProduct(id);
   const profile = useAppStore((s) => s.profile);
+  const guestSkin = useAppStore((s) => s.guestSkinType);
   const userPosts = useAppStore((s) => s.userPosts);
   const userThreads = useAppStore((s) => s.userThreads);
   const favorites = useAppStore((s) => s.favorites);
   const toggleFavorite = useAppStore((s) => s.toggleFavorite);
+  const updateProfile = useAppStore((s) => s.updateProfile);
+  const setGuestSkin = useAppStore((s) => s.setGuestSkin);
   const [chapter, setChapter] = useState(0);
   const [proofSeg, setProofSeg] = useState<'say' | 'watch'>('say');
   const [journey, setJourney] = useState<ContentTagKey>('who_its_for');
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const [skin, setSkin] = useState<SkinType | null>(
-    profile?.skinType && profile.skinType !== 'unknown' ? profile.skinType : null,
-  );
+  const [skin, setSkin] = useState<SkinType | null>(resolvedSkinType({ profile, guestSkinType: guestSkin }));
   const [hiOn, setHiOn] = useState(false);
   const scoreAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -112,6 +113,11 @@ export default function ProductCaseScreen() {
   useEffect(() => {
     if (product) track('product_viewed', { productId: product.id, source: product.source });
   }, [product]);
+
+  useEffect(() => {
+    const next = resolvedSkinType({ profile, guestSkinType: guestSkin });
+    if (next) setSkin(next);
+  }, [profile, guestSkin]);
 
   useEffect(() => {
     if (!analysis || analysis.productScore == null || activeChapters[chapter]?.key !== 'verdict') {
@@ -319,9 +325,13 @@ export default function ProductCaseScreen() {
           {current?.key === 'fit' ? (
             <ConfidenceChapter
               skin={skin}
-              setSkin={setSkin}
+              setSkin={(k) => {
+                setSkin(k);
+                if (profile) updateProfile({ skinType: k, skinTypeSource: 'self_selected' });
+                else setGuestSkin(k, 'self_selected');
+              }}
               fit={fit}
-              onQuiz={() => router.push('/(onboarding)/quiz')}
+              onQuiz={() => router.push('/quiz-sheet' as Href)}
             />
           ) : null}
 
@@ -347,6 +357,7 @@ export default function ProductCaseScreen() {
               productId={product.id}
               threads={threads}
               ownerCount={analysis?.counts.own ?? 0}
+              onCompose={() => router.push(`/compose?kind=question&product=${product.id}` as Href)}
               onSeeAll={() => router.push(`/product/${product.id}/community`)}
             />
           ) : null}
@@ -806,11 +817,13 @@ function PeopleChapter({
   productId,
   threads,
   ownerCount,
+  onCompose,
   onSeeAll,
 }: {
   productId: string;
   threads: ReturnType<typeof getProductThreads>;
   ownerCount: number;
+  onCompose: () => void;
   onSeeAll: () => void;
 }) {
   return (
@@ -823,7 +836,7 @@ function PeopleChapter({
       </Caption>
 
       <Pressable
-        onPress={onSeeAll}
+        onPress={onCompose}
         style={{
           marginTop: 18,
           height: 58,
@@ -835,8 +848,8 @@ function PeopleChapter({
           paddingHorizontal: 18,
         }}
       >
-        <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.bone }}>What’s on your mind?</Text>
-        <Text style={{ color: colors.bone3, fontSize: 18 }}>→</Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.bone2 }}>What’s on your mind?</Text>
+        <ArrowRight size={22} color={colors.hi} weight="bold" />
       </Pressable>
 
       <View style={{ marginTop: 20 }}>

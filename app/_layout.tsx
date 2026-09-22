@@ -110,6 +110,9 @@ function RootLayout() {
                 <Stack.Screen name="satchel" />
                 <Stack.Screen name="browse" />
                 <Stack.Screen name="feed" />
+                <Stack.Screen name="compose" options={{ animation: 'slide_from_bottom' }} />
+                <Stack.Screen name="quiz-sheet" options={{ animation: 'slide_from_bottom' }} />
+                <Stack.Screen name="room/[id]" options={{ animation: 'slide_from_bottom' }} />
               </Stack>
               <SatchelLayer />
               </View>

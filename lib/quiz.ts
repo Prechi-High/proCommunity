@@ -6,6 +6,44 @@ export interface QuizQuestion {
   options: { id: string; label: string; type: SkinType }[];
 }
 
+/** Three-question sheet from sourced-v1 (2).html — not a diagnosis. */
+export const FIT_QUIZ_QUESTIONS: QuizQuestion[] = [
+  {
+    id: 'midday',
+    prompt: 'By midday, how does your skin usually feel?',
+    options: [
+      { id: 'shiny-all', label: 'Shiny all over', type: 'oily' },
+      {
+        id: 'tzone',
+        label: 'Shiny on forehead and nose, normal elsewhere',
+        type: 'combination',
+      },
+      { id: 'tight', label: 'Tight, dry or flaky', type: 'dry' },
+      { id: 'comfortable', label: 'Comfortable, not much change', type: 'combination' },
+    ],
+  },
+  {
+    id: 'after-wash',
+    prompt: 'After washing your face, it feels…',
+    options: [
+      { id: 'tight-now', label: 'Tight right away', type: 'dry' },
+      { id: 'fine-then-shiny', label: 'Fine for an hour, then shiny', type: 'oily' },
+      { id: 'comfortable-day', label: 'Comfortable all day', type: 'combination' },
+      { id: 'stingy', label: 'Stingy or red', type: 'sensitive' },
+    ],
+  },
+  {
+    id: 'pores',
+    prompt: 'How do your pores look?',
+    options: [
+      { id: 'large', label: 'Large and visible all over', type: 'oily' },
+      { id: 'tzone-pores', label: 'Visible on nose and forehead', type: 'combination' },
+      { id: 'barely', label: 'Barely visible', type: 'dry' },
+      { id: 'react', label: 'I react easily to new products', type: 'sensitive' },
+    ],
+  },
+];
+
 export const QUIZ_QUESTIONS: QuizQuestion[] = [
   {
     id: 'midday',

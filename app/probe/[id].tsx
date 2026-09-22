@@ -66,6 +66,7 @@ export default function ProbeScreen() {
 
   const finish = () => {
     cancelled.current = true;
+    useAppStore.getState().addRecentProduct(id);
     router.replace(`/product/${id}`);
   };
 

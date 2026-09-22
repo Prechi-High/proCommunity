@@ -258,7 +258,7 @@ function heuristicFromBodies(
       title: positive >= 30 ? 'People report visible improvement' : 'Some positive outcomes',
       who: 'Across commenters',
       percent: Math.max(8, positive),
-      tone: 'sage',
+      tone: 'sage' as ClaimCluster['tone'],
       quotes: tagged
         .filter((t) => t.pol === 'positive')
         .slice(0, 2)

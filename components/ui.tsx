@@ -338,6 +338,54 @@ export function Chip({
   );
 }
 
+export function Seg({
+  options,
+  value,
+  onChange,
+}: {
+  options: { id: string; label: string }[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 6 }}>
+      {options.map((option) => {
+        const on = option.id === value;
+        return (
+          <Pressable
+            key={option.id}
+            onPress={() => {
+              hapticTap();
+              onChange(option.id);
+            }}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: on ? colors.bone : colors.line,
+              backgroundColor: on ? colors.bone : 'transparent',
+              alignItems: 'center',
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.medium,
+                fontSize: 14,
+                color: on ? colors.wine : colors.bone2,
+              }}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 /**
  * Product thumbnail. Real product photography when we have it, and a Phosphor
  * category mark when we don't — never a glyph pretending to be a picture.

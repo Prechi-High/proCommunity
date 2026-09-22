@@ -4,10 +4,10 @@ import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Screen } from '@/components/Screen';
-import { Caption, Chip } from '@/components/ui';
+import { Chip, Notice } from '@/components/ui';
 import { MagnifyingGlass, categoryIcon } from '@/components/icons';
 import { colors, fonts } from '@/constants/theme';
-import { getProductPosts } from '@/lib/catalog';
+import { getAllProducts, getProductPosts } from '@/lib/catalog';
 import { computeConfidence } from '@/lib/confidence';
 import { hapticTap } from '@/lib/haptics';
 import { searchCatalog } from '@/lib/products';
@@ -31,15 +31,16 @@ export default function ResultsScreen() {
     enabled: query.length > 0,
   });
 
+  const unmatched = !isFetching && query.length > 0 && list.length === 0;
+  const source = unmatched ? getAllProducts() : list;
+
   const sorted = useMemo(() => {
-    return [...list].sort((a, b) => {
+    return [...source].sort((a, b) => {
       const sa = computeConfidence(a, profile, getProductPosts(a.id, userPosts)).compositeScore ?? 0;
       const sb = computeConfidence(b, profile, getProductPosts(b.id, userPosts)).compositeScore ?? 0;
       return sb - sa;
     });
-  }, [list, profile, userPosts]);
-
-  const emptyHint = !isFetching && query && sorted.length === 0;
+  }, [source, profile, userPosts]);
 
   return (
     <Screen>
@@ -68,11 +69,9 @@ export default function ResultsScreen() {
         <Chip label="Fragrance-free" />
       </ScrollView>
 
-      {emptyHint ? (
+      {unmatched ? (
         <View style={{ marginTop: 14 }}>
-          <Caption color={colors.bone2}>
-            We don’t cover that one yet. Here’s everything we can investigate right now — try a broader term.
-          </Caption>
+          <Notice>We don’t cover that one yet. Here’s everything we can investigate right now.</Notice>
         </View>
       ) : null}
 
