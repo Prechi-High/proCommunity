@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -41,20 +42,52 @@ export default function ResultsScreen() {
 
   return (
     <Screen>
-      <Pressable onPress={() => router.replace('/(tabs)')} style={{ marginTop: 8, height: 54, borderRadius: 16, backgroundColor: colors.bone, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16 }}>
+      <Pressable
+        onPress={() => router.replace('/(tabs)')}
+        style={{
+          marginTop: 8,
+          height: 54,
+          borderRadius: 16,
+          backgroundColor: colors.bone,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+          paddingHorizontal: 16,
+        }}
+      >
         <MagnifyingGlass size={20} color={colors.wine} weight="regular" />
-        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 16, color: colors.wine }} numberOfLines={1}>{query || 'Search'}</Text>
+        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 16, color: colors.wine }} numberOfLines={1}>
+          {query || 'Search'}
+        </Text>
       </Pressable>
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginTop: 12 }}>
         <Chip label="Skincare" selected />
         <Chip label="Oily skin" />
         <Chip label="Fragrance-free" />
       </ScrollView>
-      {unmatched ? <View style={{ marginTop: 14 }}><Notice>We don’t cover that one yet. Here’s everything we can investigate right now.</Notice></View> : null}
-      <Text style={{ marginTop: 16, marginBottom: 4, fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>{isFetching ? 'Looking…' : `${sorted.length} products, sorted by verdict`}</Text>
+
+      {unmatched ? (
+        <View style={{ marginTop: 14 }}>
+          <Notice>We don’t cover that one yet. Here’s everything we can investigate right now.</Notice>
+        </View>
+      ) : null}
+
+      <Text style={{ marginTop: 16, marginBottom: 4, fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>
+        {isFetching ? 'Looking…' : `${sorted.length} products, sorted by verdict`}
+      </Text>
+
       {isFetching ? <ActivityIndicator color={colors.hi} style={{ marginTop: 24 }} /> : null}
+
       {sorted.map((product) => (
-        <ResultRow key={product.id} product={product} onPress={() => { hapticTap(); router.push(`/probe/${product.id}`); }} />
+        <ResultRow
+          key={product.id}
+          product={product}
+          onPress={() => {
+            hapticTap();
+            router.push(`/probe/${product.id}`);
+          }}
+        />
       ))}
     </Screen>
   );
@@ -75,27 +108,65 @@ function ResultRow({ product, onPress }: { product: Product; onPress: () => void
   return (
     <Pressable onPress={onPress} style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.line, gap: 3 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-        <View style={{ width: 48, height: 60, borderRadius: 12, backgroundColor: colors.lac, alignItems: 'center', justifyContent: 'center' }}>
+        <View
+          style={{
+            width: 48,
+            height: 60,
+            borderRadius: 12,
+            backgroundColor: colors.lac,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <Icon size={22} color={colors.bone2} weight="regular" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone, lineHeight: 20 }}>{product.name}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3, marginTop: 2 }}>{product.brand}</Text>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone, lineHeight: 20 }}>
+            {product.name}
+          </Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3, marginTop: 2 }}>
+            {product.brand}
+          </Text>
         </View>
         {thin ? (
           <View style={{ alignItems: 'flex-end', maxWidth: 90 }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.bone3, textAlign: 'right' }}>No score</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3, marginTop: 4 }}>Too little evidence</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.bone3, textAlign: 'right' }}>
+              No score
+            </Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3, marginTop: 4 }}>
+              Too little evidence
+            </Text>
           </View>
         ) : (
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ fontFamily: fonts.serif, fontSize: 32, fontWeight: '500', color: colors.bone, letterSpacing: -1, lineHeight: 32 }}>{score}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3, marginTop: 4 }}>{band}</Text>
+            <Text
+              style={{
+                fontFamily: fonts.serif,
+                fontSize: 32,
+                fontWeight: '500',
+                color: colors.bone,
+                letterSpacing: -1,
+                lineHeight: 32,
+              }}
+            >
+              {score}
+            </Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3, marginTop: 4 }}>
+              {band}
+            </Text>
           </View>
         )}
       </View>
-      {!thin ? <View style={{ flexDirection: 'row', gap: 2, height: 7, marginTop: 8, marginLeft: 62 }}><View style={{ flex: pos, borderRadius: 4, backgroundColor: colors.sage }} /><View style={{ flex: mix, borderRadius: 4, backgroundColor: colors.honey }} /><View style={{ flex: neg, borderRadius: 4, backgroundColor: colors.coral }} /></View> : null}
-      <Text style={{ marginLeft: 62, marginTop: 6, fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>{thin ? 'Comments so far' : 'Comments from live sources'}</Text>
+      {!thin ? (
+        <View style={{ flexDirection: 'row', gap: 2, height: 7, marginTop: 8, marginLeft: 62 }}>
+          <View style={{ flex: pos, borderRadius: 4, backgroundColor: colors.sage }} />
+          <View style={{ flex: mix, borderRadius: 4, backgroundColor: colors.honey }} />
+          <View style={{ flex: neg, borderRadius: 4, backgroundColor: colors.coral }} />
+        </View>
+      ) : null}
+      <Text style={{ marginLeft: 62, marginTop: 6, fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>
+        {thin ? 'Comments so far' : 'Comments from live sources'}
+      </Text>
     </Pressable>
   );
 }

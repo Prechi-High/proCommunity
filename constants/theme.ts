@@ -1,4 +1,4 @@
-import { Platform, type ViewStyle } from 'react-native';
+import { Appearance, Platform, type ViewStyle } from 'react-native';
 
 const isDark = Appearance.getColorScheme() === 'dark';
 
