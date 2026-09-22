@@ -1,21 +1,12 @@
-/**
- * Product Case analysis — Product Score from people who used it
- * (YouTube comments + verified owners; Reddit later), not a skin-fit match score.
- *
- * Prefers `/api/product-case` (LLM). Falls back to extracting real comment
- * phrases + polarity heuristics when the API/LLM is unavailable.
- */
-
 import { getProductPosts } from './catalog';
-import type { CommunityPost, Product, Profile } from './types';
+import type { CommunityPost, Product } from './types';
 import { loadProductVideos, loadYoutubeComments, type LiveYoutubeComment } from './youtube';
+import { searchRedditForProduct } from './reddit';
 
 export type CaseSource = 'yt' | 'own' | 'rd';
 
 export interface MarkedFrag {
-  /** Full display line (already short). */
   text: string;
-  /** Substring inside text to highlight with the yellow marker. */
   mark: string;
   source: CaseSource;
 }
@@ -30,11 +21,9 @@ export interface ClaimCluster {
 
 export interface ProductCaseAnalysis {
   productId: string;
-  /** 0–100 product score from lived experience. Null if too little evidence. */
   productScore: number | null;
   tooFew: boolean;
   split: { positive: number; mixed: number; negative: number };
-  /** Verdict with optional **mark** segments as [[text]]. */
   verdict: string;
   verdictMarks: string[];
   frags: MarkedFrag[];
@@ -48,49 +37,9 @@ export interface ProductCaseAnalysis {
 const memory = new Map<string, { at: number; data: ProductCaseAnalysis }>();
 const TTL_MS = 30 * 60 * 1000;
 
-const POS = [
-  'love',
-  'loved',
-  'amazing',
-  'works',
-  'worked',
-  'helped',
-  'glow',
-  'clearer',
-  'calmer',
-  'holy grail',
-  'recommend',
-  'worth',
-  'gentle',
-  'hydrated',
-  'improved',
-  'no irritation',
-  'less oily',
-  'shine',
-];
-const NEG = [
-  'broke me out',
-  'breakout',
-  'pills',
-  'pilling',
-  'sting',
-  'stung',
-  'irritat',
-  'dry',
-  'drying',
-  'tight',
-  'waste',
-  'hate',
-  'worst',
-  'burn',
-  'rash',
-  'white cast',
-  'greasy',
-  'does nothing',
-  "didn't work",
-  'did not work',
-];
-const MIX = ['okay', 'ok', 'mixed', 'sometimes', 'maybe', 'fine but', 'not sure', 'meh'];
+const POS = ['love','loved','amazing','works','worked','helped','glow','clearer','calmer','holy grail','recommend','worth','gentle','hydrated','improved','no irritation','less oily','shine'];
+const NEG = ['broke me out','breakout','pills','pilling','sting','stung','irritat','dry','drying','tight','waste','hate','worst','burn','rash','white cast','greasy','does nothing',"didn't work",'did not work'];
+const MIX = ['okay','ok','mixed','sometimes','maybe','fine but','not sure','meh'];
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
@@ -139,11 +88,7 @@ function shortLine(text: string, max = 92): string {
 export async function gatherCaseEvidence(
   product: Product,
   userPosts: CommunityPost[] = [],
-): Promise<{
-  ytBodies: string[];
-  ownerBodies: string[];
-  counts: { yt: number; rd: number; own: number; ig: number };
-}> {
+): Promise<{ ytBodies: string[]; rdBodies: string[]; ownerBodies: string[]; counts: { yt: number; rd: number; own: number; ig: number } }> {
   const clips = await loadProductVideos(product.name, product.brand);
   const ytBodies: string[] = [];
   for (const clip of clips.slice(0, 3)) {
@@ -151,19 +96,26 @@ export async function gatherCaseEvidence(
     ytBodies.push(...flattenComments(threads));
   }
 
+  let rdBodies: string[] = [];
+  try {
+    const mentions = await searchRedditForProduct(product.name, product.brand);
+    rdBodies = mentions.map((item) => item.body || item.title).filter(Boolean).slice(0, 80);
+  } catch {
+    rdBodies = [];
+  }
+
   const owners = getProductPosts(product.id, userPosts).filter(
-    (p) =>
-      p.status === 'visible' &&
-      (p.isVerifiedOwner || p.type === 'experience' || p.type === 'update' || p.type === 'answer'),
+    (p) => p.status === 'visible' && (p.isVerifiedOwner || p.type === 'experience' || p.type === 'update' || p.type === 'answer'),
   );
   const ownerBodies = owners.map((p) => p.body.trim()).filter(Boolean);
 
   return {
     ytBodies,
+    rdBodies,
     ownerBodies,
     counts: {
       yt: ytBodies.length,
-      rd: 0,
+      rd: rdBodies.length,
       own: ownerBodies.length,
       ig: product.ingredients.length || 0,
     },
@@ -173,11 +125,13 @@ export async function gatherCaseEvidence(
 function heuristicFromBodies(
   product: Product,
   ytBodies: string[],
+  rdBodies: string[],
   ownerBodies: string[],
   counts: ProductCaseAnalysis['counts'],
 ): ProductCaseAnalysis {
   const tagged = [
     ...ytBodies.map((text) => ({ text, source: 'yt' as const, pol: polarity(text) })),
+    ...rdBodies.map((text) => ({ text, source: 'rd' as const, pol: polarity(text) })),
     ...ownerBodies.map((text) => ({ text, source: 'own' as const, pol: polarity(text) })),
   ];
 
@@ -204,18 +158,10 @@ function heuristicFromBodies(
       split: { positive: 0, mixed: 0, negative: 0 },
       verdict: 'Not enough lived comments yet for a Product Score.',
       verdictMarks: [],
-      frags: frags.length
-        ? frags
-        : [
-            {
-              text: `Still gathering what people say about ${product.name}`,
-              mark: product.name,
-              source: 'yt',
-            },
-          ],
+      frags: frags.length ? frags : [{ text: `Still gathering what people say about ${product.name}`, mark: product.name, source: 'yt' }],
       clusters: [],
       counts,
-      basis: `Found ${total} comments so far across YouTube and Sourced owners. A score from that few would mislead you.`,
+      basis: `Found ${total} comments so far across YouTube, Reddit, and Sourced owners. A score from that few would mislead you.`,
       source: 'heuristic',
       analyzedAt: new Date().toISOString(),
     };
@@ -246,33 +192,23 @@ function heuristicFromBodies(
     frags.push({ text, mark: pickMark(text), source: row.source });
   }
 
-  const toneWord =
-    productScore >= 75 ? 'Mostly liked' : productScore >= 55 ? 'Mixed feedback' : 'Cautious overall';
-  const markPhrase =
-    positive >= negative
-      ? interesting.find((t) => t.pol === 'positive')?.text.slice(0, 48) ?? 'what owners report'
-      : interesting.find((t) => t.pol === 'negative')?.text.slice(0, 48) ?? 'common complaints';
+  const toneWord = productScore >= 75 ? 'Mostly liked' : productScore >= 55 ? 'Mixed feedback' : 'Cautious overall';
+  const markPhrase = positive >= negative ? interesting.find((t) => t.pol === 'positive')?.text.slice(0, 48) ?? 'what owners report' : interesting.find((t) => t.pol === 'negative')?.text.slice(0, 48) ?? 'common complaints';
 
   const clusters: ClaimCluster[] = [
     {
       title: positive >= 30 ? 'People report visible improvement' : 'Some positive outcomes',
       who: 'Across commenters',
       percent: Math.max(8, positive),
-      tone: 'sage' as ClaimCluster['tone'],
-      quotes: tagged
-        .filter((t) => t.pol === 'positive')
-        .slice(0, 2)
-        .map((t) => ({ source: t.source, text: shortLine(t.text, 110), mark: pickMark(shortLine(t.text, 110)) })),
+      tone: 'sage',
+      quotes: tagged.filter((t) => t.pol === 'positive').slice(0, 2).map((t) => ({ source: t.source, text: shortLine(t.text, 110), mark: pickMark(shortLine(t.text, 110)) })),
     },
     {
       title: negative >= 15 ? 'Irritation, pilling or dryness comes up' : 'A few caution notes',
       who: 'Mentioned across sources',
       percent: Math.max(5, negative),
-      tone: (negative >= 20 ? 'coral' : 'honey') as ClaimCluster['tone'],
-      quotes: tagged
-        .filter((t) => t.pol === 'negative')
-        .slice(0, 2)
-        .map((t) => ({ source: t.source, text: shortLine(t.text, 110), mark: pickMark(shortLine(t.text, 110)) })),
+      tone: negative >= 20 ? 'coral' : 'honey',
+      quotes: tagged.filter((t) => t.pol === 'negative').slice(0, 2).map((t) => ({ source: t.source, text: shortLine(t.text, 110), mark: pickMark(shortLine(t.text, 110)) })),
     },
   ].filter((c) => c.quotes.length > 0);
 
@@ -286,7 +222,7 @@ function heuristicFromBodies(
     frags,
     clusters,
     counts,
-    basis: `Read from ${total.toLocaleString()} comments: ${counts.yt.toLocaleString()} on YouTube and ${counts.own} from Sourced owners. Reddit not connected yet.`,
+    basis: `Read from ${total.toLocaleString()} comments: ${counts.yt.toLocaleString()} on YouTube, ${counts.rd.toLocaleString()} on Reddit, and ${counts.own} from Sourced owners.`,
     source: 'heuristic',
     analyzedAt: new Date().toISOString(),
   };
@@ -306,6 +242,7 @@ function parseLlmJson(raw: string): Partial<ProductCaseAnalysis> | null {
 async function callProductCaseApi(payload: {
   product: { id: string; name: string; brand: string; ingredients: string[] };
   ytComments: string[];
+  redditComments: string[];
   ownerComments: string[];
 }): Promise<ProductCaseAnalysis | null> {
   try {
@@ -323,17 +260,9 @@ async function callProductCaseApi(payload: {
   }
 }
 
-/** Fit score only — never mixed into Product Score. */
-export function computeFitScore(
-  product: Product,
-  profile: Profile | null,
-): { score: number; label: string; why: string } {
+export function computeFitScore(product: Product, profile: { skinType?: string | null } | null): { score: number; label: string; why: string } {
   if (!profile || profile.skinType === 'unknown') {
-    return {
-      score: 0,
-      label: 'Pick your skin type',
-      why: 'We compare this product to people like you once you set a skin type.',
-    };
+    return { score: 0, label: 'Pick your skin type', why: 'We compare this product to people like you once you set a skin type.' };
   }
   const listed = product.suitsSkinTypes.filter((t) => t !== 'unknown');
   let score = 70;
@@ -341,12 +270,7 @@ export function computeFitScore(
   else if (listed.includes(profile.skinType)) score = 88;
   else score = 38;
 
-  const label =
-    score >= 80
-      ? `Stronger reports for ${profile.skinType} skin`
-      : score >= 55
-        ? `Mixed for ${profile.skinType} skin`
-        : `Weaker signal for ${profile.skinType} skin`;
+  const label = score >= 80 ? `Stronger reports for ${profile.skinType} skin` : score >= 55 ? `Mixed for ${profile.skinType} skin` : `Weaker signal for ${profile.skinType} skin`;
 
   return {
     score,
@@ -357,23 +281,16 @@ export function computeFitScore(
   };
 }
 
-export async function loadProductCase(
-  product: Product,
-  userPosts: CommunityPost[] = [],
-): Promise<ProductCaseAnalysis> {
+export async function loadProductCase(product: Product, userPosts: CommunityPost[] = []): Promise<ProductCaseAnalysis> {
   const cached = memory.get(product.id);
   if (cached && Date.now() - cached.at < TTL_MS) return cached.data;
 
-  const { ytBodies, ownerBodies, counts } = await gatherCaseEvidence(product, userPosts);
+  const { ytBodies, rdBodies, ownerBodies, counts } = await gatherCaseEvidence(product, userPosts);
 
   const llm = await callProductCaseApi({
-    product: {
-      id: product.id,
-      name: product.name,
-      brand: product.brand,
-      ingredients: product.ingredients,
-    },
+    product: { id: product.id, name: product.name, brand: product.brand, ingredients: product.ingredients },
     ytComments: ytBodies.slice(0, 80),
+    redditComments: rdBodies.slice(0, 80),
     ownerComments: ownerBodies.slice(0, 40),
   });
 
@@ -381,22 +298,19 @@ export async function loadProductCase(
   if (llm) {
     data = {
       ...llm,
-      counts: { ...counts, ...llm.counts, rd: llm.counts?.rd ?? 0 },
+      counts: { ...counts, ...llm.counts, rd: llm.counts?.rd ?? counts.rd },
       source: 'llm',
       analyzedAt: llm.analyzedAt || new Date().toISOString(),
     };
   } else {
-    data = heuristicFromBodies(product, ytBodies, ownerBodies, counts);
+    data = heuristicFromBodies(product, ytBodies, rdBodies, ownerBodies, counts);
   }
 
   memory.set(product.id, { at: Date.now(), data });
   return data;
 }
 
-export function renderMarkedText(
-  text: string,
-  marks: string[],
-): Array<{ text: string; marked: boolean }> {
+export function renderMarkedText(text: string, marks: string[]): Array<{ text: string; marked: boolean }> {
   if (!marks.length) return [{ text, marked: false }];
   const lower = text.toLowerCase();
   let best: { i: number; len: number } | null = null;
