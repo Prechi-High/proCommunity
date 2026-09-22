@@ -1,17 +1,12 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { supabaseAnonKey, supabaseUrl } from './supabase';
 
 export async function extractProductFromPhoto(asset: { uri: string; fileName?: string | null; mimeType?: string | null; width?: number; height?: number }) {
-  const d = asset?.fileName ?? asset?.uri?.split('/').pop() ?? '';
-  const fallback = d
-    .replace(/\.[^/.]+$/, '')
-    .replace(/[-_]+/g, ' ')
-    .trim();
-
   const endpoint =
-    process.env.EXPO_PUBLIC_PRODUCT_VISION_URL ||
-    process.env.EXPO_PUBLIC_LLM_URL ||
-    process.env.EXPO_PUBLIC_AI_VISION_URL ||
-    '/api/product-vision';
+    process.env.EXPO_PUBLIC_PRODUCT_VISION_URL?.trim() ||
+    process.env.EXPO_PUBLIC_LLM_URL?.trim() ||
+    process.env.EXPO_PUBLIC_AI_VISION_URL?.trim() ||
+    `${supabaseUrl}/functions/v1/product-vision`;
 
   try {
     const imageBase64 = await FileSystem.readAsStringAsync(asset.uri, {
@@ -19,7 +14,11 @@ export async function extractProductFromPhoto(asset: { uri: string; fileName?: s
     });
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${supabaseAnonKey}`,
+      },
       body: JSON.stringify({
         imageBase64,
         mimeType: asset.mimeType ?? 'image/jpeg',
@@ -29,16 +28,22 @@ export async function extractProductFromPhoto(asset: { uri: string; fileName?: s
       }),
     });
 
-    if (!response.ok) return fallback || 'skincare product';
+    if (!response.ok) {
+      throw new Error(`Vision request failed (${response.status})`);
+    }
 
-    const payload = (await response.json()) as { query?: string };
-    const cleaned = (payload.query ?? '').replace(/\s+/g, ' ').trim();
+    const payload = (await response.json()) as {
+      query?: string;
+      searchQuery?: string;
+      productName?: string | null;
+      brand?: string | null;
+    };
+    const cleaned = (payload.query ?? payload.searchQuery ?? [payload.brand, payload.productName].filter(Boolean).join(' ')).replace(/\s+/g, ' ').trim();
     if (cleaned && cleaned.toLowerCase() !== 'null' && cleaned.length > 2) {
       return cleaned;
     }
-  } catch {
-    // Fall back to a filename-derived product name when the LLM endpoint is unavailable.
+  } catch (error) {
+    console.log('[v0] Product vision request failed:', error instanceof Error ? error.message : error);
+    throw error;
   }
-
-  return fallback || 'skincare product';
 }

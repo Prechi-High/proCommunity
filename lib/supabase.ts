@@ -23,6 +23,8 @@ const anon =
   extra?.supabaseAnonKey?.trim() ||
   PUBLIC_SUPABASE_ANON_KEY;
 
+export const supabaseUrl = url;
+export const supabaseAnonKey = anon;
 export const supabaseConfigured = Boolean(url && anon);
 
 // Expo Router renders web routes in Node first, where AsyncStorage's web
