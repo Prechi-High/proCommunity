@@ -17,6 +17,9 @@ const url =
   PUBLIC_SUPABASE_URL;
 const anon =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
+  process.env.SUPABASE_ANON_KEY?.trim() ||
+  process.env.SUPABASE_PUBLISHABLE_KEY?.trim() ||
+  process.env.JWT?.trim() ||
   extra?.supabaseAnonKey?.trim() ||
   PUBLIC_SUPABASE_ANON_KEY;
 
