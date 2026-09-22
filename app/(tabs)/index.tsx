@@ -21,6 +21,7 @@ export default function HomeScreen() {
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const trimmed = query.trim();
+
   const { data: suggestions = [] } = useQuery({
     queryKey: ['home-suggest', trimmed],
     queryFn: () => searchCatalog(trimmed),
@@ -35,8 +36,11 @@ export default function HomeScreen() {
       return;
     }
     hapticSelect();
-    if (suggestions.length === 1) router.push(`/probe/${suggestions[0].id}`);
-    else router.push({ pathname: '/results', params: { q: trimmed } } as Href);
+    if (suggestions.length === 1) {
+      router.push(`/probe/${suggestions[0].id}`);
+    } else {
+      router.push({ pathname: '/results', params: { q: trimmed } } as Href);
+    }
   };
 
   const scan = async (camera: boolean) => {
@@ -45,19 +49,33 @@ export default function HomeScreen() {
       const permission = camera
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
       if (!permission.granted) {
         Alert.alert('Permission needed', 'Allow photo access so Sourced can identify the product.');
         return;
       }
+
       const result = camera
-        ? await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.8 })
-        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.8 });
-      if (result.canceled || !result.assets[0]) return;
-      const productQuery = await extractProductFromPhoto(result.assets[0]);
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 0.8,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 0.8,
+          });
+
+      const asset = result.canceled ? null : result.assets[0];
+      if (!asset) return;
+
+      const productQuery = await extractProductFromPhoto(asset);
       if (!productQuery) {
         Alert.alert('Could not identify it', 'Try a clearer photo or search by product name.');
         return;
       }
+
       hapticSuccess();
       router.push({ pathname: '/results', params: { q: productQuery } } as Href);
     } catch {
@@ -75,11 +93,13 @@ export default function HomeScreen() {
           {profile?.displayName ? profile.displayName.split(' ')[0] : 'Know before you buy'}
         </Text>
       </View>
+
       <View style={{ flex: 1, justifyContent: 'center', paddingBottom: 24 }}>
         <Text style={{ fontFamily: fonts.serif, fontSize: 58, lineHeight: 56, letterSpacing: -2, color: colors.bone }}>
-          Someone’s{\'\\n\'}already{\'\\n\'}tried it.
+          Someone’s{`\n`}already{`\n`}tried it.
         </Text>
         <Caption color={colors.bone2}>Real people. Real use. Clearer choices.</Caption>
+
         <View style={{ marginTop: 26, height: 70, borderRadius: radii.search, backgroundColor: colors.bone, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10 }}>
           <TextInput
             value={query}
@@ -94,6 +114,7 @@ export default function HomeScreen() {
             <MagnifyingGlass size={22} color={trimmed ? colors.wine : colors.bone} weight="bold" />
           </HapticPressable>
         </View>
+
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
           <Pressable onPress={() => scan(false)} disabled={busy} style={{ flex: 1, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: colors.line, alignItems: 'center', opacity: busy ? 0.6 : 1 }}>
             <Camera size={18} color={colors.bone} weight="bold" />
@@ -104,10 +125,14 @@ export default function HomeScreen() {
             <Text style={{ marginTop: 5, fontFamily: fonts.medium, fontSize: 13, color: colors.bone }}>Take photo</Text>
           </Pressable>
         </View>
+
         {trimmed.length >= 2 && suggestions.slice(0, 3).map((product) => (
           <HapticPressable key={product.id} onPress={() => router.push(`/probe/${product.id}`)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.line }}>
-            <View style={{ flex: 1 }}><Text style={{ fontFamily: fonts.semibold, color: colors.bone }}>{product.name}</Text><Caption>{product.brand}</Caption></View>
-            <Text style={{ fontFamily: fonts.serif, fontSize: 24, color: colors.bone }}>{product.id ? '›' : ''}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.semibold, color: colors.bone }}>{product.name}</Text>
+              <Caption>{product.brand}</Caption>
+            </View>
+            <Text style={{ fontFamily: fonts.serif, fontSize: 24, color: colors.bone }}>›</Text>
           </HapticPressable>
         ))}
       </View>
