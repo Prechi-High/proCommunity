@@ -1,5 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import { supabaseAnonKey, supabaseUrl } from './supabase';
+import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
 
 export async function extractProductFromPhoto(asset: { uri: string; fileName?: string | null; mimeType?: string | null; width?: number; height?: number }) {
   const endpoint =
@@ -12,12 +12,14 @@ export async function extractProductFromPhoto(asset: { uri: string; fileName?: s
     const imageBase64 = await FileSystem.readAsStringAsync(asset.uri, {
       encoding: FileSystem.EncodingType.Base64,
     });
+    const { data: { session } } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
+    const accessToken = session?.access_token ?? supabaseAnonKey;
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         apikey: supabaseAnonKey,
-        Authorization: `Bearer ${supabaseAnonKey}`,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
         imageBase64,
