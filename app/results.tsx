@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { MagnifyingGlass } from '@/components/icons';
 import { Screen } from '@/components/Screen';
 import { Chip, Notice } from '@/components/ui';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, radii } from '@/constants/theme';
 import { getAllProducts, getProductPosts } from '@/lib/catalog';
 import { computeConfidence } from '@/lib/confidence';
 import { hapticTap } from '@/lib/haptics';
