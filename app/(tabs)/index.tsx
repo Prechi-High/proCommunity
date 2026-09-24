@@ -44,6 +44,7 @@ export default function HomeScreen() {
   };
 
   const scan = async (camera: boolean) => {
+    if (busy) return;
     setBusy(true);
     try {
       const permission = camera
@@ -51,6 +52,7 @@ export default function HomeScreen() {
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) {
+        hapticHeavy();
         Alert.alert('Permission needed', 'Allow photo access so Sourced can identify the product.');
         return;
       }
@@ -67,21 +69,39 @@ export default function HomeScreen() {
             quality: 0.8,
           });
 
-      const asset = result.canceled ? null : result.assets[0];
-      if (!asset) return;
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        hapticSelect();
+        if (!result.canceled) {
+          Alert.alert('No photo selected', 'Try again with a clearer photo of the product label or bottle.');
+        }
+        return;
+      }
+
+      const asset = result.assets[0];
+      if (!asset || !asset.uri) {
+        hapticHeavy();
+        Alert.alert(
+          'Could not read photo',
+          'That file may be in a format we do not support. Retry, or pick a different picture.',
+        );
+        return;
+      }
 
       const vision = await extractProductFromPhoto(asset);
       if (!vision.ok || !vision.label) {
+        hapticHeavy();
         const title =
           vision.errorCode === 'no_vision_llm'
             ? 'Vision not configured'
-            : vision.errorCode === 'network_error'
+            : vision.errorCode === 'network_error' || vision.errorCode === 'endpoint_missing'
               ? 'Scan unavailable offline'
-              : vision.errorCode === 'image_read_failed'
+              : vision.errorCode === 'image_read_failed' || vision.errorCode === 'no_asset_uri' || vision.errorCode === 'no_asset'
                 ? 'Could not read that photo'
-                : vision.errorCode === 'vision_empty_output' || vision.errorCode === 'empty_response'
-                  ? 'Not enough detail in the photo'
-                  : 'Could not identify it';
+                : vision.errorCode === 'vision_timeout'
+                  ? 'Vision timed out'
+                  : vision.errorCode === 'vision_empty_output' || vision.errorCode === 'empty_response'
+                    ? 'Not enough detail in the photo'
+                    : 'Could not identify it';
         const attemptsSummary =
           vision.attempts && Array.isArray(vision.attempts) && vision.attempts.length > 0
             ? vision.attempts
@@ -110,6 +130,7 @@ export default function HomeScreen() {
       hapticSuccess();
       router.push({ pathname: '/results', params: { q: vision.label } } as Href);
     } catch (err) {
+      hapticHeavy();
       const detail = err instanceof Error ? err.message : String(err ?? '');
       Alert.alert(
         'Scan failed',
@@ -159,7 +180,7 @@ export default function HomeScreen() {
           </Pressable>
           <Pressable onPress={() => scan(true)} disabled={busy} style={{ flex: 1, padding: 14, borderRadius: 16, backgroundColor: colors.rosewoodSoft, alignItems: 'center', opacity: busy ? 0.6 : 1 }}>
             <Camera size={18} color={colors.hi} weight="fill" />
-            <Text style={{ marginTop: 5, fontFamily: fonts.medium, fontSize: 13, color: colors.bone }}>Take photo</Text>
+            <Text style={{ marginTop: 5, fontFamily: fonts.medium, fontSize: 13, color: colors.bone }}>{busy ? 'Scanning…' : 'Take photo'}</Text>
           </Pressable>
         </View>
 

@@ -42,9 +42,11 @@ function isLikelyVisionModel(model: string): boolean {
   const m = model.toLowerCase();
   if (TEXT_ONLY_MODELS.has(m) || TEXT_ONLY_MODELS.has(model)) return false;
   if (m.includes("vision") || m.includes("neva") || m.includes("llava") || m.includes("glyph")) return true;
-  if (m.includes("gemini") || m.includes("gpt-4o") || m.includes("gpt-4.1") || m.includes("claude-3.5")) return true;
+  if (m.includes("gemini") || m.includes("gpt-4o") || m.includes("gpt-4.1") || m.includes("gpt-5")) return true;
+  if (m.startsWith("claude-4.") || m.startsWith("claude-5") || m.includes("claude-4.5") || m.includes("claude-3.5")) return true;
   if (m.includes("phi-3.5") || m.includes("phi-3-vision") || m.includes("minicpm")) return true;
   if (m.includes("qwen") && m.includes("vl")) return true;
+  if (m.includes("deepseek") && (m.includes("v4.1") || m.includes("vision"))) return true;
   return true;
 }
 
@@ -268,7 +270,7 @@ async function runVisionPipeline(b64: string, mime: string, prompt: string, debu
 
   if (openRouterKey) {
     const pref = Deno.env.get("OPENROUTER_MODEL")?.trim();
-    const rawModels = [pref, "google/gemini-flash-1.5", "openai/gpt-4o-mini", "anthropic/claude-3.5-haiku"].filter(Boolean) as string[];
+    const rawModels = [pref, "google/gemini-2.5-flash", "deepseek/deepseek-v4.1-flash", "anthropic/claude-4.5-haiku-20251001"].filter(Boolean) as string[];
     const orModels = Array.from(new Set(rawModels.filter((m) => isLikelyVisionModel(m)))).slice(0, 4);
     for (const model of orModels) {
       const a = await tryOpenRouter(b64, mime, prompt, model, openRouterKey, `or_${model.replace(/[^a-z0-9_-]/gi, "_")}`);
@@ -283,7 +285,7 @@ async function runVisionPipeline(b64: string, mime: string, prompt: string, debu
   if (!labelOut && geminiKey) {
     const variants: Array<{ api: "v1" | "v1beta"; model: string; style: "camel" | "snake" }> = [];
     const gPref = Deno.env.get("GEMINI_MODEL")?.trim();
-    const rawG = [gPref, "gemini-1.5-flash", "gemini-1.5-flash-002", "gemini-2.0-flash-exp"].filter(Boolean) as string[];
+    const rawG = [gPref, "gemini-2.5-flash", "gemini-3.5-flash", "gemini-3-flash-preview"].filter(Boolean) as string[];
     const gModels = Array.from(new Set(rawG.filter((m) => isLikelyVisionModel(m)))).slice(0, 3);
     for (const m of gModels) {
       variants.push({ api: "v1", model: m, style: "camel" });
@@ -383,4 +385,25 @@ Deno.serve(async (req) => {
   }
 
   const { label, attempts, keyLengths } = res as Awaited<ReturnType<typeof runVisionPipeline>>;
+
+  const cleaned = cleanLabel(label);
+  const failed = !cleaned;
+  if (debug) {
+    return json({
+      label: cleaned || null,
+      ok: !failed,
+      attempts,
+      keyLengths,
+      error: failed ? "vision_empty_output" : undefined,
+      hint: failed ? "Providers returned no usable label. Try a clearer photo." : undefined,
+    }, failed ? 503 : 200);
+  }
+  if (failed) {
+    return json({
+      error: "vision_empty_output",
+      hint: "Could not identify a clear product in this photo. Try a closer, well-lit shot.",
+      attempts: attempts.slice(0, 8),
+    }, 503);
+  }
+  return text(cleaned, 200);
 });
