@@ -1,13 +1,13 @@
+import { useQuery } from '@tanstack/react-query';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, Text, TextInput, View } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { useQuery } from '@tanstack/react-query';
-import { useRouter, type Href } from 'expo-router';
 
 import { HapticPressable } from '@/components/HapticPressable';
+import { Camera, MagnifyingGlass } from '@/components/icons';
 import { Screen } from '@/components/Screen';
 import { Caption, Wordmark } from '@/components/ui';
-import { Camera, MagnifyingGlass } from '@/components/icons';
 import { colors, fonts, radii } from '@/constants/theme';
 import { hapticHeavy, hapticSelect, hapticSuccess } from '@/lib/haptics';
 import { searchCatalog } from '@/lib/products';
@@ -70,16 +70,53 @@ export default function HomeScreen() {
       const asset = result.canceled ? null : result.assets[0];
       if (!asset) return;
 
-      const productQuery = await extractProductFromPhoto(asset);
-      if (!productQuery) {
-        Alert.alert('Could not identify it', 'Try a clearer photo or search by product name.');
+      const vision = await extractProductFromPhoto(asset);
+      if (!vision.ok || !vision.label) {
+        const title =
+          vision.errorCode === 'no_vision_llm'
+            ? 'Vision not configured'
+            : vision.errorCode === 'network_error'
+              ? 'Scan unavailable offline'
+              : vision.errorCode === 'image_read_failed'
+                ? 'Could not read that photo'
+                : vision.errorCode === 'vision_empty_output' || vision.errorCode === 'empty_response'
+                  ? 'Not enough detail in the photo'
+                  : 'Could not identify it';
+        const attemptsSummary =
+          vision.attempts && Array.isArray(vision.attempts) && vision.attempts.length > 0
+            ? vision.attempts
+                .slice(0, 5)
+                .map((a: any) => {
+                  if (!a) return '';
+                  const parts: string[] = [];
+                  if (a.provider) parts.push(String(a.provider));
+                  if (a.label) parts.push(String(a.label).replace(/^or_|^g_|^nv_/, ''));
+                  if (a.http || a.err) parts.push(a.err ? String(a.err) : `HTTP ${a.http}`);
+                  return parts.join(' · ');
+                })
+                .filter(Boolean)
+                .join('\n')
+            : '';
+        const baseMessage = vision.hint
+          ? vision.hint
+          : vision.errorMessage && vision.errorMessage !== vision.errorCode
+            ? `${vision.errorMessage}${vision.source ? ` (${vision.source})` : ''}`
+            : 'Try a clearer photo, or search by typing the product name below.';
+        const message = attemptsSummary ? `${baseMessage}\n\nProviders tried:\n${attemptsSummary}` : baseMessage;
+        Alert.alert(title, message);
         return;
       }
 
       hapticSuccess();
-      router.push({ pathname: '/results', params: { q: productQuery } } as Href);
-    } catch {
-      Alert.alert('Scan failed', 'Try another photo or search by name.');
+      router.push({ pathname: '/results', params: { q: vision.label } } as Href);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err ?? '');
+      Alert.alert(
+        'Scan failed',
+        detail && detail !== 'undefined' && detail !== ''
+          ? `${detail}\n\nTry another photo or search by name.`
+          : 'Try another photo or search by typing the product name.',
+      );
     } finally {
       setBusy(false);
     }

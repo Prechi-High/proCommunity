@@ -1,12 +1,12 @@
 import { invokeCachedRead } from './cachedRead';
-import { products as seedProducts } from './seed';
 import {
-  fetchOpenBeautyProduct,
-  getCachedProduct,
-  rememberProduct,
-  searchOpenBeautyFacts,
+    fetchOpenBeautyProduct,
+    getCachedProduct,
+    rememberProduct,
+    searchOpenBeautyFacts,
 } from './openBeautyFacts';
-import { catalogIdForQuery } from './productNormalize';
+import { catalogIdForQuery, normalizeProductName } from './productNormalize';
+import { products as seedProducts } from './seed';
 import { supabase } from './supabase';
 import type { Product } from './types';
 
@@ -84,29 +84,65 @@ function persistProductsInBackground(products: Product[], searchQuery?: string):
   }).catch(() => undefined);
 }
 
-function seedFallback(term: string, aliasProduct?: Product): Product[] {
-  const words = term.toLowerCase().split(/\s+/).filter(Boolean);
-  if (!words.length) return aliasProduct ? [aliasProduct, ...seedProducts] : seedProducts;
-
-  const ranked = seedProducts
+function rankByTokens(list: Product[], tokens: string[]): Product[] {
+  if (!tokens.length) return list;
+  const lowered = tokens.map((t) => t.toLowerCase());
+  const fullQuery = lowered.join(' ');
+  return [...list]
     .map((product) => {
-      const hay = [
-        product.name,
-        product.brand,
-        product.category,
-        ...product.suitsSkinTypes,
-        ...product.ingredients,
-        ...product.attributeTags,
-      ]
-        .join(' ')
-        .toLowerCase();
-      const score = words.reduce((total, word) => (hay.includes(word) ? total + 1 : total), 0);
+      const combined = normalizeProductName([product.brand, product.name].filter(Boolean).join(' '));
+      const hay = normalizeProductName(
+        [product.name, product.brand, product.category, ...product.attributeTags].join(' '),
+      );
+      let score = 0;
+      for (const token of lowered) {
+        if (hay.includes(token)) score += 1;
+      }
+      if (product.brand) {
+        const brandNorm = normalizeProductName(product.brand);
+        for (const token of lowered) {
+          if (brandNorm === token || brandNorm.startsWith(`${token} `)) score += 2;
+        }
+      }
+      if (combined && fullQuery) {
+        if (combined === fullQuery) score += 10;
+        else if (combined.startsWith(fullQuery)) score += 6;
+        else if (combined.includes(fullQuery)) score += 4;
+      }
+      if (product.name) {
+        const nameNorm = normalizeProductName(product.name);
+        for (let i = 0; i < lowered.length - 1; i++) {
+          const bigram = `${lowered[i]} ${lowered[i + 1]}`;
+          if (combined.includes(bigram) || nameNorm.includes(bigram)) score += 1;
+        }
+      }
       return { product, score };
     })
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score)
     .map((entry) => entry.product);
-  return withAlias(ranked, aliasProduct);
+}
+
+function seedFallback(term: string, aliasProduct?: Product): Product[] {
+  const tokens = searchTokens(term);
+  if (!tokens.length) return aliasProduct ? [aliasProduct, ...seedProducts] : seedProducts;
+
+  const ranked = rankByTokens(seedProducts, tokens);
+  if (ranked.length) return withAlias(ranked, aliasProduct);
+
+  return aliasProduct ? [aliasProduct, ...seedProducts] : seedProducts;
+}
+
+function searchTokens(term: string): string[] {
+  const normalized = normalizeProductName(term);
+  return normalized
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((w) => w.length > 1);
+}
+
+function escapeLike(token: string): string {
+  return token.replace(/([%_\\])/g, '\\$1');
 }
 
 /**
@@ -143,16 +179,31 @@ export async function searchCatalog(query: string, chip?: string): Promise<Produ
 
   if (supabase) {
     try {
-      let request = supabase.from('products').select('*').limit(40);
-      if (searchTerm) {
-        request = request.or(`name.ilike.%${searchTerm}%,brand.ilike.%${searchTerm}%`);
+      let request = supabase.from('products').select('*').limit(120);
+      const tokens = searchTokens(searchTerm);
+      if (tokens.length > 0) {
+        const safeTokens = tokens.slice(0, 16);
+        const orParts = safeTokens.flatMap((token) => [
+          `name.ilike.%${escapeLike(token)}%`,
+          `brand.ilike.%${escapeLike(token)}%`,
+        ]);
+        if (safeTokens.length === 1) {
+          orParts.push(`name.ilike.%${escapeLike(searchTerm)}%`);
+          orParts.push(`brand.ilike.%${escapeLike(searchTerm)}%`);
+        }
+        request = request.or(orParts.join(','));
+      } else if (searchTerm) {
+        const safeTerm = escapeLike(searchTerm);
+        request = request.or(`name.ilike.%${safeTerm}%,brand.ilike.%${safeTerm}%`);
       }
       const { data, error } = await request;
       if (!error && data?.length) {
-        return withAlias(
-          data.map((row) => fromRow(row as Record<string, unknown>)),
-          aliasProduct,
-        );
+        const ranked = rankByTokens(data.map((row) => fromRow(row as Record<string, unknown>)), tokens);
+        if (ranked.length) return withAlias(ranked, aliasProduct);
+        const loose = searchTokens(searchTerm).length <= 1
+          ? data.map((row) => fromRow(row as Record<string, unknown>)).slice(0, 20)
+          : [];
+        return withAlias(loose, aliasProduct);
       }
     } catch {
       // table may not exist yet

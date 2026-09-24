@@ -7,7 +7,7 @@ const extra = Constants.expoConfig?.extra as { supabaseUrl?: string; supabaseAno
 // Public anon credentials. Required because Expo web inlines env at export time;
 // an empty Vercel EXPO_PUBLIC_* var leaves extra.supabaseUrl as "" and the
 // product page never calls discover-video-content or reads video_cache.
-const PUBLIC_SUPABASE_URL = 'https://aqdptcuwpneuyzjavjak.supabase.co';
+export const PUBLIC_SUPABASE_URL = 'https://aqdptcuwpneuyzjavjak.supabase.co';
 const PUBLIC_SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxZHB0Y3V3cG5ldXl6amF2amFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NjQzNjYsImV4cCI6MjEwNTA0MDM2Nn0.jbIzvkqQ7qnYhH45uvIwDI97-tjdHsPY4S-0yv9XBXg';
 
@@ -21,6 +21,8 @@ const anon =
   PUBLIC_SUPABASE_ANON_KEY;
 
 export const supabaseConfigured = Boolean(url && anon);
+export const supabaseUrl = url;
+export const supabaseAnonKey = anon;
 
 // Expo Router renders web routes in Node first, where AsyncStorage's web
 // implementation reaches for window.localStorage and throws.
