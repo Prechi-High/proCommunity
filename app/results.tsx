@@ -1,17 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { MagnifyingGlass } from '@/components/icons';
 import { Screen } from '@/components/Screen';
-import { ScoreBadge } from '@/components/ScoreBadge';
 import { Chip, Notice } from '@/components/ui';
-import { MagnifyingGlass, categoryIcon } from '@/components/icons';
 import { colors, fonts } from '@/constants/theme';
 import { getAllProducts, getProductPosts } from '@/lib/catalog';
 import { computeConfidence } from '@/lib/confidence';
 import { hapticTap } from '@/lib/haptics';
-import { scoreBand } from '@/lib/scoreBand';
 import { searchCatalog } from '@/lib/products';
 import { useAppStore } from '@/lib/store';
 import type { Product } from '@/lib/types';
@@ -102,24 +100,21 @@ function ResultRow({ product, onPress }: { product: Product; onPress: () => void
   const mix = Math.max(8, Math.min(30, 100 - pos - 18));
   const neg = Math.max(5, 100 - pos - mix);
   const thin = score == null;
-  const Icon = categoryIcon(product.category);
-  const band = scoreBand(score);
 
   return (
     <Pressable onPress={onPress} style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.line, gap: 3 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-        <View
+        <Image
+          source={{ uri: product.heroImageUrl ?? undefined }}
           style={{
             width: 48,
             height: 60,
-            borderRadius: 12,
+            borderRadius: radii.card,
             backgroundColor: colors.lac,
-            alignItems: 'center',
-            justifyContent: 'center',
+            resizeMode: 'contain',
           }}
-        >
-          <Icon size={22} color={colors.bone2} weight="regular" />
-        </View>
+          resizeMode="contain"
+        />
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone, lineHeight: 20 }}>
             {product.name}
