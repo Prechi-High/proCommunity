@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
 
 const DEFAULT_WEB_ENDPOINT = '/api/product-vision';
+const PUBLIC_SUPABASE_URL_FALLBACK = 'https://aqdptcuwpneuyzjavjak.supabase.co';
 
 function filenameFallback(asset: { uri: string; fileName?: string | null }): string {
   const d = asset?.fileName ?? asset?.uri?.split('/').pop() ?? '';
@@ -14,7 +15,14 @@ function filenameFallback(asset: { uri: string; fileName?: string | null }): str
   return fallback || 'skincare product';
 }
 
-function inferMime(asset: { uri: string; fileName?: string | null }): string {
+function inferMime(asset: {
+  uri: string;
+  fileName?: string | null;
+  type?: string | null;
+  mimeType?: string | null;
+}): string {
+  const raw = (asset.mimeType ?? asset.type ?? '').toLowerCase().trim();
+  if (raw.startsWith('image/')) return raw;
   const name = asset.fileName ?? asset.uri.split('/').pop() ?? '';
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
   switch (ext) {
@@ -29,9 +37,131 @@ function inferMime(asset: { uri: string; fileName?: string | null }): string {
       return 'image/jpeg';
     case 'jpg':
     case 'jpeg':
+    case 'jfif':
+    case 'pjpeg':
+    case 'pjp':
+      return 'image/jpeg';
     default:
       return 'image/jpeg';
   }
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  if (typeof globalThis !== 'undefined' && typeof (globalThis as any).Buffer !== 'undefined') {
+    return (globalThis as any).Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString('base64');
+  }
+  const CHUNK = 0x8000;
+  const n = bytes.length;
+  let out = '';
+  for (let i = 0; i < n; i += CHUNK) {
+    const end = Math.min(i + CHUNK, n);
+    const slice = bytes.subarray(i, end);
+    out += String.fromCharCode(...(slice as unknown as number[]));
+  }
+  return typeof btoa === 'function' ? btoa(out) : out;
+}
+
+function dataUriToBase64Payload(dataUri: string): { base64: string; mime: string } | null {
+  if (!dataUri || typeof dataUri !== 'string' || !dataUri.startsWith('data:')) return null;
+  const comma = dataUri.indexOf(',');
+  if (comma < 0) return null;
+  const header = dataUri.slice(0, comma);
+  const payload = dataUri.slice(comma + 1);
+  const mime = (header.match(/data:([^;,]+)/i)?.[1] || '').toLowerCase() || 'image/jpeg';
+  if (header.includes(';base64')) return { base64: payload, mime };
+  try {
+    const decoded = typeof atob === 'function' ? atob(decodeURIComponent(payload)) : decodeURIComponent(payload);
+    const bytes = new Uint8Array(decoded.length);
+    for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
+    return { base64: bytesToBase64(bytes), mime };
+  } catch {
+    return null;
+  }
+}
+
+async function assetToBase64(asset: {
+  uri: string;
+  fileName?: string | null;
+  base64?: string | null;
+}): Promise<{ base64: string; mime: string; from: string } | { error: VisionErrorCode; message?: string }> {
+  const mime = inferMime(asset);
+
+  if (asset.base64 && typeof asset.base64 === 'string' && asset.base64.length > 10) {
+    return { base64: asset.base64, mime, from: 'picker-base64' };
+  }
+
+  if (asset.uri && asset.uri.startsWith('data:')) {
+    const parsed = dataUriToBase64Payload(asset.uri);
+    if (parsed) return { base64: parsed.base64, mime: parsed.mime || mime, from: 'data-uri' };
+  }
+
+  const uri = asset.uri;
+  if (!uri || typeof uri !== 'string') return { error: 'no_asset_uri' };
+
+  try {
+    const mod = (FileSystem as unknown as { readAsStringAsync?: any; EncodingType?: any });
+    if (typeof mod?.readAsStringAsync === 'function' && mod?.EncodingType?.Base64 != null) {
+      try {
+        const s = await mod.readAsStringAsync(uri, { encoding: mod.EncodingType.Base64 });
+        if (s && typeof s === 'string' && s.length > 10) {
+          return { base64: s, mime, from: 'fs-readAsString' };
+        }
+      } catch {
+        /* fallthrough to next strategy */
+      }
+    }
+  } catch {
+    /* fallthrough to next strategy */
+  }
+
+  try {
+    const webGlobal = globalThis as any;
+    const canFetch = typeof fetch === 'function' && typeof (globalThis as any).FileReader === 'function';
+    const uriIsBlobUrl = /^blob:https?:/i.test(uri) || uri.startsWith('blob:');
+    if (canFetch && (uriIsBlobUrl || /^https?:/i.test(uri) || uri.startsWith('file://') || /^[a-z][a-z0-9+.-]*:/.test(uri))) {
+      try {
+        const res = await fetch(uri);
+        if (res.ok) {
+          const blob = await res.blob();
+          if (blob && blob.size > 0) {
+            const { base64, mime: detectedMime }: { base64: string; mime: string } = await new Promise((resolve, reject) => {
+              const reader = new (webGlobal.FileReader)();
+              reader.onerror = () => reject(new Error('FileReader failed'));
+              reader.onload = () => {
+                const r = reader.result as string;
+                const parsed = dataUriToBase64Payload(r);
+                if (parsed) resolve(parsed);
+                else reject(new Error('FileReader produced invalid data uri'));
+              };
+              reader.readAsDataURL(blob);
+            });
+            return { base64, mime: /^image\//i.test(detectedMime || '') ? detectedMime : mime, from: 'fetch-FileReader' };
+          }
+        }
+      } catch {
+        /* fallthrough */
+      }
+    }
+  } catch {
+    /* fallthrough */
+  }
+
+  try {
+    if (typeof fetch === 'function') {
+      const res = await fetch(uri);
+      if (res.ok) {
+        const buf = await res.arrayBuffer();
+        if (buf && buf.byteLength > 0) {
+          const bytes = new Uint8Array(buf);
+          return { base64: bytesToBase64(bytes), mime, from: 'fetch-arrayBuffer-bytesToBase64' };
+        }
+      }
+    }
+  } catch (err) {
+    return { error: 'image_read_failed', message: err instanceof Error ? err.message : String(err ?? '') };
+  }
+
+  return { error: 'image_read_failed', message: 'No available read strategy could decode this image. Try a different file.' };
 }
 
 export type VisionErrorCode =
@@ -82,26 +212,22 @@ function resolveEndpoint(): { endpoint: string; mode: 'edge-direct' | 'vercel-pr
   }
 
   const isWeb = WEB_PLATFORMS.has(String(Platform.OS ?? ''));
-  const baseUrl = supabaseUrl.trim().replace(/\/$/, '');
-  const hasBase = Boolean(baseUrl && supabaseAnonKey);
+  const baseUrl = (
+    supabaseUrl?.trim() ||
+    (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').trim() ||
+    PUBLIC_SUPABASE_URL_FALLBACK
+  ).replace(/\/$/, '');
+  const hasBase = Boolean(baseUrl) && Boolean(supabaseAnonKey?.trim() || (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '').trim());
 
-  if (!isWeb) {
+  if (!isWeb || hasBase) {
     return {
-      endpoint: hasBase
-        ? `${baseUrl}/functions/v1/product-vision`
-        : `${(process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').trim().replace(/\/$/, '') || PUBLIC_SUPABASE_URL_FALLBACK}/functions/v1/product-vision`,
+      endpoint: `${baseUrl}/functions/v1/product-vision`,
       mode: 'edge-direct',
     };
   }
 
-  if (hasBase) {
-    return { endpoint: `${baseUrl}/functions/v1/product-vision`, mode: 'edge-direct' };
-  }
-
   return { endpoint: DEFAULT_WEB_ENDPOINT, mode: 'vercel-proxy' };
 }
-
-const PUBLIC_SUPABASE_URL_FALLBACK = 'https://aqdptcuwpneuyzjavjak.supabase.co';
 
 function authHeaders(mode: 'edge-direct' | 'vercel-proxy'): Record<string, string> {
   if (mode !== 'edge-direct') return {};
@@ -163,28 +289,19 @@ export async function extractProductFromPhoto(asset: {
   const { endpoint, mode } = resolveEndpoint();
   if (!endpoint) return { label: fallbackLabel, ok: false, errorCode: 'endpoint_missing', source: 'fallback' };
 
-  let b64: string | null = null;
-  const mime = inferMime(asset);
+  const base64Result = await assetToBase64(asset);
 
-  try {
-    if (typeof FileSystem?.readAsStringAsync === 'function') {
-      b64 = await FileSystem.readAsStringAsync(asset.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-    }
-  } catch (err) {
+  if ('error' in base64Result) {
     return {
       label: fallbackLabel,
       ok: false,
-      errorCode: 'image_read_failed',
-      errorMessage: err instanceof Error ? err.message : String(err ?? ''),
+      errorCode: base64Result.error,
+      errorMessage: base64Result.message,
       source: 'fallback',
     };
   }
 
-  if (!b64) {
-    return { label: fallbackLabel, ok: false, errorCode: 'image_read_failed', source: 'fallback' };
-  }
+  const { base64: b64, mime } = base64Result;
 
   try {
     const response = await fetch(endpoint, {

@@ -261,12 +261,24 @@ async function tryNvidiaVariant(
   }
 }
 
-async function runVisionPipeline(b64: string, mime: string, prompt: string, debug: boolean) {
+type VisionResult = {
+  label: string;
+  attempts: Attempt[];
+  keyLengths: { or: number; g: number; nv: number };
+  noVisionKey?: boolean;
+};
+
+async function runVisionPipeline(b64: string, mime: string, prompt: string, debug: boolean): Promise<VisionResult> {
   const attempts: Attempt[] = [];
   let labelOut = "";
   const openRouterKey = secretValue("OPENROUTER_API_KEY");
   const geminiKey = secretValue("GEMINI_API_KEY") || secretValue("GOOGLE_API_KEY");
   const nvidiaKey = secretValue("NVIDIA_API_KEY") || secretValue("NGC_API_KEY");
+
+  // Check if no vision keys are configured
+  if (!openRouterKey && !geminiKey && !nvidiaKey) {
+    return { label: "", attempts, keyLengths: { or: 0, g: 0, nv: 0 }, noVisionKey: true };
+  }
 
   if (openRouterKey) {
     const pref = Deno.env.get("OPENROUTER_MODEL")?.trim();
@@ -384,10 +396,21 @@ Deno.serve(async (req) => {
     return json({ error: "vision_timeout", hint: "Vision providers took too long. Try the photo again." }, 503);
   }
 
-  const { label, attempts, keyLengths } = res as Awaited<ReturnType<typeof runVisionPipeline>>;
+  const { label, attempts, keyLengths, noVisionKey } = res as Awaited<ReturnType<typeof runVisionPipeline>>;
 
   const cleaned = cleanLabel(label);
   const failed = !cleaned;
+  
+  // Return no_vision_llm if no keys are configured
+  if (noVisionKey) {
+    return json({
+      error: "no_vision_llm",
+      hint: "No vision LLM keys configured. Set GEMINI_API_KEY, OPENROUTER_API_KEY, or NVIDIA_API_KEY in Supabase Edge secrets.",
+      attempts: [],
+      keyLengths: { or: 0, g: 0, nv: 0 },
+    }, 503);
+  }
+  
   if (debug) {
     return json({
       label: cleaned || null,
