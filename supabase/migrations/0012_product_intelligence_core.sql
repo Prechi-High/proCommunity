@@ -1,7 +1,17 @@
 -- Product Intelligence Organisation - Core Database Schema
 -- Implements the Product Knowledge Base as described in the Implementation Blueprint
 
--- 1. categories - Controlled category hierarchy with template assignments
+-- 1. refresh_policies - Controls how often different facts should be rechecked
+create table if not exists public.refresh_policies (
+  id text primary key,
+  name text not null,
+  description text,
+  ttl_seconds integer not null,
+  is_default boolean not null default false,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 2. categories - Controlled category hierarchy with template assignments (no FK to templates initially)
 create table if not exists public.categories (
   id text primary key,
   parent_id text references public.categories(id),
@@ -9,12 +19,12 @@ create table if not exists public.categories (
   slug text not null unique,
   description text,
   status text not null default 'active' check (status in ('active', 'draft', 'deprecated')),
-  intelligence_template_id text references public.intelligence_templates(id),
+  intelligence_template_id text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 2. intelligence_templates - Universal and category-specific templates
+-- 3. intelligence_templates - Universal and category-specific templates
 create table if not exists public.intelligence_templates (
   id text primary key,
   category_id text references public.categories(id),
@@ -28,7 +38,11 @@ create table if not exists public.intelligence_templates (
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 3. intelligence_fields - Individual facts/attributes required by a template
+-- Add FK after both tables exist
+alter table public.categories add constraint categories_template_id_fkey 
+  foreign key (intelligence_template_id) references public.intelligence_templates(id);
+
+-- 4. intelligence_fields - Individual facts/attributes required by a template
 create table if not exists public.intelligence_fields (
   id text primary key,
   template_id text not null references public.intelligence_templates(id) on delete cascade,
@@ -261,7 +275,7 @@ values
   ('periodic', 'Periodic', 'Specifications checked periodically', 2592000, false),
   ('frequent', 'Frequent', 'Price and availability change frequently', 86400, false),
   ('very_frequent', 'Very frequent', 'Stock updates frequently', 3600, false)
-on conflict do nothing;
+on conflict (id) do nothing;
 
 -- Default universal template for products without a specialized category
 insert into public.intelligence_templates (id, category_id, name, version, description, status, is_universal, created_at)

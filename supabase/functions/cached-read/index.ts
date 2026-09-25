@@ -3,11 +3,11 @@ import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
 import { cacheAside } from "../_shared/redis/cacheAside.ts";
 import {
-  normalizeSearchQuery,
-  productKey,
-  productVideosKey,
-  searchKey,
-  taxonomyKey,
+    normalizeSearchQuery,
+    productKey,
+    productVideosKey,
+    searchKey,
+    taxonomyKey,
 } from "../_shared/redis/keys.ts";
 import { redisService } from "../_shared/redis/service.ts";
 import { CACHE_TTL } from "../_shared/redis/ttl.ts";
@@ -97,8 +97,19 @@ function clampLimit(value: unknown, fallback = 20, max = 40): number {
   return Math.min(Math.floor(n), max);
 }
 
-function escapeIlike(term: string): string {
-  return term.replace(/[%_,]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+function escapeLike(token: string): string {
+  return token.replace(/([%_\\])/g, "\\$1");
+}
+
+function searchTokens(term: string): string[] {
+  return term
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .filter((w) => w.length > 1)
+    .slice(0, 16);
 }
 
 /** App-facing product: id = barcode when present. */
@@ -160,12 +171,67 @@ async function loadProductRow(client: SupabaseClient, productId: string) {
 }
 
 async function searchProductsDb(client: SupabaseClient, term: string) {
-  let request = client.from("products").select("*").limit(40);
-  const safe = escapeIlike(term);
-  if (safe) request = request.or(`name.ilike.%${safe}%,brand.ilike.%${safe}%`);
+  let request = client.from("products").select("*").limit(120);
+  const cleanTerm = term.replace(/\s+/g, " ").trim();
+  const tokens = searchTokens(cleanTerm);
+  if (tokens.length > 0) {
+    const orParts = tokens.flatMap((token) => {
+      const safe = escapeLike(token);
+      return [
+        `name.ilike.%${safe}%`,
+        `brand.ilike.%${safe}%`,
+      ];
+    });
+    if (tokens.length === 1 && cleanTerm) {
+      const safeTerm = escapeLike(cleanTerm);
+      orParts.push(`name.ilike.%${safeTerm}%`);
+      orParts.push(`brand.ilike.%${safeTerm}%`);
+    }
+    request = request.or(orParts.join(","));
+  } else if (cleanTerm) {
+    const safeTerm = escapeLike(cleanTerm);
+    request = request.or(`name.ilike.%${safeTerm}%,brand.ilike.%${safeTerm}%`);
+  }
   const { data, error } = await request;
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => toAppProduct(row as Record<string, unknown>));
+  const rows = (data ?? []).map((row) => toAppProduct(row as Record<string, unknown>));
+  if (tokens.length === 0) return rows.slice(0, 40);
+  const fullQuery = tokens.join(" ");
+  const scored = rows
+    .map((product) => {
+      const combined = `${product.brand ?? ""} ${product.name ?? ""}`.toLowerCase().trim();
+      const hay = [product.name, product.brand, product.category, ...(product.attributeTags ?? [])]
+        .join(" ")
+        .toLowerCase();
+      let score = 0;
+      for (const token of tokens) {
+        if (hay.includes(token)) score += 1;
+      }
+      if (product.brand) {
+        const brandNorm = String(product.brand).toLowerCase().trim();
+        for (const token of tokens) {
+          if (brandNorm === token || brandNorm.startsWith(`${token} `)) score += 2;
+        }
+      }
+      if (combined && fullQuery) {
+        if (combined === fullQuery) score += 10;
+        else if (combined.startsWith(fullQuery)) score += 6;
+        else if (combined.includes(fullQuery)) score += 4;
+      }
+      if (product.name) {
+        const nameNorm = String(product.name).toLowerCase().trim();
+        for (let i = 0; i < tokens.length - 1; i++) {
+          const bigram = `${tokens[i]} ${tokens[i + 1]}`;
+          if (combined.includes(bigram) || nameNorm.includes(bigram)) score += 1;
+        }
+      }
+      return { product, score };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.product);
+  if (scored.length) return scored;
+  return tokens.length <= 1 ? rows.slice(0, 20) : [];
 }
 
 async function upsertOneProduct(client: SupabaseClient, product: ProductLike) {

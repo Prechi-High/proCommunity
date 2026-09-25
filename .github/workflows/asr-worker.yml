@@ -1,0 +1,62 @@
+name: ASR worker
+
+on:
+  pull_request:
+    paths:
+      - "workers/asr/**"
+      - ".github/workflows/asr-worker.yml"
+  push:
+    paths:
+      - "workers/asr/**"
+      - ".github/workflows/asr-worker.yml"
+  workflow_dispatch:
+    inputs:
+      push_image:
+        description: "Build and push the worker image to ECR (requires AWS OIDC)."
+        type: boolean
+        default: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers/asr
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install httpx==0.28.1 python-dotenv==1.1.0 supabase==2.15.3 youtube-transcript-api==1.2.4 pytest==8.3.5
+      - name: Unit tests
+        run: pytest
+
+  image:
+    if: github.event_name == 'workflow_dispatch' && inputs.push_image
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ASR_ROLE_ARN }}
+          aws-region: eu-west-1
+      - name: Login to ECR
+        id: login
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push
+        working-directory: workers/asr
+        env:
+          ECR: ${{ steps.login.outputs.registry }}/sourced-asr-worker
+          SHA: ${{ github.sha }}
+        run: |
+          docker build -t "$ECR:$SHA" .
+          docker push "$ECR:$SHA"
+          aws ecs update-service --cluster sourced-asr-worker --service sourced-asr-worker --force-new-deployment || true
