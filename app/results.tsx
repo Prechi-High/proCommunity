@@ -11,6 +11,7 @@ import { getAllProducts, getProductPosts } from '@/lib/catalog';
 import { computeConfidence } from '@/lib/confidence';
 import { hapticTap } from '@/lib/haptics';
 import { searchCatalog } from '@/lib/products';
+import { scoreBand } from '@/lib/scoreBand';
 import { useAppStore } from '@/lib/store';
 import type { Product } from '@/lib/types';
 
@@ -100,6 +101,7 @@ function ResultRow({ product, onPress }: { product: Product; onPress: () => void
   const mix = Math.max(8, Math.min(30, 100 - pos - 18));
   const neg = Math.max(5, 100 - pos - mix);
   const thin = score == null;
+  const band = scoreBand(score);
 
   return (
     <Pressable onPress={onPress} style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.line, gap: 3 }}>
