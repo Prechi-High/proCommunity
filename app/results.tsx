@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -57,11 +57,11 @@ export default function ResultsScreen() {
   const { data: list = [], isFetching } = useQuery({
     queryKey: ['results', query],
     queryFn: () => searchCatalog(query),
-    enabled: query.length > 0,
+    enabled: query.length > 0 && !universalResult, // Don't search if we have universal result
   });
 
-  const unmatched = !isFetching && query.length > 0 && list.length === 0;
-  const source = unmatched ? getAllProducts() : list;
+  const unmatched = !isFetching && query.length > 0 && list.length === 0 && !universalResult;
+  const source = universalResult ? [] : (unmatched ? getAllProducts() : list);
 
   const sorted = useMemo(() => {
     return [...source].sort((a, b) => {
@@ -93,21 +93,44 @@ export default function ResultsScreen() {
       </Pressable>
 
       {universalResult && (
-        <View style={{ marginTop: 12, padding: 12, backgroundColor: colors.rosewoodSoft, borderRadius: 12 }}>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.bone, marginBottom: 4 }}>
+        <View style={{ marginTop: 12, padding: 16, backgroundColor: colors.rosewoodSoft, borderRadius: 12 }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone, marginBottom: 8 }}>
             Identified Product
           </Text>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 20, color: colors.bone }}>
             {universalResult.name || 'Unknown Product'}
           </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>
-            {universalResult.brand || 'Unknown Brand'} • {universalResult.category || 'General'}
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone3, marginTop: 4 }}>
+            Brand: {universalResult.brand || 'Unknown Brand'}
           </Text>
-          {universalResult.confidence && (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.bone3, marginTop: 4 }}>
-              Confidence: {(universalResult.confidence * 100).toFixed(0)}%
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone3 }}>
+            Category: {universalResult.category || 'General'}
+          </Text>
+          {universalResult.description && (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone3, marginTop: 8, lineHeight: 18 }}>
+              {universalResult.description}
             </Text>
           )}
+          {universalResult.keyFeatures && universalResult.keyFeatures.length > 0 && (
+            <View style={{ marginTop: 8 }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.bone2, marginBottom: 4 }}>
+                Key Features:
+              </Text>
+              {universalResult.keyFeatures.slice(0, 5).map((feature, index) => (
+                <Text key={index} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3, marginLeft: 8 }}>
+                  • {feature}
+                </Text>
+              ))}
+            </View>
+          )}
+          {universalResult.confidence && (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.bone3, marginTop: 8 }}>
+              Confidence: {(universalResult.confidence * 100).toFixed(0)}% • Identified by {universalResult.provider || 'AI'}
+            </Text>
+          )}
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3, marginTop: 12, fontStyle: 'italic' }}>
+            Note: This product is not in our cosmetics database. The information above was identified from your image.
+          </Text>
         </View>
       )}
 
@@ -126,61 +149,10 @@ export default function ResultsScreen() {
       ) : null}
 
       <Text style={{ marginTop: 16, marginBottom: 4, fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>
-        {isFetching ? 'Looking…' : `${sorted.length} products, sorted by verdict`}
+        {isFetching ? 'Looking…' : universalResult ? 'Related products in our database' : `${sorted.length} products, sorted by verdict`}
       </Text>
 
       {isFetching ? <ActivityIndicator color={colors.hi} style={{ marginTop: 24 }} /> : null}
-
-      {/* Universal Search Result Display */}
-      {universalResult && (
-        <View style={{ marginTop: 20, padding: 16, borderRadius: 16, backgroundColor: colors.rosewoodSoft }}>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone2, marginBottom: 8 }}>
-            Identified from Image
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: colors.bone }}>
-                {universalResult.name || 'Unknown Product'}
-              </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone3 }}>
-                {universalResult.brand || 'Unknown Brand'}
-              </Text>
-              {universalResult.category && (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3, marginTop: 4 }}>
-                  Category: {universalResult.category}
-                </Text>
-              )}
-              {universalResult.confidence && (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>
-                  Confidence: {(universalResult.confidence * 100).toFixed(0)}%
-                </Text>
-              )}
-            </View>
-            <Pressable
-              onPress={() => {
-                hapticTap();
-                router.push({
-                  pathname: '/probe/[id]',
-                  params: { 
-                    id: `universal-${Date.now()}`,
-                    universalName: universalResult.name,
-                    universalBrand: universalResult.brand,
-                    universalCategory: universalResult.category,
-                    universalDescription: universalResult.description,
-                    universalConfidence: String(universalResult.confidence ?? 0),
-                    universalKeyFeatures: JSON.stringify(universalResult.keyFeatures || []),
-                    universalProvider: universalResult.provider,
-                    universalModel: universalResult.model,
-                  } as Href
-                });
-              }}
-              style={{ padding: 8, borderRadius: 8, backgroundColor: colors.wine }}
-            >
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.bone }}>View Details</Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
 
       {sorted.map((product) => (
         <ResultRow
