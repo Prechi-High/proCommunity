@@ -11,7 +11,6 @@ import { Caption, Wordmark } from '@/components/ui';
 import { colors, fonts, radii } from '@/constants/theme';
 import { hapticHeavy, hapticSelect, hapticSuccess } from '@/lib/haptics';
 import { searchCatalog } from '@/lib/products';
-import { extractProductFromPhoto } from '@/lib/productVision';
 import { unlockAudio } from '@/lib/sounds';
 import { useAppStore } from '@/lib/store';
 
@@ -87,43 +86,51 @@ export default function HomeScreen() {
         return;
       }
 
-      const vision = await extractProductFromPhoto(asset);
+      // Try Product Intelligence Organisation first, fall back to vision
+      const vision = await extractFromIntelligence(asset);
       if (!vision.ok || !vision.label) {
-        hapticHeavy();
-        const title =
-          vision.errorCode === 'no_vision_llm'
-            ? 'Vision not configured'
-            : vision.errorCode === 'network_error' || vision.errorCode === 'endpoint_missing'
-              ? 'Scan unavailable offline'
-              : vision.errorCode === 'image_read_failed' || vision.errorCode === 'no_asset_uri' || vision.errorCode === 'no_asset'
-                ? 'Could not read that photo'
-                : vision.errorCode === 'vision_timeout'
-                  ? 'Vision timed out'
-                  : vision.errorCode === 'vision_empty_output' || vision.errorCode === 'empty_response'
-                    ? 'Not enough detail in the photo'
-                    : 'Could not identify it';
-        const attemptsSummary =
-          vision.attempts && Array.isArray(vision.attempts) && vision.attempts.length > 0
-            ? vision.attempts
-                .slice(0, 5)
-                .map((a: any) => {
-                  if (!a) return '';
-                  const parts: string[] = [];
-                  if (a.provider) parts.push(String(a.provider));
-                  if (a.label) parts.push(String(a.label).replace(/^or_|^g_|^nv_/, ''));
-                  if (a.http || a.err) parts.push(a.err ? String(a.err) : `HTTP ${a.http}`);
-                  return parts.join(' · ');
-                })
-                .filter(Boolean)
-                .join('\n')
-            : '';
-        const baseMessage = vision.hint
-          ? vision.hint
-          : vision.errorMessage && vision.errorMessage !== vision.errorCode
-            ? `${vision.errorMessage}${vision.source ? ` (${vision.source})` : ''}`
-            : 'Try a clearer photo, or search by typing the product name below.';
-        const message = attemptsSummary ? `${baseMessage}\n\nProviders tried:\n${attemptsSummary}` : baseMessage;
-        Alert.alert(title, message);
+        // Fall back to original vision
+        const oldVision = await extractFromVision(asset);
+        if (!oldVision.ok || !oldVision.label) {
+          hapticHeavy();
+          const title =
+            oldVision.errorCode === 'no_vision_llm'
+              ? 'Vision not configured'
+              : oldVision.errorCode === 'network_error' || oldVision.errorCode === 'endpoint_missing'
+                ? 'Scan unavailable offline'
+                : oldVision.errorCode === 'image_read_failed' || oldVision.errorCode === 'no_asset_uri' || oldVision.errorCode === 'no_asset'
+                  ? 'Could not read that photo'
+                  : oldVision.errorCode === 'vision_timeout'
+                    ? 'Vision timed out'
+                    : oldVision.errorCode === 'vision_empty_output' || oldVision.errorCode === 'empty_response'
+                      ? 'Not enough detail in the photo'
+                      : 'Could not identify it';
+          const attemptsSummary =
+            oldVision.attempts && Array.isArray(oldVision.attempts) && oldVision.attempts.length > 0
+              ? oldVision.attempts
+                  .slice(0, 5)
+                  .map((a: any) => {
+                    if (!a) return '';
+                    const parts: string[] = [];
+                    if (a.provider) parts.push(String(a.provider));
+                    if (a.label) parts.push(String(a.label).replace(/^or_|^g_|^nv_/, ''));
+                    if (a.http || a.err) parts.push(a.err ? String(a.err) : `HTTP ${a.http}`);
+                    return parts.join(' · ');
+                  })
+                  .filter(Boolean)
+                  .join('\n')
+              : '';
+          const baseMessage = oldVision.hint
+            ? oldVision.hint
+            : oldVision.errorMessage && oldVision.errorMessage !== oldVision.errorCode
+              ? `${oldVision.errorMessage}${oldVision.source ? ` (${oldVision.source})` : ''}`
+              : 'Try a clearer photo, or search by typing the product name below.';
+          const message = attemptsSummary ? `${baseMessage}\n\nProviders tried:\n${attemptsSummary}` : baseMessage;
+          Alert.alert(title, message);
+          return;
+        }
+        hapticSuccess();
+        router.push({ pathname: '/results', params: { q: oldVision.label } } as Href);
         return;
       }
 
