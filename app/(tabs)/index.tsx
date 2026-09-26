@@ -137,7 +137,27 @@ export default function HomeScreen() {
       }
 
       hapticSuccess();
-      router.push({ pathname: '/results', params: { q: intelligence.label } } as Href);
+      
+      // Pass universal result data if available
+      if (intelligence.universalResult) {
+        const { name, brand, category, description, confidence, keyFeatures } = intelligence.universalResult;
+        router.push({ 
+          pathname: '/results', 
+          params: { 
+            q: name || 'Product',
+            universalName: name,
+            universalBrand: brand,
+            universalCategory: category,
+            universalDescription: description,
+            universalConfidence: String(confidence ?? 0),
+            universalKeyFeatures: JSON.stringify(keyFeatures || []),
+            universalProvider: intelligence.universalResult.provider,
+            universalModel: intelligence.universalResult.model,
+          } 
+        } as Href);
+      } else {
+        router.push({ pathname: '/results', params: { q: intelligence.label } } as Href);
+      }
     } catch (err) {
       hapticHeavy();
       const detail = err instanceof Error ? err.message : String(err ?? '');

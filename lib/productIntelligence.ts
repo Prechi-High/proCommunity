@@ -1,12 +1,11 @@
 /**
  * Product Intelligence from Photo
- * Uses the new Product Intelligence Organisation to investigate products from images
+ * Universal product identification from images using LLM
+ * Works with ANY product type (electronics, food, household items, cosmetics, etc.)
  */
 
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
-
-import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/supabase';
 
 const PUBLIC_SUPABASE_URL_FALLBACK = 'https://aqdptcuwpneuyzjavjak.supabase.co';
 
@@ -30,38 +29,26 @@ function inferMime(asset: {
   }
 }
 
-function authHeaders(mode: 'edge-direct' | 'vercel-proxy'): Record<string, string> {
-  if (mode !== 'edge-direct') return {};
-  const anon = supabaseAnonKey?.trim() || (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '').trim();
-  if (!anon && supabase) {
-    try {
-      const anySupabase = supabase as unknown as { anonKey?: string };
-      if (anySupabase.anonKey) return { Authorization: `Bearer ${anySupabase.anonKey}`, apikey: anySupabase.anonKey };
-    } catch {
-      /* ignore */
-    }
-  }
-  if (!anon) return {};
-  return { Authorization: `Bearer ${anon}`, apikey: anon };
-}
-
-function resolveEndpoint(): { endpoint: string; mode: 'edge-direct' | 'vercel-proxy' } {
+function resolveEndpoint(): { endpoint: string; mode: 'vercel-proxy' } {
   const isWeb = Platform.OS === 'web';
   const baseUrl = (
-    supabaseUrl?.trim() ||
-    (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').trim() ||
-    PUBLIC_SUPABASE_URL_FALLBACK
-  ).replace(/\/$/, '');
-  const hasBase = Boolean(baseUrl) && Boolean(supabaseAnonKey?.trim() || (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '').trim());
+    process.env.EXPO_PUBLIC_SUPABASE_URL ?? ''
+  ).trim().replace(/\/$/, '');
 
-  if (!isWeb || hasBase) {
-    return {
-      endpoint: `${baseUrl}/functions/v1/product-intelligence`,
-      mode: 'edge-direct',
-    };
-  }
+  // Always use Vercel proxy for universal search
+  return { endpoint: '/api/universal-search', mode: 'vercel-proxy' };
+}
 
-  return { endpoint: '/api/product-intelligence', mode: 'vercel-proxy' };
+export interface UniversalProductResult {
+  name: string | null;
+  brand: string | null;
+  category: string | null;
+  description: string | null;
+  confidence: number | null;
+  keyFeatures: string[];
+  provider?: string;
+  model?: string;
+  rawData?: Record<string, unknown>;
 }
 
 export interface ProductIntelligenceResult {
@@ -73,6 +60,12 @@ export interface ProductIntelligenceResult {
   confidence?: number;
   category?: string;
   intelligence?: Record<string, unknown>;
+  productName?: string;
+  productBrand?: string;
+  productCategory?: string;
+  productDescription?: string;
+  productImage?: string;
+  universalResult?: UniversalProductResult;
 }
 
 async function assetToBase64(asset: {
@@ -125,12 +118,9 @@ export async function extractProductFromPhoto(asset: {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeaders(mode),
-        'x-client-info': 'sourced/app',
+        'x-client-info': 'sourced/app/universal',
       },
       body: JSON.stringify({
-        action: 'investigate',
-        query: fallbackLabel,
         imageBase64: b64,
         mimeType: mime,
         fileName: asset.fileName ?? asset.uri.split('/').pop() ?? 'upload.jpg',
@@ -156,12 +146,35 @@ export async function extractProductFromPhoto(asset: {
 
     const result = await response.json();
 
+    // Extract product information from universal search result
+    const productName = result.name || result.productName || fallbackLabel;
+    const productBrand = result.brand || result.productBrand || 'Unknown';
+    const productCategory = result.category || result.productCategory || 'general';
+    const productDescription = result.description || '';
+    const confidence = result.confidence ?? 0;
+
     return {
-      label: result.intelligence?.product_name || result.intelligence?.name || fallbackLabel,
+      label: productName,
       ok: true,
-      confidence: result.intelligence?.confidence,
-      category: result.intelligence?.category,
-      intelligence: result.intelligence,
+      errorCode: undefined,
+      errorMessage: undefined,
+      confidence,
+      category: productCategory,
+      intelligence: {
+        name: productName,
+        brand: productBrand,
+        category: productCategory,
+        description: productDescription,
+        confidence,
+        keyFeatures: result.keyFeatures || [],
+        provider: result.provider,
+        model: result.model,
+      },
+      productName,
+      productBrand,
+      productCategory,
+      productDescription,
+      universalResult: result as UniversalProductResult,
     };
   } catch (err) {
     return {
