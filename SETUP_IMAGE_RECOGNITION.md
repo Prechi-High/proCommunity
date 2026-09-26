@@ -1,97 +1,48 @@
 # Image Recognition Setup Guide
 
-## Problem
-Image recognition is not working because no LLM API keys are configured.
+Photo scan uses the **Supabase Edge Function** `product-vision` (Gemini / OpenRouter / NVIDIA).  
+It does **not** use Open Beauty Facts for identification.
 
-## Solution
+## Required: Edge secrets (not Expo `.env` alone)
 
-### Step 1: Get an API Key
+Keys must be set as **Supabase Edge Function secrets** for project `aqdptcuwpneuyzjavjak`.
 
-**Option A: Google Gemini (Recommended - Free tier available)**
-1. Go to: https://makersuite.google.com/app/apikey
-2. Sign in with your Google account
-3. Click "Create API Key"
-4. Copy the generated key
+1. Get a key:
+   - Gemini (recommended): https://aistudio.google.com/apikey
+   - or OpenRouter: https://openrouter.ai/keys
 
-**Option B: OpenRouter (Paid, but supports many models)**
-1. Go to: https://openrouter.ai/keys
-2. Sign up for an account
-3. Create an API key
-4. Copy the generated key
+2. Set the secret (pick one):
 
-### Step 2: Add the Key to Your Project
-
-**For Local Development:**
-
-Open the file `.env.local` and add one of these lines (remove the `=` from the line first):
-
-For Gemini:
-```
-GEMINI_API_KEY=your-actual-key-here
+```bash
+npx supabase secrets set GEMINI_API_KEY=your-key --project-ref aqdptcuwpneuyzjavjak
+# or
+npx supabase secrets set OPENROUTER_API_KEY=your-key --project-ref aqdptcuwpneuyzjavjak
 ```
 
-For OpenRouter:
+You need `SUPABASE_ACCESS_TOKEN` in `.env.local` (from https://supabase.com/dashboard/account/tokens).
+
+3. Redeploy the function after changing secrets or code:
+
+```bash
+node scripts/deploy-product-vision.mjs
 ```
-OPENROUTER_API_KEY=your-actual-key-here
-```
 
-**For Vercel Deployment:**
+## Optional local copies
 
-1. Go to your Vercel project dashboard
-2. Navigate to Settings → Environment Variables
-3. Add the same variable (GEMINI_API_KEY or OPENROUTER_API_KEY) with your key
-4. Select "Production", "Preview", and "Development" environments
-5. Click "Save"
-6. Redeploy your application
+Putting `GEMINI_API_KEY` / `OPENROUTER_API_KEY` in `.env.local` does **not** power the phone app by itself.  
+The app calls `https://…supabase.co/functions/v1/product-vision`, which only reads Edge secrets.
 
-### Step 3: Restart Your Development Server
+## How the flow works
 
-After adding the key:
-1. Stop your development server (Ctrl+C in the terminal)
-2. Start it again: `npm start` or `npx expo start`
+1. Take / upload photo → app base64-encodes it  
+2. POST to Supabase `product-vision` (vision LLM)  
+3. Results screen shows the **Identified Product** card  
+4. Open Beauty Facts catalog search is **skipped** for photo IDs  
 
-### Step 4: Test Image Recognition
-
-1. Open your app
-2. Go to the home screen
-3. Click "Upload photo" or "Take photo"
-4. Select an image
-5. The app should now correctly identify the product
+Typed name search can still use the catalog (including OBF) — that is separate from photo detection.
 
 ## Troubleshooting
 
-### Still not working?
-
-Run this command to check if the keys are set:
-```bash
-node check-env.js
-```
-
-### Check the logs
-
-When you upload an image, check the console/logs for:
-- `[ProductIntelligence] Starting extraction for:...`
-- `[ProductIntelligence] Response status:...`
-- Look for any error messages
-
-### Common Issues
-
-1. **Key has spaces** - Make sure there are no spaces around the `=` sign
-2. **Wrong file** - Make sure you're editing `.env.local` not `.env`
-3. **Server not restarted** - Always restart the development server after changing environment variables
-4. **Vercel not updated** - If deployed, make sure to add the key to Vercel environment variables AND redeploy
-
-## What's Configured vs What's Missing
-
-✅ Working:
-- Image upload from camera/gallery
-- Image to base64 conversion  
-- API endpoint exists (`/api/universal-search`)
-
-❌ Missing:
-- LLM API key to process the image
-- Without this, the API returns an error and no product is identified
-
-## Summary
-
-The code is working correctly - it's just missing the LLM API key configuration. Once you add either `GEMINI_API_KEY` or `OPENROUTER_API_KEY` to `.env.local` and restart your server, image recognition will work for ANY product type (cosmetics, electronics, food, etc.).
+- Alert **Vision not configured** → Edge secret missing; run `supabase secrets set` above.  
+- Alert **Could not identify it** → try a clearer, closer label photo.  
+- Check Metro logs for `[ProductIntelligence]` and `[DEBUG]`.

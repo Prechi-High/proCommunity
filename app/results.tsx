@@ -16,48 +16,59 @@ import { useAppStore } from '@/lib/store';
 import type { Product } from '@/lib/types';
 
 export default function ResultsScreen() {
-  const { q = '' } = useLocalSearchParams<{ q?: string }>();
-  const query = typeof q === 'string' ? q : '';
+  const params = useLocalSearchParams<{
+    q?: string;
+    universalName?: string;
+    universalBrand?: string;
+    universalCategory?: string;
+    universalDescription?: string;
+    universalConfidence?: string;
+    universalKeyFeatures?: string;
+    universalProvider?: string;
+    universalModel?: string;
+  }>();
+  const query = typeof params.q === 'string' ? params.q : '';
   const router = useRouter();
   const profile = useAppStore((s) => s.profile);
   const userPosts = useAppStore((s) => s.userPosts);
 
-  // Extract universal search parameters
+  // Photo-identified product — skip Open Beauty Facts catalog search.
   const universalResult = useMemo(() => {
-    const params = useLocalSearchParams();
-    const name = params.universalName as string | undefined;
-    const brand = params.universalBrand as string | undefined;
-    const category = params.universalCategory as string | undefined;
-    const description = params.universalDescription as string | undefined;
-    const confidence = parseFloat(params.universalConfidence as string | '0') || 0;
+    const name = typeof params.universalName === 'string' ? params.universalName : undefined;
+    const brand = typeof params.universalBrand === 'string' ? params.universalBrand : undefined;
+    const category = typeof params.universalCategory === 'string' ? params.universalCategory : undefined;
+    const description =
+      typeof params.universalDescription === 'string' ? params.universalDescription : undefined;
+    const confidence = parseFloat(params.universalConfidence ?? '0') || 0;
     let keyFeatures: string[] = [];
     try {
-      keyFeatures = JSON.parse(params.universalKeyFeatures as string | '[]');
+      keyFeatures = JSON.parse(params.universalKeyFeatures ?? '[]');
     } catch {
       keyFeatures = [];
     }
-    const provider = params.universalProvider as string | undefined;
-    const model = params.universalModel as string | undefined;
+    const provider = typeof params.universalProvider === 'string' ? params.universalProvider : undefined;
+    const model = typeof params.universalModel === 'string' ? params.universalModel : undefined;
 
     if (name || brand || category) {
       return { name, brand, category, description, confidence, keyFeatures, provider, model };
     }
     return null;
   }, [
-    useLocalSearchParams().universalName,
-    useLocalSearchParams().universalBrand,
-    useLocalSearchParams().universalCategory,
-    useLocalSearchParams().universalDescription,
-    useLocalSearchParams().universalConfidence,
-    useLocalSearchParams().universalKeyFeatures,
-    useLocalSearchParams().universalProvider,
-    useLocalSearchParams().universalModel,
+    params.universalName,
+    params.universalBrand,
+    params.universalCategory,
+    params.universalDescription,
+    params.universalConfidence,
+    params.universalKeyFeatures,
+    params.universalProvider,
+    params.universalModel,
   ]);
 
   const { data: list = [], isFetching } = useQuery({
     queryKey: ['results', query],
     queryFn: () => searchCatalog(query),
-    enabled: query.length > 0 && !universalResult, // Don't search if we have universal result
+    // Photo ID already named the product — do not hit Open Beauty Facts.
+    enabled: query.length > 0 && !universalResult,
   });
 
   const unmatched = !isFetching && query.length > 0 && list.length === 0 && !universalResult;
@@ -129,7 +140,7 @@ export default function ResultsScreen() {
             </Text>
           )}
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3, marginTop: 12, fontStyle: 'italic' }}>
-            Note: This product is not in our cosmetics database. The information above was identified from your image.
+            Identified from your photo. Tap search above to look for matching products in our catalog.
           </Text>
         </View>
       )}

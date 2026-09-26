@@ -12,7 +12,6 @@ import { colors, fonts, radii } from '@/constants/theme';
 import { hapticHeavy, hapticSelect, hapticSuccess } from '@/lib/haptics';
 import { extractProductFromPhoto as extractFromIntelligence } from '@/lib/productIntelligence';
 import { searchCatalog } from '@/lib/products';
-import { extractProductFromPhoto as extractFromVision } from '@/lib/productVision';
 import { unlockAudio } from '@/lib/sounds';
 import { useAppStore } from '@/lib/store';
 
@@ -88,80 +87,70 @@ export default function HomeScreen() {
         return;
       }
 
-      // Try Product Intelligence Organisation first, fall back to vision
+      // Vision via Supabase product-vision (not Open Beauty Facts).
       console.log('[DEBUG] Starting product intelligence extraction for asset:', asset.uri);
       const intelligence = await extractFromIntelligence(asset);
       console.log('[DEBUG] Intelligence result:', intelligence);
-      
+
       if (!intelligence.ok || !intelligence.label) {
-        console.log('[DEBUG] Intelligence failed, falling back to old vision');
-        // Fall back to original vision
-        const oldVision = await extractFromVision(asset);
-        if (!oldVision.ok || !oldVision.label) {
-          hapticHeavy();
-          const title =
-            oldVision.errorCode === 'no_vision_llm'
-              ? 'Vision not configured'
-              : oldVision.errorCode === 'network_error' || oldVision.errorCode === 'endpoint_missing'
-                ? 'Scan unavailable offline'
-                : oldVision.errorCode === 'image_read_failed' || oldVision.errorCode === 'no_asset_uri' || oldVision.errorCode === 'no_asset'
-                  ? 'Could not read that photo'
-                  : oldVision.errorCode === 'vision_timeout'
-                    ? 'Vision timed out'
-                    : oldVision.errorCode === 'vision_empty_output' || oldVision.errorCode === 'empty_response'
-                      ? 'Not enough detail in the photo'
-                      : 'Could not identify it';
-          const attemptsSummary =
-            oldVision.attempts && Array.isArray(oldVision.attempts) && oldVision.attempts.length > 0
-              ? oldVision.attempts
-                  .slice(0, 5)
-                  .map((a: any) => {
-                    if (!a) return '';
-                    const parts: string[] = [];
-                    if (a.provider) parts.push(String(a.provider));
-                    if (a.label) parts.push(String(a.label).replace(/^or_|^g_|^nv_/, ''));
-                    if (a.http || a.err) parts.push(a.err ? String(a.err) : `HTTP ${a.http}`);
-                    return parts.join(' · ');
-                  })
-                  .filter(Boolean)
-                  .join('\n')
-              : '';
-          const baseMessage = oldVision.hint
-            ? oldVision.hint
-            : oldVision.errorMessage && oldVision.errorMessage !== oldVision.errorCode
-              ? `${oldVision.errorMessage}${oldVision.source ? ` (${oldVision.source})` : ''}`
-              : 'Try a clearer photo, or search by typing the product name below.';
-          const message = attemptsSummary ? `${baseMessage}\n\nProviders tried:\n${attemptsSummary}` : baseMessage;
-          Alert.alert(title, message);
-          return;
-        }
-        hapticSuccess();
-        router.push({ pathname: '/results', params: { q: oldVision.label } } as Href);
+        hapticHeavy();
+        const title =
+          intelligence.errorCode === 'no_vision_llm'
+            ? 'Vision not configured'
+            : intelligence.errorCode === 'network_error' || intelligence.errorCode === 'endpoint_missing'
+              ? 'Scan unavailable offline'
+              : intelligence.errorCode === 'image_read_failed' ||
+                  intelligence.errorCode === 'no_asset_uri' ||
+                  intelligence.errorCode === 'no_asset'
+                ? 'Could not read that photo'
+                : intelligence.errorCode === 'vision_timeout'
+                  ? 'Vision timed out'
+                  : intelligence.errorCode === 'vision_empty_output' || intelligence.errorCode === 'empty_response'
+                    ? 'Not enough detail in the photo'
+                    : 'Could not identify it';
+        const attemptsSummary =
+          intelligence.attempts && Array.isArray(intelligence.attempts) && intelligence.attempts.length > 0
+            ? intelligence.attempts
+                .slice(0, 5)
+                .map((a: any) => {
+                  if (!a) return '';
+                  const parts: string[] = [];
+                  if (a.provider) parts.push(String(a.provider));
+                  if (a.label) parts.push(String(a.label).replace(/^or_|^g_|^nv_/, ''));
+                  if (a.http || a.err) parts.push(a.err ? String(a.err) : `HTTP ${a.http}`);
+                  return parts.join(' · ');
+                })
+                .filter(Boolean)
+                .join('\n')
+            : '';
+        const baseMessage = intelligence.hint
+          ? intelligence.hint
+          : intelligence.errorMessage && intelligence.errorMessage !== intelligence.errorCode
+            ? `${intelligence.errorMessage}${intelligence.source ? ` (${intelligence.source})` : ''}`
+            : 'Try a clearer photo, or search by typing the product name below.';
+        const message = attemptsSummary ? `${baseMessage}\n\nProviders tried:\n${attemptsSummary}` : baseMessage;
+        Alert.alert(title, message);
         return;
       }
 
       hapticSuccess();
-      
-      // Pass universal result data if available
-      if (intelligence.universalResult) {
-        const { name, brand, category, description, confidence, keyFeatures } = intelligence.universalResult;
-        router.push({ 
-          pathname: '/results', 
-          params: { 
-            q: name || 'Product',
-            universalName: name,
-            universalBrand: brand,
-            universalCategory: category,
-            universalDescription: description,
-            universalConfidence: String(confidence ?? 0),
-            universalKeyFeatures: JSON.stringify(keyFeatures || []),
-            universalProvider: intelligence.universalResult.provider,
-            universalModel: intelligence.universalResult.model,
-          } 
-        } as Href);
-      } else {
-        router.push({ pathname: '/results', params: { q: intelligence.label } } as Href);
-      }
+
+      const ur = intelligence.universalResult;
+      const name = ur?.name || intelligence.label;
+      router.push({
+        pathname: '/results',
+        params: {
+          q: name || 'Product',
+          universalName: name ?? '',
+          universalBrand: ur?.brand ?? '',
+          universalCategory: ur?.category ?? 'general',
+          universalDescription: ur?.description ?? '',
+          universalConfidence: String(ur?.confidence ?? 0.8),
+          universalKeyFeatures: JSON.stringify(ur?.keyFeatures || []),
+          universalProvider: ur?.provider ?? 'product-vision',
+          universalModel: ur?.model ?? '',
+        },
+      } as Href);
     } catch (err) {
       hapticHeavy();
       const detail = err instanceof Error ? err.message : String(err ?? '');

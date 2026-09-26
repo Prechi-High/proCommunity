@@ -14,7 +14,8 @@ const cors = {
 };
 
 const DEFAULT_PROMPT =
-  "Identify the skincare product brand and specific product name shown in this image. " +
+  "Identify the product brand and specific product name shown in this image. " +
+  "Works for any product type (skincare, cosmetics, food, electronics, household, etc.). " +
   "Return only a clean search-ready query string with no explanation, no commentary, no JSON, no markdown. " +
   "Format example: CeraVe Foaming Facial Cleanser";
 
@@ -77,6 +78,15 @@ function cleanLabel(raw: string): string {
   text = text.replace(/\.$/, "");
   const lowered = text.toLowerCase();
   if (!text || lowered === "null" || lowered === "unknown" || lowered === "n/a" || text.length < 3) return "";
+  // Reject model refusals / hedges that are not product names.
+  if (
+    /\b(cannot|can't|unable|could not|couldn'?t|not able)\b.*\b(identify|determine|tell|recognize|read)\b/i.test(text) ||
+    /\bno (clear |visible )?(product|brand|label)\b/i.test(text) ||
+    /\bi('m| am) (not )?(sure|unable|sorry)\b/i.test(text) ||
+    /\bas an ai\b/i.test(text)
+  ) {
+    return "";
+  }
   return text.slice(0, 140);
 }
 

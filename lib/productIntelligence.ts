@@ -1,43 +1,10 @@
 /**
  * Product Intelligence from Photo
- * Universal product identification from images using LLM
- * Works with ANY product type (electronics, food, household items, cosmetics, etc.)
+ * Identifies products from images via the product-vision Edge Function
+ * (works on native + web). Does not use Open Beauty Facts.
  */
 
-import * as FileSystem from 'expo-file-system';
-import { Platform } from 'react-native';
-
-const PUBLIC_SUPABASE_URL_FALLBACK = 'https://aqdptcuwpneuyzjavjak.supabase.co';
-
-function inferMime(asset: {
-  uri: string;
-  fileName?: string | null;
-  type?: string | null;
-  mimeType?: string | null;
-}): string {
-  const raw = (asset.mimeType ?? asset.type ?? '').toLowerCase().trim();
-  if (raw.startsWith('image/')) return raw;
-  const name = asset.fileName ?? asset.uri.split('/').pop() ?? '';
-  const ext = name.split('.').pop()?.toLowerCase() ?? '';
-  switch (ext) {
-    case 'png': return 'image/png';
-    case 'webp': return 'image/webp';
-    case 'gif': return 'image/gif';
-    case 'heic': case 'heif': return 'image/jpeg';
-    case 'jpg': case 'jpeg': case 'jfif': case 'pjpeg': case 'pjp': return 'image/jpeg';
-    default: return 'image/jpeg';
-  }
-}
-
-function resolveEndpoint(): { endpoint: string; mode: 'vercel-proxy' } {
-  const isWeb = Platform.OS === 'web';
-  const baseUrl = (
-    process.env.EXPO_PUBLIC_SUPABASE_URL ?? ''
-  ).trim().replace(/\/$/, '');
-
-  // Always use Vercel proxy for universal search
-  return { endpoint: '/api/universal-search', mode: 'vercel-proxy' };
-}
+import { extractProductFromPhoto as extractVision } from './productVision';
 
 export interface UniversalProductResult {
   name: string | null;
@@ -66,131 +33,106 @@ export interface ProductIntelligenceResult {
   productDescription?: string;
   productImage?: string;
   universalResult?: UniversalProductResult;
+  attempts?: unknown[];
+  source?: string;
 }
 
-async function assetToBase64(asset: {
-  uri: string;
-  fileName?: string | null;
-}): Promise<{ base64: string; mime: string } | { error: string; message?: string }> {
-  const mime = inferMime(asset);
+/** Split a vision label like "CeraVe Foaming Facial Cleanser" into brand + name. */
+function splitLabel(label: string): { name: string; brand: string } {
+  const cleaned = label.replace(/\s+/g, ' ').trim();
+  if (!cleaned) return { name: 'Unknown product', brand: 'Unknown' };
 
-  try {
-    const mod = FileSystem as any;
-    if (typeof mod?.readAsStringAsync === 'function' && mod?.EncodingType?.Base64 != null) {
-      try {
-        const s = await mod.readAsStringAsync(asset.uri, { encoding: mod.EncodingType.Base64 });
-        if (s && typeof s === 'string' && s.length > 10) {
-          return { base64: s, mime };
-        }
-      } catch {
-        /* fallthrough */
-      }
+  const knownBrands = [
+    'the ordinary',
+    'cerave',
+    'la roche-posay',
+    'la roche posay',
+    'neutrogena',
+    'cetaphil',
+    'paula\'s choice',
+    'paulas choice',
+    'good molecules',
+    'innisfree',
+    'cosrx',
+    'drunk elephant',
+    'glossier',
+    'fenty beauty',
+    'rare beauty',
+    'nivea',
+    'dove',
+    'olay',
+    'aveeno',
+    'eucerin',
+    'vichy',
+    'bioderma',
+    'avene',
+    'avène',
+  ];
+
+  const lower = cleaned.toLowerCase();
+  for (const brand of knownBrands) {
+    if (lower.startsWith(brand)) {
+      const name = cleaned.slice(brand.length).replace(/^[\s\-–—:]+/, '').trim();
+      const brandProper = cleaned.slice(0, brand.length);
+      return { name: name || cleaned, brand: brandProper };
     }
-  } catch {
-    /* fallthrough */
   }
 
-  return { error: 'image_read_failed', message: 'Could not read image data' };
+  const parts = cleaned.split(/\s+/);
+  if (parts.length >= 2) {
+    return { brand: parts[0], name: parts.slice(1).join(' ') };
+  }
+  return { name: cleaned, brand: 'Unknown' };
 }
 
 export async function extractProductFromPhoto(asset: {
   uri: string;
   fileName?: string | null;
+  width?: number;
+  height?: number;
+  base64?: string | null;
 }): Promise<ProductIntelligenceResult> {
-  console.log('[ProductIntelligence] Starting extraction for:', asset.uri);
-  const fallbackLabel = asset?.fileName ?? asset?.uri?.split('/').pop() ?? 'product';
+  console.log('[ProductIntelligence] Starting extraction via product-vision for:', asset.uri);
 
-  const base64Result = await assetToBase64(asset);
+  const vision = await extractVision(asset);
 
-  if ('error' in base64Result) {
-    console.log('[ProductIntelligence] Failed to convert to base64:', base64Result.error);
+  if (!vision.ok || !vision.label) {
+    console.log('[ProductIntelligence] Vision failed:', vision.errorCode, vision.errorMessage);
     return {
-      label: fallbackLabel,
+      label: vision.label,
       ok: false,
-      errorCode: base64Result.error,
-      errorMessage: base64Result.message,
+      errorCode: vision.errorCode,
+      errorMessage: vision.errorMessage,
+      hint: vision.hint,
+      attempts: vision.attempts,
+      source: vision.source,
     };
   }
 
-  const { base64: b64, mime } = base64Result;
-  const { endpoint, mode } = resolveEndpoint();
-  
-  console.log('[ProductIntelligence] Sending request to:', endpoint, 'mode:', mode);
+  const { name, brand } = splitLabel(vision.label);
+  const universalResult: UniversalProductResult = {
+    name,
+    brand,
+    category: 'general',
+    description: `Identified from your photo as ${vision.label}.`,
+    confidence: 0.8,
+    keyFeatures: [],
+    provider: vision.source === 'edge-direct' ? 'product-vision' : vision.source,
+  };
 
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-client-info': 'sourced/app/universal',
-      },
-      body: JSON.stringify({
-        imageBase64: b64,
-        mimeType: mime,
-        fileName: asset.fileName ?? asset.uri.split('/').pop() ?? 'upload.jpg',
-      }),
-    });
+  console.log('[ProductIntelligence] Identified:', vision.label);
 
-    console.log('[ProductIntelligence] Response status:', response.status);
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.log('[ProductIntelligence] Error response:', text);
-      let errorInfo: { error?: string; message?: string } = {};
-      try {
-        errorInfo = JSON.parse(text);
-      } catch {
-        // Ignore
-      }
-
-      return {
-        label: fallbackLabel,
-        ok: false,
-        errorCode: errorInfo.error || 'api_error',
-        errorMessage: errorInfo.message || text,
-      };
-    }
-
-    const result = await response.json();
-    console.log('[ProductIntelligence] Success response:', result);
-
-    // Extract product information from universal search result
-    const productName = result.name || result.productName || fallbackLabel;
-    const productBrand = result.brand || result.productBrand || 'Unknown';
-    const productCategory = result.category || result.productCategory || 'general';
-    const productDescription = result.description || '';
-    const confidence = result.confidence ?? 0;
-
-    return {
-      label: productName,
-      ok: true,
-      errorCode: undefined,
-      errorMessage: undefined,
-      confidence,
-      category: productCategory,
-      intelligence: {
-        name: productName,
-        brand: productBrand,
-        category: productCategory,
-        description: productDescription,
-        confidence,
-        keyFeatures: result.keyFeatures || [],
-        provider: result.provider,
-        model: result.model,
-      },
-      productName,
-      productBrand,
-      productCategory,
-      productDescription,
-      universalResult: result as UniversalProductResult,
-    };
-  } catch (err) {
-    console.log('[ProductIntelligence] Exception:', err);
-    return {
-      label: fallbackLabel,
-      ok: false,
-      errorCode: 'network_error',
-      errorMessage: err instanceof Error ? err.message : String(err ?? ''),
-    };
-  }
+  return {
+    label: vision.label,
+    ok: true,
+    confidence: 0.8,
+    category: 'general',
+    intelligence: { ...universalResult },
+    productName: name,
+    productBrand: brand,
+    productCategory: 'general',
+    productDescription: universalResult.description ?? undefined,
+    universalResult,
+    source: vision.source,
+  };
 }
