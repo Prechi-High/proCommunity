@@ -87,8 +87,8 @@ export default function HomeScreen() {
       }
 
       // Try Product Intelligence Organisation first, fall back to vision
-      const vision = await extractFromIntelligence(asset);
-      if (!vision.ok || !vision.label) {
+      const intelligence = await extractFromIntelligence(asset);
+      if (!intelligence.ok || !intelligence.label) {
         // Fall back to original vision
         const oldVision = await extractFromVision(asset);
         if (!oldVision.ok || !oldVision.label) {
@@ -135,7 +135,7 @@ export default function HomeScreen() {
       }
 
       hapticSuccess();
-      router.push({ pathname: '/results', params: { q: vision.label } } as Href);
+      router.push({ pathname: '/results', params: { q: intelligence.label } } as Href);
     } catch (err) {
       hapticHeavy();
       const detail = err instanceof Error ? err.message : String(err ?? '');

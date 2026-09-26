@@ -3,6 +3,8 @@
  * Uses the new Product Intelligence Organisation to investigate products from images
  */
 
+import * as FileSystem from 'expo-file-system';
+
 export interface ProductIntelligenceResult {
   label: string | null;
   ok: boolean;
@@ -14,37 +16,69 @@ export interface ProductIntelligenceResult {
   intelligence?: Record<string, unknown>;
 }
 
-async function extractProductFromPhoto(asset: {
+async function assetToBase64(asset: {
+  uri: string;
+  fileName?: string | null;
+}): Promise<{ base64: string; mime: string } | { error: string; message?: string }> {
+  const mime = inferMime(asset);
+
+  try {
+    const mod = FileSystem as any;
+    if (typeof mod?.readAsStringAsync === 'function' && mod?.EncodingType?.Base64 != null) {
+      try {
+        const s = await mod.readAsStringAsync(asset.uri, { encoding: mod.EncodingType.Base64 });
+        if (s && typeof s === 'string' && s.length > 10) {
+          return { base64: s, mime };
+        }
+      } catch {
+        /* fallthrough */
+      }
+    }
+  } catch {
+    /* fallthrough */
+  }
+
+  return { error: 'image_read_failed', message: 'Could not read image data' };
+}
+
+function inferMime(asset: {
+  uri: string;
+  fileName?: string | null;
+  type?: string | null;
+  mimeType?: string | null;
+}): string {
+  const raw = (asset.mimeType ?? asset.type ?? '').toLowerCase().trim();
+  if (raw.startsWith('image/')) return raw;
+  const name = asset.fileName ?? asset.uri.split('/').pop() ?? '';
+  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  switch (ext) {
+    case 'png': return 'image/png';
+    case 'webp': return 'image/webp';
+    case 'gif': return 'image/gif';
+    case 'heic': case 'heif': return 'image/jpeg';
+    case 'jpg': case 'jpeg': case 'jfif': case 'pjpeg': case 'pjp': return 'image/jpeg';
+    default: return 'image/jpeg';
+  }
+}
+
+export async function extractProductFromPhoto(asset: {
   uri: string;
   fileName?: string | null;
 }): Promise<ProductIntelligenceResult> {
   const fallbackLabel = asset?.fileName ?? asset?.uri?.split('/').pop() ?? 'product';
 
-  // Get base64 from asset
-  const FileSystem = (await import('expo-file-system')).default as any;
-  let b64: string | null = null;
+  const base64Result = await assetToBase64(asset);
 
-  try {
-    b64 = await FileSystem.readAsStringAsync(asset.uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-  } catch (err) {
+  if ('error' in base64Result) {
     return {
       label: fallbackLabel,
       ok: false,
-      errorCode: 'image_read_failed',
-      errorMessage: err instanceof Error ? err.message : String(err ?? ''),
+      errorCode: base64Result.error,
+      errorMessage: base64Result.message,
     };
   }
 
-  if (!b64) {
-    return {
-      label: fallbackLabel,
-      ok: false,
-      errorCode: 'image_read_failed',
-      errorMessage: 'Could not read image data',
-    };
-  }
+  const { base64: b64, mime } = base64Result;
 
   // Call the product-intelligence edge function
   const endpoint = 'https://aqdptcuwpneuyzjavjak.supabase.co/functions/v1/product-intelligence';
@@ -60,7 +94,9 @@ async function extractProductFromPhoto(asset: {
       body: JSON.stringify({
         action: 'investigate',
         query: fallbackLabel,
-        imageUrl: asset.uri,
+        imageBase64: b64,
+        mimeType: mime,
+        fileName: asset.fileName ?? asset.uri.split('/').pop() ?? 'upload.jpg',
       }),
     });
 
@@ -99,5 +135,3 @@ async function extractProductFromPhoto(asset: {
     };
   }
 }
-
-export { extractProductFromPhoto };
