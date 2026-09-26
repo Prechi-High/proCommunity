@@ -189,23 +189,29 @@ Deno.serve(async (req) => {
       else if (combined.includes("moistur") || combined.includes("cream")) category = "moisturizer";
       else if (combined.includes("sunscreen") || combined.includes("spf")) category = "spf";
 
-      // Prepare extraction prompt
-      const extractionPrompt = `Extract product intelligence for: ${brand} ${productName}
+      // Prepare extraction prompt — universal buyer intelligence
+      const extractionPrompt = `You are Sourced's product intelligence extractor.
+Product query: ${brand} ${productName}
+Category hint: ${category}
 
-Category: ${category}
+Evidence from the web:
+${organic.slice(0, 6).map((item: any) => `${item.title}\n${item.snippet}\n${item.link}`).join("\n\n")}
 
-Available search results:
-${organic.slice(0, 5).map((item: any) => `${item.title}: ${item.snippet}`).join("\n\n")}
-
-Extract these fields as JSON:
-- product_name
-- brand
-- category
-- description
-- price (if visible)
-- availability (if visible)
-
-Return ONLY valid JSON.`;
+Return ONLY valid JSON with these keys (use empty array/string when unknown, never invent specs):
+{
+  "product_name": string,
+  "brand": string,
+  "category": string,
+  "description": string,
+  "price": string,
+  "availability": string,
+  "common_praise": string[] (max 4 short phrases from real feedback),
+  "common_complaints": string[] (max 4 short phrases),
+  "how_to_use": string,
+  "ingredients_or_materials": string,
+  "key_specs": string[] (max 5 factual specs),
+  "confidence": number (0-1)
+}`;
 
       // Try Gemini first, then OpenRouter
       let extracted: Record<string, unknown> | null = null;
@@ -225,11 +231,15 @@ Return ONLY valid JSON.`;
 
         if (geminiResponse.ok) {
           const geminiResult = await geminiResponse.json();
-          const text = geminiResult.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          let text = geminiResult.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          text = String(text).replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
           try {
             extracted = JSON.parse(text);
           } catch {
-            // Ignore parse error
+            const match = text.match(/\{[\s\S]*\}/);
+            if (match) {
+              try { extracted = JSON.parse(match[0]); } catch { /* ignore */ }
+            }
           }
         }
       }
@@ -263,18 +273,96 @@ Return ONLY valid JSON.`;
         }
       }
 
-      // Build intelligence result
-      const intelligence = extracted || {
-        product_name: productName,
-        brand: brand,
-        category: category,
-        description: "No intelligent extraction available",
-        confidence: extracted ? 0.9 : 0.5,
-      };
+      // Build intelligence result — never return an empty shell when we have search hits
+      let intelligence: Record<string, unknown> = extracted
+        ? { ...extracted }
+        : {
+            product_name: productName,
+            brand,
+            category,
+            description: organic[0]?.snippet || "Identified from web evidence.",
+            confidence: 0.55,
+            common_praise: [],
+            common_complaints: [],
+          };
+
+      if (!intelligence.product_name) intelligence.product_name = productName;
+      if (!intelligence.brand) intelligence.brand = brand;
+      if (!intelligence.category) intelligence.category = category;
+      if (!intelligence.description) {
+        intelligence.description = organic[0]?.snippet || "Identified from web evidence.";
+      }
+
+      // Heuristic experience signals from snippets when LLM omitted them
+      const praise = Array.isArray(intelligence.common_praise)
+        ? (intelligence.common_praise as unknown[]).map(String)
+        : [];
+      const complaints = Array.isArray(intelligence.common_complaints)
+        ? (intelligence.common_complaints as unknown[]).map(String)
+        : [];
+      if (!praise.length || !complaints.length) {
+        const POS = ["gentle", "hydrating", "recommend", "love", "effective", "worth", "non-comedogenic", "fragrance-free", "ceramides", "holy grail"];
+        const NEG = ["broke out", "broke me out", "irritat", "stinging", "too drying", "greasy", "pilling", "does nothing", "waste of money", "caused acne"];
+        for (const item of organic.slice(0, 8)) {
+          const title = String(item.title || "");
+          const snippet = String(item.snippet || "");
+          const blob = `${title} ${snippet}`.toLowerCase();
+          const isReviewish = /reddit|review|complaint|problem|honest/i.test(item.link || "") || /reddit|review/i.test(title);
+          if (!praise.length && POS.some((w) => blob.includes(w)) && snippet) {
+            praise.push(snippet.slice(0, 140));
+          }
+          if (!complaints.length && isReviewish && NEG.some((w) => blob.includes(w)) && snippet) {
+            complaints.push(snippet.slice(0, 140));
+          }
+        }
+        intelligence.common_praise = praise.slice(0, 4);
+        intelligence.common_complaints = complaints.slice(0, 4);
+      }
+
+      if (intelligence.confidence == null) {
+        intelligence.confidence = extracted ? 0.82 : organic.length ? 0.62 : 0.4;
+      }
+
+      // Optional product images via Serper
+      let images: string[] = [];
+      try {
+        const imageResponse = await fetch("https://google.serper.dev/images", {
+          method: "POST",
+          headers: {
+            "X-API-KEY": serperKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ q: `${brand} ${productName} product`, num: 6 }),
+        });
+        if (imageResponse.ok) {
+          const imageJson = await imageResponse.json();
+          images = (imageJson.images ?? [])
+            .map((img: { imageUrl?: string }) => img.imageUrl)
+            .filter((url: unknown): url is string => typeof url === "string" && url.startsWith("http"))
+            .slice(0, 6);
+        }
+      } catch {
+        // images optional
+      }
+
+      // Flatten key_specs into top-level friendly fields for the UI
+      if (Array.isArray((intelligence as Record<string, unknown>).key_specs)) {
+        const specs = (intelligence as Record<string, unknown>).key_specs as unknown[];
+        specs.slice(0, 5).forEach((spec, i) => {
+          (intelligence as Record<string, unknown>)[`spec_${i + 1}`] = String(spec);
+        });
+      }
+      if ((intelligence as Record<string, unknown>).ingredients_or_materials) {
+        (intelligence as Record<string, unknown>).ingredients = (
+          intelligence as Record<string, unknown>
+        ).ingredients_or_materials;
+      }
 
       return json({
         success: true,
+        confidence: Number((intelligence as Record<string, unknown>).confidence ?? 0.6),
         intelligence,
+        images,
         searchResults: {
           query,
           total: organic.length,

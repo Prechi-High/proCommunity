@@ -65,14 +65,14 @@ export default function ResultsScreen() {
   ]);
 
   const { data: list = [], isFetching } = useQuery({
-    queryKey: ['results', query],
+    queryKey: ['results', query, Boolean(universalResult)],
     queryFn: () => searchCatalog(query),
-    // Photo ID already named the product — do not hit Open Beauty Facts.
-    enabled: query.length > 0 && !universalResult,
+    // Always try catalog match — even after photo ID — so we can open the full journey.
+    enabled: query.length > 0,
   });
 
   const unmatched = !isFetching && query.length > 0 && list.length === 0 && !universalResult;
-  const source = universalResult ? [] : (unmatched ? getAllProducts() : list);
+  const source = unmatched ? getAllProducts() : list;
 
   const sorted = useMemo(() => {
     return [...source].sort((a, b) => {
@@ -81,6 +81,8 @@ export default function ResultsScreen() {
       return sb - sa;
     });
   }, [source, profile, userPosts]);
+
+  const catalogMatch = sorted[0];
 
   return (
     <Screen>
@@ -104,44 +106,51 @@ export default function ResultsScreen() {
       </Pressable>
 
       {universalResult && (
-        <View style={{ marginTop: 12, padding: 16, backgroundColor: colors.rosewoodSoft, borderRadius: 12 }}>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone, marginBottom: 8 }}>
-            Identified Product
-          </Text>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 20, color: colors.bone }}>
+        <View style={{ marginTop: 12, padding: 16, backgroundColor: colors.rosewoodSoft, borderRadius: 16 }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.bone3 }}>Identified from your photo</Text>
+          <Text style={{ marginTop: 6, fontFamily: fonts.serif, fontSize: 28, lineHeight: 32, color: colors.bone }}>
             {universalResult.name || 'Unknown Product'}
           </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone3, marginTop: 4 }}>
-            Brand: {universalResult.brand || 'Unknown Brand'}
+          <Text style={{ marginTop: 4, fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>
+            {[universalResult.brand, universalResult.category].filter(Boolean).join(' · ')}
           </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone3 }}>
-            Category: {universalResult.category || 'General'}
-          </Text>
-          {universalResult.description && (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone3, marginTop: 8, lineHeight: 18 }}>
+          {universalResult.description ? (
+            <Text style={{ marginTop: 10, fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.bone3 }}>
               {universalResult.description}
             </Text>
-          )}
-          {universalResult.keyFeatures && universalResult.keyFeatures.length > 0 && (
-            <View style={{ marginTop: 8 }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.bone2, marginBottom: 4 }}>
-                Key Features:
-              </Text>
-              {universalResult.keyFeatures.slice(0, 5).map((feature, index) => (
-                <Text key={index} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3, marginLeft: 8 }}>
-                  • {feature}
-                </Text>
-              ))}
-            </View>
-          )}
-          {universalResult.confidence && (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.bone3, marginTop: 8 }}>
-              Confidence: {(universalResult.confidence * 100).toFixed(0)}% • Identified by {universalResult.provider || 'AI'}
+          ) : null}
+          <Pressable
+            onPress={() => {
+              hapticTap();
+              if (catalogMatch) {
+                router.push(`/probe/${catalogMatch.id}`);
+                return;
+              }
+              router.push({
+                pathname: '/product/intel',
+                params: {
+                  q: universalResult.name || query,
+                  name: universalResult.name || query,
+                  brand: universalResult.brand || '',
+                  category: universalResult.category || 'general',
+                  description: universalResult.description || '',
+                  confidence: String(universalResult.confidence || 0.7),
+                },
+              });
+            }}
+            style={{
+              marginTop: 16,
+              height: 52,
+              borderRadius: 16,
+              backgroundColor: colors.hi,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.wine }}>
+              {catalogMatch ? 'Open confidence journey' : 'Investigate this product'}
             </Text>
-          )}
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3, marginTop: 12, fontStyle: 'italic' }}>
-            Identified from your photo. Tap search above to look for matching products in our catalog.
-          </Text>
+          </Pressable>
         </View>
       )}
 
