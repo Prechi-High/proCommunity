@@ -111,7 +111,7 @@ export default function ResultsScreen() {
         </View>
       )}
 
-      {!isUniversalSearch && (
+      {!universalResult && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginTop: 12 }}>
           <Chip label="Skincare" selected />
           <Chip label="Oily skin" />
@@ -220,8 +220,9 @@ function ResultRow({ product, onPress }: { product: Product; onPress: () => void
               height: 60,
               borderRadius: radii.card,
               backgroundColor: colors.lac,
-              resizeMode: 'contain',
             }}
+            resizeMode="contain"
+            onError={() => console.log('Failed to load image:', product.heroImageUrl)}
           />
         ) : (
           <View style={{ width: 48, height: 60, borderRadius: radii.card, backgroundColor: colors.lac2, alignItems: 'center', justifyContent: 'center' }}>
