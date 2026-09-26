@@ -89,8 +89,12 @@ export default function HomeScreen() {
       }
 
       // Try Product Intelligence Organisation first, fall back to vision
+      console.log('[DEBUG] Starting product intelligence extraction for asset:', asset.uri);
       const intelligence = await extractFromIntelligence(asset);
+      console.log('[DEBUG] Intelligence result:', intelligence);
+      
       if (!intelligence.ok || !intelligence.label) {
+        console.log('[DEBUG] Intelligence failed, falling back to old vision');
         // Fall back to original vision
         const oldVision = await extractFromVision(asset);
         if (!oldVision.ok || !oldVision.label) {

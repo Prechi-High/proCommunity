@@ -97,11 +97,13 @@ export async function extractProductFromPhoto(asset: {
   uri: string;
   fileName?: string | null;
 }): Promise<ProductIntelligenceResult> {
+  console.log('[ProductIntelligence] Starting extraction for:', asset.uri);
   const fallbackLabel = asset?.fileName ?? asset?.uri?.split('/').pop() ?? 'product';
 
   const base64Result = await assetToBase64(asset);
 
   if ('error' in base64Result) {
+    console.log('[ProductIntelligence] Failed to convert to base64:', base64Result.error);
     return {
       label: fallbackLabel,
       ok: false,
@@ -112,6 +114,8 @@ export async function extractProductFromPhoto(asset: {
 
   const { base64: b64, mime } = base64Result;
   const { endpoint, mode } = resolveEndpoint();
+  
+  console.log('[ProductIntelligence] Sending request to:', endpoint, 'mode:', mode);
 
   try {
     const response = await fetch(endpoint, {
@@ -127,8 +131,11 @@ export async function extractProductFromPhoto(asset: {
       }),
     });
 
+    console.log('[ProductIntelligence] Response status:', response.status);
+
     if (!response.ok) {
       const text = await response.text();
+      console.log('[ProductIntelligence] Error response:', text);
       let errorInfo: { error?: string; message?: string } = {};
       try {
         errorInfo = JSON.parse(text);
@@ -145,6 +152,7 @@ export async function extractProductFromPhoto(asset: {
     }
 
     const result = await response.json();
+    console.log('[ProductIntelligence] Success response:', result);
 
     // Extract product information from universal search result
     const productName = result.name || result.productName || fallbackLabel;
@@ -177,6 +185,7 @@ export async function extractProductFromPhoto(asset: {
       universalResult: result as UniversalProductResult,
     };
   } catch (err) {
+    console.log('[ProductIntelligence] Exception:', err);
     return {
       label: fallbackLabel,
       ok: false,
