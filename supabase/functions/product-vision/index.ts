@@ -292,7 +292,14 @@ async function runVisionPipeline(b64: string, mime: string, prompt: string, debu
 
   if (openRouterKey) {
     const pref = Deno.env.get("OPENROUTER_MODEL")?.trim();
-    const rawModels = [pref, "google/gemini-2.5-flash", "deepseek/deepseek-v4.1-flash", "anthropic/claude-4.5-haiku-20251001"].filter(Boolean) as string[];
+    // Prefer models known to support vision on OpenRouter. Avoid preferred ids that 404.
+    const rawModels = [
+      pref && !/gemini-2\.5-flash$/i.test(pref) ? pref : null,
+      "anthropic/claude-4.5-haiku-20251001",
+      "openai/gpt-4o-mini",
+      "google/gemini-2.5-flash-preview-05-20",
+      "google/gemini-2.5-flash",
+    ].filter(Boolean) as string[];
     const orModels = Array.from(new Set(rawModels.filter((m) => isLikelyVisionModel(m)))).slice(0, 4);
     for (const model of orModels) {
       const a = await tryOpenRouter(b64, mime, prompt, model, openRouterKey, `or_${model.replace(/[^a-z0-9_-]/gi, "_")}`);

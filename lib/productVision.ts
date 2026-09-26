@@ -1,4 +1,5 @@
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
+import * as FileSystemLegacy from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
@@ -85,6 +86,7 @@ async function assetToBase64(asset: {
   base64?: string | null;
 }): Promise<{ base64: string; mime: string; from: string } | { error: VisionErrorCode; message?: string }> {
   const mime = inferMime(asset);
+  const readErrors: string[] = [];
 
   if (asset.base64 && typeof asset.base64 === 'string' && asset.base64.length > 10) {
     return { base64: asset.base64, mime, from: 'picker-base64' };
@@ -98,20 +100,28 @@ async function assetToBase64(asset: {
   const uri = asset.uri;
   if (!uri || typeof uri !== 'string') return { error: 'no_asset_uri' };
 
+  // Expo SDK 54+: modern File.base64() API
   try {
-    const mod = (FileSystem as unknown as { readAsStringAsync?: any; EncodingType?: any });
-    if (typeof mod?.readAsStringAsync === 'function' && mod?.EncodingType?.Base64 != null) {
-      try {
-        const s = await mod.readAsStringAsync(uri, { encoding: mod.EncodingType.Base64 });
-        if (s && typeof s === 'string' && s.length > 10) {
-          return { base64: s, mime, from: 'fs-readAsString' };
-        }
-      } catch {
-        /* fallthrough to next strategy */
+    const file = new File(uri);
+    if (typeof file.base64 === 'function') {
+      const s = await file.base64();
+      if (s && typeof s === 'string' && s.length > 10) {
+        return { base64: s, mime, from: 'fs-file-base64' };
       }
     }
-  } catch {
-    /* fallthrough to next strategy */
+  } catch (err) {
+    readErrors.push(`file.base64: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // Legacy API — must import from expo-file-system/legacy (main export throws)
+  try {
+    const encoding = FileSystemLegacy.EncodingType?.Base64 ?? 'base64';
+    const s = await FileSystemLegacy.readAsStringAsync(uri, { encoding });
+    if (s && typeof s === 'string' && s.length > 10) {
+      return { base64: s, mime, from: 'fs-legacy-readAsString' };
+    }
+  } catch (err) {
+    readErrors.push(`legacy: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   try {
@@ -138,12 +148,12 @@ async function assetToBase64(asset: {
             return { base64, mime: /^image\//i.test(detectedMime || '') ? detectedMime : mime, from: 'fetch-FileReader' };
           }
         }
-      } catch {
-        /* fallthrough */
+      } catch (err) {
+        readErrors.push(`fetch-FileReader: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
-  } catch {
-    /* fallthrough */
+  } catch (err) {
+    readErrors.push(`fetch-wrap: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   try {
@@ -158,10 +168,16 @@ async function assetToBase64(asset: {
       }
     }
   } catch (err) {
-    return { error: 'image_read_failed', message: err instanceof Error ? err.message : String(err ?? '') };
+    readErrors.push(`fetch-arrayBuffer: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  return { error: 'image_read_failed', message: 'No available read strategy could decode this image. Try a different file.' };
+  return {
+    error: 'image_read_failed',
+    message:
+      readErrors.length > 0
+        ? `Could not decode image (${readErrors.slice(0, 2).join(' | ')})`
+        : 'No available read strategy could decode this image. Try a different file.',
+  };
 }
 
 export type VisionErrorCode =
@@ -280,6 +296,7 @@ export async function extractProductFromPhoto(asset: {
   fileName?: string | null;
   width?: number;
   height?: number;
+  base64?: string | null;
 }): Promise<VisionResult> {
   const fallbackLabel = filenameFallback(asset);
 
@@ -289,9 +306,11 @@ export async function extractProductFromPhoto(asset: {
   const { endpoint, mode } = resolveEndpoint();
   if (!endpoint) return { label: fallbackLabel, ok: false, errorCode: 'endpoint_missing', source: 'fallback' };
 
+  console.log('[ProductVision] endpoint=', endpoint, 'mode=', mode, 'hasPickerBase64=', Boolean(asset.base64));
   const base64Result = await assetToBase64(asset);
 
   if ('error' in base64Result) {
+    console.log('[ProductVision] image read failed:', base64Result.error, base64Result.message);
     return {
       label: fallbackLabel,
       ok: false,
@@ -301,6 +320,7 @@ export async function extractProductFromPhoto(asset: {
     };
   }
 
+  console.log('[ProductVision] image encoded via', base64Result.from, 'b64Len=', base64Result.base64.length);
   const { base64: b64, mime } = base64Result;
 
   try {

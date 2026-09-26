@@ -57,17 +57,18 @@ export default function HomeScreen() {
         return;
       }
 
+      // base64: true is required on Expo SDK 57 — the default FileSystem import
+      // no longer reads camera/library URIs (legacy API throws at runtime).
+      const pickerOpts: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.7,
+        base64: true,
+        exif: false,
+      };
       const result = camera
-        ? await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            quality: 0.8,
-          })
-        : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            quality: 0.8,
-          });
+        ? await ImagePicker.launchCameraAsync(pickerOpts)
+        : await ImagePicker.launchImageLibraryAsync(pickerOpts);
 
       if (result.canceled || !result.assets || result.assets.length === 0) {
         hapticSelect();
@@ -88,8 +89,21 @@ export default function HomeScreen() {
       }
 
       // Vision via Supabase product-vision (not Open Beauty Facts).
-      console.log('[DEBUG] Starting product intelligence extraction for asset:', asset.uri);
-      const intelligence = await extractFromIntelligence(asset);
+      console.log(
+        '[DEBUG] Starting product intelligence extraction for asset:',
+        asset.uri,
+        'hasBase64=',
+        Boolean(asset.base64 && asset.base64.length > 10),
+        'base64Len=',
+        asset.base64?.length ?? 0,
+      );
+      const intelligence = await extractFromIntelligence({
+        uri: asset.uri,
+        fileName: asset.fileName,
+        width: asset.width,
+        height: asset.height,
+        base64: asset.base64,
+      });
       console.log('[DEBUG] Intelligence result:', intelligence);
 
       if (!intelligence.ok || !intelligence.label) {
