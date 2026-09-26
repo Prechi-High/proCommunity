@@ -10,7 +10,9 @@ import { Screen } from '@/components/Screen';
 import { Caption, Wordmark } from '@/components/ui';
 import { colors, fonts, radii } from '@/constants/theme';
 import { hapticHeavy, hapticSelect, hapticSuccess } from '@/lib/haptics';
+import { extractProductFromPhoto as extractFromIntelligence } from '@/lib/productIntelligence';
 import { searchCatalog } from '@/lib/products';
+import { extractProductFromPhoto as extractFromVision } from '@/lib/productVision';
 import { unlockAudio } from '@/lib/sounds';
 import { useAppStore } from '@/lib/store';
 

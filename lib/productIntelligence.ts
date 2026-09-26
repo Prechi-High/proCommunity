@@ -4,6 +4,65 @@
  */
 
 import * as FileSystem from 'expo-file-system';
+import { Platform } from 'react-native';
+
+import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/supabase';
+
+const PUBLIC_SUPABASE_URL_FALLBACK = 'https://aqdptcuwpneuyzjavjak.supabase.co';
+
+function inferMime(asset: {
+  uri: string;
+  fileName?: string | null;
+  type?: string | null;
+  mimeType?: string | null;
+}): string {
+  const raw = (asset.mimeType ?? asset.type ?? '').toLowerCase().trim();
+  if (raw.startsWith('image/')) return raw;
+  const name = asset.fileName ?? asset.uri.split('/').pop() ?? '';
+  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  switch (ext) {
+    case 'png': return 'image/png';
+    case 'webp': return 'image/webp';
+    case 'gif': return 'image/gif';
+    case 'heic': case 'heif': return 'image/jpeg';
+    case 'jpg': case 'jpeg': case 'jfif': case 'pjpeg': case 'pjp': return 'image/jpeg';
+    default: return 'image/jpeg';
+  }
+}
+
+function authHeaders(mode: 'edge-direct' | 'vercel-proxy'): Record<string, string> {
+  if (mode !== 'edge-direct') return {};
+  const anon = supabaseAnonKey?.trim() || (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '').trim();
+  if (!anon && supabase) {
+    try {
+      const anySupabase = supabase as unknown as { anonKey?: string };
+      if (anySupabase.anonKey) return { Authorization: `Bearer ${anySupabase.anonKey}`, apikey: anySupabase.anonKey };
+    } catch {
+      /* ignore */
+    }
+  }
+  if (!anon) return {};
+  return { Authorization: `Bearer ${anon}`, apikey: anon };
+}
+
+function resolveEndpoint(): { endpoint: string; mode: 'edge-direct' | 'vercel-proxy' } {
+  const isWeb = Platform.OS === 'web';
+  const baseUrl = (
+    supabaseUrl?.trim() ||
+    (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').trim() ||
+    PUBLIC_SUPABASE_URL_FALLBACK
+  ).replace(/\/$/, '');
+  const hasBase = Boolean(baseUrl) && Boolean(supabaseAnonKey?.trim() || (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '').trim());
+
+  if (!isWeb || hasBase) {
+    return {
+      endpoint: `${baseUrl}/functions/v1/product-intelligence`,
+      mode: 'edge-direct',
+    };
+  }
+
+  return { endpoint: '/api/product-intelligence', mode: 'vercel-proxy' };
+}
 
 export interface ProductIntelligenceResult {
   label: string | null;
@@ -41,26 +100,6 @@ async function assetToBase64(asset: {
   return { error: 'image_read_failed', message: 'Could not read image data' };
 }
 
-function inferMime(asset: {
-  uri: string;
-  fileName?: string | null;
-  type?: string | null;
-  mimeType?: string | null;
-}): string {
-  const raw = (asset.mimeType ?? asset.type ?? '').toLowerCase().trim();
-  if (raw.startsWith('image/')) return raw;
-  const name = asset.fileName ?? asset.uri.split('/').pop() ?? '';
-  const ext = name.split('.').pop()?.toLowerCase() ?? '';
-  switch (ext) {
-    case 'png': return 'image/png';
-    case 'webp': return 'image/webp';
-    case 'gif': return 'image/gif';
-    case 'heic': case 'heif': return 'image/jpeg';
-    case 'jpg': case 'jpeg': case 'jfif': case 'pjpeg': case 'pjp': return 'image/jpeg';
-    default: return 'image/jpeg';
-  }
-}
-
 export async function extractProductFromPhoto(asset: {
   uri: string;
   fileName?: string | null;
@@ -79,16 +118,14 @@ export async function extractProductFromPhoto(asset: {
   }
 
   const { base64: b64, mime } = base64Result;
-
-  // Call the product-intelligence edge function
-  const endpoint = 'https://aqdptcuwpneuyzjavjak.supabase.co/functions/v1/product-intelligence';
+  const { endpoint, mode } = resolveEndpoint();
 
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxZHB0Y3V3cG5ldXl6amF2amFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NjQzNjYsImV4cCI6MjEwNTA0MDM2Nn0.jbIzvkqQ7qnYhH45uvIwDI97-tjdHsPY4S-0yv9XBXg`,
+        ...authHeaders(mode),
         'x-client-info': 'sourced/app',
       },
       body: JSON.stringify({
