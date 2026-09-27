@@ -205,6 +205,7 @@ export default function HomeScreen() {
       </View>
 
       <ScanOverlay visible={scan.busy} preview={scan.preview} />
+      {scan.sheet}
     </Screen>
   );
 }

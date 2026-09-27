@@ -17,9 +17,10 @@ export default function Root({ children }: { children: ReactNode }) {
 }
 
 const css = `
-html, body, #root { height: 100%; }
+html, body, #root { height: 100%; margin: 0; }
 body {
-  background-color: #E8E2DC;
+  background-color: #F5F5F7;
+  overscroll-behavior: none;
   font-family: 'General Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 `;

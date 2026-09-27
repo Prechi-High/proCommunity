@@ -33,8 +33,8 @@ function asPlatform(value: string | null | undefined): VideoPlatform {
 }
 
 function asJourneyClip(row: Record<string, unknown>): JourneyClip {
-  const title = String(row.title ?? 'Video');
-  const author = String(row.channel_or_author ?? row.channel_title ?? '');
+  const title = decodeEntities(String(row.title ?? 'Video'));
+  const author = decodeEntities(String(row.channel_or_author ?? row.channel_title ?? ''));
   const tags = Array.isArray(row.content_tags)
     ? (row.content_tags as string[]).filter((tag): tag is ContentTagKey =>
         [
@@ -339,6 +339,57 @@ export async function loadProductClips(product: Pick<Product, 'id' | 'name' | 'b
     notHelpfulCount: 0,
     wilson: 0,
   }));
+}
+
+const TAG_QUERY: Record<ContentTagKey, string> = {
+  how_it_works: 'how it works explained',
+  how_to_use: 'how to use setup guide',
+  composition: 'teardown inside specs',
+  who_its_for: 'is it worth it review',
+  results_over_time: 'long term review months later',
+  precautions: 'problems issues before you buy',
+  comparisons: 'vs comparison',
+};
+
+const tagFetched = new Set<string>();
+
+/** Clips that teach one thing about a product: tagged cache first, then a tag-targeted YouTube search. */
+export async function loadTagClips(
+  product: Pick<Product, 'id' | 'name' | 'brand' | 'category'>,
+  tag: ContentTagKey,
+): Promise<JourneyClip[]> {
+  const cached = await loadTaggedClips(product as Product, tag).catch(() => [] as JourneyClip[]);
+  const key = `${product.id}|${tag}`;
+  if (cached.length >= 3 || !supabase || tagFetched.has(key)) return cached;
+  tagFetched.add(key);
+  const name = product.brand && !product.name.toLowerCase().startsWith(product.brand.toLowerCase()) ? `${product.brand} ${product.name}` : product.name;
+  await supabase.functions
+    .invoke('youtube-fetch', {
+      body: { query: `${name} ${TAG_QUERY[tag]}`.slice(0, 100), catalogProductId: product.id, productName: product.name, brand: product.brand, tag },
+    })
+    .catch(() => null);
+  const refreshed = await loadTaggedClips(product as Product, tag).catch(() => [] as JourneyClip[]);
+  return refreshed.length ? refreshed : cached;
+}
+
+/** How many cached clips sit under each tag for a product. */
+export async function loadTagCounts(productId: string): Promise<Partial<Record<ContentTagKey, number>>> {
+  if (!supabase) return {};
+  const { data, error } = await supabase
+    .from('video_cache')
+    .select('content_tags')
+    .eq('catalog_product_id', productId)
+    .eq('source_platform', 'youtube')
+    .limit(200);
+  if (error || !data) return {};
+  const counts: Partial<Record<ContentTagKey, number>> = {};
+  for (const row of data) {
+    for (const t of (row.content_tags as string[] | null) ?? []) {
+      const k = t as ContentTagKey;
+      counts[k] = (counts[k] ?? 0) + 1;
+    }
+  }
+  return counts;
 }
 
 export async function discoverProductJourney(product: Product): Promise<void> {

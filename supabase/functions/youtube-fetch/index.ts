@@ -9,6 +9,7 @@ const cors = {
 };
 
 const MAX_YOUTUBE_SECONDS = 5 * 60;
+const MAX_TAGGED_SECONDS = 10 * 60;
 
 interface YoutubeClip {
   youtubeVideoId: string;
@@ -44,6 +45,20 @@ function heuristicTags(title: string, author: string): { tags: string[]; confide
   };
 }
 
+const NAME_STOP = new Set(["the", "and", "for", "with", "new", "pack", "wall", "fast", "usb", "type", "inch", "size", "pro", "max", "plus"]);
+
+/** Tag searches drift to sibling products; keep titles that name at least two of the product's key words. */
+function namesProduct(title: string, name: string): boolean {
+  const words = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter((w) => w.length > 1);
+  const key = new Set(words(name).filter((w) => !NAME_STOP.has(w)));
+  if (!key.size) return true;
+  const titleWords = new Set(words(title));
+  const models = [...key].filter((w) => /\d/.test(w));
+  if (models.length && !models.some((m) => titleWords.has(m))) return false;
+  const hits = [...key].filter((w) => titleWords.has(w)).length;
+  return hits >= Math.min(2, key.size);
+}
+
 function isoDurationToSeconds(value: string | undefined): number | null {
   if (!value) return null;
   const iso = value.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/i);
@@ -64,8 +79,10 @@ Deno.serve(async (req) => {
       catalogProductId?: string;
       productName?: string;
       brand?: string;
+      tag?: string;
     };
     const catalogProductId = body.catalogProductId?.trim() || null;
+    const forcedTag = HEURISTIC_RULES.some((rule) => rule.tag === body.tag) ? body.tag! : null;
     const query =
       body.query?.trim() ||
       `${body.brand ?? ""} ${body.productName ?? ""} review`.replace(/\s+/g, " ").trim().slice(0, 80);
@@ -145,8 +162,10 @@ Deno.serve(async (req) => {
         }))
         .filter((clip) => {
           const seconds = clip.durationSeconds;
-          return typeof seconds === "number" && seconds > 0 && seconds <= MAX_YOUTUBE_SECONDS;
+          const limit = forcedTag ? MAX_TAGGED_SECONDS : MAX_YOUTUBE_SECONDS;
+          return typeof seconds === "number" && seconds > 0 && seconds <= limit;
         })
+        .filter((clip) => !forcedTag || namesProduct(clip.title, `${body.brand ?? ""} ${body.productName ?? ""}`))
         .slice(0, 6);
     }
 
@@ -158,6 +177,10 @@ Deno.serve(async (req) => {
         const supabase = createClient(supabaseUrl, serviceKey);
         for (const clip of clips) {
           const guessed = heuristicTags(clip.title, clip.channelTitle);
+          if (forcedTag) {
+            guessed.tags = [forcedTag, ...guessed.tags.filter((t) => t !== forcedTag && t !== "who_its_for")].slice(0, 3);
+            guessed.justification = `search:${forcedTag}|${guessed.justification}`;
+          }
           const sourceUrl = `https://www.youtube.com/watch?v=${clip.youtubeVideoId}`;
           const row = {
             catalog_product_id: catalogProductId,
@@ -180,11 +203,13 @@ Deno.serve(async (req) => {
           if (catalogProductId) {
             const { data: existing } = await supabase
               .from("video_cache")
-              .select("id")
+              .select("id, content_tags")
               .eq("catalog_product_id", catalogProductId)
               .eq("source_url", sourceUrl)
               .maybeSingle();
             if (existing?.id) {
+              const prior = (existing.content_tags as string[] | null) ?? [];
+              row.content_tags = Array.from(new Set([...row.content_tags, ...prior]));
               const { error } = await supabase.from("video_cache").update(row).eq("id", existing.id);
               if (!error) inserted += 1;
             } else {

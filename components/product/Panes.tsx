@@ -1,27 +1,13 @@
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Animated,
-  Image,
-  Linking,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { ActivityIndicator, Animated, Linking, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { OfficialEmbed } from '@/components/VideoEmbed';
-import { ArrowSquareOut, ArrowsLeftRight, CheckCircle, Globe, Play, Storefront, X } from '@/components/icons';
+import { ArrowSquareOut, ArrowsLeftRight, CheckCircle, Globe, Storefront, X } from '@/components/icons';
 import { Eyebrow, Group, GroupRow, Pill, Shimmer, Stars, Tile } from '@/components/kit';
 import { colors, fonts } from '@/constants/theme';
 import { hapticTap } from '@/lib/haptics';
 import { formatPrice, formatRange } from '@/lib/products';
 import type { ProductProfile } from '@/lib/types';
-import { clipLabel, type JourneyClip } from '@/lib/videos';
 
 export async function openLink(url: string | null | undefined) {
   if (!url) return;
@@ -183,95 +169,6 @@ export function PricesPane({ profile }: { profile: ProductProfile }) {
       <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3, lineHeight: 17 }}>
         No seller pays to appear here. Prices come from public listings and can change — confirm on the seller’s page.
       </Text>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-export function VideosPane({ clips, loading }: { clips: JourneyClip[]; loading: boolean }) {
-  const { width, height } = useWindowDimensions();
-  const [active, setActive] = useState<JourneyClip | null>(null);
-  const cardW = Math.min(width, 430) / 2 - 22;
-  if (loading) {
-    return (
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-        {[0, 1, 2, 3].map((i) => (
-          <View key={i} style={{ width: cardW, gap: 8 }}>
-            <Shimmer height={cardW * 0.58} radius={14} />
-            <Shimmer height={12} width="80%" />
-          </View>
-        ))}
-      </View>
-    );
-  }
-  if (!clips.length) {
-    return (
-      <Tile style={{ alignItems: 'center', gap: 10, paddingVertical: 28 }}>
-        <Play size={28} color={colors.bone3} weight="regular" />
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone }}>No explainer videos yet</Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, color: colors.bone2, textAlign: 'center' }}>
-          We look for short, useful videos about setup, use and long-term experience.
-        </Text>
-      </Tile>
-    );
-  }
-  return (
-    <View style={{ gap: 10 }}>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>
-        Learn the product in minutes — how it works, how to use it, and how it holds up.
-      </Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-        {clips.map((clip) => (
-          <Pressable
-            key={clip.id}
-            onPress={() => {
-              hapticTap();
-              setActive(clip);
-            }}
-            style={({ pressed }) => ({ width: cardW, gap: 6, opacity: pressed ? 0.7 : 1 })}
-          >
-            <View style={{ width: cardW, height: cardW * 0.58, borderRadius: 14, overflow: 'hidden', backgroundColor: colors.wineDeep }}>
-              <Image source={{ uri: clip.thumbnailUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-              <View
-                style={{
-                  position: 'absolute',
-                  left: 8,
-                  bottom: 8,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 4,
-                  backgroundColor: 'rgba(0,0,0,0.7)',
-                  borderRadius: 999,
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                }}
-              >
-                <Play size={10} color={colors.white} weight="fill" />
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.white }}>{clipLabel(clip)}</Text>
-              </View>
-            </View>
-            <Text numberOfLines={2} style={{ fontFamily: fonts.medium, fontSize: 13, lineHeight: 17, color: colors.bone }}>
-              {clip.title}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      <Modal visible={Boolean(active)} animationType="slide" onRequestClose={() => setActive(null)}>
-        <View style={{ flex: 1, backgroundColor: colors.wine, paddingTop: Platform.OS === 'ios' ? 54 : 18 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 10, gap: 10 }}>
-            <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>
-              {active?.title}
-            </Text>
-            <Pressable onPress={() => setActive(null)} hitSlop={10} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.lac, alignItems: 'center', justifyContent: 'center' }}>
-              <X size={16} color={colors.bone} weight="bold" />
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={{ paddingBottom: 40, minHeight: height * 0.6 }}>
-            {active ? <OfficialEmbed clip={active} /> : null}
-          </ScrollView>
-        </View>
-      </Modal>
     </View>
   );
 }

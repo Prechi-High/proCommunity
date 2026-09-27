@@ -171,6 +171,7 @@ export default function ResultsScreen() {
           </View>
         ) : null}
       </ScrollView>
+      {scan.sheet}
     </SafeAreaView>
   );
 }

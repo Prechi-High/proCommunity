@@ -7,7 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PillTabs, useMemberGate } from '@/components/community';
 import { ArrowClockwise, ArrowLeft, ArrowsLeftRight, BookmarkSimple, ChatsCircle, ShareNetwork } from '@/components/icons';
 import { Eyebrow, PrimaryButton, ProductImage } from '@/components/kit';
-import { InvestigatingState, openLink, PricesPane, SourcesSheet, SpecsPane, VideosPane } from '@/components/product/Panes';
+import { InvestigatingState, openLink, PricesPane, SourcesSheet, SpecsPane } from '@/components/product/Panes';
+import { VideosPane } from '@/components/product/VideosPane';
 import { DiscussPane, OverviewPane, OwnersPane } from '@/components/product/PeoplePanes';
 import { colors, fonts } from '@/constants/theme';
 import { routeId } from '@/lib/catalog';
@@ -154,7 +155,7 @@ export default function ProductScreen() {
       case 'prices':
         return <PricesPane profile={profile} />;
       case 'videos':
-        return <VideosPane clips={clips.data ?? []} loading={clips.isLoading} />;
+        return <VideosPane product={{ id, name: profile.identity.name || name, brand, category }} clips={clips.data ?? []} loading={clips.isLoading} />;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, profile, clips.data, clips.isLoading, threadList, threads.isLoading, draft, post.isPending]);

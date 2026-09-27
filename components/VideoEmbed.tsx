@@ -3,7 +3,7 @@ import { Linking, Platform, Pressable, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui';
 import { ArrowSquareOut } from '@/components/icons';
-import { colors, radii } from '@/constants/theme';
+import { colors, fonts, radii } from '@/constants/theme';
 import { officialEmbedHeight, officialEmbedSrc, youtubeIdFromUrl } from '@/lib/embedUrls';
 import { loadMyVideoVote, platformLabel, submitVideoVote, voterKeyFor, type JourneyClip } from '@/lib/videos';
 
@@ -71,43 +71,85 @@ function HelpfulPrompt({
   compact?: boolean;
   onVote: (helpful: boolean) => void;
 }) {
+  const onDark = !compact;
   return (
-    <View style={{ gap: compact ? 6 : 10, alignItems: compact ? 'stretch' : 'center' }}>
-      <Text style={{ color: compact ? colors.ink : colors.white, fontSize: compact ? 13 : 16, fontWeight: '600' }}>
-        Was this helpful?
-      </Text>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
+    <View
+      style={{
+        width: '100%',
+        maxWidth: 340,
+        alignSelf: 'center',
+        gap: 12,
+        padding: 16,
+        borderRadius: 18,
+        backgroundColor: onDark ? 'rgba(255,255,255,0.08)' : colors.lac,
+        borderWidth: onDark ? 0 : 1,
+        borderColor: colors.line,
+      }}
+    >
+      <View style={{ gap: 2 }}>
+        <Text style={{ color: onDark ? colors.white : colors.bone, fontSize: 16, fontFamily: fonts.semibold }}>Was this helpful?</Text>
+        <Text style={{ color: onDark ? 'rgba(255,255,255,0.65)' : colors.bone3, fontSize: 13, fontFamily: fonts.regular }}>
+          Your vote moves the best videos to the top for everyone.
+        </Text>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
         <Pressable
           onPress={() => onVote(true)}
           accessibilityRole="button"
           accessibilityLabel="Yes, this was helpful"
-          style={{
+          style={({ pressed }) => ({
             flex: 1,
-            paddingVertical: 8,
-            borderRadius: 10,
-            backgroundColor: compact ? colors.rosewoodSoft : colors.white,
+            height: 44,
+            borderRadius: 12,
+            backgroundColor: colors.hi,
             alignItems: 'center',
-          }}
+            justifyContent: 'center',
+            opacity: pressed ? 0.85 : 1,
+          })}
         >
-          <Text style={{ color: colors.rosewood, fontWeight: '700' }}>Yes</Text>
+          <Text style={{ color: colors.white, fontFamily: fonts.semibold, fontSize: 15 }}>Yes</Text>
         </Pressable>
         <Pressable
           onPress={() => onVote(false)}
           accessibilityRole="button"
           accessibilityLabel="No, this was not helpful"
-          style={{
+          style={({ pressed }) => ({
             flex: 1,
-            paddingVertical: 8,
-            borderRadius: 10,
+            height: 44,
+            borderRadius: 12,
             borderWidth: 1,
-            borderColor: compact ? colors.mist : '#ffffff88',
+            borderColor: onDark ? 'rgba(255,255,255,0.35)' : colors.line,
+            backgroundColor: onDark ? 'transparent' : colors.lac2,
             alignItems: 'center',
-          }}
+            justifyContent: 'center',
+            opacity: pressed ? 0.7 : 1,
+          })}
         >
-          <Text style={{ color: compact ? colors.ink : colors.white, fontWeight: '700' }}>No</Text>
+          <Text style={{ color: onDark ? colors.white : colors.bone, fontFamily: fonts.semibold, fontSize: 15 }}>No</Text>
         </Pressable>
       </View>
     </View>
+  );
+}
+
+function ReplayButton({ onPress, onDark }: { onPress: () => void; onDark?: boolean }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Replay video"
+      style={({ pressed }) => ({
+        alignSelf: 'center',
+        paddingHorizontal: 20,
+        height: 40,
+        borderRadius: 999,
+        justifyContent: 'center',
+        backgroundColor: onDark ? 'rgba(255,255,255,0.14)' : colors.hiSoft,
+        opacity: pressed ? 0.7 : 1,
+      })}
+    >
+      <Text style={{ color: onDark ? colors.white : colors.hiInk, fontFamily: fonts.semibold, fontSize: 14 }}>Replay</Text>
+    </Pressable>
   );
 }
 
@@ -227,63 +269,42 @@ function VoteDock({
   overlay?: boolean;
   onReplay?: () => void;
 }) {
-  if (vote != null && !onReplay) return null;
-  if (vote != null && onReplay) {
-    return overlay ? (
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          top: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(18, 12, 14, 0.82)',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <Pressable onPress={onReplay} accessibilityRole="button" accessibilityLabel="Replay video">
-          <Text style={{ color: colors.white, fontWeight: '700', fontSize: 16 }}>Replay</Text>
-        </Pressable>
+  const shell = overlay
+    ? ({
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(10, 10, 11, 0.86)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        gap: 12,
+      } as const)
+    : ({ gap: 10 } as const);
+  if (vote != null) {
+    if (!onReplay && !overlay) {
+      return (
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.bone3, textAlign: 'center', paddingVertical: 4 }}>
+          Thanks — your vote helps the next person learn faster.
+        </Text>
+      );
+    }
+    return (
+      <View style={shell}>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: overlay ? 'rgba(255,255,255,0.8)' : colors.bone2, textAlign: 'center' }}>
+          Thanks for the vote.
+        </Text>
+        {onReplay ? <ReplayButton onPress={onReplay} onDark={overlay} /> : null}
       </View>
-    ) : null;
+    );
   }
   return (
-    <View
-      style={
-        overlay
-          ? {
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(18, 12, 14, 0.82)',
-              justifyContent: 'center',
-              padding: 18,
-              gap: 14,
-            }
-          : {
-              paddingTop: 8,
-              paddingBottom: 2,
-            }
-      }
-    >
+    <View style={shell}>
       <HelpfulPrompt compact={!overlay} onVote={persist} />
-      {onReplay ? (
-        <Pressable onPress={onReplay} accessibilityRole="button" accessibilityLabel="Replay video">
-          <Text
-            style={{
-              color: overlay ? colors.white : colors.rosewood,
-              fontWeight: '700',
-              textAlign: 'center',
-              paddingVertical: 6,
-            }}
-          >
-            Replay
-          </Text>
-        </Pressable>
-      ) : null}
+      {onReplay ? <ReplayButton onPress={onReplay} onDark={overlay} /> : null}
     </View>
   );
 }
@@ -357,17 +378,18 @@ export function OfficialEmbed({
             replayRef={replayRef}
           />
           {youtubeEnded ? (
-            <VoteDock
-              vote={vote}
-              persist={persist}
-              overlay
-              onReplay={() => {
-                replayRef.current?.();
-                setYoutubeEnded(false);
-              }}
-            />
+            <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(10, 10, 11, 0.78)', alignItems: 'center', justifyContent: 'center' }}>
+              <ReplayButton
+                onDark
+                onPress={() => {
+                  replayRef.current?.();
+                  setYoutubeEnded(false);
+                }}
+              />
+            </View>
           ) : null}
         </View>
+        {youtubeEnded ? <VoteDock vote={vote} persist={persist} /> : null}
       </View>
     );
   }
@@ -409,11 +431,11 @@ export function OfficialEmbed({
                 left: 0,
                 right: 0,
                 bottom: 0,
-                padding: 12,
-                backgroundColor: 'rgba(18, 12, 14, 0.78)',
+                padding: 16,
+                backgroundColor: 'rgba(10, 10, 11, 0.86)',
               }}
             >
-              <HelpfulPrompt compact onVote={persist} />
+              <HelpfulPrompt onVote={persist} />
             </View>
           ) : null}
         </View>
