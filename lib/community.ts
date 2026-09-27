@@ -1,6 +1,6 @@
 import { callIntel } from './products';
 import { useAppStore } from './store';
-import type { AskAnswer, CommunityReply, CommunityThread, Product, Pulse, ThreadKind } from './types';
+import type { AskAnswer, CommunityNotification, CommunityReply, CommunityThread, Product, ProductRoom, Pulse, ThreadKind } from './types';
 
 /**
  * Shared community layer. Threads, replies, questions and trending signals live in
@@ -17,8 +17,62 @@ export async function fetchThreads(productId?: string): Promise<CommunityThread[
   return res.threads ?? [];
 }
 
+export type FeedSort = 'hot' | 'new' | 'top';
+
+export async function fetchFeed(input: { sort?: FeedSort; kind?: ThreadKind | null; productId?: string; q?: string; limit?: number } = {}): Promise<CommunityThread[]> {
+  const res = await callIntel<{ threads?: CommunityThread[] }>(
+    { action: 'feed', sort: input.sort ?? 'hot', kind: input.kind ?? undefined, productId: input.productId, q: input.q, limit: input.limit, memberId: me()?.id },
+    15000,
+  );
+  return res.threads ?? [];
+}
+
+export async function fetchFollowing(): Promise<CommunityThread[]> {
+  const m = me();
+  if (!m) return [];
+  const res = await callIntel<{ threads?: CommunityThread[] }>({ action: 'following', memberId: m.id }, 15000);
+  return res.threads ?? [];
+}
+
+export async function voteThread(threadId: string, on: boolean): Promise<number> {
+  const m = me();
+  if (!m) throw new Error('join_first');
+  const res = await callIntel<{ votes?: number }>({ action: 'vote', threadId, on, memberId: m.id }, 10000);
+  return res.votes ?? 0;
+}
+
+export async function followThread(threadId: string, on: boolean): Promise<number> {
+  const m = me();
+  if (!m) throw new Error('join_first');
+  const res = await callIntel<{ followers?: number }>({ action: 'follow', threadId, on, memberId: m.id }, 10000);
+  return res.followers ?? 0;
+}
+
+export async function fetchNotifications(): Promise<{ notifications: CommunityNotification[]; unread: number }> {
+  const m = me();
+  if (!m) return { notifications: [], unread: 0 };
+  const res = await callIntel<{ notifications?: CommunityNotification[]; unread?: number }>({ action: 'notifications', memberId: m.id }, 10000);
+  return { notifications: res.notifications ?? [], unread: res.unread ?? 0 };
+}
+
+export async function markNotificationsRead(): Promise<void> {
+  const m = me();
+  if (m) await callIntel({ action: 'notifications_read', memberId: m.id }, 8000).catch(() => undefined);
+}
+
+export async function fetchRoom(productId: string): Promise<ProductRoom | null> {
+  const res = await callIntel<{ room?: ProductRoom }>({ action: 'room', productId }, 12000);
+  return res.room ?? null;
+}
+
+export async function uploadPostImage(base64: string, mimeType: string): Promise<string> {
+  const res = await callIntel<{ url?: string }>({ action: 'upload', imageBase64: base64, mimeType }, 40000);
+  if (!res.url) throw new Error('upload_failed');
+  return res.url;
+}
+
 export async function fetchThread(threadId: string): Promise<CommunityThread | null> {
-  const res = await callIntel<{ thread?: CommunityThread | null }>({ action: 'thread', threadId }, 15000);
+  const res = await callIntel<{ thread?: CommunityThread | null }>({ action: 'thread', threadId, memberId: me()?.id }, 15000);
   const t = res.thread ?? null;
   if (t?.community_replies) {
     t.community_replies.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
@@ -32,6 +86,8 @@ export async function postThread(input: {
   title: string;
   body?: string;
   compare?: Pick<Product, 'id' | 'name' | 'brand' | 'heroImageUrl'> | null;
+  imageUrl?: string | null;
+  rating?: number | null;
 }): Promise<CommunityThread> {
   const author = me();
   if (!author) throw new Error('join_first');
@@ -49,6 +105,9 @@ export async function postThread(input: {
       compareId: input.compare?.id,
       compareName: input.compare?.name,
       compareImage: input.compare?.heroImageUrl ?? null,
+      imageUrl: input.imageUrl ?? null,
+      rating: input.rating ?? null,
+      brand: input.product.brand,
     },
     15000,
   );
@@ -136,4 +195,6 @@ export const KIND_LABEL: Record<ThreadKind, string> = {
   worry: 'Worry',
   experience: 'Experience',
   compare: 'Comparison',
+  tip: 'Tip',
+  review: 'Review',
 };

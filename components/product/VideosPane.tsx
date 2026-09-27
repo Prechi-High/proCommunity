@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Image, Modal, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,7 +8,7 @@ import { Play, X } from '@/components/icons';
 import { Shimmer, Tile } from '@/components/kit';
 import { colors, fonts } from '@/constants/theme';
 import { hapticSelect, hapticTap } from '@/lib/haptics';
-import { FALLBACK_TAGS, tagLabel, type ContentTagKey } from '@/lib/taxonomy';
+import { tagLabel as clipTagLabel, tagsFor, type CategoryTag, type ContentTagKey } from '@/lib/taxonomy';
 import type { Product } from '@/lib/types';
 import { clipLabel, loadTagClips, loadTagCounts, type JourneyClip } from '@/lib/videos';
 
@@ -27,12 +27,14 @@ function useTagClips(product: VideoProduct, tag: ContentTagKey | null) {
 }
 
 function TagChips({
+  tags,
   value,
   onChange,
   counts,
   includeAll,
   exclude,
 }: {
+  tags: CategoryTag[];
   value: Filter | null;
   onChange: (tag: Filter) => void;
   counts?: Partial<Record<ContentTagKey, number>>;
@@ -41,7 +43,7 @@ function TagChips({
 }) {
   const options: { id: Filter; label: string; count?: number }[] = [
     ...(includeAll ? [{ id: 'all' as const, label: 'All' }] : []),
-    ...FALLBACK_TAGS.filter((t) => t.tagKey !== exclude).map((t) => ({ id: t.tagKey, label: t.tagLabel, count: counts?.[t.tagKey] })),
+    ...tags.filter((t) => t.tagKey !== exclude).map((t) => ({ id: t.tagKey, label: t.tagLabel, count: counts?.[t.tagKey] })),
   ];
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: PAD }}>
@@ -158,15 +160,22 @@ export function VideosPane({ product, clips, loading }: { product: VideoProduct;
   const contentWidth = width - PAD * 2;
   const [filter, setFilter] = useState<Filter>('all');
   const [playing, setPlaying] = useState<{ clip: JourneyClip; tag: ContentTagKey } | null>(null);
+  const tags = useMemo(() => tagsFor(product.category), [product.category]);
+  const tagLabel = (k: ContentTagKey) => tags.find((t) => t.tagKey === k)?.tagLabel ?? clipTagLabel(k);
   const counts = useQuery({ queryKey: ['tagcounts', product.id], queryFn: () => loadTagCounts(product.id), staleTime: 10 * 60_000 });
   const tagged = useTagClips(product, filter === 'all' ? null : filter);
 
   const list = filter === 'all' ? clips : tagged.data ?? [];
   const busy = filter === 'all' ? loading : tagged.isLoading;
-  const labelFor = (c: JourneyClip) => (filter === 'all' ? clipLabel(c) : tagLabel(filter));
+  const relevantTag = (c: JourneyClip) => c.contentTags.find((t) => tags.some((x) => x.tagKey === t));
+  const labelFor = (c: JourneyClip) => {
+    if (filter !== 'all') return tagLabel(filter);
+    const t = relevantTag(c);
+    return t ? tagLabel(t) : clipLabel(c);
+  };
 
   const open = (clip: JourneyClip) =>
-    setPlaying({ clip, tag: filter === 'all' ? clip.contentTags[0] ?? 'who_its_for' : filter });
+    setPlaying({ clip, tag: filter === 'all' ? relevantTag(clip) ?? tags[0].tagKey : filter });
 
   return (
     <View style={{ gap: 14 }}>
@@ -177,7 +186,7 @@ export function VideosPane({ product, clips, loading }: { product: VideoProduct;
         </Text>
       </View>
       <View style={{ marginHorizontal: -PAD }}>
-        <TagChips value={filter} onChange={setFilter} counts={counts.data} includeAll />
+        <TagChips tags={tags} value={filter} onChange={setFilter} counts={counts.data} includeAll />
       </View>
       {busy ? (
         <GridSkeleton contentWidth={contentWidth} />
@@ -195,18 +204,20 @@ export function VideosPane({ product, clips, loading }: { product: VideoProduct;
         </Tile>
       )}
 
-      <PlayerSheet product={product} playing={playing} onPlay={setPlaying} onClose={() => setPlaying(null)} />
+      <PlayerSheet product={product} tags={tags} playing={playing} onPlay={setPlaying} onClose={() => setPlaying(null)} />
     </View>
   );
 }
 
 function PlayerSheet({
   product,
+  tags,
   playing,
   onPlay,
   onClose,
 }: {
   product: VideoProduct;
+  tags: CategoryTag[];
   playing: { clip: JourneyClip; tag: ContentTagKey } | null;
   onPlay: (p: { clip: JourneyClip; tag: ContentTagKey }) => void;
   onClose: () => void;
@@ -215,6 +226,7 @@ function PlayerSheet({
   const scroller = useRef<ScrollView>(null);
   const [explore, setExplore] = useState<ContentTagKey | null>(null);
   const tag = playing?.tag ?? null;
+  const tagLabel = (k: ContentTagKey) => tags.find((t) => t.tagKey === k)?.tagLabel ?? clipTagLabel(k);
   const same = useTagClips(product, tag);
   const other = useTagClips(product, explore && explore !== tag ? explore : null);
 
@@ -286,7 +298,7 @@ function PlayerSheet({
               <Text style={{ fontFamily: fonts.bold, fontSize: 17, letterSpacing: -0.3, color: colors.bone }}>Learn something else</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone3 }}>Pick a topic to see its videos.</Text>
             </View>
-            <TagChips value={explore} onChange={(t) => setExplore(t as ContentTagKey)} exclude={tag} />
+            <TagChips tags={tags} value={explore} onChange={(t) => setExplore(t as ContentTagKey)} exclude={tag} />
             {explore && explore !== tag ? (
               other.isLoading ? (
                 <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: PAD }}>

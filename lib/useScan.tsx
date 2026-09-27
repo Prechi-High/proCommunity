@@ -52,15 +52,25 @@ export function useScan() {
       }
       hapticSuccess();
       const id = slugify(vision.label);
+      const photo = vision.imageUrl || (asset.uri.startsWith('data:') && asset.uri.length > 400_000 ? '' : asset.uri);
       rememberProduct({
         id,
         name: vision.name || vision.label,
         brand: vision.brand ?? '',
         category: vision.category || 'Product',
-        heroImageUrl: null,
+        heroImageUrl: vision.matches?.find((m) => m.exact && m.image)?.image ?? null,
+      });
+      useAppStore.getState().rememberScan(id, {
+        photo,
+        label: vision.label,
+        confidence: vision.confidence ?? 0.6,
+        features: vision.features ?? [],
+        alternatives: vision.alternatives ?? [],
+        matches: vision.matches ?? [],
+        at: new Date().toISOString(),
       });
       addSearch(vision.label);
-      router.push({ pathname: '/product/[id]', params: { id, q: vision.label, from: 'scan' } } as Href);
+      router.push({ pathname: '/product/[id]', params: { id, q: vision.searchQuery || vision.label, from: 'scan' } } as Href);
     } catch (err) {
       hapticHeavy();
       notify('Photo search hit a snag', err instanceof Error ? err.message : 'Try again, or type the product name.');

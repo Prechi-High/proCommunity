@@ -351,6 +351,16 @@ const TAG_QUERY: Record<ContentTagKey, string> = {
   comparisons: 'vs comparison',
 };
 
+function tagQuery(tag: ContentTagKey, category: string): string {
+  if (tag === 'composition') {
+    if (/skin|hair|beauty|cosmetic|serum|cream|food|drink|snack|supplement|protein|vitamin|coffee|tea/i.test(category)) return 'ingredients explained';
+    if (/shoe|sneaker|cloth|shirt|dress|jacket|bag|apparel|wear/i.test(category)) return 'material quality fit sizing';
+  }
+  if (tag === 'results_over_time' && /skin|hair|beauty|serum|cream/i.test(category)) return 'results before after weeks';
+  if (tag === 'how_to_use' && /food|drink|coffee|tea|supplement|protein/i.test(category)) return 'how to prepare';
+  return TAG_QUERY[tag];
+}
+
 const tagFetched = new Set<string>();
 
 /** Clips that teach one thing about a product: tagged cache first, then a tag-targeted YouTube search. */
@@ -365,7 +375,7 @@ export async function loadTagClips(
   const name = product.brand && !product.name.toLowerCase().startsWith(product.brand.toLowerCase()) ? `${product.brand} ${product.name}` : product.name;
   await supabase.functions
     .invoke('youtube-fetch', {
-      body: { query: `${name} ${TAG_QUERY[tag]}`.slice(0, 100), catalogProductId: product.id, productName: product.name, brand: product.brand, tag },
+      body: { query: `${name} ${tagQuery(tag, product.category ?? '')}`.slice(0, 100), catalogProductId: product.id, productName: product.name, brand: product.brand, tag },
     })
     .catch(() => null);
   const refreshed = await loadTaggedClips(product as Product, tag).catch(() => [] as JourneyClip[]);

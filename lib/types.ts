@@ -121,11 +121,46 @@ export interface ProductProfile {
   confidence: number;
   band: 'High' | 'Likely' | 'Uncertain';
   images: string[];
+  gallery?: GalleryImage[];
+  variants?: ProductVariant[];
   sources: EvidenceSource[];
   verifiedAt: string;
 }
 
-export type ThreadKind = 'question' | 'worry' | 'experience' | 'compare';
+export interface GalleryImage {
+  url: string;
+  title: string;
+  source: string;
+  width?: number | null;
+  height?: number | null;
+}
+
+export interface ProductVariant {
+  label: string;
+  kind: string;
+  query: string;
+}
+
+export interface VisualMatch {
+  title: string;
+  source: string;
+  link: string;
+  image: string;
+  exact: boolean;
+}
+
+/** What the camera found, kept so the product page can show the photo and let people correct the match. */
+export interface ScanRecord {
+  photo: string;
+  label: string;
+  confidence: number;
+  features: string[];
+  alternatives: string[];
+  matches: VisualMatch[];
+  at: string;
+}
+
+export type ThreadKind = 'question' | 'worry' | 'experience' | 'compare' | 'tip' | 'review';
 
 export interface CommunityReply {
   id: string;
@@ -156,7 +191,50 @@ export interface CommunityThread {
   reply_count: number;
   created_at: string;
   last_activity_at: string;
+  image_url?: string | null;
+  rating?: number | null;
+  votes?: number;
+  follower_count?: number;
+  brand?: string | null;
+  voted?: boolean;
+  following?: boolean;
   community_replies?: CommunityReply[];
+}
+
+export interface CommunityNotification {
+  id: string;
+  thread_id: string;
+  actor_name: string;
+  kind: 'reply' | 'owner_reply' | 'vote';
+  snippet: string | null;
+  thread_title: string | null;
+  product_name: string | null;
+  read: boolean;
+  created_at: string;
+}
+
+export interface ProductRoom {
+  posts: number;
+  byKind: Partial<Record<ThreadKind, number>>;
+  replies: number;
+  followers: number;
+  memberRating: number | null;
+  ratedBy: number;
+  views30d: number;
+  viewsThisWeek: number;
+  compares30d: number;
+  score: number | null;
+  consensus: string | null;
+  praise: string[];
+  complaints: string[];
+}
+
+export interface WebVoice extends Voice {
+  product_id: string;
+  product_name: string;
+  product_image: string | null;
+  category: string;
+  score: number | null;
 }
 
 export interface AskCite {
@@ -195,6 +273,7 @@ export interface Pulse {
   trending: TrendingProduct[];
   asks: { product_id: string; product_name: string | null; compare_id: string | null; question: string; answered: boolean; created_at: string }[];
   threads: CommunityThread[];
+  voices?: WebVoice[];
   stats: { productsResearched: number; actionsThisWeek: number; questionsAsked: number };
 }
 

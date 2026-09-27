@@ -9,6 +9,8 @@ import { ArrowClockwise, ArrowLeft, ArrowsLeftRight, BookmarkSimple, ChatsCircle
 import { Eyebrow, PrimaryButton, ProductImage } from '@/components/kit';
 import { InvestigatingState, openLink, PricesPane, SourcesSheet, SpecsPane } from '@/components/product/Panes';
 import { VideosPane } from '@/components/product/VideosPane';
+import { galleryFor, GalleryStrip, MatchesSheet, ScanBanner, VariantChips } from '@/components/product/Gallery';
+import { Lightbox } from '@/components/Lightbox';
 import { DiscussPane, OverviewPane, OwnersPane } from '@/components/product/PeoplePanes';
 import { colors, fonts } from '@/constants/theme';
 import { routeId } from '@/lib/catalog';
@@ -29,6 +31,9 @@ export default function ProductScreen() {
   const q = typeof params.q === 'string' ? params.q : undefined;
   const [tab, setTab] = useState<Tab>(params.tab === 'discuss' ? 'discuss' : 'overview');
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [viewing, setViewing] = useState<number | null>(null);
+  const [matchesOpen, setMatchesOpen] = useState(false);
+  const scan = useAppStore((s) => s.scans[id]);
   const [draft, setDraft] = useState<{ kind: Exclude<ThreadKind, 'compare'>; title: string }>({ kind: 'question', title: '' });
   const favorites = useAppStore((s) => s.favorites);
   const toggleFavorite = useAppStore((s) => s.toggleFavorite);
@@ -91,6 +96,7 @@ export default function ProductScreen() {
   const brand = profile?.identity.brand || product?.brand || '';
   const category = profile?.identity.category || product?.category || '';
   const threadList = threads.data ?? [];
+  const photos = useMemo(() => galleryFor(profile, scan, image), [profile, scan, image]);
 
   const post = useMutation({
     mutationFn: () =>
@@ -133,7 +139,17 @@ export default function ProductScreen() {
     if (!profile) return null;
     switch (tab) {
       case 'overview':
-        return <OverviewPane profile={profile} threads={threadList} onGo={go} onOpenSources={() => setSourcesOpen(true)} />;
+        return (
+          <View style={{ gap: 24 }}>
+            <OverviewPane profile={profile} threads={threadList} onGo={go} onOpenSources={() => setSourcesOpen(true)} />
+            <GalleryStrip images={photos} hasScan={Boolean(scan?.photo)} onOpen={setViewing} />
+            <VariantChips
+              variants={profile.variants ?? []}
+              current={[profile.identity.variant, profile.identity.size, name].join(' ')}
+              onPick={(v) => openAlternative(v.query)}
+            />
+          </View>
+        );
       case 'owners':
         return <OwnersPane profile={profile} />;
       case 'discuss':
@@ -158,7 +174,7 @@ export default function ProductScreen() {
         return <VideosPane product={{ id, name: profile.identity.name || name, brand, category }} clips={clips.data ?? []} loading={clips.isLoading} />;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, profile, clips.data, clips.isLoading, threadList, threads.isLoading, draft, post.isPending]);
+  }, [tab, profile, clips.data, clips.isLoading, threadList, threads.isLoading, draft, post.isPending, photos, scan]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.wine }} edges={['top', 'bottom']}>
@@ -191,7 +207,18 @@ export default function ProductScreen() {
       </View>
 
       <View style={{ flexDirection: 'row', gap: 16, paddingHorizontal: 16, alignItems: 'center' }}>
-        <ProductImage uri={image} category={category} size={88} radius={20} style={{ borderWidth: 0 }} />
+        <Pressable
+          onPress={() => photos.length && setViewing(scan?.photo && photos.length > 1 ? 1 : 0)}
+          accessibilityLabel="View product photos"
+          disabled={!photos.length}
+        >
+          <ProductImage uri={image || photos[0]?.url} category={category} size={88} radius={20} style={{ borderWidth: 0 }} />
+          {photos.length > 1 ? (
+            <View style={{ position: 'absolute', right: 6, bottom: 6, backgroundColor: 'rgba(0,0,0,0.66)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.white }}>{photos.length}</Text>
+            </View>
+          ) : null}
+        </Pressable>
         <View style={{ flex: 1, gap: 4 }}>
           {brand ? <Eyebrow color={colors.hi}>{brand}</Eyebrow> : null}
           <Text numberOfLines={3} style={{ fontFamily: fonts.bold, fontSize: 21, lineHeight: 25, letterSpacing: -0.5, color: colors.bone }}>
@@ -205,6 +232,12 @@ export default function ProductScreen() {
           ) : null}
         </View>
       </View>
+
+      {scan ? (
+        <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+          <ScanBanner scan={scan} onPhoto={() => setViewing(0)} onMatches={() => setMatchesOpen(true)} />
+        </View>
+      ) : null}
 
       <View style={{ paddingTop: 14, paddingBottom: 12 }}>
         <PillTabs options={tabs} value={tab} onChange={go} />
@@ -276,6 +309,19 @@ export default function ProductScreen() {
       ) : null}
 
       <SourcesSheet profile={profile} visible={sourcesOpen} onClose={() => setSourcesOpen(false)} />
+      <Lightbox images={photos} index={viewing} onClose={() => setViewing(null)} />
+      <MatchesSheet
+        scan={scan}
+        visible={matchesOpen}
+        onClose={() => setMatchesOpen(false)}
+        onPick={(pick, img) => {
+          setMatchesOpen(false);
+          const altId = slugify(pick);
+          rememberProduct({ id: altId, name: pick, brand: '', category: category || 'Product', heroImageUrl: img ?? null });
+          if (scan) useAppStore.getState().rememberScan(altId, { ...scan, label: pick, at: new Date().toISOString() });
+          router.replace({ pathname: '/product/[id]', params: { id: altId, q: pick, from: 'scan' } } as Href);
+        }}
+      />
       {gate}
     </SafeAreaView>
   );

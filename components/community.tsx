@@ -23,8 +23,10 @@ import {
   ChatsCircle,
   Globe,
   Heart,
+  Lightbulb,
   PaperPlaneRight,
   Question,
+  Star,
   RedditLogo,
   SealCheck,
   SmileyNervous,
@@ -319,7 +321,7 @@ export function VoiceCard({
 // ---------------------------------------------------------------------------
 // Threads
 
-const KIND_ICON = { question: Question, worry: SmileyNervous, experience: ChatTeardropText, compare: ArrowsLeftRight } as const;
+const KIND_ICON = { question: Question, worry: SmileyNervous, experience: ChatTeardropText, compare: ArrowsLeftRight, tip: Lightbulb, review: Star } as const;
 
 export function ThreadCard({
   thread,

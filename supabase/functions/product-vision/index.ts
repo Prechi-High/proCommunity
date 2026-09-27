@@ -87,6 +87,7 @@ function cleanLabel(raw: string): string {
   text = text.replace(/^(brand|product|name|result|answer)\s*[:\-]\s*/i, "");
   text = text.replace(/\.$/, "");
   const lowered = text.toLowerCase();
+  if (looksLikeJson(text)) return "";
   if (!text || lowered === "null" || lowered === "unknown" || lowered === "n/a" || text.length < 3) return "";
   // Reject model refusals / hedges that are not product names.
   if (
@@ -360,6 +361,213 @@ async function runVisionPipeline(b64: string, mime: string, prompt: string, debu
   return { label: labelOut, attempts, keyLengths: { or: openRouterKey.length, g: geminiKey.length, nv: nvidiaKey.length } };
 }
 
+// ---------------------------------------------------------------------------
+// Exact identification: photo → storage → (Gemini read ∥ Google Lens visual matches) → reconcile.
+
+const EXACT_PROMPT = `You are an expert product identifier — part Google Lens, part veteran store clerk.
+Identify the EXACT product in this photo so a shopper can find that precise item.
+Use every cue, not only printed labels: logos, product shape and silhouette, materials, textures, buttons, ports,
+stitching, sole pattern, cap/nozzle shape, packaging layout and colours, colourway, size markings, model numbers.
+If text is partly hidden, infer from distinctive design. Name the specific model/generation and variant
+(size, capacity, volume, colour, flavour, scent, storage) whenever visible or inferable.
+Return JSON only:
+{"brand":"","name":"product line + model, without the brand","model":"model number/code if known","variant":"size/colour/capacity etc","category":"short general type e.g. Wireless earbuds, Running shoes, Face serum","visible_text":[""],"features":["short distinguishing visual cues"],"search_query":"the most specific shopping query for this exact item","alternatives":["up to 3 other exact products it could be"],"confidence":0.0}
+If no product is visible return {"brand":"","name":"","confidence":0}.`;
+
+type Lens = { title: string; source: string; link: string; image: string };
+type Exact = {
+  brand: string;
+  name: string;
+  model: string;
+  variant: string;
+  category: string;
+  searchQuery: string;
+  features: string[];
+  alternatives: string[];
+  confidence: number;
+  matchIndexes: number[];
+};
+
+function str(v: unknown, max = 160): string {
+  return typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "";
+}
+
+function looksLikeJson(text: string): boolean {
+  return /[{}]|"\s*:/.test(text);
+}
+
+/** Tolerates code fences, truncation and prose around the object; never hands raw JSON back as a label. */
+function looseObject(raw: string): Record<string, unknown> | null {
+  const stripped = raw.replace(/```(?:json)?/gi, "").trim();
+  const start = stripped.indexOf("{");
+  if (start < 0) return null;
+  const body = stripped.slice(start);
+  const end = body.lastIndexOf("}");
+  if (end > 0) {
+    try {
+      return JSON.parse(body.slice(0, end + 1)) as Record<string, unknown>;
+    } catch {
+      // fall through to field extraction
+    }
+  }
+  const out: Record<string, unknown> = {};
+  for (const m of body.matchAll(/"([a-z_]+)"\s*:\s*("(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?)/gi)) {
+    try {
+      out[m[1]] = JSON.parse(m[2]);
+    } catch {
+      // skip
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function toExact(j: Record<string, unknown> | null): Exact | null {
+  if (!j) return null;
+  const list = (v: unknown, n: number) => (Array.isArray(v) ? v.map((x) => str(x, 90)).filter(Boolean).slice(0, n) : []);
+  const brand = str(j.brand, 60);
+  let name = str(j.name, 120);
+  if (brand && name.toLowerCase().startsWith(brand.toLowerCase() + " ")) name = name.slice(brand.length).trim();
+  if (!brand && !name) return null;
+  return {
+    brand,
+    name,
+    model: str(j.model, 60),
+    variant: str(j.variant, 60),
+    category: str(j.category, 50),
+    searchQuery: str(j.search_query, 140),
+    features: list(j.features, 5),
+    alternatives: list(j.alternatives, 3),
+    confidence: Math.max(0, Math.min(1, Number(j.confidence) || 0.6)),
+    matchIndexes: Array.isArray(j.match_indexes) ? j.match_indexes.map(Number).filter((n) => Number.isInteger(n) && n >= 0) : [],
+  };
+}
+
+function geminiOrder(): string[] {
+  const pref = Deno.env.get("GEMINI_MODEL")?.trim();
+  return Array.from(
+    new Set([pref && !/^gemini-(1\.|2\.0|2\.5)/.test(pref) ? pref : "", "gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"].filter(Boolean)),
+  );
+}
+
+async function geminiJson(key: string, parts: unknown[], budgetMs: number): Promise<{ data: Record<string, unknown> | null; model: string; errors: string[] }> {
+  const errors: string[] = [];
+  const deadline = Date.now() + budgetMs;
+  for (const model of geminiOrder()) {
+    const left = deadline - Date.now();
+    if (left < 2000) break;
+    const r = await withTimeout(
+      fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096, responseMimeType: "application/json" },
+        }),
+      }),
+      Math.min(left, 16000),
+      model,
+    );
+    if (!r.ok) {
+      errors.push(`${model}:timeout`);
+      continue;
+    }
+    if (!r.val.ok) {
+      errors.push(`${model}:http_${r.val.status}`);
+      continue;
+    }
+    const j = (await r.val.json().catch(() => null)) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>;
+    } | null;
+    const text = j?.candidates?.[0]?.content?.parts?.filter((p) => !p.thought).map((p) => p.text ?? "").join("") ?? "";
+    const data = looseObject(text);
+    if (data) return { data, model, errors };
+    errors.push(`${model}:unparseable`);
+  }
+  return { data: null, model: "", errors };
+}
+
+async function uploadScan(b64: string, mime: string): Promise<string | null> {
+  const base = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!base || !key) return null;
+  try {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+    const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
+    const r = await fetch(`${base}/storage/v1/object/scans/${path}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, apikey: key, "Content-Type": mime, "x-upsert": "true" },
+      body: bytes,
+    });
+    return r.ok ? `${base}/storage/v1/object/public/scans/${path}` : null;
+  } catch {
+    return null;
+  }
+}
+
+async function lens(url: string): Promise<Lens[]> {
+  const key = secretValue("SERPER_API_KEY");
+  if (!key) return [];
+  const r = await withTimeout(
+    fetch("https://google.serper.dev/lens", {
+      method: "POST",
+      headers: { "X-API-KEY": key, "Content-Type": "application/json" },
+      body: JSON.stringify({ url, gl: "us", hl: "en" }),
+    }),
+    12000,
+    "lens",
+  );
+  if (!r.ok || !r.val.ok) return [];
+  const j = (await r.val.json().catch(() => null)) as Record<string, unknown> | null;
+  const rows = (j?.organic ?? j?.visual_matches ?? j?.visualMatches ?? []) as Array<Record<string, unknown>>;
+  return rows
+    .map((o) => ({
+      title: str(o.title, 140),
+      source: str(o.source, 60),
+      link: str(o.link, 500),
+      image: str(o.imageUrl ?? o.thumbnailUrl ?? o.thumbnail, 500),
+    }))
+    .filter((o) => o.title)
+    .slice(0, 16);
+}
+
+async function identifyExact(b64: string, mime: string, gKey: string) {
+  const image = { inlineData: { mimeType: mime, data: b64 } };
+  const upload = uploadScan(b64, mime);
+  const [first, matches] = await Promise.all([
+    geminiJson(gKey, [{ text: EXACT_PROMPT }, image], 20000),
+    upload.then((u) => (u ? lens(u) : [])),
+  ]);
+  const imageUrl = await upload;
+  let exact = toExact(first.data);
+  const errors = [...first.errors];
+  let model = first.model;
+
+  if (matches.length) {
+    const reconcile = `You identified a product from this photo. Your first read: ${JSON.stringify(first.data ?? {}).slice(0, 900)}
+Google Lens visual matches for the same photo (index: title — source):
+${matches.map((m, i) => `${i}: ${m.title} — ${m.source}`).join("\n")}
+
+Decide the EXACT product in the photo. Trust what is visibly printed on the item first, then names repeated across several
+visual matches, then design cues. Ignore matches that are accessories, lookalikes or different generations unless they
+match the photo. Return JSON only:
+{"brand":"","name":"product line + model, without brand","model":"","variant":"","category":"","search_query":"most specific shopping query","alternatives":[""],"confidence":0.0,"match_indexes":[indices of matches that show this exact product]}`;
+    const second = await geminiJson(gKey, [{ text: reconcile }, image], 16000);
+    errors.push(...second.errors);
+    const refined = toExact(second.data);
+    if (refined) {
+      exact = { ...refined, features: exact?.features ?? [] };
+      model = second.model || model;
+    }
+  }
+  return { exact, matches, imageUrl, errors, model };
+}
+
+function exactLabel(e: Exact): string {
+  const label = cleanLabel([e.brand, e.name || e.model].filter(Boolean).join(" "));
+  return label && !looksLikeJson(label) ? label : "";
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -402,6 +610,34 @@ Deno.serve(async (req) => {
 
   const wantsJson = body.format === "json";
   const prompt = (body.prompt?.trim() && body.prompt.length >= 8) ? body.prompt : wantsJson ? JSON_PROMPT : DEFAULT_PROMPT;
+
+  const gKey = secretValue("GEMINI_API_KEY") || secretValue("GOOGLE_API_KEY");
+  if (wantsJson && gKey && !body.prompt) {
+    const out = await withTimeout(identifyExact(b64, mime, gKey), GLOBAL_TIMEOUT_MS, "exact");
+    if (out.ok && out.val.exact) {
+      const e = out.val.exact;
+      const label = exactLabel(e);
+      if (label) {
+        const picked = e.matchIndexes.map((i) => out.val.matches[i]).filter(Boolean);
+        const rest = out.val.matches.filter((m) => !picked.includes(m));
+        return json({
+          label,
+          brand: e.brand,
+          name: e.name || label,
+          model: e.model,
+          variant: e.variant,
+          category: e.category,
+          confidence: e.confidence,
+          searchQuery: e.searchQuery && !looksLikeJson(e.searchQuery) ? e.searchQuery : label,
+          features: e.features,
+          alternatives: e.alternatives,
+          imageUrl: out.val.imageUrl,
+          matches: [...picked, ...rest].slice(0, 12).map((m) => ({ ...m, exact: picked.includes(m) })),
+          ...(debug ? { errors: out.val.errors, llm: out.val.model } : {}),
+        });
+      }
+    }
+  }
 
   let timedOut = false;
   let timeoutId: number | undefined;
@@ -464,14 +700,13 @@ Deno.serve(async (req) => {
 });
 
 function parseStructured(raw: string): { label: string; brand: string; name: string; model: string; category: string; confidence: number } | null {
-  const stripped = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
-  const match = stripped.match(/\{[\s\S]*\}/);
-  if (!match) {
+  const obj = looseObject(raw);
+  if (!obj) {
     const fallback = cleanLabel(raw);
     return fallback ? { label: fallback, brand: "", name: fallback, model: "", category: "", confidence: 0.5 } : null;
   }
   try {
-    const j = JSON.parse(match[0]) as Record<string, unknown>;
+    const j = obj;
     const s = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "");
     const brand = s(j.brand);
     const name = s(j.name);

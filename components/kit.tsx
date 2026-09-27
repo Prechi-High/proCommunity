@@ -59,6 +59,7 @@ export function SearchBar({
   autoFocus,
   placeholder = 'Search any product',
   busy,
+  animateScan,
 }: {
   value?: string;
   onChangeText?: (t: string) => void;
@@ -68,6 +69,7 @@ export function SearchBar({
   autoFocus?: boolean;
   placeholder?: string;
   busy?: boolean;
+  animateScan?: boolean;
 }) {
   const inner = (
     <View
@@ -112,7 +114,9 @@ export function SearchBar({
           </View>
         </Pressable>
       ) : null}
-      {onScan ? (
+      {onScan && animateScan ? (
+        <LiveScanButton busy={busy} onPress={onScan} />
+      ) : onScan ? (
         <Pressable
           onPress={() => {
             hapticTap();
@@ -141,6 +145,93 @@ export function SearchBar({
     );
   }
   return inner;
+}
+
+/** The photo-search button, alive: a sonar ring, a sweeping scan line and a slow breath. */
+function LiveScanButton({ busy, onPress }: { busy?: boolean; onPress: () => void }) {
+  const ring = useRef(new Animated.Value(0)).current;
+  const sweep = useRef(new Animated.Value(0)).current;
+  const breath = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loops = [
+      Animated.loop(Animated.timing(ring, { toValue: 1, duration: 1800, easing: Easing.out(Easing.quad), useNativeDriver: true })),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(sweep, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+          Animated.timing(sweep, { toValue: 0, duration: 1100, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        ]),
+      ),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(breath, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(breath, { toValue: 0, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        ]),
+      ),
+    ];
+    loops.forEach((l) => l.start());
+    return () => loops.forEach((l) => l.stop());
+  }, [ring, sweep, breath]);
+
+  return (
+    <Pressable
+      onPress={() => {
+        hapticTap();
+        onPress();
+      }}
+      accessibilityLabel="Search with a photo"
+      style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          borderWidth: 2,
+          borderColor: colors.hi,
+          opacity: ring.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] }),
+          transform: [{ scale: ring.interpolate({ inputRange: [0, 1], outputRange: [1, 1.55] }) }],
+        }}
+      />
+      <Animated.View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 10,
+          backgroundColor: colors.hi,
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] }) }],
+        }}
+      >
+        {busy ? (
+          <ActivityIndicator color={colors.white} size="small" />
+        ) : (
+          <>
+            <Scan size={21} color={colors.white} weight="bold" />
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: 7,
+                right: 7,
+                top: 0,
+                height: 2,
+                borderRadius: 1,
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                shadowColor: '#fff',
+                shadowOpacity: 0.9,
+                shadowRadius: 4,
+                transform: [{ translateY: sweep.interpolate({ inputRange: [0, 1], outputRange: [9, 29] }) }],
+              }}
+            />
+          </>
+        )}
+      </Animated.View>
+    </Pressable>
+  );
 }
 
 /** iOS-style segmented control with a sliding thumb. */

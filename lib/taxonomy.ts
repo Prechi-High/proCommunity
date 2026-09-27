@@ -75,6 +75,49 @@ export function tagLabel(key: string): string {
   return FALLBACK_TAGS.find((tag) => tag.tagKey === key)?.tagLabel ?? key;
 }
 
+const TAG_PROFILES: Array<{ re: RegExp; tags: ContentTagKey[]; labels?: Partial<Record<ContentTagKey, string>> }> = [
+  {
+    re: /skin|hair|beauty|cosmetic|makeup|serum|lotion|cream|cleanser|sunscreen|fragrance|perfume|deodorant|shampoo|soap/i,
+    tags: ['how_to_use', 'composition', 'who_its_for', 'results_over_time', 'precautions', 'comparisons'],
+    labels: { composition: 'Ingredients', results_over_time: 'Results over time' },
+  },
+  {
+    re: /food|drink|snack|coffee|tea|beverage|grocery|supplement|protein|vitamin|nutrition|formula|sauce|spice|cereal/i,
+    tags: ['composition', 'how_to_use', 'who_its_for', 'precautions', 'comparisons'],
+    labels: { composition: 'Ingredients', how_to_use: 'How to prepare' },
+  },
+  {
+    re: /shoe|sneaker|boot|sandal|cloth|shirt|dress|jean|jacket|apparel|wear|bag|backpack|watch strap|jewel|hat|sock/i,
+    tags: ['who_its_for', 'composition', 'results_over_time', 'precautions', 'comparisons'],
+    labels: { composition: 'Materials & fit', results_over_time: 'Durability' },
+  },
+  {
+    re: /car|auto|vehicle|tyre|tire|motor|bike|scooter/i,
+    tags: ['how_it_works', 'how_to_use', 'results_over_time', 'precautions', 'comparisons'],
+  },
+  {
+    re: /book|novel|course|software|app|game|subscription/i,
+    tags: ['how_it_works', 'who_its_for', 'comparisons'],
+  },
+  {
+    re: /toy|baby|kid|child|stroller|diaper/i,
+    tags: ['how_to_use', 'who_its_for', 'precautions', 'results_over_time', 'comparisons'],
+    labels: { who_its_for: 'Right age' },
+  },
+];
+
+const DEVICE_TAGS: ContentTagKey[] = ['how_it_works', 'how_to_use', 'who_its_for', 'results_over_time', 'precautions', 'comparisons'];
+
+/** The topics worth learning for this kind of product, in reading order, with category-aware labels. */
+export function tagsFor(category: string | null | undefined): CategoryTag[] {
+  const profile = TAG_PROFILES.find((p) => p.re.test(category ?? ''));
+  const keys = profile?.tags ?? DEVICE_TAGS;
+  return keys.map((key, i) => {
+    const base = FALLBACK_TAGS.find((t) => t.tagKey === key)!;
+    return { ...base, tagLabel: profile?.labels?.[key] ?? base.tagLabel, sortOrder: i + 1 };
+  });
+}
+
 /** Every product category currently shares the universal taxonomy. */
 export function taxonomyCategoryForProduct(): string {
   return TAXONOMY_CATEGORY;

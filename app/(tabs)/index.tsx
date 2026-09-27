@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter, type Href } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AvatarStack, SectionHead, ThreadCard, TrendingCard } from '@/components/community';
 import { Screen } from '@/components/Screen';
+import { Typewriter, type TypedLine } from '@/components/Typewriter';
 import { ArrowsLeftRight, Clock, Fire, Scan } from '@/components/icons';
 import { Eyebrow, ProductImage, SearchBar, Shimmer, Tile } from '@/components/kit';
 import { colors, fonts } from '@/constants/theme';
@@ -19,6 +20,25 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 const TRY = ['AirPods Pro 2', 'Anker 20W charger', 'Nike Pegasus 41', 'Ninja blender', 'PS5 controller', 'Kindle Paperwhite'];
 
+const HEADLINES: TypedLine[] = [
+  { line: 'Know it before you buy it.', sub: 'Real owners. Real talk. Every product.' },
+  { line: 'Smart people search first.', sub: 'Two minutes here beats two years of regret.' },
+  { line: 'Remember the one that broke in a week?', sub: 'Its owners saw it coming. Ask them first.' },
+  { line: 'Great in the ad. What about month six?', sub: 'Hear from the people who actually kept it.' },
+  { line: 'Shazam for products.', sub: 'Point your camera. Know exactly what it is.' },
+  { line: 'The box won’t tell you. Owners will.', sub: 'Hidden flaws and honest praise — before you pay.' },
+  { line: 'Is it worth it — really?', sub: 'Answers from owners, not sellers.' },
+  { line: 'Don’t guess. Know.', sub: 'Your money deserves the whole truth.' },
+];
+
+const HINTS = [
+  'What are you thinking of buying?',
+  'Try “AirPods Pro 2”',
+  'Try “Ninja air fryer”',
+  'Try “Nike Pegasus 41”',
+  'Or snap it with the camera →',
+];
+
 export default function HomeScreen() {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -29,6 +49,12 @@ export default function HomeScreen() {
   useAppStore((s) => s.knownProducts);
   const addSearch = useAppStore((s) => s.addSearch);
   const scan = useScan();
+  const [hint, setHint] = useState(0);
+  useEffect(() => {
+    if (query) return;
+    const t = setInterval(() => setHint((h) => (h + 1) % HINTS.length), 3200);
+    return () => clearInterval(t);
+  }, [query]);
 
   const pulse = useQuery({ queryKey: ['pulse'], queryFn: () => fetchPulse(), staleTime: 60_000 });
   const trending = pulse.data?.trending ?? [];
@@ -60,15 +86,24 @@ export default function HomeScreen() {
   return (
     <Screen>
       <View style={{ paddingTop: 18, gap: 22 }}>
-        <View style={{ gap: 6 }}>
+        <View style={{ gap: 8 }}>
           <Eyebrow color={colors.hi}>{profile ? `Welcome back, ${profile.displayName.split(' ')[0]}` : 'The product community'}</Eyebrow>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 34, letterSpacing: -1, lineHeight: 38, color: colors.bone }}>Know it before you buy it.</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 21, color: colors.bone2 }}>
-            Real owners. Real talk. Every product.
-          </Text>
+          <Typewriter
+            lines={HEADLINES}
+            style={{ fontFamily: fonts.bold, fontSize: 34, letterSpacing: -1, lineHeight: 38, color: colors.bone }}
+            subStyle={{ fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 21, color: colors.bone2 }}
+          />
         </View>
 
-        <SearchBar value={query} onChangeText={setQuery} onSubmit={() => go(query)} onScan={scan.start} busy={scan.busy} placeholder="What are you thinking of buying?" />
+        <SearchBar
+          value={query}
+          onChangeText={setQuery}
+          onSubmit={() => go(query)}
+          onScan={scan.start}
+          busy={scan.busy}
+          placeholder={HINTS[hint]}
+          animateScan
+        />
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: -8 }}>
           <AvatarStack people={faces.length >= 3 ? faces : [{ name: 'Ada N' }, { name: 'Kofi B' }, { name: 'Sam R' }, { name: 'Lina M' }]} size={24} max={4} ring={colors.wine} />

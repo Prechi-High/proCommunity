@@ -20,7 +20,7 @@ const cors = {
 };
 
 const SEARCH_TTL_MS = 24 * 60 * 60 * 1000;
-const PROFILE_VERSION = 3;
+const PROFILE_VERSION = 4;
 
 type Json = Record<string, unknown>;
 
@@ -119,6 +119,32 @@ function db() {
       const r = await fetch(`${url}/rest/v1/rpc/${fn}`, { method: "POST", headers, body: JSON.stringify(args) }).catch(() => null);
       if (!r?.ok) return [];
       return ((await r.json().catch(() => [])) as Json[]) ?? [];
+    },
+    async insertMany(table: string, rows: Json[]): Promise<void> {
+      if (!rows.length) return;
+      await fetch(`${url}/rest/v1/${table}`, {
+        method: "POST",
+        headers: { ...headers, Prefer: "resolution=ignore-duplicates,return=minimal" },
+        body: JSON.stringify(rows),
+      }).catch(() => undefined);
+    },
+    async remove(table: string, filter: string): Promise<void> {
+      await fetch(`${url}/rest/v1/${table}?${filter}`, { method: "DELETE", headers: { ...headers, Prefer: "return=minimal" } }).catch(() => undefined);
+    },
+    async upload(bucket: string, b64: string, mime: string): Promise<string | null> {
+      try {
+        const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+        const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
+        const r = await fetch(`${url}/storage/v1/object/${bucket}/${path}`, {
+          method: "POST",
+          headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": mime, "x-upsert": "true" },
+          body: bytes,
+        });
+        return r.ok ? `${url}/storage/v1/object/public/${bucket}/${path}` : null;
+      } catch {
+        return null;
+      }
     },
   };
 }
@@ -244,7 +270,7 @@ type SerperShopping = {
   ratingCount?: number;
   productId?: string;
 };
-type SerperImage = { title?: string; imageUrl?: string; link?: string; source?: string };
+type SerperImage = { title?: string; imageUrl?: string; link?: string; source?: string; imageWidth?: number; imageHeight?: number; thumbnailUrl?: string };
 
 async function serper<T>(endpoint: "search" | "shopping" | "images", body: Json): Promise<T | null> {
   const key = secret("SERPER_API_KEY");
@@ -630,7 +656,7 @@ async function runInvestigate(input: { query: string; productId?: string; force?
     serper<{ organic?: SerperOrganic[] }>("search", { q: `${q} reddit owners experience`, num: 8 }),
     serper<{ organic?: SerperOrganic[] }>("search", { q: `${q} customer reviews "I bought" OR "I've been using" OR "after months"`, num: 8 }),
     shopping(q, input.country),
-    serper<{ images?: SerperImage[] }>("images", { q: `${q}`, num: 10 }),
+    serper<{ images?: SerperImage[] }>("images", { q: `${q}`, num: 20 }),
     youtubeComments(q).catch(() => [] as OwnerComment[]),
   ]);
 
@@ -698,9 +724,10 @@ Return JSON:
  "consensus_mark": "3-8 words copied exactly from consensus — the part that matters most before buying",
  "voices": [{"ref":"C1","mark":"","stance":"love|mixed|warn","topic":"2-3 words"}],
  "reveals": [{"text":"","mark":"","refs":["C2","S4"]}],
+ "variants": [{"label":"e.g. 45W, 256GB, Black, 50 ml, Size 10","kind":"size|color|capacity|model|flavor|pack","query":"full search query for that exact variant"}],
  "identity_confidence": 0.0
 }
-Limits: specs ≤ 8, praise ≤ 5, complaints ≤ 5, best_for ≤ 4, not_for ≤ 3, uses ≤ 4, alternatives ≤ 3, voices ≤ 10, reveals ≤ 5.`;
+Limits: specs ≤ 8, praise ≤ 5, complaints ≤ 5, best_for ≤ 4, not_for ≤ 3, uses ≤ 4, alternatives ≤ 3, voices ≤ 10, reveals ≤ 5, variants ≤ 8 (real variations this exact product is sold in — sizes, colours, capacities, sibling models; [] if none).`;
 
   const llm = evidence.length || comments.length ? await callLlm(prompt, 3400, 32000) : { data: null, model: null, errors: ["no_evidence"] };
   const d = (llm.data ?? {}) as Json;
@@ -879,6 +906,26 @@ Limits: specs ≤ 8, praise ≤ 5, complaints ≤ 5, best_for ≤ 4, not_for ≤
     ),
   ).slice(0, 8);
 
+  const nameForImages = [identity.brand, identity.name].filter(Boolean).join(" ") || q;
+  const gallerySeen = new Set<string>();
+  const gallery: Array<{ url: string; title: string; source: string; width: number | null; height: number | null }> = [];
+  const addImage = (url: string, title: string, source: string, width?: number, height?: number) => {
+    if (!/^https?:\/\//.test(url) || gallerySeen.has(url) || gallery.length >= 14) return;
+    gallerySeen.add(url);
+    gallery.push({ url, title: str(title, 120), source: str(source, 60), width: width ?? null, height: height ?? null });
+  };
+  if (kg?.imageUrl) addImage(str(kg.imageUrl, 500), identity.name, "Google");
+  for (const im of imgs?.images ?? []) {
+    if (!im.imageUrl || (im.title && overlap(nameForImages, im.title) < 0.34)) continue;
+    addImage(im.imageUrl, im.title ?? "", im.source ?? domainOf(im.link ?? ""), im.imageWidth, im.imageHeight);
+  }
+  for (const o of offers) if (o.image) addImage(o.image, o.title, o.seller);
+
+  const variants = (Array.isArray(d.variants) ? (d.variants as Json[]) : [])
+    .map((v) => ({ label: str(v.label, 40), kind: str(v.kind, 12) || "model", query: str(v.query, 140) }))
+    .filter((v) => v.label && v.query)
+    .slice(0, 8);
+
   const profile = {
     version: PROFILE_VERSION,
     id,
@@ -909,7 +956,9 @@ Limits: specs ≤ 8, praise ≤ 5, complaints ≤ 5, best_for ≤ 4, not_for ≤
     score,
     confidence,
     band,
-    images,
+    images: images.length ? images : gallery.map((g) => g.url).slice(0, 8),
+    gallery,
+    variants,
     sources: evidence.map(({ n, title, url, domain, kind }) => ({ n, title, url, domain, kind })),
     verifiedAt: new Date().toISOString(),
     llm: llm.model,
@@ -1072,6 +1121,148 @@ function tooSpammy(text: string): boolean {
   return (text.match(/https?:\/\//g) ?? []).length > 1;
 }
 
+const KINDS = ["question", "worry", "experience", "compare", "tip", "review"];
+
+function hotScore(t: Json): number {
+  const hours = (Date.now() - +new Date(String(t.created_at))) / 3600_000;
+  const lastHours = (Date.now() - +new Date(String(t.last_activity_at ?? t.created_at))) / 3600_000;
+  const signal = Number(t.votes ?? 0) * 2 + Number(t.reply_count ?? 0) * 3 + Number(t.follower_count ?? 0) + 1;
+  return signal / Math.pow(Math.min(hours, lastHours * 1.5) + 2, 1.35);
+}
+
+function searchTerm(raw: unknown): string {
+  return str(raw, 60).replace(/[^\p{L}\p{N} '-]+/gu, " ").replace(/\s+/g, " ").trim();
+}
+
+async function withFlags(store: Db, threads: Json[], memberId: string): Promise<Json[]> {
+  if (!memberId || !threads.length) return threads;
+  const ids = threads.map((t) => String(t.id)).join(",");
+  const m = encodeURIComponent(memberId);
+  const [votes, follows] = await Promise.all([
+    store.rows(`community_votes?select=thread_id&member_id=eq.${m}&thread_id=in.(${ids})`),
+    store.rows(`community_follows?select=thread_id&member_id=eq.${m}&thread_id=in.(${ids})`),
+  ]);
+  const voted = new Set(votes.map((v) => String(v.thread_id)));
+  const followed = new Set(follows.map((f) => String(f.thread_id)));
+  return threads.map((t) => ({ ...t, voted: voted.has(String(t.id)), following: followed.has(String(t.id)) }));
+}
+
+async function follow(store: Db, threadId: string, memberId: string, on: boolean): Promise<number> {
+  const filter = `thread_id=eq.${encodeURIComponent(threadId)}&member_id=eq.${encodeURIComponent(memberId)}`;
+  if (on) await store.insertMany("community_follows", [{ thread_id: threadId, member_id: memberId }]);
+  else await store.remove("community_follows", filter);
+  const all = await store.rows(`community_follows?select=member_id&thread_id=eq.${encodeURIComponent(threadId)}`);
+  await store.patch("community_threads", `id=eq.${encodeURIComponent(threadId)}`, { follower_count: all.length });
+  return all.length;
+}
+
+async function runSocial(store: Db, action: string, body: Json) {
+  const memberId = str(body.memberId, 60) || str(((body.author ?? {}) as Json).id, 60);
+
+  if (action === "feed") {
+    const sort = str(body.sort, 8) || "hot";
+    const kind = str(body.kind, 12);
+    const productId = str(body.productId, 100);
+    const q = searchTerm(body.q);
+    const limit = Math.min(Number(body.limit) || 30, 60);
+    const filters: string[] = [];
+    if (KINDS.includes(kind)) filters.push(`kind=eq.${kind}`);
+    if (productId) filters.push(`or=(product_id.eq.${encodeURIComponent(productId)},compare_id.eq.${encodeURIComponent(productId)})`);
+    if (q) {
+      const like = encodeURIComponent(`*${q}*`);
+      filters.push(`or=(title.ilike.${like},body.ilike.${like},product_name.ilike.${like},compare_name.ilike.${like},brand.ilike.${like})`);
+    }
+    const order = sort === "new" ? "created_at.desc" : sort === "top" ? "votes.desc,reply_count.desc" : "last_activity_at.desc";
+    const fetchN = sort === "hot" ? 150 : limit;
+    let rows = await store.rows(`community_threads?select=*&${filters.join("&")}${filters.length ? "&" : ""}order=${order}&limit=${fetchN}`);
+    if (sort === "hot") rows = rows.sort((a, b) => hotScore(b) - hotScore(a)).slice(0, limit);
+    return { threads: await withFlags(store, rows, memberId) };
+  }
+
+  if (action === "vote") {
+    const threadId = str(body.threadId, 60);
+    if (!threadId || !memberId) return { error: "missing_vote" };
+    const filter = `thread_id=eq.${encodeURIComponent(threadId)}&member_id=eq.${encodeURIComponent(memberId)}`;
+    if (body.on === false) await store.remove("community_votes", filter);
+    else await store.insertMany("community_votes", [{ thread_id: threadId, member_id: memberId }]);
+    const all = await store.rows(`community_votes?select=member_id&thread_id=eq.${encodeURIComponent(threadId)}`);
+    await store.patch("community_threads", `id=eq.${encodeURIComponent(threadId)}`, { votes: all.length });
+    return { votes: all.length, voted: body.on !== false };
+  }
+
+  if (action === "follow") {
+    const threadId = str(body.threadId, 60);
+    if (!threadId || !memberId) return { error: "missing_follow" };
+    const count = await follow(store, threadId, memberId, body.on !== false);
+    return { following: body.on !== false, followers: count };
+  }
+
+  if (action === "notifications") {
+    if (!memberId) return { notifications: [], unread: 0 };
+    const rows = await store.rows(
+      `community_notifications?select=*&member_id=eq.${encodeURIComponent(memberId)}&order=created_at.desc&limit=50`,
+    );
+    return { notifications: rows, unread: rows.filter((r) => !r.read).length };
+  }
+
+  if (action === "notifications_read") {
+    if (!memberId) return { ok: false };
+    await store.patch("community_notifications", `member_id=eq.${encodeURIComponent(memberId)}&read=eq.false`, { read: true });
+    return { ok: true };
+  }
+
+  if (action === "following") {
+    if (!memberId) return { threads: [] };
+    const follows = await store.rows(`community_follows?select=thread_id&member_id=eq.${encodeURIComponent(memberId)}&order=created_at.desc&limit=60`);
+    if (!follows.length) return { threads: [] };
+    const rows = await store.rows(`community_threads?select=*&id=in.(${follows.map((f) => f.thread_id).join(",")})&order=last_activity_at.desc`);
+    return { threads: await withFlags(store, rows, memberId) };
+  }
+
+  if (action === "upload") {
+    const b64 = str(body.imageBase64, 9_000_000).replace(/^data:[^,]+,/, "");
+    const mime = str(body.mimeType, 30) || "image/jpeg";
+    if (!b64 || b64.length > 8_500_000 || !/^image\/(jpeg|png|webp)$/.test(mime)) return { error: "invalid_image" };
+    const url = await store.upload("community", b64, mime);
+    return url ? { url } : { error: "upload_failed" };
+  }
+
+  if (action === "room") {
+    const productId = str(body.productId, 100);
+    if (!productId) return { error: "missing_product" };
+    const pid = encodeURIComponent(productId);
+    const [threads, intel, events] = await Promise.all([
+      store.rows(`community_threads?select=kind,rating,votes,reply_count,follower_count,created_at&or=(product_id.eq.${pid},compare_id.eq.${pid})&limit=500`),
+      store.select("product_intel", `id=eq.${pid}`),
+      store.rows(`product_events?select=event,created_at&product_id=eq.${pid}&created_at=gte.${encodeURIComponent(new Date(Date.now() - 30 * 86400_000).toISOString())}&limit=5000`),
+    ]);
+    const byKind: Record<string, number> = {};
+    for (const t of threads) byKind[String(t.kind)] = (byKind[String(t.kind)] ?? 0) + 1;
+    const rated = threads.filter((t) => Number(t.rating) > 0);
+    const payload = (intel?.payload ?? null) as Json | null;
+    const week = Date.now() - 7 * 86400_000;
+    return {
+      room: {
+        posts: threads.length,
+        byKind,
+        replies: threads.reduce((a, t) => a + Number(t.reply_count ?? 0), 0),
+        followers: threads.reduce((a, t) => a + Number(t.follower_count ?? 0), 0),
+        memberRating: rated.length ? Math.round((rated.reduce((a, t) => a + Number(t.rating), 0) / rated.length) * 10) / 10 : null,
+        ratedBy: rated.length,
+        views30d: events.filter((e) => e.event === "view").length,
+        viewsThisWeek: events.filter((e) => e.event === "view" && +new Date(String(e.created_at)) > week).length,
+        compares30d: events.filter((e) => e.event === "compare").length,
+        score: payload?.score ?? null,
+        consensus: payload?.consensus ?? null,
+        praise: Array.isArray(payload?.praise) ? (payload!.praise as Json[]).slice(0, 3).map((p) => p.text) : [],
+        complaints: Array.isArray(payload?.complaints) ? (payload!.complaints as Json[]).slice(0, 3).map((p) => p.text) : [],
+      },
+    };
+  }
+
+  return { error: "unknown_action" };
+}
+
 async function runCommunity(store: Db, action: string, body: Json) {
   if (action === "threads") {
     const productId = str(body.productId, 100);
@@ -1087,7 +1278,8 @@ async function runCommunity(store: Db, action: string, body: Json) {
     const id = str(body.threadId, 60);
     if (!id) return { error: "missing_thread" };
     const rows = await store.rows(`community_threads?id=eq.${encodeURIComponent(id)}&select=*,community_replies(*)`);
-    return { thread: rows[0] ?? null };
+    const [flagged] = await withFlags(store, rows.slice(0, 1), str(body.memberId, 60));
+    return { thread: flagged ?? null };
   }
 
   if (action === "post") {
@@ -1104,7 +1296,7 @@ async function runCommunity(store: Db, action: string, body: Json) {
       product_name: productName,
       product_image: str(body.productImage, 500) || null,
       category: str(body.category, 60) || null,
-      kind: ["question", "worry", "experience", "compare"].includes(kind) ? kind : "question",
+      kind: KINDS.includes(kind) ? kind : "question",
       title,
       body: str(body.body, 2000) || null,
       compare_id: str(body.compareId, 100) || null,
@@ -1112,8 +1304,13 @@ async function runCommunity(store: Db, action: string, body: Json) {
       compare_image: str(body.compareImage, 500) || null,
       author_id: author.id,
       author_name: author.name,
+      image_url: /^https:\/\//.test(str(body.imageUrl, 500)) ? str(body.imageUrl, 500) : null,
+      rating: Number(body.rating) >= 1 && Number(body.rating) <= 5 ? Math.round(Number(body.rating)) : null,
+      brand: str(body.brand, 60) || null,
+      follower_count: 1,
     });
     if (!row) return { error: "post_failed" };
+    await store.insertMany("community_follows", [{ thread_id: row.id, member_id: author.id }]);
     await store.upsert("product_events", {
       product_id: productId,
       name: productName,
@@ -1145,6 +1342,23 @@ async function runCommunity(store: Db, action: string, body: Json) {
       reply_count: Number(thread.reply_count ?? 0) + 1,
       last_activity_at: new Date().toISOString(),
     });
+    const followers = await store.rows(`community_follows?select=member_id&thread_id=eq.${encodeURIComponent(threadId)}`);
+    await store.insertMany(
+      "community_notifications",
+      followers
+        .map((f) => String(f.member_id))
+        .filter((m) => m && m !== author.id)
+        .map((m) => ({
+          member_id: m,
+          thread_id: threadId,
+          actor_name: author.name,
+          kind: body.isOwner === true ? "owner_reply" : "reply",
+          snippet: text.slice(0, 140),
+          thread_title: str(thread.title, 140),
+          product_name: str(thread.product_name, 120),
+        })),
+    );
+    await follow(store, threadId, author.id, true);
     return { reply };
   }
 
@@ -1163,9 +1377,9 @@ async function runPulse(store: Db, category: string) {
   const since = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
   const [trending, recentProfiles, asks, threads, events] = await Promise.all([
     store.rpc("trending_products", { days: 14, cat: category || null, lim: 30 }),
-    store.rows(`product_intel?select=id,name,brand,category,hero_image_url,verified_at&order=verified_at.desc&limit=40`),
+    store.rows(`product_intel?select=id,name,brand,category,hero_image_url,verified_at,payload->voices,payload->score&order=verified_at.desc&limit=40`),
     store.rows(`community_asks?select=product_id,product_name,compare_id,question,answered,created_at&order=created_at.desc&limit=20`),
-    store.rows(`community_threads?select=id,product_id,product_name,product_image,kind,title,author_name,reply_count,compare_name,created_at,last_activity_at&order=last_activity_at.desc&limit=12`),
+    store.rows(`community_threads?select=*&order=last_activity_at.desc&limit=40`),
     store.rows(`product_events?select=product_id,event&created_at=gte.${encodeURIComponent(since(24 * 7))}&limit=2000`),
   ]);
   const list = trending.map((t) => ({
@@ -1199,7 +1413,27 @@ async function runPulse(store: Db, category: string) {
     });
   }
   const people = new Set(events.map((e) => e.product_id)).size;
+  const voices: Json[] = [];
+  for (const p of recentProfiles) {
+    const vs = (Array.isArray(p.voices) ? (p.voices as Json[]) : [])
+      .filter((v) => str(v.text, 600).length > 40)
+      .sort((a, b) => Number(b.likes ?? 0) - Number(a.likes ?? 0))
+      .slice(0, 2);
+    for (const v of vs) {
+      voices.push({
+        ...v,
+        text: str(v.text, 600),
+        product_id: str(p.id, 100),
+        product_name: str(p.name, 140),
+        product_image: str(p.hero_image_url, 500) || null,
+        category: str(p.category, 60),
+        score: p.score ?? null,
+      });
+    }
+  }
+  voices.sort((a, b) => Number(b.likes ?? 0) - Number(a.likes ?? 0));
   return {
+    voices: voices.slice(0, 40),
     trending: list,
     asks,
     threads,
@@ -1322,6 +1556,11 @@ Deno.serve(async (req) => {
 
     if (["threads", "thread", "post", "reply", "helpful"].includes(action)) {
       const out = (await runCommunity(store, action, body)) as Json;
+      return json({ success: !out.error, ...out }, out.error ? 400 : 200);
+    }
+
+    if (["feed", "vote", "follow", "notifications", "notifications_read", "following", "upload", "room"].includes(action)) {
+      const out = (await runSocial(store, action, body)) as Json;
       return json({ success: !out.error, ...out }, out.error ? 400 : 200);
     }
 

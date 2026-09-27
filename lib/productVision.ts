@@ -3,6 +3,7 @@ import * as FileSystemLegacy from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
 import { supabaseAnonKey, supabaseUrl } from './supabase';
+import type { VisualMatch } from './types';
 
 const MAX_EDGE = 1024;
 const REQUEST_TIMEOUT_MS = 50000;
@@ -25,6 +26,12 @@ export interface VisionResult {
   model?: string;
   category?: string;
   confidence?: number;
+  variant?: string;
+  searchQuery?: string;
+  features?: string[];
+  alternatives?: string[];
+  imageUrl?: string | null;
+  matches?: VisualMatch[];
   errorCode?: VisionErrorCode;
   errorMessage?: string;
   hint?: string;
@@ -120,7 +127,8 @@ async function postOnce(base64: string, mime: string): Promise<VisionResult> {
       return { ok: false, label: null, errorCode: code, hint: typeof body?.hint === 'string' ? body.hint : undefined };
     }
     const label = typeof body.label === 'string' ? body.label.trim() : '';
-    if (!label) return { ok: false, label: null, errorCode: 'vision_empty_output' };
+    if (!label || /[{}]|"\s*:/.test(label)) return { ok: false, label: null, errorCode: 'vision_empty_output' };
+    const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
     return {
       ok: true,
       label,
@@ -129,6 +137,12 @@ async function postOnce(base64: string, mime: string): Promise<VisionResult> {
       model: String(body.model ?? ''),
       category: String(body.category ?? ''),
       confidence: Number(body.confidence ?? 0.6),
+      variant: String(body.variant ?? ''),
+      searchQuery: typeof body.searchQuery === 'string' ? body.searchQuery : label,
+      features: strings(body.features),
+      alternatives: strings(body.alternatives),
+      imageUrl: typeof body.imageUrl === 'string' ? body.imageUrl : null,
+      matches: Array.isArray(body.matches) ? (body.matches as VisualMatch[]).filter((m) => m && typeof m.title === 'string') : [],
     };
   } catch (err) {
     const aborted = err instanceof Error && err.name === 'AbortError';
@@ -141,6 +155,11 @@ async function postOnce(base64: string, mime: string): Promise<VisionResult> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Downscaled JPEG base64 for any picked or captured image. */
+export async function prepareImage(asset: VisionAsset): Promise<{ base64: string; mime: string } | null> {
+  return (await compress(asset)) ?? (await readRaw(asset));
 }
 
 const RETRYABLE = new Set<VisionErrorCode>(['network_error', 'timeout', 'vision_timeout', 'http_error']);

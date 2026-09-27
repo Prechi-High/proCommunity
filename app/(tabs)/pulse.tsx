@@ -1,189 +1,352 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter, type Href } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PillTabs, SectionHead, ThreadCard } from '@/components/community';
-import { CaretRight, ChatsCircle, Fire, Question, SmileyNervous, TrendUp } from '@/components/icons';
-import { Eyebrow, PrimaryButton, ProductImage, Shimmer } from '@/components/kit';
+import { Avatar, SectionHead, TrendingCard, useMemberGate } from '@/components/community';
+import { ArrowsLeftRight, Fire, ImageIcon, MagnifyingGlass, Plus, TrendUp, X } from '@/components/icons';
+import { Lightbox } from '@/components/Lightbox';
+import { ProductImage, Shimmer } from '@/components/kit';
+import { openLink } from '@/components/product/Panes';
+import { BellButton, Composer, KIND_STYLE, PostCard, WebVoicePost } from '@/components/social';
 import { colors, fonts } from '@/constants/theme';
-import { fetchPulse, NICHES, nicheOf, timeAgo, type NicheId } from '@/lib/community';
-import { hapticTap } from '@/lib/haptics';
-import { rememberProduct } from '@/lib/products';
-import type { TrendingProduct } from '@/lib/types';
+import { fetchFeed, fetchFollowing, fetchPulse, timeAgo, type FeedSort } from '@/lib/community';
+import { hapticSelect, hapticTap } from '@/lib/haptics';
+import { useAppStore } from '@/lib/store';
+import type { CommunityThread, ThreadKind, TrendingProduct, WebVoice } from '@/lib/types';
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+type Tab = FeedSort | 'following';
+
+const TABS: Array<{ id: Tab; label: string }> = [
+  { id: 'hot', label: 'For you' },
+  { id: 'new', label: 'New' },
+  { id: 'top', label: 'Top' },
+  { id: 'following', label: 'Following' },
+];
+
+const KINDS: Array<{ id: ThreadKind | 'all'; label: string }> = [
+  { id: 'all', label: 'Everything' },
+  { id: 'review', label: 'Reviews' },
+  { id: 'question', label: 'Questions' },
+  { id: 'worry', label: 'Worries' },
+  { id: 'compare', label: 'Comparisons' },
+  { id: 'tip', label: 'Tips' },
+  { id: 'experience', label: 'Stories' },
+];
 
 export default function PulseScreen() {
   const router = useRouter();
-  const [niche, setNiche] = useState<NicheId | 'all'>('all');
+  const qc = useQueryClient();
+  const profile = useAppStore((s) => s.profile);
+  const { requireMember, gate } = useMemberGate();
+  const [tab, setTab] = useState<Tab>('hot');
+  const [kind, setKind] = useState<ThreadKind | 'all'>('all');
+  const [draft, setDraft] = useState('');
+  const [q, setQ] = useState('');
+  const [composing, setComposing] = useState<{ product?: CommunityThread | WebVoice | null; body?: string } | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setQ(draft.trim()), 400);
+    return () => clearTimeout(t);
+  }, [draft]);
+
   const pulse = useQuery({ queryKey: ['pulse'], queryFn: () => fetchPulse(), staleTime: 60_000 });
-  const data = pulse.data;
+  const feed = useQuery({
+    queryKey: ['feed', tab, kind, q, profile?.id],
+    queryFn: () => (tab === 'following' ? fetchFollowing() : fetchFeed({ sort: tab, kind: kind === 'all' ? null : kind, q: q || undefined })),
+    staleTime: 20_000,
+  });
+  const compares = useQuery({
+    queryKey: ['feed', 'hot', 'compare', '', profile?.id],
+    queryFn: () => fetchFeed({ sort: 'hot', kind: 'compare', limit: 10 }),
+    staleTime: 60_000,
+  });
 
-  const inNiche = (category: string | null | undefined) => niche === 'all' || nicheOf(category) === niche;
-  const trending = (data?.trending ?? []).filter((t) => inNiche(t.category));
-  const threads = (data?.threads ?? []).filter((t) => inNiche(t.category));
-  const worries = threads.filter((t) => t.kind === 'worry');
-  const open = threads.filter((t) => t.kind !== 'worry');
-  const asks = data?.asks ?? [];
-  const maxHeat = Math.max(1, ...trending.map((t) => t.heat));
+  const threads = useMemo(() => {
+    const list = feed.data ?? [];
+    return tab === 'following' && kind !== 'all' ? list.filter((t) => t.kind === kind) : list;
+  }, [feed.data, tab, kind]);
+  const voices = useMemo(() => {
+    const all = pulse.data?.voices ?? [];
+    if (!q) return all;
+    const needle = q.toLowerCase();
+    return all.filter((v) => `${v.product_name} ${v.text}`.toLowerCase().includes(needle));
+  }, [pulse.data, q]);
+  const showVoices = tab === 'hot' && (kind === 'all' || kind === 'review' || kind === 'experience');
+  const trending = pulse.data?.trending ?? [];
+  const home = tab === 'hot' && kind === 'all' && !q;
 
-  const tabs = useMemo(() => {
-    const present = new Set((data?.trending ?? []).map((t) => nicheOf(t.category)));
-    (data?.threads ?? []).forEach((t) => present.add(nicheOf(t.category)));
-    return [
-      { id: 'all' as const, label: 'Everything' },
-      ...NICHES.filter((n) => present.has(n.id)).map((n) => ({ id: n.id as NicheId, label: n.label })),
-    ];
-  }, [data]);
+  const stream = useMemo(() => {
+    type Item = { type: 'post'; t: CommunityThread } | { type: 'voice'; v: WebVoice };
+    const out: Item[] = [];
+    const vs = showVoices ? voices : [];
+    let vi = 0;
+    threads.forEach((t, i) => {
+      out.push({ type: 'post', t });
+      if ((i + 1) % 2 === 0 && vi < vs.length) out.push({ type: 'voice', v: vs[vi++] });
+    });
+    while (vi < vs.length && out.length < 40) out.push({ type: 'voice', v: vs[vi++] });
+    return out;
+  }, [threads, voices, showVoices]);
 
-  const openProduct = (t: Pick<TrendingProduct, 'id' | 'name' | 'brand' | 'category' | 'image'>, tab?: string) => {
-    rememberProduct({ id: t.id, name: t.name, brand: t.brand, category: t.category, heroImageUrl: t.image });
-    router.push({ pathname: '/product/[id]', params: { id: t.id, q: t.name, ...(tab ? { tab } : {}) } } as Href);
-  };
+  const openRoom = (id: string, name: string) => router.push({ pathname: '/room/[id]', params: { id, name } } as unknown as Href);
   const openThread = (id: string) => router.push({ pathname: '/thread/[id]', params: { id } } as Href);
+  const compose = (seed: { product?: CommunityThread | WebVoice | null; body?: string } = {}) => requireMember(() => setComposing(seed));
+
+  const seedProduct = useMemo(
+    () =>
+      composing?.product
+        ? {
+            id: composing.product.product_id,
+            name: composing.product.product_name,
+            brand: '',
+            category: composing.product.category ?? '',
+            heroImageUrl: composing.product.product_image,
+          }
+        : null,
+    [composing],
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.wine }} edges={['top']}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 40, gap: 22 }}
+        contentContainerStyle={{ paddingBottom: 110, gap: 18 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={pulse.isRefetching} onRefresh={() => void pulse.refetch()} tintColor={colors.hi} />}
+        keyboardShouldPersistTaps="handled"
+        stickyHeaderIndices={[1]}
+        refreshControl={
+          <RefreshControl
+            refreshing={feed.isRefetching}
+            onRefresh={() => {
+              void feed.refetch();
+              void pulse.refetch();
+            }}
+            tintColor={colors.hi}
+          />
+        }
       >
-        <View style={{ paddingHorizontal: 16, paddingTop: 18, gap: 6 }}>
-          <Eyebrow color={colors.hi}>Live from the community</Eyebrow>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 34, letterSpacing: -1, lineHeight: 38, color: colors.bone }}>Pulse</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 21, color: colors.bone2 }}>
-            What people are researching, asking and worrying about before they buy.
-          </Text>
+        <View style={{ paddingHorizontal: 16, paddingTop: 14, gap: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 34, letterSpacing: -1, lineHeight: 38, color: colors.bone }}>Pulse</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, color: colors.bone2 }}>Where people tell the truth about products.</Text>
+            </View>
+            <BellButton />
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.lac, borderRadius: 14, paddingHorizontal: 14, height: 46, borderWidth: 1, borderColor: colors.line }}>
+            <MagnifyingGlass size={17} color={colors.bone3} weight="bold" />
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="Search posts, products, brands…"
+              placeholderTextColor={colors.bone3}
+              returnKeyType="search"
+              style={{ flex: 1, fontFamily: fonts.regular, fontSize: 15.5, color: colors.bone, outlineStyle: 'none' } as never}
+            />
+            {draft ? (
+              <Pressable onPress={() => setDraft('')} hitSlop={8} accessibilityLabel="Clear search">
+                <X size={16} color={colors.bone3} weight="bold" />
+              </Pressable>
+            ) : null}
+          </View>
+
+          <Pressable
+            onPress={() => compose()}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.lac, borderRadius: 18, padding: 12, opacity: pressed ? 0.85 : 1 })}
+          >
+            <Avatar name={profile?.displayName ?? 'You'} size={38} />
+            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 15, color: colors.bone3 }}>Own something? Tell people the truth…</Text>
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.hiSoft, alignItems: 'center', justifyContent: 'center' }}>
+              <ImageIcon size={18} color={colors.hi} weight="bold" />
+            </View>
+          </Pressable>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 16 }}>
-          <Stat value={data?.stats.productsResearched} label="products researched" />
-          <Stat value={data?.stats.questionsAsked} label="questions asked" />
-          <Stat value={data?.stats.actionsThisWeek} label="actions this week" />
-        </View>
-
-        {tabs.length > 2 ? <PillTabs options={tabs} value={niche} onChange={setNiche} /> : null}
-
-        <View style={{ paddingHorizontal: 16, gap: 12 }}>
-          <SectionHead title="Most researched" icon={<Fire size={20} color={colors.coral} weight="fill" />} />
-          {pulse.isLoading ? (
-            <View style={{ gap: 10 }}>
-              <Shimmer height={64} radius={16} />
-              <Shimmer height={64} radius={16} />
-              <Shimmer height={64} radius={16} />
-            </View>
-          ) : pulse.isError ? (
-            <View style={{ gap: 10, alignItems: 'flex-start' }}>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>The pulse didn’t load.</Text>
-              <PrimaryButton label="Try again" onPress={() => void pulse.refetch()} />
-            </View>
-          ) : trending.length ? (
-            <View style={{ backgroundColor: colors.lac, borderRadius: 20, overflow: 'hidden' }}>
-              {trending.slice(0, 10).map((t, i) => (
+        <View style={{ backgroundColor: colors.wine, paddingTop: 4, paddingBottom: 8, gap: 10 }}>
+          <View style={{ flexDirection: 'row', marginHorizontal: 16, backgroundColor: colors.wineDeep, borderRadius: 12, padding: 3 }}>
+            {TABS.map((t) => {
+              const on = t.id === tab;
+              return (
                 <Pressable
                   key={t.id}
                   onPress={() => {
-                    hapticTap();
-                    openProduct(t);
+                    if (!on) hapticSelect();
+                    if (t.id === 'following' && !profile) return requireMember(() => setTab('following'));
+                    setTab(t.id);
                   }}
-                  style={({ pressed }) => ({
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: 12,
-                    borderBottomWidth: i < Math.min(trending.length, 10) - 1 ? 1 : 0,
-                    borderBottomColor: colors.line,
-                    opacity: pressed ? 0.7 : 1,
-                  })}
+                  style={{ flex: 1, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.lac : 'transparent' }}
                 >
-                  <Text style={{ width: 22, fontFamily: fonts.bold, fontSize: 16, color: i < 3 ? colors.hi : colors.bone3, textAlign: 'center' }}>{i + 1}</Text>
-                  <ProductImage uri={t.image} category={t.category} size={46} radius={12} />
-                  <View style={{ flex: 1, gap: 5 }}>
-                    <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: colors.bone }}>{t.name}</Text>
-                    <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.lac2, overflow: 'hidden' }}>
-                      <View style={{ width: `${Math.max(8, (t.heat / maxHeat) * 100)}%`, height: 4, borderRadius: 2, backgroundColor: colors.hi }} />
-                    </View>
-                    <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>
-                      {[t.views && plural(t.views, 'view'), t.asks && plural(t.asks, 'question'), t.compares && plural(t.compares, 'compare'), t.threads && plural(t.threads, 'thread')]
-                        .filter(Boolean)
-                        .join(' · ') || t.category}
-                    </Text>
-                  </View>
-                  <CaretRight size={14} color={colors.bone3} weight="bold" />
+                  <Text style={{ fontFamily: on ? fonts.semibold : fonts.medium, fontSize: 13.5, color: on ? colors.bone : colors.bone2 }}>{t.label}</Text>
                 </Pressable>
-              ))}
-            </View>
-          ) : (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>Nothing trending in this niche yet.</Text>
-          )}
+              );
+            })}
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
+            {KINDS.map((k) => {
+              const on = k.id === kind;
+              const s = k.id === 'all' ? null : KIND_STYLE[k.id];
+              return (
+                <Pressable
+                  key={k.id}
+                  onPress={() => {
+                    if (!on) hapticSelect();
+                    setKind(k.id);
+                  }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 13, borderRadius: 999, backgroundColor: on ? colors.black : colors.lac, borderWidth: on ? 0 : 1, borderColor: colors.line }}
+                >
+                  {s ? <s.Icon size={13} color={on ? colors.white : s.fg} weight="bold" /> : null}
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: on ? colors.white : colors.bone }}>{k.label}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
 
-        {asks.length && niche === 'all' ? (
-          <View style={{ paddingHorizontal: 16, gap: 12 }}>
-            <SectionHead title="What people ask owners" icon={<Question size={20} color={colors.hi} weight="bold" />} />
-            <View style={{ gap: 8 }}>
-              {asks.slice(0, 6).map((a, i) => (
+        {home && trending.length ? (
+          <View style={{ gap: 12 }}>
+            <View style={{ paddingHorizontal: 16 }}>
+              <SectionHead title="Trending products" icon={<Fire size={20} color={colors.coral} weight="fill" />} />
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 16 }}>
+              {trending.slice(0, 12).map((t: TrendingProduct, i) => (
+                <TrendingCard key={t.id} item={t} rank={i + 1} onPress={() => openRoom(t.id, t.name)} />
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+
+        {home && (compares.data?.length ?? 0) > 0 ? (
+          <View style={{ gap: 12 }}>
+            <View style={{ paddingHorizontal: 16 }}>
+              <SectionHead title="Hot comparisons" icon={<ArrowsLeftRight size={20} color={colors.hi} weight="bold" />} />
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 16 }}>
+              {compares.data!.map((t) => (
                 <Pressable
-                  key={`${a.created_at}-${i}`}
-                  onPress={() => {
-                    hapticTap();
-                    openProduct({ id: a.product_id, name: a.product_name ?? a.product_id, brand: '', category: '', image: null }, 'discuss');
-                  }}
-                  style={({ pressed }) => ({ backgroundColor: colors.lac, borderRadius: 16, padding: 14, gap: 6, opacity: pressed ? 0.8 : 1 })}
+                  key={t.id}
+                  onPress={() => openThread(t.id)}
+                  style={({ pressed }) => ({ width: 260, backgroundColor: colors.lac, borderRadius: 20, padding: 14, gap: 10, opacity: pressed ? 0.85 : 1 })}
                 >
-                  <Text style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: colors.bone }}>“{a.question}”</Text>
-                  <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>
-                    about {a.product_name ?? 'a product'} · {timeAgo(a.created_at)}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <ProductImage uri={t.product_image} category={t.category ?? ''} size={52} radius={12} />
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.bone3 }}>VS</Text>
+                    <ProductImage uri={t.compare_image} category={t.category ?? ''} size={52} radius={12} />
+                  </View>
+                  <Text numberOfLines={2} style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: colors.bone }}>{t.title}</Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.bone3 }}>
+                    {t.reply_count ? `${t.reply_count} weighing in` : 'Be the first to weigh in'} · {timeAgo(t.last_activity_at)}
                   </Text>
                 </Pressable>
               ))}
+            </ScrollView>
+          </View>
+        ) : null}
+
+        <View style={{ paddingHorizontal: 16, gap: 12 }}>
+          {home ? <SectionHead title="The conversation" icon={<TrendUp size={20} color={colors.hi} weight="bold" />} /> : null}
+          {q ? (
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.bone2 }}>
+              {feed.isLoading ? 'Searching…' : `${threads.length} ${threads.length === 1 ? 'post' : 'posts'} about “${q}”`}
+            </Text>
+          ) : null}
+          {feed.isLoading ? (
+            [0, 1, 2].map((i) => <Shimmer key={i} height={180} radius={22} />)
+          ) : stream.length ? (
+            stream.map((item) =>
+              item.type === 'post' ? (
+                <PostCard
+                  key={item.t.id}
+                  thread={item.t}
+                  requireMember={requireMember}
+                  onOpen={() => openThread(item.t.id)}
+                  onProduct={(id, name) => openRoom(id, name)}
+                  onImage={setPhoto}
+                />
+              ) : (
+                <WebVoicePost
+                  key={`v-${item.v.id}-${item.v.product_id}`}
+                  voice={item.v}
+                  onProduct={() => openRoom(item.v.product_id, item.v.product_name)}
+                  onOpen={(url) => void openLink(url)}
+                  onDiscuss={() => compose({ product: item.v, body: `Saw this from ${item.v.author}: “${item.v.text.slice(0, 160)}” — has anyone else found the same?` })}
+                />
+              ),
+            )
+          ) : (
+            <View style={{ backgroundColor: colors.lac, borderRadius: 22, padding: 22, gap: 10, alignItems: 'flex-start' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 19, letterSpacing: -0.4, color: colors.bone }}>
+                {tab === 'following' ? 'Nothing followed yet' : q ? 'No posts match that yet' : 'Start the conversation'}
+              </Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 21, color: colors.bone2 }}>
+                {tab === 'following'
+                  ? 'Tap the bell on any post to get updates when people reply.'
+                  : 'One honest post about something you own helps the next person avoid a bad buy.'}
+              </Text>
+              <Pressable onPress={() => compose()} style={{ marginTop: 4, height: 42, paddingHorizontal: 18, borderRadius: 21, backgroundColor: colors.hi, justifyContent: 'center' }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: colors.white }}>Write a post</Text>
+              </Pressable>
             </View>
-          </View>
-        ) : null}
-
-        {worries.length ? (
-          <View style={{ paddingHorizontal: 16, gap: 12 }}>
-            <SectionHead title="Worries before buying" icon={<SmileyNervous size={20} color={colors.honey} weight="bold" />} />
-            {worries.slice(0, 5).map((t) => (
-              <ThreadCard key={t.id} thread={t} showProduct onPress={() => openThread(t.id)} />
-            ))}
-          </View>
-        ) : null}
-
-        {open.length ? (
-          <View style={{ paddingHorizontal: 16, gap: 12 }}>
-            <SectionHead title="Open conversations" icon={<ChatsCircle size={20} color={colors.hi} weight="bold" />} />
-            {open.slice(0, 8).map((t) => (
-              <ThreadCard key={t.id} thread={t} showProduct onPress={() => openThread(t.id)} />
-            ))}
-          </View>
-        ) : null}
-
-        <View style={{ marginHorizontal: 16, backgroundColor: colors.black, borderRadius: 22, padding: 18, gap: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <TrendUp size={18} color={colors.hi} weight="bold" />
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)' }}>For brands & sellers</Text>
-          </View>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 25, letterSpacing: -0.4, color: colors.white }}>
-            Every search, question and worry here is a real buying signal.
-          </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: 'rgba(255,255,255,0.7)' }}>
-            See what customers compare you with, what they fear before paying, and what owners praise — straight from the people deciding.
-          </Text>
+          )}
         </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
 
-function Stat({ value, label }: { value: number | undefined; label: string }) {
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.lac, borderRadius: 16, padding: 12, gap: 2 }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 22, letterSpacing: -0.6, color: colors.bone }}>{value ?? '–'}</Text>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 14, color: colors.bone3 }}>{label}</Text>
-    </View>
+        {home ? (
+          <Pressable
+            onPress={() => trending[0] && openRoom(trending[0].id, trending[0].name)}
+            style={{ marginHorizontal: 16, backgroundColor: colors.black, borderRadius: 22, padding: 18, gap: 10 }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TrendUp size={18} color={colors.hi} weight="bold" />
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)' }}>For brands & makers</Text>
+            </View>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 25, letterSpacing: -0.4, color: colors.white }}>See how your product is really doing.</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: 'rgba(255,255,255,0.7)' }}>
+              Every product has a room: owner score, what people praise and fear, how often it’s compared — straight from the people deciding.
+            </Text>
+          </Pressable>
+        ) : null}
+      </ScrollView>
+
+      <Pressable
+        onPress={() => {
+          hapticTap();
+          compose();
+        }}
+        accessibilityLabel="New post"
+        style={({ pressed }) => ({
+          position: 'absolute',
+          right: 18,
+          bottom: 22,
+          width: 58,
+          height: 58,
+          borderRadius: 29,
+          backgroundColor: colors.hi,
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: pressed ? 0.85 : 1,
+          boxShadow: '0 10px 30px rgba(26,77,255,0.35)',
+        })}
+      >
+        <Plus size={26} color={colors.white} weight="bold" />
+      </Pressable>
+
+      <Composer
+        visible={Boolean(composing)}
+        onClose={() => setComposing(null)}
+        initialProduct={seedProduct}
+        initialBody={composing?.body}
+        initialKind={composing?.body ? 'experience' : undefined}
+        onPosted={(t) => {
+          setComposing(null);
+          void qc.invalidateQueries({ queryKey: ['feed'] });
+          void qc.invalidateQueries({ queryKey: ['pulse'] });
+          openThread(t.id);
+        }}
+      />
+      <Lightbox images={photo ? [{ url: photo }] : []} index={photo ? 0 : null} onClose={() => setPhoto(null)} />
+      {gate}
+    </SafeAreaView>
   );
 }

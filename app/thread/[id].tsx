@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnswerCard, Avatar, AvatarStack, useMemberGate } from '@/components/community';
-import { ArrowLeft, CaretRight, PaperPlaneRight, SealCheck, ShareNetwork, ThumbsUp, UsersThree } from '@/components/icons';
+import { ArrowFatUp, ArrowLeft, Bell, BellRinging, CaretRight, PaperPlaneRight, SealCheck, ShareNetwork, ThumbsUp, UsersThree } from '@/components/icons';
+import { Lightbox } from '@/components/Lightbox';
+import { KIND_STYLE, RatingStars, useThreadActions } from '@/components/social';
 import { Eyebrow, PrimaryButton, ProductImage, Shimmer } from '@/components/kit';
 import { openLink } from '@/components/product/Panes';
 import { colors, fonts } from '@/constants/theme';
@@ -25,6 +27,7 @@ export default function ThreadScreen() {
   const [body, setBody] = useState('');
   const [owner, setOwner] = useState(false);
   const [helped, setHelped] = useState<Record<string, boolean>>({});
+  const [photo, setPhoto] = useState<string | null>(null);
 
   const thread = useQuery({
     queryKey: ['thread', id],
@@ -117,12 +120,19 @@ export default function ThreadScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>{t.author_name}</Text>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>
-                      {t.kind === 'worry' ? 'shared a worry' : t.kind === 'experience' ? 'shared their experience' : t.kind === 'compare' ? 'is comparing' : 'asked'} · {timeAgo(t.created_at)}
+                      {KIND_STYLE[t.kind]?.verb ?? 'posted'} · {timeAgo(t.created_at)}
                     </Text>
                   </View>
                 </View>
+                {t.kind === 'review' && t.rating ? <RatingStars value={t.rating} size={18} /> : null}
                 <Text style={{ fontFamily: fonts.bold, fontSize: 22, lineHeight: 28, letterSpacing: -0.5, color: colors.bone }}>{t.title}</Text>
                 {t.body ? <Text style={{ fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 23, color: colors.bone2 }}>{t.body}</Text> : null}
+                {t.image_url ? (
+                  <Pressable onPress={() => setPhoto(t.image_url ?? null)} accessibilityLabel="View photo">
+                    <Image source={{ uri: t.image_url }} style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: 16, backgroundColor: colors.lac2 }} resizeMode="cover" />
+                  </Pressable>
+                ) : null}
+                <ThreadActions thread={t} requireMember={requireMember} />
               </View>
 
               {owners.isIdle ? (
@@ -259,6 +269,7 @@ export default function ThreadScreen() {
           </View>
         ) : null}
       </KeyboardAvoidingView>
+      <Lightbox images={photo ? [{ url: photo }] : []} index={photo ? 0 : null} onClose={() => setPhoto(null)} />
       {gate}
     </SafeAreaView>
   );
@@ -316,6 +327,34 @@ function ReplyCard({ reply, helped, onHelpful }: { reply: CommunityReply; helped
           </Text>
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+function ThreadActions({ thread, requireMember }: { thread: CommunityThread; requireMember: (then: () => void) => void }) {
+  const a = useThreadActions(thread, requireMember);
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 4 }}>
+      <Pressable
+        onPress={a.vote}
+        accessibilityLabel="Upvote"
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: 14, borderRadius: 999, backgroundColor: a.voted ? colors.hi : colors.lac2 }}
+      >
+        <ArrowFatUp size={17} color={a.voted ? colors.white : colors.bone2} weight={a.voted ? 'fill' : 'bold'} />
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: a.voted ? colors.white : colors.bone2 }}>{a.votes || 'Useful'}</Text>
+      </Pressable>
+      <Pressable
+        onPress={a.toggleFollow}
+        accessibilityLabel={a.following ? 'Turn off updates' : 'Get updates'}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: 14, borderRadius: 999, backgroundColor: a.following ? colors.hiSoft : colors.lac2 }}
+      >
+        {a.following ? <BellRinging size={17} color={colors.hi} weight="fill" /> : <Bell size={17} color={colors.bone2} weight="bold" />}
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: a.following ? colors.hiInk : colors.bone2 }}>
+          {a.following ? 'Following' : 'Get updates'}
+        </Text>
+      </Pressable>
+      <View style={{ flex: 1 }} />
+      {a.followers ? <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.bone3 }}>{a.followers} following</Text> : null}
     </View>
   );
 }

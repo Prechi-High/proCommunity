@@ -12,6 +12,7 @@ import type {
   Ownership,
   Product,
   Profile,
+  ScanRecord,
   SearchHistoryItem,
 } from './types';
 
@@ -46,6 +47,8 @@ export interface AppState {
   saveSearchHistory: boolean;
   recentProductIds: string[];
   knownProducts: Record<string, Product>;
+  scans: Record<string, ScanRecord>;
+  rememberScan: (productId: string, scan: ScanRecord) => void;
   setHapticsMode: (mode: HapticsMode) => void;
   setSaveSearchHistory: (on: boolean) => void;
   rememberProduct: (product: Product) => void;
@@ -123,6 +126,13 @@ export const useAppStore = create<AppState>()(
       saveSearchHistory: true,
       recentProductIds: [] as string[],
       knownProducts: {} as Record<string, Product>,
+      scans: {} as Record<string, ScanRecord>,
+      rememberScan: (productId, scan) => {
+        const entries = Object.entries({ ...get().scans, [productId]: scan })
+          .sort((a, b) => +new Date(b[1].at) - +new Date(a[1].at))
+          .slice(0, 15);
+        set({ scans: Object.fromEntries(entries) });
+      },
       setHapticsMode: (mode) => set({ hapticsMode: mode }),
       setSaveSearchHistory: (on) => set({ saveSearchHistory: on }),
       rememberProduct: (product) => {
