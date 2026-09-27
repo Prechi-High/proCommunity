@@ -36,7 +36,7 @@ type RawCandidate = {
   link: string | null;
 };
 
-async function callIntel<T>(body: Record<string, unknown>, timeoutMs = 45000): Promise<T> {
+export async function callIntel<T>(body: Record<string, unknown>, timeoutMs = 45000): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {

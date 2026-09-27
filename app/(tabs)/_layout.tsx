@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 
-import { BookmarkSimple, MagnifyingGlass, User } from '@/components/icons';
+import { BookmarkSimple, MagnifyingGlass, Pulse, User } from '@/components/icons';
 import { colors, fonts } from '@/constants/theme';
 
 export default function TabLayout() {
@@ -27,6 +27,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <MagnifyingGlass size={24} color={String(color)} weight={focused ? 'bold' : 'regular'} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="pulse"
+        options={{
+          title: 'Pulse',
+          tabBarIcon: ({ color, focused }) => <Pulse size={24} color={String(color)} weight={focused ? 'bold' : 'regular'} />,
         }}
       />
       <Tabs.Screen

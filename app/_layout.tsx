@@ -90,9 +90,9 @@ function RootLayout() {
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="results" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="product" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="user/[id]" />
+                <Stack.Screen name="thread/[id]" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="compare" options={{ animation: 'slide_from_bottom' }} />
                 <Stack.Screen name="admin/index" />
-                <Stack.Screen name="compose" options={{ animation: 'slide_from_bottom' }} />
               </Stack>
               </View>
             </AuthGate>

@@ -29,7 +29,9 @@ if (!anon) {
 }
 
 // usage: node scripts/test-investigate.mjs "query" [search|investigate] [force]
-const query = process.argv[2] || 'Anker 20W USB-C charger';
+//        node scripts/test-investigate.mjs '{"action":"ask",...}' raw
+const arg = process.argv[2] || 'Anker 20W USB-C charger';
+const query = arg.startsWith('@') ? readFileSync(arg.slice(1), 'utf8') : arg;
 const action = process.argv[3] || 'investigate';
 const force = process.argv[4] === 'force';
 const started = Date.now();
@@ -40,13 +42,15 @@ const res = await fetch(`${url}/functions/v1/product-intelligence`, {
     Authorization: `Bearer ${anon}`,
     apikey: anon,
   },
-  body: JSON.stringify({ action, query, force }),
+  body: action === 'raw' ? query : JSON.stringify({ action, query, force }),
 });
 const text = await res.text();
 console.log('status', res.status, 'ms', Date.now() - started);
 try {
   const j = JSON.parse(text);
-  if (action === 'search') {
+  if (action === 'raw') {
+    console.log(JSON.stringify(j, null, 2).slice(0, 4000));
+  } else if (action === 'search') {
     console.log(JSON.stringify({
       cached: j.cached,
       llm: j.llm,
@@ -64,6 +68,10 @@ try {
       identity: p.identity,
       summary: p.summary,
       verdict: p.verdict,
+      consensus: p.consensus,
+      people: p.people,
+      voices: (p.voices || []).map((v) => `${v.stance} | ${v.platform} | ${v.author} | mark="${v.mark}" | ${v.text.slice(0, 110)}`),
+      reveals: p.reveals,
       specs: p.specs,
       praise: p.praise,
       complaints: p.complaints,

@@ -58,6 +58,31 @@ export interface EvidenceSource {
   kind: 'web' | 'review' | 'community' | string;
 }
 
+export type VoicePlatform = 'youtube' | 'reddit' | 'review' | 'forum';
+export type Stance = 'love' | 'mixed' | 'warn';
+
+/** A real person's words about a product, kept verbatim with where they said it. */
+export interface Voice {
+  id: string;
+  platform: VoicePlatform;
+  author: string;
+  avatar: string | null;
+  text: string;
+  mark: string;
+  stance: Stance;
+  topic: string;
+  likes: number;
+  url: string;
+  where: string;
+  date: string;
+}
+
+export interface Reveal {
+  text: string;
+  mark: string;
+  voiceIds: string[];
+}
+
 /** Intelligence-level profile produced by the `product-intelligence` edge function. */
 export interface ProductProfile {
   id: string;
@@ -74,6 +99,11 @@ export interface ProductProfile {
   };
   summary: string;
   verdict: string;
+  consensus?: string;
+  consensusMark?: string;
+  voices?: Voice[];
+  reveals?: Reveal[];
+  people?: { voices: number; commenters: number; ratings: number; discussions: number };
   specs: SpecRow[];
   praise: Cited[];
   complaints: Cited[];
@@ -93,6 +123,79 @@ export interface ProductProfile {
   images: string[];
   sources: EvidenceSource[];
   verifiedAt: string;
+}
+
+export type ThreadKind = 'question' | 'worry' | 'experience' | 'compare';
+
+export interface CommunityReply {
+  id: string;
+  thread_id: string;
+  author_id: string;
+  author_name: string;
+  is_owner: boolean;
+  body: string;
+  helpful: number;
+  created_at: string;
+}
+
+/** Shared, server-backed conversation about a product (or a pair of products). */
+export interface CommunityThread {
+  id: string;
+  product_id: string;
+  product_name: string;
+  product_image: string | null;
+  category: string | null;
+  kind: ThreadKind;
+  title: string;
+  body: string | null;
+  compare_id: string | null;
+  compare_name: string | null;
+  compare_image: string | null;
+  author_id: string;
+  author_name: string;
+  reply_count: number;
+  created_at: string;
+  last_activity_at: string;
+  community_replies?: CommunityReply[];
+}
+
+export interface AskCite {
+  id: string;
+  author: string;
+  avatar: string | null;
+  platform: string;
+  text: string;
+  product: string;
+  url: string | null;
+}
+
+export interface AskAnswer {
+  answer: string;
+  mark: string;
+  cites: AskCite[];
+  enough: boolean;
+  basedOn: number;
+  followups: string[];
+}
+
+export interface TrendingProduct {
+  id: string;
+  name: string;
+  brand: string;
+  category: string;
+  image: string | null;
+  views: number;
+  asks: number;
+  threads: number;
+  compares: number;
+  heat: number;
+}
+
+export interface Pulse {
+  trending: TrendingProduct[];
+  asks: { product_id: string; product_name: string | null; compare_id: string | null; question: string; answered: boolean; created_at: string }[];
+  threads: CommunityThread[];
+  stats: { productsResearched: number; actionsThisWeek: number; questionsAsked: number };
 }
 
 export interface CommunityPost {

@@ -15,23 +15,12 @@ import {
 } from 'react-native';
 
 import { OfficialEmbed } from '@/components/VideoEmbed';
-import {
-  ArrowSquareOut,
-  ArrowsLeftRight,
-  CheckCircle,
-  Globe,
-  Play,
-  SealCheck,
-  Storefront,
-  ThumbsDown,
-  ThumbsUp,
-  X,
-} from '@/components/icons';
-import { Eyebrow, Group, GroupRow, Pill, ScoreDial, Shimmer, Stars, Tile } from '@/components/kit';
+import { ArrowSquareOut, ArrowsLeftRight, CheckCircle, Globe, Play, Storefront, X } from '@/components/icons';
+import { Eyebrow, Group, GroupRow, Pill, Shimmer, Stars, Tile } from '@/components/kit';
 import { colors, fonts } from '@/constants/theme';
 import { hapticTap } from '@/lib/haptics';
 import { formatPrice, formatRange } from '@/lib/products';
-import type { Cited, EvidenceSource, ProductProfile } from '@/lib/types';
+import type { ProductProfile } from '@/lib/types';
 import { clipLabel, type JourneyClip } from '@/lib/videos';
 
 export async function openLink(url: string | null | undefined) {
@@ -46,131 +35,6 @@ export async function openLink(url: string | null | undefined) {
   } catch {
     void Linking.openURL(url);
   }
-}
-
-function sourceFor(profile: ProductProfile, n: number | null): EvidenceSource | undefined {
-  return n == null ? undefined : profile.sources.find((s) => s.n === n);
-}
-
-function verifiedLabel(iso: string): string {
-  const days = Math.floor((Date.now() - +new Date(iso)) / 86_400_000);
-  if (days <= 0) return 'verified today';
-  if (days === 1) return 'verified yesterday';
-  return `verified ${days} days ago`;
-}
-
-const H = ({ children }: { children: string }) => (
-  <Text style={{ fontFamily: fonts.bold, fontSize: 20, letterSpacing: -0.4, color: colors.bone }}>{children}</Text>
-);
-
-// ---------------------------------------------------------------------------
-// Overview — the whole decision at a glance, bento style.
-
-export function OverviewPane({
-  profile,
-  onOpenSources,
-  onGo,
-}: {
-  profile: ProductProfile;
-  onOpenSources: () => void;
-  onGo: (tab: 'reviews' | 'prices' | 'specs') => void;
-}) {
-  const topPraise = profile.praise[0]?.text;
-  const topComplaint = profile.complaints[0]?.text;
-  const range = formatRange(profile.priceRange);
-  const bandTone = profile.band === 'High' ? 'good' : profile.band === 'Likely' ? 'accent' : 'warn';
-  return (
-    <View style={{ gap: 12 }}>
-      <Tile tone="ink" style={{ padding: 18 }}>
-        <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
-          <View style={{ flex: 1, gap: 8 }}>
-            <Eyebrow color="rgba(255,255,255,0.55)">Sourced verdict</Eyebrow>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 16.5, lineHeight: 22, color: colors.white, letterSpacing: -0.2 }}>
-              {profile.verdict || profile.summary || 'We gathered what the web knows about this product.'}
-            </Text>
-          </View>
-          <View style={{ alignItems: 'center', gap: 4 }}>
-            <ScoreDial score={profile.score} size={84} stroke={8} onDark />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>Sourced score</Text>
-          </View>
-        </View>
-      </Tile>
-
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Tile style={{ flex: 1, minHeight: 104, justifyContent: 'space-between' }} onPress={() => onGo('reviews')}>
-          <Eyebrow>Rating</Eyebrow>
-          {profile.rating ? (
-            <View style={{ gap: 2 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 30, letterSpacing: -1, color: colors.bone }}>
-                {profile.rating.toFixed(1)}
-                <Text style={{ fontSize: 16, color: colors.bone3 }}> / 5</Text>
-              </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>
-                {profile.ratingCount ? `${profile.ratingCount.toLocaleString()} ratings` : 'store ratings'}
-              </Text>
-            </View>
-          ) : (
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.bone2 }}>
-              {profile.praise.length} praised · {profile.complaints.length} flagged
-            </Text>
-          )}
-        </Tile>
-        <Tile style={{ flex: 1, minHeight: 104, justifyContent: 'space-between' }} onPress={() => onGo('prices')}>
-          <Eyebrow>Price</Eyebrow>
-          {range ? (
-            <View style={{ gap: 2 }}>
-              <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.bold, fontSize: 24, letterSpacing: -0.8, color: colors.bone }}>
-                {formatPrice(profile.offers[0]?.price) || range}
-              </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>
-                lowest of {profile.priceRange?.count ?? profile.offers.length} listings
-              </Text>
-            </View>
-          ) : (
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.bone2 }}>No live listings yet</Text>
-          )}
-        </Tile>
-      </View>
-
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Tile style={{ flex: 1, backgroundColor: colors.sageSoft }} onPress={() => onGo('reviews')}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <ThumbsUp size={14} color={colors.sageInk} weight="fill" />
-            <Eyebrow color={colors.sageInk}>People love</Eyebrow>
-          </View>
-          <Text numberOfLines={4} style={{ marginTop: 8, fontFamily: fonts.medium, fontSize: 14, lineHeight: 19, color: colors.bone }}>
-            {topPraise ?? 'No clear praise yet'}
-          </Text>
-        </Tile>
-        <Tile style={{ flex: 1, backgroundColor: colors.coralSoft }} onPress={() => onGo('reviews')}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <ThumbsDown size={14} color={colors.coral} weight="fill" />
-            <Eyebrow color={colors.coral}>Watch for</Eyebrow>
-          </View>
-          <Text numberOfLines={4} style={{ marginTop: 8, fontFamily: fonts.medium, fontSize: 14, lineHeight: 19, color: colors.bone }}>
-            {topComplaint ?? 'No repeated complaints found'}
-          </Text>
-        </Tile>
-      </View>
-
-      {profile.bestFor.length ? (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.bone2, marginRight: 2 }}>Best for</Text>
-          {profile.bestFor.slice(0, 3).map((b) => (
-            <Pill key={b} label={b.length > 38 ? `${b.slice(0, 36)}…` : b} tone="accent" />
-          ))}
-        </View>
-      ) : null}
-
-      <Pressable onPress={onOpenSources} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}>
-        <Pill label={`${profile.band} confidence`} tone={bandTone} icon={SealCheck} />
-        <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>
-          {profile.sources.length} sources · {verifiedLabel(profile.verifiedAt)}
-        </Text>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.hi }}>Sources</Text>
-      </Pressable>
-    </View>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -262,112 +126,6 @@ export function SpecsPane({
 }
 
 // ---------------------------------------------------------------------------
-
-function CitedList({ items, tone, profile }: { items: Cited[]; tone: 'good' | 'bad'; profile: ProductProfile }) {
-  const color = tone === 'good' ? colors.sage : colors.coral;
-  return (
-    <Group>
-      {items.map((item, i) => {
-        const src = sourceFor(profile, item.source);
-        return (
-          <Pressable
-            key={`${item.text}-${i}`}
-            disabled={!src}
-            onPress={() => void openLink(src?.url)}
-            style={{
-              flexDirection: 'row',
-              gap: 12,
-              paddingVertical: 12,
-              borderBottomWidth: i === items.length - 1 ? 0 : 1,
-              borderBottomColor: colors.line,
-            }}
-          >
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color, marginTop: 7 }} />
-            <View style={{ flex: 1, gap: 3 }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14.5, lineHeight: 20, color: colors.bone }}>{item.text}</Text>
-              {src ? (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>
-                  {src.kind === 'community' ? 'Community · ' : src.kind === 'review' ? 'Review · ' : ''}
-                  {src.domain}
-                </Text>
-              ) : null}
-            </View>
-          </Pressable>
-        );
-      })}
-    </Group>
-  );
-}
-
-export function ReviewsPane({ profile }: { profile: ProductProfile }) {
-  const p = profile.praise.length;
-  const c = profile.complaints.length;
-  const total = Math.max(1, p + c);
-  return (
-    <View style={{ gap: 16 }}>
-      <Tile>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ gap: 4 }}>
-            <Eyebrow>What people say</Eyebrow>
-            <Stars rating={profile.rating} count={profile.ratingCount} size={14} />
-          </View>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>
-            {p} positives · {c} concerns
-          </Text>
-        </View>
-        <View style={{ flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', marginTop: 14, backgroundColor: colors.wineDeep }}>
-          <View style={{ width: `${(p / total) * 100}%`, backgroundColor: colors.sage }} />
-          <View style={{ width: `${(c / total) * 100}%`, backgroundColor: colors.coral }} />
-        </View>
-      </Tile>
-
-      {p ? (
-        <View style={{ gap: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <ThumbsUp size={15} color={colors.sage} weight="fill" />
-            <H>People love</H>
-          </View>
-          <CitedList items={profile.praise} tone="good" profile={profile} />
-        </View>
-      ) : null}
-      {c ? (
-        <View style={{ gap: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <ThumbsDown size={15} color={colors.coral} weight="fill" />
-            <H>Watch for</H>
-          </View>
-          <CitedList items={profile.complaints} tone="bad" profile={profile} />
-        </View>
-      ) : null}
-      {profile.bestFor.length || profile.notFor.length ? (
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          {profile.bestFor.length ? (
-            <Tile style={{ flex: 1, gap: 8 }}>
-              <Eyebrow color={colors.sageInk}>Great for</Eyebrow>
-              {profile.bestFor.map((b) => (
-                <View key={b} style={{ flexDirection: 'row', gap: 6 }}>
-                  <CheckCircle size={14} color={colors.sage} weight="fill" style={{ marginTop: 2 }} />
-                  <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 18, color: colors.bone }}>{b}</Text>
-                </View>
-              ))}
-            </Tile>
-          ) : null}
-          {profile.notFor.length ? (
-            <Tile style={{ flex: 1, gap: 8 }}>
-              <Eyebrow color={colors.coral}>Skip if</Eyebrow>
-              {profile.notFor.map((b) => (
-                <View key={b} style={{ flexDirection: 'row', gap: 6 }}>
-                  <X size={14} color={colors.coral} weight="bold" style={{ marginTop: 2 }} />
-                  <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 18, color: colors.bone }}>{b}</Text>
-                </View>
-              ))}
-            </Tile>
-          ) : null}
-        </View>
-      ) : null}
-    </View>
-  );
-}
 
 // ---------------------------------------------------------------------------
 
@@ -526,9 +284,9 @@ export function SourcesSheet({ profile, visible, onClose }: { profile: ProductPr
       <View style={{ flex: 1, backgroundColor: colors.wine, paddingTop: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12 }}>
           <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 22, letterSpacing: -0.5, color: colors.bone }}>Evidence</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 22, letterSpacing: -0.5, color: colors.bone }}>Receipts</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone3 }}>
-              Every claim links back to where it came from.
+              Every point links back to the people and pages it came from.
             </Text>
           </View>
           <Pressable onPress={onClose} hitSlop={10} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.lac, alignItems: 'center', justifyContent: 'center' }}>
@@ -557,11 +315,11 @@ export function SourcesSheet({ profile, visible, onClose }: { profile: ProductPr
 // ---------------------------------------------------------------------------
 
 const STEPS = [
-  'Confirming the exact product',
-  'Reading specifications',
-  'Collecting reviews and discussions',
-  'Comparing seller prices',
-  'Organising the evidence',
+  'Finding the exact product',
+  'Listening to owners on YouTube and Reddit',
+  'Reading reviews and discussions',
+  'Checking what sellers charge',
+  'Marking what you need to know',
 ];
 
 export function InvestigatingState() {
@@ -616,7 +374,7 @@ export function InvestigatingState() {
         <Shimmer height={104} radius={20} style={{ flex: 1 }} width="48%" />
       </View>
       <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3, textAlign: 'center' }}>
-        First look takes a few seconds. After that it’s instant.
+        We’re reading real people so you don’t have to. First look takes a few seconds.
       </Text>
     </View>
   );

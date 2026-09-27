@@ -210,7 +210,7 @@ async function tryGeminiVariant(
             ],
           },
         ],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
+        generationConfig: { temperature: 0.1, maxOutputTokens: 3072 },
       }),
     }),
     PER_CALL_TIMEOUT_MS,
@@ -223,9 +223,9 @@ async function tryGeminiVariant(
       return { provider: "gemini", label, http: r.val.status, output: "", outputLength: 0, err: extractErrCode(txt, r.val.status, label) };
     }
     const j = (await r.val.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }>;
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> }; finishReason?: string }>;
     };
-    const out = j.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join(" ") ?? "";
+    const out = j.candidates?.[0]?.content?.parts?.filter((p) => !p.thought).map((p) => p.text ?? "").join(" ").trim() ?? "";
     return { provider: "gemini", label, http: r.val.status, output: out, outputLength: out.length, err: out ? undefined : `${label}_empty` };
   } catch (e) {
     return { provider: "gemini", label, output: "", outputLength: 0, err: `${label}_ex:${e instanceof Error ? e.message : String(e)}`.slice(0, 160) };
@@ -300,18 +300,18 @@ async function runVisionPipeline(b64: string, mime: string, prompt: string, debu
     return { label: "", attempts, keyLengths: { or: 0, g: 0, nv: 0 }, noVisionKey: true };
   }
 
-  if (openRouterKey) {
-    const pref = Deno.env.get("OPENROUTER_MODEL")?.trim();
-    // Prefer models known to support vision on OpenRouter. Avoid preferred ids that 404.
-    const rawModels = [
-      pref && !/gemini-2\.5-flash$/i.test(pref) ? pref : null,
-      "anthropic/claude-haiku-4.5",
-      "google/gemini-2.5-flash",
-      "openai/gpt-4.1-mini",
+  if (geminiKey) {
+    const gPref = Deno.env.get("GEMINI_MODEL")?.trim();
+    // gemini-1.x / 2.0 / 2.5 are retired for this project and return 404.
+    const rawG = [
+      gPref && !/^gemini-(1\.|2\.0|2\.5)/.test(gPref) ? gPref : null,
+      "gemini-3.8-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
     ].filter(Boolean) as string[];
-    const orModels = Array.from(new Set(rawModels.filter((m) => isLikelyVisionModel(m)))).slice(0, 4);
-    for (const model of orModels) {
-      const a = await tryOpenRouter(b64, mime, prompt, model, openRouterKey, `or_${model.replace(/[^a-z0-9_-]/gi, "_")}`);
+    for (const m of Array.from(new Set(rawG))) {
+      const v = { api: "v1beta" as const, model: m, style: "camel" as const };
+      const a = await tryGeminiVariant(b64, mime, prompt, v, geminiKey, `g_${m.replace(/[^a-z0-9_-]/gi, "_")}`);
       attempts.push(a);
       if (a.outputLength > 0 && !a.err) {
         labelOut = a.output;
@@ -320,18 +320,12 @@ async function runVisionPipeline(b64: string, mime: string, prompt: string, debu
     }
   }
 
-  if (!labelOut && geminiKey) {
-    const variants: Array<{ api: "v1" | "v1beta"; model: string; style: "camel" | "snake" }> = [];
-    const gPref = Deno.env.get("GEMINI_MODEL")?.trim();
-    const rawG = [gPref, "gemini-2.5-flash", "gemini-3.5-flash", "gemini-3-flash-preview"].filter(Boolean) as string[];
-    const gModels = Array.from(new Set(rawG.filter((m) => isLikelyVisionModel(m)))).slice(0, 3);
-    for (const m of gModels) {
-      variants.push({ api: "v1", model: m, style: "camel" });
-      variants.push({ api: "v1beta", model: m, style: "snake" });
-    }
-    for (let i = 0; i < variants.length; i++) {
-      const v = variants[i];
-      const a = await tryGeminiVariant(b64, mime, prompt, v, geminiKey, `g_${v.api}_${v.model.replace(/[^a-z0-9_-]/gi, "_")}_${v.style}`);
+  if (!labelOut && openRouterKey) {
+    const pref = Deno.env.get("OPENROUTER_MODEL")?.trim();
+    const rawModels = [pref && !/gemini-2\.5/i.test(pref) ? pref : null, "anthropic/claude-haiku-4.5"].filter(Boolean) as string[];
+    const orModels = Array.from(new Set(rawModels.filter((m) => isLikelyVisionModel(m)))).slice(0, 2);
+    for (const model of orModels) {
+      const a = await tryOpenRouter(b64, mime, prompt, model, openRouterKey, `or_${model.replace(/[^a-z0-9_-]/gi, "_")}`);
       attempts.push(a);
       if (a.outputLength > 0 && !a.err) {
         labelOut = a.output;

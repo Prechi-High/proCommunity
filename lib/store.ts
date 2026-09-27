@@ -53,6 +53,7 @@ export interface AppState {
   clearRecentProducts: () => void;
   deleteMyData: () => void;
   signIn: (email: string, displayName?: string) => void;
+  joinCommunity: (displayName: string) => void;
   signOut: () => void;
   updateProfile: (patch: Partial<Profile>) => void;
   toggleFavorite: (productId: string) => void;
@@ -162,6 +163,24 @@ export const useAppStore = create<AppState>()(
             isAdmin: normalized.endsWith('@sourced.local'),
           },
         });
+      },
+      joinCommunity: (displayName) => {
+        const name = displayName.trim().slice(0, 40);
+        if (!name) return;
+        const existing = get().profile;
+        if (existing) {
+          set({ profile: { ...existing, displayName: name } });
+          return;
+        }
+        set({
+          profile: {
+            id: uid('member'),
+            email: '',
+            displayName: name,
+            onboardingComplete: true,
+          },
+        });
+        track('community_joined', {});
       },
       signOut: () => set({ ...emptyUserSlice }),
       updateProfile: (patch) => {

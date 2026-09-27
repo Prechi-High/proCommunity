@@ -889,7 +889,8 @@ async function callGemini(prompt: string): Promise<{ text: string; error: string
   const key = secretValue("GEMINI_API_KEY") || secretValue("GOOGLE_API_KEY");
   if (!key) return { text: "", error: "no_gemini_key" };
   const preferred = Deno.env.get("GEMINI_MODEL")?.trim();
-  const models = [...new Set([preferred, "gemini-2.5-flash", "gemini-2.0-flash"].filter(Boolean))] as string[];
+  const usable = preferred && !/^gemini-(1\.|2\.0|2\.5)/.test(preferred) ? preferred : null;
+  const models = [...new Set([usable, "gemini-3.5-flash-lite", "gemini-3.8-flash"].filter(Boolean))] as string[];
   let lastError = "gemini_empty";
   for (const model of models) {
     const response = await fetch(

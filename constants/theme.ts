@@ -37,6 +37,10 @@ export const colors = {
   white: '#FFFFFF',
   black: '#000000',
   webShell: '#E9E9EE',
+  /** Highlighter: the "we just exposed it" reveal behind key phrases. */
+  mark: '#CFDCFF',
+  markInk: '#0A0A0B',
+  markDark: '#1A4DFF',
 } as const;
 
 export const radii = {
