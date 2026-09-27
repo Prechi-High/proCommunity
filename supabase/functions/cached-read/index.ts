@@ -303,7 +303,7 @@ Deno.serve(async (req) => {
     if (action === "search") {
       const query = body.query?.trim() ?? "";
       const chip = body.chip?.trim() || undefined;
-      const term = normalizeSearchQuery(query, chip) || "skincare serum";
+      const term = normalizeSearchQuery(query, chip) || "best sellers";
       const key = searchKey(query, chip);
       const { value, event, durationMs } = await cacheAside({
         key,
@@ -362,7 +362,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "taxonomy") {
-      const category = body.category?.trim() || "skincare";
+      const category = body.category?.trim() || "universal_default";
       const key = taxonomyKey(category);
       const { value, event, durationMs } = await cacheAside({
         key,

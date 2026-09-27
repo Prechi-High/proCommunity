@@ -15,7 +15,6 @@ import {
   relatedPosts,
   routeId,
 } from '@/lib/catalog';
-import { SKIN_TYPE_LABEL } from '@/lib/quiz';
 import { isVerifiedForProduct, useAppStore } from '@/lib/store';
 import { useProduct } from '@/lib/useProduct';
 import { loadProductVideos, loadYoutubeComments } from '@/lib/youtube';
@@ -133,10 +132,7 @@ export default function ThreadScreen() {
                   userId: profile?.id ?? 'anon',
                   type: 'experience',
                   body: draft.trim(),
-                  traitTags:
-                    profile?.skinType && profile.skinType !== 'unknown'
-                      ? [SKIN_TYPE_LABEL[profile.skinType]]
-                      : [],
+                  traitTags: [],
                   isVerifiedOwner: verified,
                 });
                 setDraft('');

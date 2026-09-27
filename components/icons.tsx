@@ -62,10 +62,46 @@ import {
   Warning,
   X,
   YoutubeLogo,
+  Package,
+  DeviceMobile,
+  TShirt,
+  ForkKnife,
+  Wrench,
+  Car,
+  Star,
+  Tag,
+  ThumbsUp,
+  ThumbsDown,
+  Clock,
+  BookmarkSimple,
+  Globe,
+  ArrowClockwise,
+  ListBullets,
+  ArrowsLeftRight,
+  Scan,
 } from 'phosphor-react-native';
 
+export {
+  Package,
+  DeviceMobile,
+  TShirt,
+  ForkKnife,
+  Wrench,
+  Car,
+  Star,
+  Tag,
+  ThumbsUp,
+  ThumbsDown,
+  Clock,
+  BookmarkSimple,
+  Globe,
+  ArrowClockwise,
+  ListBullets,
+  ArrowsLeftRight,
+  Scan,
+};
+
 import { colors } from '@/constants/theme';
-import type { ProductCategory } from '@/lib/types';
 
 export {
   ArrowFatUp,
@@ -124,19 +160,19 @@ export {
 
 export type IconWeight = 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone';
 
-/** Product categories get a consistent icon so a shelf reads at a glance. */
-const CATEGORY_ICONS = {
-  cleanser: Drop,
-  serum: Eyedropper,
-  moisturizer: Flower,
-  spf: Sun,
-  mask: Sparkle,
-  essence: Flask,
-  treatment: Flask,
-} as const;
+/** Product categories get a consistent icon so a list reads at a glance. */
+const CATEGORY_ICONS: Array<[RegExp, typeof Package]> = [
+  [/phone|charger|cable|laptop|computer|tablet|earbud|headphone|speaker|camera|tv|monitor|electronic|console|controller|watch/i, DeviceMobile],
+  [/shoe|sneaker|shirt|dress|jacket|cloth|apparel|bag|fashion/i, TShirt],
+  [/food|drink|snack|coffee|tea|beverage|grocery/i, ForkKnife],
+  [/tool|drill|hardware|repair/i, Wrench],
+  [/car|auto|tyre|tire|vehicle/i, Car],
+  [/home|kitchen|blender|appliance|furniture|lamp/i, House],
+  [/beauty|cosmetic|skin|hair|fragrance|makeup/i, Drop],
+];
 
-export function categoryIcon(category: ProductCategory) {
-  return CATEGORY_ICONS[category] ?? Flask;
+export function categoryIcon(category: string) {
+  return CATEGORY_ICONS.find(([re]) => re.test(category))?.[1] ?? Package;
 }
 
 /**

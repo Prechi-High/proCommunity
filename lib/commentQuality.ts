@@ -6,8 +6,8 @@ export const COMMENT_THREADS_FETCH = 20;
 export const COMMENT_REPLIES_PER_THREAD = 3;
 export const COMMENT_THREADS_FOR_LLM = 8;
 
-const SKIN_WORDS =
-  /\b(cleanser|serum|moisturizer|moisturiser|routine|breakout|acne|dry|oily|sensitive|ceramide|niacinamide|retinol|barrier|irritat\w*|redness|how|week|month|result|compare|versus|\bvs\b|ingredient|apply|application|layer|patch|sting|peel|foam|hydrate|hydrating|texture|smell|scent|absorb|purging|comedogenic|spf|sunscreen)\b/i;
+const EXPERIENCE_WORDS =
+  /\b(bought|own|owned|using|used|daily|how|week|month|year|result|compare|versus|\bvs\b|battery|quality|build|broke|lasted|durable|worth|price|value|setup|install|works?|worked|problem|issue|return(ed)?|refund|recommend|size|fit|sound|screen|texture|smell|taste)\b/i;
 
 const SPAM_ONLY = /^(first!?|love(\s+this)?!?|subscribe!?|nice!?|cool!?|wow!?|🔥+|❤️+|😍+|lol!?|lmao!?|same!?|this!?)+$/i;
 const EMOJI_HEAVY = /^[\p{Emoji}\p{Emoji_Presentation}\p{Extended_Pictographic}\s!.?]+$/u;
@@ -60,7 +60,7 @@ export function scoreComment(input: CommentScoreInput): CommentScore {
   let score = 0;
   if (cleaned.length >= 100) score += 2;
   else if (cleaned.length >= 40) score += 1;
-  if (SKIN_WORDS.test(cleaned)) score += 2;
+  if (EXPERIENCE_WORDS.test(cleaned)) score += 2;
   if (cleaned.includes('?')) score += 1;
   if (input.isReply && input.parentIsQuestion) score += 1;
 

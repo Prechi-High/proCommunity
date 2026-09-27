@@ -1,25 +1,3 @@
-export type SkinType = 'dry' | 'oily' | 'combination' | 'sensitive' | 'normal' | 'unknown';
-
-export type SkinTypeSource = 'self_selected' | 'quiz_estimated';
-
-export type Concern =
-  | 'acne'
-  | 'aging'
-  | 'hyperpigmentation'
-  | 'sensitivity'
-  | 'dryness'
-  | 'oiliness'
-  | 'redness';
-
-export type ProductCategory =
-  | 'cleanser'
-  | 'serum'
-  | 'moisturizer'
-  | 'spf'
-  | 'mask'
-  | 'essence'
-  | 'treatment';
-
 export type PostType = 'question' | 'answer' | 'experience' | 'update' | 'feed_post';
 
 export type PostStatus = 'visible' | 'flagged' | 'removed';
@@ -28,47 +6,93 @@ export interface Profile {
   id: string;
   email: string;
   displayName: string;
-  skinType: SkinType;
-  skinTypeSource: SkinTypeSource | null;
-  concerns: Concern[];
   onboardingComplete: boolean;
   isAdmin?: boolean;
 }
 
+export interface Price {
+  amount: number;
+  currency: string;
+  display: string;
+}
+
+/** Identity-level product record: enough to list, save and open a product anywhere. */
 export interface Product {
   id: string;
   name: string;
   brand: string;
-  description: string;
-  category: ProductCategory;
-  ingredients: string[];
-  attributeTags: string[];
-  suitsSkinTypes: SkinType[];
-  typicalDurationDays: number | null;
-  shelfLifeMonths: number | null;
-  source: 'seed' | 'shopify' | 'open_beauty_facts';
+  category: string;
+  description?: string;
   heroImageUrl?: string | null;
-  barcode?: string | null;
+  price?: Price | null;
+  rating?: number | null;
+  ratingCount?: number | null;
+  offers?: number;
+  source?: string | null;
   productUrl?: string | null;
 }
 
-export interface Listing {
-  id: string;
-  productId: string;
-  merchantName: string;
-  price: number;
-  currency: 'NGN';
-  inStock: boolean;
-  productUrl: string;
-  shipsNote: string;
-  optedOut: boolean;
+export interface Cited {
+  text: string;
+  source: number | null;
 }
 
-export interface LiteracyEntry {
-  attributeTag: string;
+export interface SpecRow {
+  label: string;
+  value: string;
+  source: number | null;
+}
+
+export interface Offer {
+  seller: string;
+  price: Price | null;
+  link: string | null;
+  rating: number | null;
+}
+
+export interface EvidenceSource {
+  n: number;
   title: string;
-  body: string;
-  sourceNote: string;
+  url: string;
+  domain: string;
+  kind: 'web' | 'review' | 'community' | string;
+}
+
+/** Intelligence-level profile produced by the `product-intelligence` edge function. */
+export interface ProductProfile {
+  id: string;
+  query: string;
+  identity: {
+    name: string;
+    brand: string;
+    manufacturer: string;
+    model: string;
+    category: string;
+    subcategory: string;
+    variant: string;
+    size: string;
+  };
+  summary: string;
+  verdict: string;
+  specs: SpecRow[];
+  praise: Cited[];
+  complaints: Cited[];
+  bestFor: string[];
+  notFor: string[];
+  uses: string[];
+  howToUse: string;
+  compatibility: string;
+  alternatives: { name: string; reason: string }[];
+  offers: Offer[];
+  priceRange: { min: number; max: number; currency: string; count: number } | null;
+  rating: number | null;
+  ratingCount: number | null;
+  score: number | null;
+  confidence: number;
+  band: 'High' | 'Likely' | 'Uncertain';
+  images: string[];
+  sources: EvidenceSource[];
+  verifiedAt: string;
 }
 
 export interface CommunityPost {
@@ -108,18 +132,9 @@ export interface YoutubeComment {
   replies?: YoutubeComment[];
 }
 
-export interface SatchelItem {
-  id: string;
-  productId: string;
-  addedAt: string;
-  purchased: boolean;
-  purchasedAt: string | null;
-}
-
 export interface SeedAuthor {
   id: string;
   displayName: string;
-  skinType: SkinType;
   memberSince: string;
   verified: boolean;
   knownFor: { tag: string; answers: number }[];
@@ -137,38 +152,9 @@ export interface Favorite {
   priceAlertEnabled: boolean;
 }
 
-export interface RoutineStep {
-  id: string;
-  productId: string;
-  timeOfDay: 'am' | 'pm';
-  stepOrder: number;
-}
-
-export interface RoutineLog {
-  date: string;
-  timeOfDay: 'am' | 'pm';
-  completedStepIds: string[];
-}
-
-export interface ProgressEntry {
-  id: string;
-  productId: string;
-  note: string;
-  entryDate: string;
-  weekLabel: string;
-  isShared: boolean;
-}
-
-export interface UsageEstimate {
-  productId: string;
-  startedAt: string;
-  estimatedEmptyDate: string | null;
-  expiryDate: string | null;
-}
-
 export interface AppNotification {
   id: string;
-  type: 'refill' | 'expiry' | 'price_drop' | 'question_match' | 'check_in';
+  type: 'price_drop' | 'question_match' | 'check_in';
   title: string;
   body: string;
   productId?: string;
@@ -180,10 +166,6 @@ export interface SearchHistoryItem {
   id: string;
   query: string;
   at: string;
-}
-
-export interface QuizAnswers {
-  [questionId: string]: string;
 }
 
 export type { ContentTagKey as VideoJourneyTag } from './taxonomy';

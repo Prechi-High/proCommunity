@@ -36,7 +36,11 @@ import {
   rejectVideo,
   type PendingVideo,
 } from '@/lib/discoverVideos';
-import { communityPosts, products } from '@/lib/seed';
+import { getAllProducts } from '@/lib/catalog';
+import { communityPosts } from '@/lib/seed';
+import type { Product } from '@/lib/types';
+
+const products: Product[] = getAllProducts();
 import { useAppStore } from '@/lib/store';
 import { isVideoReviewEnabled, tagLabel } from '@/lib/taxonomy';
 import { platformLabel, voterKeyFor, type JourneyClip, type VideoPlatform } from '@/lib/videos';

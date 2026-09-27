@@ -1,191 +1,246 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ArrowClockwise, ArrowLeft, BookmarkSimple, ChatsCircle, ShareNetwork } from '@/components/icons';
+import { Eyebrow, PrimaryButton, ProductImage, Segmented } from '@/components/kit';
 import {
-  ClaimRows,
-  ExperienceSplit,
-  PriceSignal,
-  ProductIdentityHero,
-  VerdictMoment,
-} from '@/components/product/JourneySections';
-import { LiteracyRail } from '@/components/product/LiteracyRail';
-import { Screen } from '@/components/Screen';
-import { Caption, Disclaimer } from '@/components/ui';
-import { ArrowLeft, Heart } from '@/components/icons';
+  InvestigatingState,
+  openLink,
+  OverviewPane,
+  PricesPane,
+  ReviewsPane,
+  SourcesSheet,
+  SpecsPane,
+  VideosPane,
+} from '@/components/product/Panes';
 import { colors, fonts } from '@/constants/theme';
 import { routeId } from '@/lib/catalog';
-import { hapticMarked, hapticTap, hapticVerdictLand } from '@/lib/haptics';
-import { loadProductCase } from '@/lib/productCase';
-import { assembleProductJourney } from '@/lib/productJourney';
+import { hapticSuccess, hapticTap } from '@/lib/haptics';
+import { displayName, formatPrice, getKnownProduct, investigateProduct, rememberProduct, slugify } from '@/lib/products';
 import { useAppStore } from '@/lib/store';
-import { useProduct } from '@/lib/useProduct';
+import { loadProductClips } from '@/lib/videos';
 
-export default function ProductCaseScreen() {
-  const { id: rawId } = useLocalSearchParams<{ id?: string }>();
-  const id = routeId(rawId ?? '');
+type Tab = 'overview' | 'specs' | 'reviews' | 'prices' | 'videos';
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'specs', label: 'Specs' },
+  { id: 'reviews', label: 'Reviews' },
+  { id: 'prices', label: 'Prices' },
+  { id: 'videos', label: 'Videos' },
+];
+
+export default function ProductScreen() {
   const router = useRouter();
-  const { data: product, isLoading: productLoading } = useProduct(id);
-  const userPosts = useAppStore((s) => s.userPosts);
+  const params = useLocalSearchParams<{ id: string; q?: string }>();
+  const id = routeId(params.id);
+  const q = typeof params.q === 'string' ? params.q : undefined;
+  const [tab, setTab] = useState<Tab>('overview');
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const favorites = useAppStore((s) => s.favorites);
   const toggleFavorite = useAppStore((s) => s.toggleFavorite);
-  const [expandedClaim, setExpandedClaim] = useState<string | null>(null);
-
-  const analysisQuery = useQuery({
-    queryKey: ['product-case', product?.id],
-    queryFn: () => loadProductCase(product!, userPosts),
-    enabled: Boolean(product),
-    staleTime: 30 * 60 * 1000,
-  });
-
-  const journeyQuery = useQuery({
-    queryKey: ['product-journey', product?.id, analysisQuery.dataUpdatedAt],
-    queryFn: () => assembleProductJourney(product!, analysisQuery.data),
-    enabled: Boolean(product) && (analysisQuery.isSuccess || analysisQuery.isError),
-    staleTime: 15 * 60 * 1000,
-  });
-
-  const journey = journeyQuery.data;
-  const analysis = analysisQuery.data;
+  const addRecent = useAppStore((s) => s.addRecentProduct);
+  useAppStore((s) => s.knownProducts[id]);
+  const known = getKnownProduct(id);
+  const saved = favorites.some((f) => f.productId === id);
 
   useEffect(() => {
-    if (analysis?.productScore != null) {
-      hapticVerdictLand();
-      hapticMarked();
+    if (id) addRecent(id);
+  }, [id, addRecent]);
+
+  const intel = useQuery({
+    queryKey: ['intel', id],
+    queryFn: () => investigateProduct({ id, query: q }),
+    enabled: Boolean(id),
+    staleTime: 30 * 60_000,
+    retry: 1,
+  });
+  const profile = intel.data ?? null;
+  const product = getKnownProduct(id) ?? known;
+  const name = product ? displayName(product) : profile?.identity.name ?? q ?? '';
+
+  const clips = useQuery({
+    queryKey: ['clips', id],
+    queryFn: () =>
+      loadProductClips({
+        id,
+        name: profile?.identity.name || product?.name || q || '',
+        brand: profile?.identity.brand || product?.brand || '',
+      }),
+    enabled: Boolean(id) && (Boolean(profile) || Boolean(product?.name)),
+    staleTime: 60 * 60_000,
+  });
+
+  const fade = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    fade.setValue(0);
+    Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+  }, [tab, profile, fade]);
+
+  const image = product?.heroImageUrl || profile?.images[0] || null;
+  const lowest = profile?.offers.find((o) => o.price) ?? null;
+  const brand = profile?.identity.brand || product?.brand || '';
+  const category = profile?.identity.category || product?.category || '';
+
+  const openAlternative = (altName: string) => {
+    const altId = slugify(altName);
+    rememberProduct({ id: altId, name: altName, brand: '', category: category || 'Product' });
+    router.push({ pathname: '/product/[id]', params: { id: altId, q: altName } } as Href);
+  };
+
+  const pane = useMemo(() => {
+    if (!profile) return null;
+    switch (tab) {
+      case 'overview':
+        return <OverviewPane profile={profile} onOpenSources={() => setSourcesOpen(true)} onGo={setTab} />;
+      case 'specs':
+        return <SpecsPane profile={profile} onAlternative={openAlternative} />;
+      case 'reviews':
+        return <ReviewsPane profile={profile} />;
+      case 'prices':
+        return <PricesPane profile={profile} />;
+      case 'videos':
+        return <VideosPane clips={clips.data ?? []} loading={clips.isLoading} />;
     }
-  }, [analysis?.analyzedAt, analysis?.productScore]);
-
-  if (productLoading || !product) {
-    return (
-      <Screen>
-        <ActivityIndicator color={colors.hi} style={{ marginTop: 48 }} />
-        <Caption>{productLoading ? 'Opening this product…' : 'Product not found.'}</Caption>
-      </Screen>
-    );
-  }
-
-  const saved = favorites.some((item) => item.productId === product.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, profile, clips.data, clips.isLoading]);
 
   return (
-    <Screen
-      scroll={false}
-      padded={false}
-      footer={
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Pressable
-            onPress={() => {
-              hapticTap();
-              toggleFavorite(product.id);
-            }}
-            accessibilityLabel="Save product"
-            style={{
-              width: 58,
-              height: 58,
-              borderRadius: 18,
-              borderWidth: 1,
-              borderColor: colors.line,
-              backgroundColor: saved ? colors.lac2 : 'transparent',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Heart size={22} color={saved ? colors.hi : colors.bone} weight={saved ? 'fill' : 'regular'} />
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              hapticTap();
-              router.push(`/product/${product.id}/community`);
-            }}
-            style={{
-              flex: 1,
-              height: 58,
-              borderRadius: 18,
-              backgroundColor: colors.hi,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.wine }}>Ask the community</Text>
-          </Pressable>
-        </View>
-      }
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 12 }}>
-        <Pressable
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.wine }} edges={['top', 'bottom']}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8, gap: 10 }}>
+        <RoundButton label="Back" onPress={() => router.back()}>
+          <ArrowLeft size={18} color={colors.bone} weight="bold" />
+        </RoundButton>
+        <View style={{ flex: 1 }} />
+        <RoundButton
+          label="Share"
           onPress={() => {
-            hapticTap();
-            router.back();
+            void Share.share({ message: `${name} — see the full breakdown on Sourced` });
           }}
-          accessibilityLabel="Go back"
-          style={{ width: 44, height: 44, justifyContent: 'center' }}
         >
-          <ArrowLeft size={22} color={colors.bone} weight="bold" />
-        </Pressable>
+          <ShareNetwork size={18} color={colors.bone} weight="bold" />
+        </RoundButton>
+        <RoundButton
+          label={saved ? 'Remove from saved' : 'Save'}
+          onPress={() => {
+            toggleFavorite(id);
+            if (!saved) hapticSuccess();
+          }}
+          active={saved}
+        >
+          <BookmarkSimple size={18} color={saved ? colors.white : colors.bone} weight={saved ? 'fill' : 'bold'} />
+        </RoundButton>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        <ProductIdentityHero
-          brand={journey?.brand ?? product.brand}
-          name={journey?.name ?? product.name}
-          primaryImage={journey?.primaryImage ?? product.heroImageUrl ?? null}
-          gallery={journey?.gallery ?? []}
-          confidenceBand={journey?.confidenceBand ?? 'Likely'}
-          category={journey?.category ?? product.category}
-        />
-
-        {(journeyQuery.isFetching || analysisQuery.isFetching) && !journey ? (
-          <Caption>Gathering what’s known…</Caption>
-        ) : null}
-
-        <VerdictMoment
-          score={journey?.score ?? analysis?.productScore ?? null}
-          verdict={journey?.verdict ?? analysis?.verdict ?? null}
-          basis={journey?.basis ?? analysis?.basis ?? null}
-          tooFew={journey?.tooFew ?? Boolean(analysis?.tooFew)}
-          loading={analysisQuery.isLoading}
-        />
-
-        <ExperienceSplit
-          praise={journey?.praise ?? []}
-          complaints={journey?.complaints ?? []}
-          signalCount={journey?.signalCount ?? 0}
-        />
-
-        <ClaimRows
-          claims={journey?.claims ?? []}
-          expandedKey={expandedClaim}
-          onToggle={(key) => setExpandedClaim((prev) => (prev === key ? null : key))}
-        />
-
-        <PriceSignal price={journey?.price ?? null} priceRange={journey?.priceRange ?? null} />
-
-        <LiteracyRail clips={journey?.literacyVideos ?? []} notes={journey?.literacyNotes ?? []} />
-
-        <View style={{ marginTop: 20 }}>
-          <Pressable
-            onPress={() => {
-              hapticTap();
-              router.push(`/product/${product.id}/stores`);
-            }}
-            style={{
-              height: 52,
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: colors.line,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ fontFamily: fonts.semibold, color: colors.bone }}>Get this product</Text>
-          </Pressable>
-          <Caption>Stores appear only when you’re ready</Caption>
+      <View style={{ flexDirection: 'row', gap: 16, paddingHorizontal: 16, alignItems: 'center' }}>
+        <ProductImage uri={image} category={category} size={96} radius={20} style={{ borderWidth: 0 }} />
+        <View style={{ flex: 1, gap: 4 }}>
+          {brand ? <Eyebrow color={colors.hi}>{brand}</Eyebrow> : null}
+          <Text numberOfLines={3} style={{ fontFamily: fonts.bold, fontSize: 21, lineHeight: 25, letterSpacing: -0.5, color: colors.bone }}>
+            {profile?.identity.name || name || 'Product'}
+          </Text>
+          {category ? (
+            <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone3 }}>
+              {category}
+              {profile?.identity.variant ? ` · ${profile.identity.variant}` : ''}
+            </Text>
+          ) : null}
         </View>
+      </View>
 
-        <View style={{ marginTop: 18 }}>
-          <Disclaimer compact />
-        </View>
+      <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
+        <Segmented options={TABS} value={tab} onChange={setTab} />
+      </View>
+
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
+        {intel.isLoading ? (
+          <InvestigatingState />
+        ) : intel.isError || !profile ? (
+          <View style={{ alignItems: 'center', gap: 12, paddingTop: 40 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.bone }}>We couldn’t finish the investigation</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2, textAlign: 'center', lineHeight: 20 }}>
+              The connection dropped or sources were slow. Try again — nothing is lost.
+            </Text>
+            <PrimaryButton label="Try again" icon={ArrowClockwise} onPress={() => void intel.refetch()} />
+          </View>
+        ) : (
+          <Animated.View style={{ opacity: fade }}>{pane}</Animated.View>
+        )}
       </ScrollView>
-    </Screen>
+
+      {profile ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            paddingHorizontal: 16,
+            paddingTop: 10,
+            paddingBottom: 6,
+            borderTopWidth: 1,
+            borderTopColor: colors.line,
+            backgroundColor: colors.lac,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>
+              {lowest ? `Lowest at ${lowest.seller}` : 'Price'}
+            </Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 18, letterSpacing: -0.4, color: colors.bone }}>
+              {lowest ? formatPrice(lowest.price) : '—'}
+            </Text>
+          </View>
+          <RoundButton label="Discuss" onPress={() => router.push(`/product/${id}/community` as Href)} size={46}>
+            <ChatsCircle size={20} color={colors.bone} weight="bold" />
+          </RoundButton>
+          <PrimaryButton
+            label={lowest ? 'View deal' : 'See prices'}
+            onPress={() => (lowest?.link ? void openLink(lowest.link) : setTab('prices'))}
+            style={{ minWidth: 130 }}
+          />
+        </View>
+      ) : null}
+
+      <SourcesSheet profile={profile} visible={sourcesOpen} onClose={() => setSourcesOpen(false)} />
+    </SafeAreaView>
+  );
+}
+
+function RoundButton({
+  children,
+  onPress,
+  label,
+  active,
+  size = 38,
+}: {
+  children: React.ReactNode;
+  onPress: () => void;
+  label: string;
+  active?: boolean;
+  size?: number;
+}) {
+  return (
+    <Pressable
+      onPress={() => {
+        hapticTap();
+        onPress();
+      }}
+      accessibilityLabel={label}
+      hitSlop={8}
+      style={({ pressed }) => ({
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: active ? colors.hi : size > 40 ? colors.lac2 : colors.lac,
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: pressed ? 0.7 : 1,
+      })}
+    >
+      {children}
+    </Pressable>
   );
 }

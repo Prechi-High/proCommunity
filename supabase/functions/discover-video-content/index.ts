@@ -206,17 +206,6 @@ function uniquePhrases(values: string[]): string[] {
   return out;
 }
 
-function skinPhrase(skin: string): string | null {
-  const map: Record<string, string> = {
-    oily: "oily skin",
-    dry: "dry skin",
-    combination: "combination skin",
-    sensitive: "sensitive skin",
-    normal: "normal skin",
-  };
-  return map[skin.trim().toLowerCase()] ?? null;
-}
-
 function parseHttpUrl(raw: string): URL | null {
   try {
     const parsed = new URL(raw);
@@ -655,9 +644,6 @@ function buildQueries(body: DiscoverBody): PlannedQuery[] {
   const brand = body.brand?.trim() ?? "";
   const ingredients = uniquePhrases(body.ingredients ?? []);
   const attributes = uniquePhrases(body.attributeTags ?? []);
-  const skins = uniquePhrases(
-    (body.suitsSkinTypes ?? []).map((skin) => skinPhrase(skin) ?? "").filter(Boolean),
-  );
   const queries: PlannedQuery[] = [];
   const seen = new Set<string>();
 
@@ -680,7 +666,7 @@ function buildQueries(body: DiscoverBody): PlannedQuery[] {
   }
 
   const ingredient = ingredients[0] ?? "";
-  const context = skins[0] ?? attributes[0] ?? "";
+  const context = attributes[0] ?? "";
   if (productName && (ingredient || context)) {
     const phrase = ingredient || context;
     const partner = ingredient && context ? context : "";
@@ -719,17 +705,6 @@ const SEED_CATALOG: Array<{
   attributeTags: string[];
   suitsSkinTypes: string[];
 }> = [
-  { id: "niacinamide-10-zinc", name: "Niacinamide 10% + Zinc 1%", brand: "The Ordinary", ingredients: ["niacinamide", "zinc_pca"], attributeTags: ["fragrance_free"], suitsSkinTypes: ["oily"] },
-  { id: "gentle-foaming-cleanser", name: "Gentle Foaming Cleanser", brand: "CeraVe", ingredients: ["ceramides", "niacinamide"], attributeTags: ["gentle"], suitsSkinTypes: ["oily"] },
-  { id: "barrier-repair-moisturizer", name: "Barrier Repair Moisturizer", brand: "CeraVe", ingredients: ["ceramides"], attributeTags: ["barrier_repair"], suitsSkinTypes: ["dry"] },
-  { id: "clarifying-niacinamide-gel", name: "Clarifying Niacinamide Gel", brand: "SkinLab", ingredients: ["niacinamide"], attributeTags: ["mattifying"], suitsSkinTypes: ["oily"] },
-  { id: "balance-serum-5", name: "Balance Serum 5%", brand: "Pure Beauty Co", ingredients: ["niacinamide"], attributeTags: ["oil_free"], suitsSkinTypes: ["oily"] },
-  { id: "pore-minimizing-essence", name: "Pore Minimizing Essence", brand: "The Serum Room", ingredients: ["niacinamide"], attributeTags: ["mattifying"], suitsSkinTypes: ["oily"] },
-  { id: "vitamin-c-15", name: "Vitamin C Serum 15%", brand: "Glow Depot", ingredients: ["ascorbic_acid"], attributeTags: ["vitamin_c"], suitsSkinTypes: ["normal"] },
-  { id: "clay-mask", name: "Clay Mask", brand: "SkinLab", ingredients: ["kaolin"], attributeTags: ["mattifying"], suitsSkinTypes: ["oily"] },
-  { id: "mineral-spf-50", name: "Mineral SPF 50", brand: "Pure Beauty Co", ingredients: ["zinc_oxide"], attributeTags: ["fragrance_free"], suitsSkinTypes: ["sensitive"] },
-  { id: "salicylic-cleanser", name: "Salicylic Cleanser", brand: "SkinLab", ingredients: ["salicylic_acid"], attributeTags: ["oil_free"], suitsSkinTypes: ["oily"] },
-  { id: "barrier-repair-cream", name: "Barrier Repair Cream", brand: "CeraVe", ingredients: ["ceramides"], attributeTags: ["hydrating"], suitsSkinTypes: ["dry"] },
 ];
 
 const EMPTY_CLASSIFICATION: Classification = {
@@ -740,12 +715,12 @@ const EMPTY_CLASSIFICATION: Classification = {
 };
 
 const HEURISTIC_RULES: Array<{ tag: string; pattern: RegExp }> = [
-  { tag: "how_to_use", pattern: /\b(how to|how i|tutorial|routine|apply|application|layer|use this|using|cleanse|wash|steps?)\b/i },
-  { tag: "how_it_works", pattern: /\b(how it works|science|mechanism|barrier|ceramide|explains?|dermatologist|why it)\b/i },
-  { tag: "composition", pattern: /\b(ingredient|composition|formula|formulati|what.?s in|niacinamide|retinol|salicylic|zinc)\b/i },
-  { tag: "who_its_for", pattern: /\b(oily|dry|sensitive|acne|combination|skin type|who (it'?s|is) for|good for)\b/i },
-  { tag: "results_over_time", pattern: /\b(before\s*after|results?|week|month|progress|transform|journey|glow|healing)\b/i },
-  { tag: "precautions", pattern: /\b(irritat|sting|burn|side effect|patch test|caution|warning|purge|react)\b/i },
+  { tag: "how_to_use", pattern: /\b(how to|how i|tutorial|setup|set up|install|unbox|use this|using|guide|steps?|tips)\b/i },
+  { tag: "how_it_works", pattern: /\b(how it works|explained?|explains|science|teardown|inside|tech|mechanism|why it)\b/i },
+  { tag: "composition", pattern: /\b(specs?|specifications|materials?|build quality|ingredients?|what.?s in|made of|components?)\b/i },
+  { tag: "who_its_for", pattern: /\b(who (it'?s|is) for|worth it|should you buy|best for|good for|buyer'?s guide)\b/i },
+  { tag: "results_over_time", pattern: /\b(long.?term|after \d+|months? later|year later|durability|still worth|update|results?)\b/i },
+  { tag: "precautions", pattern: /\b(problems?|issues?|don'?t buy|avoid|warning|caution|defect|broke|fail|side effect|recall)\b/i },
   { tag: "comparisons", pattern: /\b(vs\.?|versus|compare|comparison|dupe|alternative|better than)\b/i },
 ];
 
@@ -1037,7 +1012,7 @@ async function classifyClip(
   const taxonomyBlock = taxonomy
     .map((row) => `- ${row.tag_key} (${row.tag_label}): ${row.description}`)
     .join("\n");
-  const prompt = `Classify this skincare product video using ONLY the product's fixed taxonomy.
+  const prompt = `Classify this product video using ONLY the product's fixed taxonomy.
 Multi-label: return only tag_key values from the Allowed tags list below.
 Never invent tags, categories, or free-text labels. Unknown tags are rejected.
 If none of the allowed tags clearly apply, return []. Empty is correct.
@@ -1365,7 +1340,7 @@ Deno.serve(async (req) => {
     const action = body.action ?? "discover";
     const supabase = serviceClient();
     if (!supabase) return json({ error: "missing_supabase_service" }, 500);
-    const taxonomyCategory = body.taxonomyCategory?.trim() || "skincare";
+    const taxonomyCategory = body.taxonomyCategory?.trim() || "universal_default";
 
     if (action === "list_pending") {
       const { data, error } = await supabase

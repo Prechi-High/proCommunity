@@ -8,7 +8,6 @@ import { BackButton } from '@/components/icons';
 import { colors, fonts, radii } from '@/constants/theme';
 import { hapticHeavy, hapticSelect, hapticSuccess } from '@/lib/haptics';
 import { getAllProducts } from '@/lib/catalog';
-import { expertById } from '@/lib/communitySample';
 import { useAppStore } from '@/lib/store';
 
 const KINDS: { id: string; label: string }[] = [
@@ -19,7 +18,7 @@ const KINDS: { id: string; label: string }[] = [
 ];
 
 const PH: Record<string, string> = {
-  fear: 'What worries you about this product? For example breakouts, price, or whether it will suit your skin.',
+  fear: 'What worries you about this product? For example durability, price, or whether it will suit how you plan to use it.',
   why: 'What made you want it? What are you hoping it will help with?',
   question: 'What do you want to know?',
   trace: 'What surprised you? What do you wish you knew before buying? Anything the next person should know?',
@@ -41,20 +40,14 @@ export default function ComposeScreen() {
   const [text, setText] = useState('');
   const [shake, setShake] = useState(false);
 
-  const expert = params.expert ? expertById(params.expert) : null;
   const showTrace = kind === 'trace' || ownerships.length > 0;
   const kinds = KINDS.filter((k) => k.id !== 'trace' || showTrace);
 
-  const title = expert
-    ? `Ask ${expert.name}`
-    : kind === 'trace'
-      ? 'Leave a Trace'
-      : 'Share with the community';
-  const hint = expert
-    ? `Your question goes to ${expert.name} and the community. Experts give general information, not medical advice.`
-    : kind === 'trace'
+  const title = kind === 'trace' ? 'Leave a Trace' : 'Share with the community';
+  const hint =
+    kind === 'trace'
       ? 'You’ve used it. What should the next person know?'
-      : 'Verified owners and experts will see this. We’ll tell you when someone replies.';
+      : 'Verified owners will see this. We’ll tell you when someone replies.';
 
   const post = () => {
     const body = text.trim();

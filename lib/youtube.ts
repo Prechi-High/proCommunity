@@ -27,7 +27,8 @@ function youtubeKey(): string {
 }
 
 function searchQuery(productName: string, brand: string): string {
-  return `${brand} ${productName} review skincare`.replace(/\s+/g, ' ').trim().slice(0, 80);
+  const name = brand && productName.toLowerCase().startsWith(brand.toLowerCase()) ? productName : `${brand} ${productName}`;
+  return `${name} review`.replace(/\s+/g, ' ').trim().slice(0, 80);
 }
 
 const ENTITIES: Record<string, string> = {
@@ -304,8 +305,8 @@ export const JOURNEY_LABELS: Record<VideoJourneyTag, string> = {
 
 export function tagVideo(clip: YoutubeClip): VideoJourneyTag {
   const text = `${clip.title} ${clip.channelTitle}`.toLowerCase();
-  if (/\bhow to\b|tutorial|routine|apply|layer|application|use this/.test(text)) return 'how_to_use';
-  if (/week|result|before|after|month|progress|transform|journey/.test(text)) return 'results_over_time';
+  if (/\bhow to\b|tutorial|setup|set up|unbox|install|guide|tips/.test(text)) return 'how_to_use';
+  if (/long.?term|months? later|year later|durability|update|after \d+/.test(text)) return 'results_over_time';
   return 'who_this_is_for';
 }
 

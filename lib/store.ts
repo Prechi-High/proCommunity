@@ -7,22 +7,16 @@ import { communityPosts } from './seed';
 import type {
   AppNotification,
   CommunityPost,
-  Concern,
   DiscussionThread,
   Favorite,
   Ownership,
+  Product,
   Profile,
-  ProgressEntry,
-  QuizAnswers,
-  RoutineLog,
-  RoutineStep,
-  SatchelItem,
   SearchHistoryItem,
-  SkinType,
-  UsageEstimate,
 } from './types';
 
 const OWNERSHIP_WAIT_DAYS = 14;
+const KNOWN_PRODUCTS_MAX = 80;
 
 function uid(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
@@ -34,72 +28,36 @@ function plusDays(iso: string, days: number): string {
   return date.toISOString();
 }
 
-function todayStamp(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export type HapticsMode = 'off' | 'subtle' | 'full';
 
 export interface AppState {
   hydrated: boolean;
   setHydrated: () => void;
   profile: Profile | null;
-  quizAnswers: QuizAnswers;
   favorites: Favorite[];
   ownerships: Ownership[];
-  routineSteps: RoutineStep[];
-  routineLogs: RoutineLog[];
-  progressEntries: ProgressEntry[];
-  usageEstimates: UsageEstimate[];
   userPosts: CommunityPost[];
   helpfulVotes: string[];
   notifications: AppNotification[];
   searchHistory: SearchHistoryItem[];
   flaggedPostIds: string[];
-  satchelItems: SatchelItem[];
-  satchelPulse: number;
-  satchelNudgeSeenOn: string | null;
   userThreads: DiscussionThread[];
-  /** Device feel — survives sign-out. */
   hapticsMode: HapticsMode;
-  /** Product drops opt-in — default off; never affects search rank. */
-  dropsOptIn: boolean;
-  /** HTML `state.history` — searches stay on-device when on. */
   saveSearchHistory: boolean;
-  /** Skin type without an account (HTML `state.skin`). */
-  guestSkinType: SkinType | null;
-  guestSkinSource: Profile['skinTypeSource'];
-  followingJourneyIds: string[];
-  roomReminders: Record<string, boolean>;
   recentProductIds: string[];
+  knownProducts: Record<string, Product>;
   setHapticsMode: (mode: HapticsMode) => void;
-  setDropsOptIn: (on: boolean) => void;
   setSaveSearchHistory: (on: boolean) => void;
-  setGuestSkin: (type: SkinType | null, source: Profile['skinTypeSource']) => void;
-  toggleFollowJourney: (id: string) => void;
-  toggleRoomRemind: (id: string) => void;
+  rememberProduct: (product: Product) => void;
   addRecentProduct: (productId: string) => void;
   clearRecentProducts: () => void;
   deleteMyData: () => void;
   signIn: (email: string, displayName?: string) => void;
   signOut: () => void;
-  completeOnboarding: (input: {
-    skinType: SkinType;
-    skinTypeSource: Profile['skinTypeSource'];
-    concerns: Concern[];
-    displayName: string;
-    quizAnswers?: QuizAnswers;
-  }) => void;
-  skipOnboarding: () => void;
   updateProfile: (patch: Partial<Profile>) => void;
   toggleFavorite: (productId: string) => void;
   setPriceAlert: (productId: string, enabled: boolean) => void;
   markPurchased: (productId: string) => void;
-  addRoutineStep: (productId: string, timeOfDay: 'am' | 'pm') => void;
-  removeRoutineStep: (stepId: string) => void;
-  toggleRoutineStep: (stepId: string, timeOfDay: 'am' | 'pm') => void;
-  addProgressEntry: (entry: Omit<ProgressEntry, 'id' | 'isShared'> & { isShared?: boolean }) => void;
-  setProgressShared: (id: string, isShared: boolean) => void;
   addPost: (post: Omit<CommunityPost, 'id' | 'createdAt' | 'helpfulCount' | 'status' | 'parentPostId'> & {
     parentPostId?: string | null;
   }) => void;
@@ -109,30 +67,17 @@ export interface AppState {
   markNotificationRead: (id: string) => void;
   flagPost: (postId: string) => void;
   resolveFlag: (postId: string) => void;
-  addToSatchel: (productId: string) => void;
-  removeFromSatchel: (productId: string) => void;
-  markSatchelPurchased: (productId: string) => void;
-  dismissSatchelNudge: () => void;
   addThread: (productId: string, title: string) => string;
 }
 
 const emptyUserSlice = {
   profile: null as Profile | null,
-  quizAnswers: {} as QuizAnswers,
   favorites: [] as Favorite[],
   ownerships: [] as Ownership[],
-  routineSteps: [] as RoutineStep[],
-  routineLogs: [] as RoutineLog[],
-  progressEntries: [] as ProgressEntry[],
-  usageEstimates: [] as UsageEstimate[],
   userPosts: [] as CommunityPost[],
   helpfulVotes: [] as string[],
   notifications: [] as AppNotification[],
-  searchHistory: [] as SearchHistoryItem[],
   flaggedPostIds: [] as string[],
-  satchelItems: [] as SatchelItem[],
-  satchelPulse: 0,
-  satchelNudgeSeenOn: null as string | null,
   userThreads: [] as DiscussionThread[],
 };
 
@@ -159,7 +104,6 @@ let asyncStorage: {
 // reaches for window.localStorage and throws.
 if (Platform.OS !== 'web' || typeof window !== 'undefined') {
   try {
-    // Loaded at runtime so the store can import before native modules attach.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     asyncStorage = require('@react-native-async-storage/async-storage').default;
   } catch {
@@ -173,94 +117,53 @@ export const useAppStore = create<AppState>()(
       hydrated: false,
       setHydrated: () => set({ hydrated: true }),
       ...emptyUserSlice,
+      searchHistory: [] as SearchHistoryItem[],
       hapticsMode: 'full' as HapticsMode,
-      dropsOptIn: false,
       saveSearchHistory: true,
-      guestSkinType: null as SkinType | null,
-      guestSkinSource: null as Profile['skinTypeSource'],
-      followingJourneyIds: [] as string[],
-      roomReminders: {} as Record<string, boolean>,
       recentProductIds: [] as string[],
+      knownProducts: {} as Record<string, Product>,
       setHapticsMode: (mode) => set({ hapticsMode: mode }),
-      setDropsOptIn: (on) => set({ dropsOptIn: on }),
       setSaveSearchHistory: (on) => set({ saveSearchHistory: on }),
-      setGuestSkin: (type, source) => set({ guestSkinType: type, guestSkinSource: source }),
-      toggleFollowJourney: (id) => {
-        const ids = get().followingJourneyIds;
-        set({
-          followingJourneyIds: ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
-        });
-      },
-      toggleRoomRemind: (id) => {
-        const next = { ...get().roomReminders, [id]: !get().roomReminders[id] };
-        if (!next[id]) delete next[id];
-        set({ roomReminders: next });
+      rememberProduct: (product) => {
+        const known = { ...get().knownProducts, [product.id]: product };
+        const keys = Object.keys(known);
+        if (keys.length > KNOWN_PRODUCTS_MAX) {
+          const keep = new Set([
+            ...get().favorites.map((f) => f.productId),
+            ...get().recentProductIds,
+            product.id,
+          ]);
+          for (const key of keys.slice(0, keys.length - KNOWN_PRODUCTS_MAX)) {
+            if (!keep.has(key)) delete known[key];
+          }
+        }
+        set({ knownProducts: known });
       },
       addRecentProduct: (productId) => {
         set({
-          recentProductIds: [productId, ...get().recentProductIds.filter((id) => id !== productId)].slice(
-            0,
-            8,
-          ),
+          recentProductIds: [productId, ...get().recentProductIds.filter((id) => id !== productId)].slice(0, 12),
         });
       },
       clearRecentProducts: () => set({ recentProductIds: [] }),
       deleteMyData: () => {
-        const profile = get().profile;
-        set({
-          searchHistory: [],
-          favorites: [],
-          dropsOptIn: false,
-          recentProductIds: [],
-          progressEntries: [],
-          followingJourneyIds: [],
-          roomReminders: {},
-          guestSkinType: null,
-          guestSkinSource: null,
-          profile: profile
-            ? { ...profile, skinType: 'unknown', skinTypeSource: null, concerns: [] }
-            : null,
-        });
+        set({ searchHistory: [], favorites: [], recentProductIds: [], knownProducts: {} });
       },
       signIn: (email, displayName) => {
+        const normalized = email.trim().toLowerCase();
         const existing = get().profile;
-        if (existing && existing.email === email.trim().toLowerCase()) return;
-        const id = uid('user');
+        if (existing && existing.email === normalized) return;
         set({
           ...emptyUserSlice,
           profile: {
-            id,
-            email: email.trim().toLowerCase(),
-            displayName: displayName?.trim() || email.split('@')[0],
-            skinType: 'unknown',
-            skinTypeSource: null,
-            concerns: [],
-            onboardingComplete: false,
-            isAdmin: email.trim().toLowerCase().endsWith('@sourced.local'),
+            id: uid('user'),
+            email: normalized,
+            displayName: displayName?.trim() || normalized.split('@')[0],
+            onboardingComplete: true,
+            isAdmin: normalized.endsWith('@sourced.local'),
           },
         });
       },
       signOut: () => set({ ...emptyUserSlice }),
-      completeOnboarding: ({ skinType, skinTypeSource, concerns, displayName, quizAnswers }) => {
-        const profile = get().profile;
-        if (!profile) return;
-        set({
-          profile: {
-            ...profile,
-            skinType,
-            skinTypeSource,
-            concerns,
-            displayName: displayName.trim() || profile.displayName,
-            onboardingComplete: true,
-          },
-          quizAnswers: quizAnswers ?? get().quizAnswers,
-        });
-      },
-      skipOnboarding: () => {
-        const profile = get().profile;
-        if (!profile) return;
-        set({ profile: { ...profile, onboardingComplete: true } });
-      },
       updateProfile: (patch) => {
         const profile = get().profile;
         if (!profile) return;
@@ -269,10 +172,11 @@ export const useAppStore = create<AppState>()(
       toggleFavorite: (productId) => {
         const favorites = get().favorites;
         const found = favorites.find((item) => item.productId === productId);
+        if (!found) track('product_saved', { productId });
         set({
           favorites: found
             ? favorites.filter((item) => item.productId !== productId)
-            : [...favorites, { productId, priceAlertEnabled: true }],
+            : [{ productId, priceAlertEnabled: false }, ...favorites],
         });
       },
       setPriceAlert: (productId, enabled) => {
@@ -285,81 +189,11 @@ export const useAppStore = create<AppState>()(
       markPurchased: (productId) => {
         if (get().ownerships.some((item) => item.productId === productId)) return;
         const now = new Date().toISOString();
-        const usageStarted = now;
         set({
           ownerships: [
             ...get().ownerships,
-            {
-              productId,
-              markedPurchasedAt: now,
-              eligibleToPostAt: plusDays(now, OWNERSHIP_WAIT_DAYS),
-            },
+            { productId, markedPurchasedAt: now, eligibleToPostAt: plusDays(now, OWNERSHIP_WAIT_DAYS) },
           ],
-          usageEstimates: [
-            ...get().usageEstimates.filter((item) => item.productId !== productId),
-            {
-              productId,
-              startedAt: usageStarted,
-              estimatedEmptyDate: null,
-              expiryDate: null,
-            },
-          ],
-        });
-      },
-      addRoutineStep: (productId, timeOfDay) => {
-        const existing = get().routineSteps.filter((step) => step.timeOfDay === timeOfDay);
-        if (existing.some((step) => step.productId === productId)) return;
-        set({
-          routineSteps: [
-            ...get().routineSteps,
-            {
-              id: uid('step'),
-              productId,
-              timeOfDay,
-              stepOrder: existing.length + 1,
-            },
-          ],
-        });
-      },
-      removeRoutineStep: (stepId) => {
-        set({ routineSteps: get().routineSteps.filter((step) => step.id !== stepId) });
-      },
-      toggleRoutineStep: (stepId, timeOfDay) => {
-        const date = todayStamp();
-        const logs = get().routineLogs;
-        const current =
-          logs.find((log) => log.date === date && log.timeOfDay === timeOfDay) ?? {
-            date,
-            timeOfDay,
-            completedStepIds: [],
-          };
-        const completed = current.completedStepIds.includes(stepId)
-          ? current.completedStepIds.filter((id) => id !== stepId)
-          : [...current.completedStepIds, stepId];
-        set({
-          routineLogs: [
-            ...logs.filter((log) => !(log.date === date && log.timeOfDay === timeOfDay)),
-            { ...current, completedStepIds: completed },
-          ],
-        });
-      },
-      addProgressEntry: (entry) => {
-        set({
-          progressEntries: [
-            {
-              id: uid('progress'),
-              isShared: entry.isShared ?? false,
-              ...entry,
-            },
-            ...get().progressEntries,
-          ],
-        });
-      },
-      setProgressShared: (id, isShared) => {
-        set({
-          progressEntries: get().progressEntries.map((entry) =>
-            entry.id === id ? { ...entry, isShared } : entry,
-          ),
         });
       },
       addPost: (post) => {
@@ -391,7 +225,7 @@ export const useAppStore = create<AppState>()(
         set({
           searchHistory: [
             { id: uid('search'), query: trimmed, at: new Date().toISOString() },
-            ...get().searchHistory.filter((item) => item.query !== trimmed),
+            ...get().searchHistory.filter((item) => item.query.toLowerCase() !== trimmed.toLowerCase()),
           ].slice(0, 20),
         });
       },
@@ -410,40 +244,6 @@ export const useAppStore = create<AppState>()(
       resolveFlag: (postId) => {
         set({ flaggedPostIds: get().flaggedPostIds.filter((id) => id !== postId) });
       },
-      addToSatchel: (productId) => {
-        if (get().satchelItems.some((item) => item.productId === productId)) {
-          set({ satchelPulse: Date.now() });
-          return;
-        }
-        track('satchel_add', { productId });
-        set({
-          satchelItems: [
-            {
-              id: uid('satchel'),
-              productId,
-              addedAt: new Date().toISOString(),
-              purchased: false,
-              purchasedAt: null,
-            },
-            ...get().satchelItems,
-          ],
-          satchelPulse: Date.now(),
-        });
-      },
-      removeFromSatchel: (productId) => {
-        set({ satchelItems: get().satchelItems.filter((item) => item.productId !== productId) });
-      },
-      markSatchelPurchased: (productId) => {
-        const now = new Date().toISOString();
-        set({
-          satchelItems: get().satchelItems.map((item) =>
-            item.productId === productId ? { ...item, purchased: true, purchasedAt: now } : item,
-          ),
-        });
-        get().markPurchased(productId);
-        track('satchel_purchased', { productId });
-      },
-      dismissSatchelNudge: () => set({ satchelNudgeSeenOn: todayStamp() }),
       addThread: (productId, title) => {
         const id = uid('thread');
         const profile = get().profile;
@@ -464,10 +264,10 @@ export const useAppStore = create<AppState>()(
       },
     }),
     {
-      name: 'sourced-app',
+      name: 'sourced-v2',
       storage: createJSONStorage(() => asyncStorage),
       partialize: (state) => {
-        const { hydrated: _hydrated, setHydrated: _setHydrated, satchelPulse: _pulse, ...rest } = state;
+        const { hydrated: _hydrated, setHydrated: _setHydrated, ...rest } = state;
         return rest;
       },
       onRehydrateStorage: () => (state) => {
@@ -476,57 +276,6 @@ export const useAppStore = create<AppState>()(
     },
   ),
 );
-
-export function currentStreak(logs: RoutineLog[], steps: RoutineStep[]): number {
-  if (steps.length === 0) return 0;
-  const amIds = steps.filter((step) => step.timeOfDay === 'am').map((step) => step.id);
-  const pmIds = steps.filter((step) => step.timeOfDay === 'pm').map((step) => step.id);
-  const completeDates = new Set(
-    logs
-      .filter((log) => {
-        const needed = log.timeOfDay === 'am' ? amIds : pmIds;
-        if (needed.length === 0) return false;
-        return needed.every((id) => log.completedStepIds.includes(id));
-      })
-      .map((log) => log.date),
-  );
-
-  // A day counts when every active routine for that day was finished.
-  const daysWithAnyRoutine = (date: string) => {
-    const hasAm = amIds.length > 0;
-    const hasPm = pmIds.length > 0;
-    const amOk = !hasAm || logs.some((log) => log.date === date && log.timeOfDay === 'am' && amIds.every((id) => log.completedStepIds.includes(id)));
-    const pmOk = !hasPm || logs.some((log) => log.date === date && log.timeOfDay === 'pm' && pmIds.every((id) => log.completedStepIds.includes(id)));
-    return amOk && pmOk;
-  };
-
-  let streak = 0;
-  const cursor = new Date();
-  for (let i = 0; i < 365; i += 1) {
-    const stamp = cursor.toISOString().slice(0, 10);
-    if (daysWithAnyRoutine(stamp)) {
-      streak += 1;
-      cursor.setDate(cursor.getDate() - 1);
-      continue;
-    }
-    if (i === 0) {
-      cursor.setDate(cursor.getDate() - 1);
-      continue;
-    }
-    break;
-  }
-  void completeDates;
-  return streak;
-}
-
-export function resolvedSkinType(state: {
-  profile: Profile | null;
-  guestSkinType: SkinType | null;
-}): SkinType | null {
-  const typed = state.profile?.skinType;
-  if (typed && typed !== 'unknown') return typed;
-  return state.guestSkinType;
-}
 
 export function isVerifiedForProduct(ownerships: Ownership[], productId: string): boolean {
   const row = ownerships.find((item) => item.productId === productId);

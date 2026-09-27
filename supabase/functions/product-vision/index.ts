@@ -3,7 +3,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 /**
  * product-vision
  *
- * Identifies a skincare product brand + name from a photo via a multimodal LLM.
+ * Identifies any product (brand + name + category) from a photo via a multimodal LLM.
+ * Send `format: "json"` to receive { label, brand, name, category }; otherwise plain text.
  * Provider order: OPENROUTER (gateway with many vision models) → GEMINI native → NVIDIA NIM.
  * All keys live in Supabase Edge secrets — never EXPO_PUBLIC_*.
  */
@@ -15,12 +16,21 @@ const cors = {
 
 const DEFAULT_PROMPT =
   "Identify the product brand and specific product name shown in this image. " +
-  "Works for any product type (skincare, cosmetics, food, electronics, household, etc.). " +
+  "Works for any product type (electronics, appliances, food, drinks, tools, clothing, toys, cosmetics, etc.). " +
+  "Read any visible text on the packaging or device. " +
   "Return only a clean search-ready query string with no explanation, no commentary, no JSON, no markdown. " +
-  "Format example: CeraVe Foaming Facial Cleanser";
+  "Format example: Anker Nano 20W USB-C Charger";
 
-const PER_CALL_TIMEOUT_MS = 7000;
-const GLOBAL_TIMEOUT_MS = 28000;
+const JSON_PROMPT =
+  "You are identifying a physical product in a photo so a shopper can research it. " +
+  "Read all visible text, logos, model numbers and packaging. Works for any product type " +
+  "(electronics, appliances, food, drinks, tools, clothing, toys, vehicles parts, cosmetics...). " +
+  'Reply with JSON only: {"brand":"","name":"","model":"","category":"","confidence":0.0}. ' +
+  '"name" is the specific product name without the brand; "category" is a short general type like "Wireless earbuds" or "Blender". ' +
+  'If no product is visible, reply {"brand":"","name":"","category":"","confidence":0}.';
+
+const PER_CALL_TIMEOUT_MS = 14000;
+const GLOBAL_TIMEOUT_MS = 45000;
 
 const TEXT_ONLY_MODELS = new Set([
   "meta/llama-3.1-8b-instruct",
@@ -74,7 +84,7 @@ function parseDataUri(uri: string): { b64: string; mime: string } | null {
 function cleanLabel(raw: string): string {
   let text = raw.replace(/\s+/g, " ").trim();
   text = text.replace(/^["'`]+|["'`]+$/g, "");
-  text = text.replace(/^(brand|product|name|result|answer|skincare)\s*[:\-]\s*/i, "");
+  text = text.replace(/^(brand|product|name|result|answer)\s*[:\-]\s*/i, "");
   text = text.replace(/\.$/, "");
   const lowered = text.toLowerCase();
   if (!text || lowered === "null" || lowered === "unknown" || lowered === "n/a" || text.length < 3) return "";
@@ -143,13 +153,13 @@ async function tryOpenRouter(
       body: JSON.stringify({
         model,
         temperature: 0.1,
-        max_tokens: 120,
+        max_tokens: 200,
         messages: [
           {
             role: "user",
             content: [
               { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: dataUri, detail: "low" } },
+              { type: "image_url", image_url: { url: dataUri, detail: "auto" } },
             ],
           },
         ],
@@ -200,7 +210,7 @@ async function tryGeminiVariant(
             ],
           },
         ],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 120 },
+        generationConfig: { temperature: 0.1, maxOutputTokens: 1024 },
       }),
     }),
     PER_CALL_TIMEOUT_MS,
@@ -295,10 +305,9 @@ async function runVisionPipeline(b64: string, mime: string, prompt: string, debu
     // Prefer models known to support vision on OpenRouter. Avoid preferred ids that 404.
     const rawModels = [
       pref && !/gemini-2\.5-flash$/i.test(pref) ? pref : null,
-      "anthropic/claude-4.5-haiku-20251001",
-      "openai/gpt-4o-mini",
-      "google/gemini-2.5-flash-preview-05-20",
+      "anthropic/claude-haiku-4.5",
       "google/gemini-2.5-flash",
+      "openai/gpt-4.1-mini",
     ].filter(Boolean) as string[];
     const orModels = Array.from(new Set(rawModels.filter((m) => isLikelyVisionModel(m)))).slice(0, 4);
     for (const model of orModels) {
@@ -379,7 +388,7 @@ Deno.serve(async (req) => {
   const debug = url.searchParams.get("debug") === "1";
 
   let body:
-    | { imageBase64?: string; imageDataUri?: string; mimeType?: string; fileName?: string; prompt?: string }
+    | { imageBase64?: string; imageDataUri?: string; mimeType?: string; fileName?: string; prompt?: string; format?: string }
     | null = null;
   try { body = (await req.json()) as typeof body; } catch { body = null; }
   if (!body) return json({ error: "missing_body" }, 400);
@@ -397,7 +406,8 @@ Deno.serve(async (req) => {
   }
   if (!b64) return json({ error: "empty_image" }, 400);
 
-  const prompt = (body.prompt?.trim() && body.prompt.length >= 8) ? body.prompt : DEFAULT_PROMPT;
+  const wantsJson = body.format === "json";
+  const prompt = (body.prompt?.trim() && body.prompt.length >= 8) ? body.prompt : wantsJson ? JSON_PROMPT : DEFAULT_PROMPT;
 
   let timedOut = false;
   let timeoutId: number | undefined;
@@ -415,7 +425,8 @@ Deno.serve(async (req) => {
 
   const { label, attempts, keyLengths, noVisionKey } = res as Awaited<ReturnType<typeof runVisionPipeline>>;
 
-  const cleaned = cleanLabel(label);
+  const structured = wantsJson ? parseStructured(label) : null;
+  const cleaned = structured ? structured.label : cleanLabel(label);
   const failed = !cleaned;
   
   // Return no_vision_llm if no keys are configured
@@ -445,5 +456,40 @@ Deno.serve(async (req) => {
       attempts: attempts.slice(0, 8),
     }, 503);
   }
+  if (wantsJson) {
+    return json({
+      label: cleaned,
+      brand: structured?.brand ?? "",
+      name: structured?.name ?? cleaned,
+      model: structured?.model ?? "",
+      category: structured?.category ?? "",
+      confidence: structured?.confidence ?? 0.6,
+    });
+  }
   return text(cleaned, 200);
 });
+
+function parseStructured(raw: string): { label: string; brand: string; name: string; model: string; category: string; confidence: number } | null {
+  const stripped = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+  const match = stripped.match(/\{[\s\S]*\}/);
+  if (!match) {
+    const fallback = cleanLabel(raw);
+    return fallback ? { label: fallback, brand: "", name: fallback, model: "", category: "", confidence: 0.5 } : null;
+  }
+  try {
+    const j = JSON.parse(match[0]) as Record<string, unknown>;
+    const s = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "");
+    const brand = s(j.brand);
+    const name = s(j.name);
+    const model = s(j.model);
+    const joined = [brand, name && name.toLowerCase().startsWith(brand.toLowerCase()) ? name.slice(brand.length).trim() : name]
+      .filter(Boolean)
+      .join(" ");
+    const label = cleanLabel(joined || model);
+    if (!label) return null;
+    return { label, brand, name: name || label, model, category: s(j.category), confidence: Number(j.confidence) || 0.6 };
+  } catch {
+    const fallback = cleanLabel(raw);
+    return fallback ? { label: fallback, brand: "", name: fallback, model: "", category: "", confidence: 0.5 } : null;
+  }
+}

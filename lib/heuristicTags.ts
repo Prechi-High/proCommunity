@@ -4,27 +4,27 @@ const RULES: Array<{ tag: ContentTagKey; pattern: RegExp }> = [
   {
     tag: 'how_to_use',
     pattern:
-      /\b(how to|how i|tutorial|routine|apply|application|layer|use this|using|cleanse|wash|steps?)\b/i,
+      /\b(how to|how i|tutorial|guide|setup|set up|install|unbox\w*|use this|using|tips|steps?)\b/i,
   },
   {
     tag: 'how_it_works',
-    pattern: /\b(how it works|science|mechanism|barrier|ceramide|explains?|dermatologist|why it)\b/i,
+    pattern: /\b(how it works|explained|explains?|science|mechanism|teardown|inside|why it)\b/i,
   },
   {
     tag: 'composition',
-    pattern: /\b(ingredient|composition|formula|formulati|what.?s in|niacinamide|retinol|salicylic|zinc)\b/i,
+    pattern: /\b(specs?|specifications|materials?|build quality|made of|what.?s in|ingredients?|components?)\b/i,
   },
   {
     tag: 'who_its_for',
-    pattern: /\b(oily|dry|sensitive|acne|combination|skin type|who (it'?s|is) for|good for)\b/i,
+    pattern: /\b(who (it'?s|is) for|worth it|should you buy|buyer'?s guide|best for|good for|beginners?)\b/i,
   },
   {
     tag: 'results_over_time',
-    pattern: /\b(before\s*after|results?|week|month|progress|transform|journey|glow|healing)\b/i,
+    pattern: /\b(long.?term|after \d+|months? later|years? later|week|month|durability|still worth|update)\b/i,
   },
   {
     tag: 'precautions',
-    pattern: /\b(irritat|sting|burn|side effect|patch test|caution|warning|purge|react)\b/i,
+    pattern: /\b(problems?|issues?|defects?|don'?t buy|avoid|warning|caution|side effect|broke|failure|recall)\b/i,
   },
   {
     tag: 'comparisons',

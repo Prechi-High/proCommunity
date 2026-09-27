@@ -7,7 +7,6 @@ import { useEffect, type ReactNode } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { SatchelLayer } from '@/components/SatchelWidget';
 import { WebShell } from '@/components/Screen';
 import { colors } from '@/constants/theme';
 import { ObservabilityProvider, wrapRoot } from '@/lib/observability';
@@ -31,17 +30,8 @@ function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    const group = segments[0];
-    const inAuth = group === '(auth)';
-    const inOnboarding = group === '(onboarding)';
-
-    // HTML V1: search needs no account. Auth is a sheet for save/post/fit — not a gate.
-    if (profile?.onboardingComplete && inAuth) {
-      router.replace('/(tabs)');
-    }
-    if (!profile && inOnboarding) {
-      router.replace('/(tabs)');
-    }
+    // Search never needs an account; sign-in is only for posting.
+    if (profile && segments[0] === '(auth)') router.replace('/(tabs)');
   }, [hydrated, profile, segments, router]);
 
   if (!hydrated) {
@@ -61,8 +51,6 @@ function RootLayout() {
     'GeneralSans-Medium': require('../assets/fonts/GeneralSans-Medium.ttf'),
     'GeneralSans-Semibold': require('../assets/fonts/GeneralSans-Semibold.ttf'),
     'GeneralSans-Bold': require('../assets/fonts/GeneralSans-Bold.ttf'),
-    'Boska-Medium': require('../assets/fonts/Boska-Medium.ttf'),
-    'Boska-Bold': require('../assets/fonts/Boska-Bold.ttf'),
   });
   const setHydrated = useAppStore((state) => state.setHydrated);
   const persistHydrated = useAppStore((state) => state.hydrated);
@@ -99,22 +87,13 @@ function RootLayout() {
                 }}
               >
                 <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(onboarding)" />
                 <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="results" />
-                <Stack.Screen name="probe/[id]" options={{ animation: 'fade' }} />
-                <Stack.Screen name="product" />
-                <Stack.Screen name="routine/index" />
+                <Stack.Screen name="results" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="product" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="user/[id]" />
                 <Stack.Screen name="admin/index" />
-                <Stack.Screen name="satchel" />
-                <Stack.Screen name="browse" />
-                <Stack.Screen name="feed" />
                 <Stack.Screen name="compose" options={{ animation: 'slide_from_bottom' }} />
-                <Stack.Screen name="quiz-sheet" options={{ animation: 'slide_from_bottom' }} />
-                <Stack.Screen name="room/[id]" options={{ animation: 'slide_from_bottom' }} />
               </Stack>
-              <SatchelLayer />
               </View>
             </AuthGate>
           </WebShell>

@@ -21,8 +21,8 @@ import { useAppStore } from '@/lib/store';
 /**
  * 09 — Verified owner profile.
  *
- * "Known for" is the headline, above any count, because being known for oily
- * skin specifically is an identity — and identity sustains contribution in a
+ * "Known for" is the headline, above any count, because being known for a
+ * product category specifically is an identity — and identity sustains contribution in a
  * way a global score never does. There is deliberately no rank, no position,
  * and no comparison to another member anywhere on this screen.
  */

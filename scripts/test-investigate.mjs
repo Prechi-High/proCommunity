@@ -28,7 +28,10 @@ if (!anon) {
   process.exit(1);
 }
 
-const query = process.argv[2] || 'CeraVe Hydrating Cleanser';
+// usage: node scripts/test-investigate.mjs "query" [search|investigate] [force]
+const query = process.argv[2] || 'Anker 20W USB-C charger';
+const action = process.argv[3] || 'investigate';
+const force = process.argv[4] === 'force';
 const started = Date.now();
 const res = await fetch(`${url}/functions/v1/product-intelligence`, {
   method: 'POST',
@@ -37,22 +40,47 @@ const res = await fetch(`${url}/functions/v1/product-intelligence`, {
     Authorization: `Bearer ${anon}`,
     apikey: anon,
   },
-  body: JSON.stringify({ action: 'investigate', query }),
+  body: JSON.stringify({ action, query, force }),
 });
 const text = await res.text();
 console.log('status', res.status, 'ms', Date.now() - started);
 try {
   const j = JSON.parse(text);
-  console.log(JSON.stringify({
-    success: j.success,
-    error: j.error,
-    confidence: j.confidence,
-    keys: j.intelligence ? Object.keys(j.intelligence) : [],
-    praise: j.intelligence?.common_praise,
-    complaints: j.intelligence?.common_complaints,
-    images: (j.images || []).length,
-    top: j.searchResults?.topMatches?.slice(0, 2),
-  }, null, 2));
+  if (action === 'search') {
+    console.log(JSON.stringify({
+      cached: j.cached,
+      llm: j.llm,
+      errors: j.errors,
+      knowledge: j.knowledge,
+      products: (j.products || []).map((p) => `${p.id} | ${p.brand} | ${p.name} | ${p.category} | ${p.price?.display ?? '-'} | ${p.rating ?? '-'} (${p.ratingCount ?? 0}) | offers ${p.offers} | img ${p.image ? 'y' : 'n'}`),
+    }, null, 2));
+  } else {
+    const p = j.profile || {};
+    console.log(JSON.stringify({
+      error: j.error,
+      cached: j.cached,
+      errors: j.errors,
+      llm: p.llm,
+      identity: p.identity,
+      summary: p.summary,
+      verdict: p.verdict,
+      specs: p.specs,
+      praise: p.praise,
+      complaints: p.complaints,
+      bestFor: p.bestFor,
+      notFor: p.notFor,
+      alternatives: p.alternatives,
+      offers: (p.offers || []).length,
+      priceRange: p.priceRange,
+      rating: p.rating,
+      ratingCount: p.ratingCount,
+      score: p.score,
+      confidence: p.confidence,
+      band: p.band,
+      images: (p.images || []).length,
+      sources: (p.sources || []).length,
+    }, null, 2));
+  }
 } catch {
-  console.log(text.slice(0, 500));
+  console.log(text.slice(0, 800));
 }

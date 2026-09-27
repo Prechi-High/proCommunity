@@ -10,12 +10,7 @@ export function normalizeProductName(name: string): string {
     .trim();
 }
 
-const SEED_ALIASES: Record<string, string> = {
-  'cerave foaming facial cleanser': 'gentle-foaming-cleanser',
-  'cerave foaming cleanser': 'gentle-foaming-cleanser',
-  'cerave gentle foaming cleanser': 'gentle-foaming-cleanser',
-  'gentle foaming cleanser': 'gentle-foaming-cleanser',
-};
+const SEED_ALIASES: Record<string, string> = {};
 
 export function catalogIdForQuery(query: string): string | null {
   return SEED_ALIASES[normalizeProductName(query)] ?? null;

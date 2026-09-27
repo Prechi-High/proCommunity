@@ -17,7 +17,6 @@ import {
 import { colors, elevation, fonts, radii, type } from '@/constants/theme';
 import {
   ArrowFatUp,
-  CaretRight,
   Check as CheckIcon,
   categoryIcon,
   ChatCircle,
@@ -25,11 +24,10 @@ import {
   SealCheck,
   User as UserIcon,
 } from '@/components/icons';
-import { badgeTone, type ConfidenceBreakdown, scoreLabel } from '@/lib/confidence';
 import { authorAvatar, initials } from '@/lib/catalog';
 import { hapticTap } from '@/lib/haptics';
 import { unlockAudio } from '@/lib/sounds';
-import type { CommunityPost, ProductCategory } from '@/lib/types';
+import type { CommunityPost } from '@/lib/types';
 
 type Level = 'flat' | 'raised' | 'lifted';
 
@@ -268,15 +266,6 @@ export function VerifiedBadge({ compact = false }: { compact?: boolean }) {
   return <Badge label={compact ? 'Verified' : 'Verified owner'} tone="sage" icon={SealCheck} />;
 }
 
-export function ScoreBadge({ breakdown }: { breakdown: ConfidenceBreakdown }) {
-  const tone = badgeTone(breakdown);
-  const label =
-    breakdown.tooFewReviews || breakdown.compositeScore == null
-      ? scoreLabel(null, true)
-      : `${scoreLabel(breakdown.compositeScore, false)} · ${breakdown.compositeScore}`;
-  return <Badge label={label} tone={tone} />;
-}
-
 export function Chip({
   label,
   selected,
@@ -397,25 +386,25 @@ export function Thumb({
   radius,
 }: {
   imageUrl?: string | null;
-  category?: ProductCategory;
+  category?: string;
   size?: number;
   radius?: number;
 }) {
-  const CategoryMark = categoryIcon(category ?? 'treatment');
+  const CategoryMark = categoryIcon(category ?? '');
   return (
     <View
       style={{
         width: size,
         height: size,
         borderRadius: radius ?? (size > 40 ? radii.thumb : size / 2),
-        backgroundColor: colors.mist,
+        backgroundColor: colors.white,
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',
       }}
     >
       {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={{ width: size, height: size }} resizeMode="cover" />
+        <Image source={{ uri: imageUrl }} style={{ width: size, height: size }} resizeMode="contain" />
       ) : (
         <CategoryMark size={size * 0.42} color={colors.inkSoft} weight="regular" />
       )}
@@ -536,7 +525,7 @@ export function Disclaimer({ compact = false }: { compact?: boolean }) {
           color: colors.bone2,
         }}
       >
-        General information, not medical advice. Patch-test before first use.
+        Sourced organises public evidence. Check the seller and product details before you buy.
       </Text>
     </View>
   );
@@ -622,44 +611,6 @@ export function ScoreRing({ score, size = 58 }: { score: number | null; size?: n
       >
         SCORE
       </Text>
-    </View>
-  );
-}
-
-/**
- * The three parts of the Confidence Score, always shown alongside the number.
- * The score is never allowed to appear bare — a reader should come away with
- * "I understand why", not "I was told what to think".
- */
-export function ScoreMeter({ breakdown }: { breakdown: ConfidenceBreakdown }) {
-  const rows: { label: string; value: number | null; note: string }[] = [
-    { label: 'Fit for your skin', value: breakdown.fitMatchScore, note: breakdown.fitLabel },
-    { label: 'What owners report', value: breakdown.sentimentScore, note: breakdown.sentimentLabel },
-    { label: 'Ingredient transparency', value: breakdown.transparencyScore, note: breakdown.transparencyLabel },
-  ];
-  return (
-    <View style={{ gap: 12 }}>
-      {rows.map((row) => (
-        <View key={row.label} style={{ gap: 5 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.ink }}>{row.label}</Text>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: toneFor(row.value) }}>
-              {row.value == null ? 'Not scored' : row.value}
-            </Text>
-          </View>
-          <View style={{ height: 5, borderRadius: 3, backgroundColor: colors.mist, overflow: 'hidden' }}>
-            <View
-              style={{
-                width: `${row.value ?? 0}%`,
-                height: 5,
-                borderRadius: 3,
-                backgroundColor: toneFor(row.value),
-              }}
-            />
-          </View>
-          <Caption>{row.note}</Caption>
-        </View>
-      ))}
     </View>
   );
 }

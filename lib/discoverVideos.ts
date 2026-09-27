@@ -51,7 +51,7 @@ export async function rejectVideo(id: string) {
 }
 
 export async function classifyPendingVideos() {
-  return invoke({ action: 'classify_pending', taxonomyCategory: 'skincare' });
+  return invoke({ action: 'classify_pending', taxonomyCategory: 'universal_default' });
 }
 
 /** Product discovery is YouTube-only. Serper is not used. */

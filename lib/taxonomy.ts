@@ -1,7 +1,7 @@
 import { invokeCachedRead } from './cachedRead';
 import { supabase } from './supabase';
 
-export const TAXONOMY_CATEGORY = 'skincare';
+export const TAXONOMY_CATEGORY = 'universal_default';
 
 export type ContentTagKey =
   | 'how_it_works'
@@ -23,37 +23,37 @@ export const FALLBACK_TAGS: CategoryTag[] = [
   {
     tagKey: 'how_it_works',
     tagLabel: 'How it works',
-    description: 'Mechanism or science of the ingredient or product.',
+    description: 'How the product works and why.',
     sortOrder: 1,
   },
   {
     tagKey: 'how_to_use',
     tagLabel: 'How to use',
-    description: 'Application method, order, frequency, or layering.',
+    description: 'Setup, everyday use, and tips.',
     sortOrder: 2,
   },
   {
     tagKey: 'composition',
-    tagLabel: "What it's made of",
-    description: 'Ingredient breakdown, formulation, or concentration.',
+    tagLabel: "What's inside",
+    description: 'Specs, materials, components, or build.',
     sortOrder: 3,
   },
   {
     tagKey: 'who_its_for',
     tagLabel: "Who it's for",
-    description: 'Skin type or concern suitability.',
+    description: 'Which buyers and use cases it suits.',
     sortOrder: 4,
   },
   {
     tagKey: 'results_over_time',
-    tagLabel: 'Results over time',
-    description: 'Before/after, timelines, or visible change.',
+    tagLabel: 'Long-term',
+    description: 'Durability and how it holds up after weeks or months.',
     sortOrder: 5,
   },
   {
     tagKey: 'precautions',
-    tagLabel: 'Precautions',
-    description: 'Side effects, patch-testing, or irritation risk.',
+    tagLabel: 'Watch out',
+    description: 'Known problems, defects, or safety warnings.',
     sortOrder: 6,
   },
   {
@@ -75,7 +75,7 @@ export function tagLabel(key: string): string {
   return FALLBACK_TAGS.find((tag) => tag.tagKey === key)?.tagLabel ?? key;
 }
 
-/** Map catalog product types (cleanser, serum, …) onto the reusable taxonomy category. */
+/** Every product category currently shares the universal taxonomy. */
 export function taxonomyCategoryForProduct(): string {
   return TAXONOMY_CATEGORY;
 }

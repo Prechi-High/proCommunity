@@ -114,7 +114,7 @@ function clipFromCachedPayload(row: Record<string, unknown>): JourneyClip {
     embedHtml: (row.embedHtml as string | null) ?? (row.embed_html as string | null) ?? null,
     youtubeVideoId:
       (row.youtubeVideoId as string | null) ?? (row.youtube_video_id as string | null) ?? null,
-    title: String(row.title ?? 'Video'),
+    title: decodeEntities(String(row.title ?? 'Video')),
     author: String(row.author ?? row.channel_or_author ?? row.channel_title ?? ''),
     thumbnailUrl: String(row.thumbnailUrl ?? row.thumbnail_url ?? ''),
     durationSeconds:
@@ -276,6 +276,69 @@ export async function loadJourneyForTag(
   }
   const filled = await loadTaggedClips(product, tag);
   return { clips: filled, discovered: true };
+}
+
+const TAG_LABEL: Record<ContentTagKey, string> = {
+  how_it_works: 'How it works',
+  how_to_use: 'How to use',
+  composition: 'What’s inside',
+  who_its_for: 'Worth it?',
+  results_over_time: 'Long-term',
+  precautions: 'Watch out',
+  comparisons: 'Compared',
+};
+
+export function clipLabel(clip: JourneyClip): string {
+  const tag = clip.contentTags[0] ?? heuristicContentTags(clip.title, clip.author).tags[0];
+  return tag ? TAG_LABEL[tag] : 'Review';
+}
+
+async function cachedProductClips(productId: string): Promise<JourneyClip[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('video_cache')
+    .select(SELECT_CLIP)
+    .eq('catalog_product_id', productId)
+    .eq('source_platform', 'youtube')
+    .order('fetched_at', { ascending: false })
+    .limit(12);
+  if (error || !data) return [];
+  return data.map((row) => asJourneyClip(row as Record<string, unknown>)).filter((c) => c.youtubeVideoId && c.thumbnailUrl);
+}
+
+/** Literacy clips for any product: cache first, then a YouTube fetch that fills the cache. */
+export function decodeEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&#x27;|&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+export async function loadProductClips(product: Pick<Product, 'id' | 'name' | 'brand'>): Promise<JourneyClip[]> {
+  const cached = await cachedProductClips(product.id).catch(() => []);
+  if (cached.length >= 3) return cached.slice(0, 8);
+  const { clips } = await ensureYoutubeVideosForProduct(product);
+  const refreshed = await cachedProductClips(product.id).catch(() => []);
+  if (refreshed.length) return refreshed.slice(0, 8);
+  return clips.slice(0, 8).map((clip) => ({
+    id: `yt-${clip.youtubeVideoId}`,
+    platform: 'youtube' as const,
+    sourceUrl: `https://www.youtube.com/watch?v=${clip.youtubeVideoId}`,
+    embedHtml: null,
+    youtubeVideoId: clip.youtubeVideoId,
+    title: decodeEntities(clip.title),
+    author: decodeEntities(clip.channelTitle),
+    thumbnailUrl: clip.thumbnailUrl,
+    durationSeconds: clip.durationSeconds,
+    contentTags: [],
+    classificationConfidence: null,
+    classificationJustification: null,
+    helpfulCount: 0,
+    notHelpfulCount: 0,
+    wilson: 0,
+  }));
 }
 
 export async function discoverProductJourney(product: Product): Promise<void> {

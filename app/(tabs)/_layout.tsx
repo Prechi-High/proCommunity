@@ -1,4 +1,50 @@
 import { Tabs } from 'expo-router';
-import { Camera, ChatsCircle, MagnifyingGlass, User } from '@/components/icons';
+
+import { BookmarkSimple, MagnifyingGlass, User } from '@/components/icons';
 import { colors, fonts } from '@/constants/theme';
-export default function TabLayout() { return <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: colors.rosewood, tabBarInactiveTintColor: colors.bone3, tabBarStyle: { backgroundColor: colors.lac, borderTopColor: colors.line, height: 74, paddingTop: 9, paddingBottom: 13 }, tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 11 } }}><Tabs.Screen name="index" options={{ title: 'Search', tabBarIcon: ({ color, focused }) => <MagnifyingGlass size={22} color={focused ? colors.rosewood : String(color)} weight={focused ? 'bold' : 'regular'} /> }} /><Tabs.Screen name="search" options={{ title: 'Community', tabBarIcon: ({ color, focused }) => <ChatsCircle size={22} color={focused ? colors.rosewood : String(color)} weight={focused ? 'fill' : 'regular'} /> }} /><Tabs.Screen name="saved" options={{ title: 'Shelf', tabBarIcon: ({ color }) => <Camera size={22} color={String(color)} weight="regular" /> }} /><Tabs.Screen name="you" options={{ title: 'You', tabBarIcon: ({ color, focused }) => <User size={22} color={focused ? colors.rosewood : String(color)} weight={focused ? 'fill' : 'regular'} /> }} /></Tabs>; }
+
+export default function TabLayout() {
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.hi,
+        tabBarInactiveTintColor: colors.bone3,
+        tabBarStyle: {
+          backgroundColor: 'rgba(255,255,255,0.96)',
+          borderTopColor: colors.line,
+          height: 76,
+          paddingTop: 8,
+          paddingBottom: 14,
+        },
+        tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 11 },
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Search',
+          tabBarIcon: ({ color, focused }) => (
+            <MagnifyingGlass size={24} color={String(color)} weight={focused ? 'bold' : 'regular'} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="saved"
+        options={{
+          title: 'Saved',
+          tabBarIcon: ({ color, focused }) => (
+            <BookmarkSimple size={24} color={String(color)} weight={focused ? 'fill' : 'regular'} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="you"
+        options={{
+          title: 'You',
+          tabBarIcon: ({ color, focused }) => <User size={24} color={String(color)} weight={focused ? 'fill' : 'regular'} />,
+        }}
+      />
+    </Tabs>
+  );
+}
