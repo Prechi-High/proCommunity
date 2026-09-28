@@ -58,6 +58,9 @@ export interface AppState {
   signIn: (email: string, displayName?: string) => void;
   joinCommunity: (displayName: string) => void;
   signOut: () => void;
+  setAuthProfile: (profile: Profile) => void;
+  clearProfile: () => void;
+  setFavorites: (favorites: Favorite[]) => void;
   updateProfile: (patch: Partial<Profile>) => void;
   toggleFavorite: (productId: string) => void;
   setPriceAlert: (productId: string, enabled: boolean) => void;
@@ -193,6 +196,13 @@ export const useAppStore = create<AppState>()(
         track('community_joined', {});
       },
       signOut: () => set({ ...emptyUserSlice }),
+      setAuthProfile: (profile) => {
+        const existing = get().profile;
+        if (existing?.id === profile.id) set({ profile: { ...existing, ...profile } });
+        else set({ ...emptyUserSlice, favorites: get().favorites, profile });
+      },
+      clearProfile: () => set({ profile: null }),
+      setFavorites: (favorites) => set({ favorites }),
       updateProfile: (patch) => {
         const profile = get().profile;
         if (!profile) return;

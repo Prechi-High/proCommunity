@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -657,16 +658,19 @@ function ReadingPeople() {
 }
 
 // ---------------------------------------------------------------------------
-// Joining — a name is all it takes to be a member.
+// Joining — members sign in with an emailed code so their posts, saves and research follow them.
 
 export function useMemberGate(): { requireMember: (then: () => void) => void; gate: ReactNode } {
   const profile = useAppStore((s) => s.profile);
-  const join = useAppStore((s) => s.joinCommunity);
+  const router = useRouter();
   const [pending, setPending] = useState<(() => void) | null>(null);
-  const [name, setName] = useState('');
   const requireMember = (then: () => void) => {
     if (profile) then();
     else setPending(() => then);
+  };
+  const goSignIn = () => {
+    setPending(null);
+    router.push('/(auth)/sign-in');
   };
   const gate = (
     <Modal visible={Boolean(pending)} transparent animationType="fade" onRequestClose={() => setPending(null)}>
@@ -681,25 +685,12 @@ export function useMemberGate(): { requireMember: (then: () => void) => void; ga
           </View>
           <Text style={{ fontFamily: fonts.bold, fontSize: 24, letterSpacing: -0.6, color: colors.bone }}>Join the people who’ve used it</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, color: colors.bone2 }}>
-            Real owners answer here. Pick the name they’ll see next to your question or story.
+            Real owners answer here. Sign in with your email so your posts, saved products and research stay with you.
           </Text>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            autoFocus
-            placeholder="Your name or nickname"
-            placeholderTextColor={colors.bone3}
-            maxLength={40}
-            style={{ height: 50, backgroundColor: colors.lac, borderRadius: 14, paddingHorizontal: 14, fontFamily: fonts.regular, fontSize: 16, color: colors.bone, outlineStyle: 'none' } as never}
-          />
           <Pressable
-            disabled={name.trim().length < 2}
             onPress={() => {
-              join(name);
               hapticSuccess();
-              const next = pending;
-              setPending(null);
-              setTimeout(() => next?.(), 50);
+              goSignIn();
             }}
             style={({ pressed }) => ({
               height: 50,
@@ -707,13 +698,13 @@ export function useMemberGate(): { requireMember: (then: () => void) => void; ga
               backgroundColor: colors.hi,
               alignItems: 'center',
               justifyContent: 'center',
-              opacity: name.trim().length < 2 ? 0.4 : pressed ? 0.85 : 1,
+              opacity: pressed ? 0.85 : 1,
             })}
           >
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.white }}>Join the community</Text>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.white }}>Continue with email</Text>
           </Pressable>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3, textAlign: 'center' }}>
-            No password. Be kind, be specific, and never post links to sell.
+            No password — we email you a 6-digit code. Be kind, be specific, and never post links to sell.
           </Text>
         </Pressable>
       </Pressable>

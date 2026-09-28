@@ -5,7 +5,7 @@ import { Animated, Pressable, ScrollView, Share, Text, View } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PillTabs, useMemberGate } from '@/components/community';
-import { ArrowClockwise, ArrowLeft, ArrowsLeftRight, BookmarkSimple, ChatsCircle, ShareNetwork } from '@/components/icons';
+import { ArrowClockwise, ArrowLeft, ArrowsLeftRight, BookmarkSimple, ChatsCircle, Files, ShareNetwork } from '@/components/icons';
 import { Eyebrow, PrimaryButton, ProductImage } from '@/components/kit';
 import { InvestigatingState, openLink, PricesPane, SourcesSheet, SpecsPane } from '@/components/product/Panes';
 import { VideosPane } from '@/components/product/VideosPane';
@@ -17,6 +17,7 @@ import { routeId } from '@/lib/catalog';
 import { fetchThreads, postThread, trackProduct } from '@/lib/community';
 import { hapticSuccess, hapticTap } from '@/lib/haptics';
 import { displayName, formatPrice, getKnownProduct, investigateProduct, profileToProduct, rememberProduct, slugify } from '@/lib/products';
+import { research } from '@/lib/research';
 import { useAppStore } from '@/lib/store';
 import type { ThreadKind } from '@/lib/types';
 import { loadProductClips } from '@/lib/videos';
@@ -114,6 +115,15 @@ export default function ProductScreen() {
     },
   });
 
+  const makeCard = useMutation({
+    mutationFn: () => research.create({ productId: id, name: name || id, brand, category, image }),
+    onSuccess: ({ card }) => {
+      hapticSuccess();
+      void qc.invalidateQueries({ queryKey: ['research', 'list'] });
+      router.push({ pathname: '/research/[id]', params: { id: card.id } } as unknown as Href);
+    },
+  });
+
   const openAlternative = (altName: string) => {
     const altId = slugify(altName);
     rememberProduct({ id: altId, name: altName, brand: '', category: category || 'Product' });
@@ -183,6 +193,16 @@ export default function ProductScreen() {
           <ArrowLeft size={18} color={colors.bone} weight="bold" />
         </RoundButton>
         <View style={{ flex: 1 }} />
+        <RoundButton
+          label="Save as Research Card"
+          onPress={() =>
+            requireMember(() => {
+              if (!makeCard.isPending) makeCard.mutate();
+            })
+          }
+        >
+          <Files size={18} color={colors.bone} weight={makeCard.isPending ? 'fill' : 'bold'} />
+        </RoundButton>
         <RoundButton
           label="Share"
           onPress={() => {

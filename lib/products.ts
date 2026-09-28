@@ -1,3 +1,4 @@
+import { accessToken } from './auth';
 import { useAppStore } from './store';
 import { supabaseAnonKey, supabaseUrl } from './supabase';
 import type { Product, ProductProfile } from './types';
@@ -40,11 +41,12 @@ export async function callIntel<T>(body: Record<string, unknown>, timeoutMs = 45
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    const token = await accessToken().catch(() => null);
     const res = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/product-intelligence`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${supabaseAnonKey}`,
+        Authorization: `Bearer ${token ?? supabaseAnonKey}`,
         apikey: supabaseAnonKey,
       },
       body: JSON.stringify({ country: COUNTRY, ...body }),

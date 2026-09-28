@@ -12,3 +12,21 @@ verify_jwt = true
 
 [functions.product-vision]
 verify_jwt = false
+
+# Meta calls these directly and signs requests with the app secret (verified in code).
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.whatsapp-flow-data]
+verify_jwt = false
+
+# Service-role bearer is checked in code.
+[functions.whatsapp-worker]
+verify_jwt = false
+
+# User access token is verified in code via /auth/v1/user.
+[functions.research]
+verify_jwt = false
+
+[functions.research-public]
+verify_jwt = false

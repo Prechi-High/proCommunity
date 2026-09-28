@@ -9,7 +9,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "export:web": "expo export --platform web",
-    "test:redis": "tsx --test lib/server/redis/__tests__/redis.service.test.ts"
+    "test:redis": "tsx --test lib/server/redis/__tests__/redis.service.test.ts",
+    "test:whatsapp": "tsx --test supabase/functions/_shared/**/__tests__/*.test.ts",
+    "whatsapp:keys": "node scripts/whatsapp-flow-keys.mjs"
   },
   "dependencies": {
     "@expo/config-plugins": "^57.0.9",

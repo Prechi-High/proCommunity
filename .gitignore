@@ -55,6 +55,9 @@ whisper-cache/
 # supabase CLI
 supabase/.temp/
 
+# WhatsApp Flow key pair (never commit the private key)
+.secrets/
+
 # local scaffold leftover
 _tmp_expo/
 

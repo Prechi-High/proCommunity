@@ -1,8 +1,9 @@
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { Pressable, Switch, Text, View } from 'react-native';
 
 import { Screen } from '@/components/Screen';
-import { Globe, SealCheck, ShieldCheck, Trash, User } from '@/components/icons';
+import { Files, Globe, SealCheck, ShieldCheck, Trash, User, WhatsappLogo } from '@/components/icons';
+import { signOutEverywhere } from '@/lib/auth';
 import { Eyebrow, Group, GroupRow, LargeTitle, Segmented } from '@/components/kit';
 import { Avatar } from '@/components/ui';
 import { colors, fonts } from '@/constants/theme';
@@ -18,7 +19,6 @@ export default function YouScreen() {
   const setSaveHistory = useAppStore((s) => s.setSaveSearchHistory);
   const clearSearchHistory = useAppStore((s) => s.clearSearchHistory);
   const deleteMyData = useAppStore((s) => s.deleteMyData);
-  const signOut = useAppStore((s) => s.signOut);
   const flagged = useAppStore((s) => s.flaggedPostIds);
 
   return (
@@ -42,10 +42,15 @@ export default function YouScreen() {
               {profile ? profile.displayName : 'Sign in'}
             </Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone3 }}>
-              {profile ? profile.email : 'Optional — only needed to post in discussions.'}
+              {profile ? profile.email : 'Post in discussions, sync saves and keep Research Cards.'}
             </Text>
           </View>
         </Pressable>
+
+        <Group>
+          <GroupRow icon={Files} label="My Research" detail="Research Cards from the app and WhatsApp." onPress={() => router.push('/research' as Href)} />
+          <GroupRow icon={WhatsappLogo} label="WhatsApp" detail="Research products by sending a photo or name." onPress={() => router.push('/settings/whatsapp' as Href)} last />
+        </Group>
 
         <View style={{ gap: 8 }}>
           <Eyebrow>Haptics</Eyebrow>
@@ -107,7 +112,7 @@ export default function YouScreen() {
             {profile.isAdmin ? (
               <GroupRow label={`Moderation queue (${flagged.length})`} onPress={() => router.push('/admin')} />
             ) : null}
-            <GroupRow label="Sign out" last onPress={signOut} />
+            <GroupRow label="Sign out" last onPress={() => void signOutEverywhere()} />
           </Group>
         ) : null}
       </View>

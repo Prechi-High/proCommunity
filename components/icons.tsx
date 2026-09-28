@@ -100,9 +100,15 @@ import {
   Lightning,
   Sparkle as SparkleIcon,
   Trophy,
+  WhatsappLogo,
+  Files,
+  LinkSimple,
 } from 'phosphor-react-native';
 
 export {
+  WhatsappLogo,
+  Files,
+  LinkSimple,
   ArrowFatDown,
   BellRinging,
   ChatCircleDots,

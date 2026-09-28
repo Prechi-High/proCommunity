@@ -1,0 +1,173 @@
+{
+  "version": "7.0",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "HOME": ["START_RESEARCH", "MY_RESEARCH", "OVERVIEW", "ERROR"],
+    "START_RESEARCH": ["DONE", "ERROR"],
+    "MY_RESEARCH": ["OVERVIEW", "ERROR"],
+    "OVERVIEW": ["SECTION", "ERROR"],
+    "SECTION": [],
+    "DONE": [],
+    "ERROR": []
+  },
+  "screens": [
+    {
+      "id": "HOME",
+      "title": "Sourced",
+      "data": {
+        "recent": {
+          "type": "array",
+          "items": { "type": "object", "properties": { "id": { "type": "string" }, "title": { "type": "string" }, "description": { "type": "string" } } },
+          "__example__": [{ "id": "00000000-0000-0000-0000-000000000000", "title": "CeraVe Foaming Cleanser", "description": "SR-100245 · Research ready · 12 Mar 2026" }]
+        },
+        "has_recent": { "type": "boolean", "__example__": true }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Research products before you buy" },
+          { "type": "TextBody", "text": "Your Research Cards stay in your Sourced account — the same ones you see in the app." },
+          { "type": "EmbeddedLink", "text": "Start new research", "on-click-action": { "name": "data_exchange", "payload": { "cmd": "start" } } },
+          { "type": "EmbeddedLink", "text": "View all my research", "on-click-action": { "name": "data_exchange", "payload": { "cmd": "list" } } },
+          { "type": "TextSubheading", "text": "Recent research", "visible": "${data.has_recent}" },
+          { "type": "RadioButtonsGroup", "name": "card", "label": "Pick one to open", "required": false, "visible": "${data.has_recent}", "data-source": "${data.recent}" },
+          { "type": "Footer", "label": "Open research", "on-click-action": { "name": "data_exchange", "payload": { "cmd": "open", "card_id": "${form.card}" } } }
+        ]
+      }
+    },
+    {
+      "id": "START_RESEARCH",
+      "title": "New research",
+      "data": {
+        "focus_options": {
+          "type": "array",
+          "items": { "type": "object", "properties": { "id": { "type": "string" }, "title": { "type": "string" } } },
+          "__example__": [{ "id": "everything", "title": "Everything" }]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "What should we research?" },
+          { "type": "TextInput", "name": "query", "label": "Product name", "input-type": "text", "required": true, "min-chars": 2, "max-chars": 140, "helper-text": "Brand and product, e.g. CeraVe Foaming Cleanser" },
+          { "type": "RadioButtonsGroup", "name": "focus", "label": "What matters most?", "required": false, "data-source": "${data.focus_options}" },
+          { "type": "Footer", "label": "Start research", "on-click-action": { "name": "data_exchange", "payload": { "cmd": "research", "query": "${form.query}", "focus": "${form.focus}" } } }
+        ]
+      }
+    },
+    {
+      "id": "MY_RESEARCH",
+      "title": "My Research",
+      "data": {
+        "cards": {
+          "type": "array",
+          "items": { "type": "object", "properties": { "id": { "type": "string" }, "title": { "type": "string" }, "description": { "type": "string" } } },
+          "__example__": [{ "id": "00000000-0000-0000-0000-000000000000", "title": "Dyson Airwrap", "description": "SR-100246 · Research ready · 2 Mar 2026" }]
+        },
+        "has_cards": { "type": "boolean", "__example__": true },
+        "has_more": { "type": "boolean", "__example__": false },
+        "next_cursor": { "type": "string", "__example__": "" },
+        "heading": { "type": "string", "__example__": "My Research" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "${data.heading}" },
+          { "type": "TextInput", "name": "q", "label": "Search your research", "input-type": "text", "required": false, "max-chars": 60 },
+          { "type": "EmbeddedLink", "text": "Search", "on-click-action": { "name": "data_exchange", "payload": { "cmd": "list", "q": "${form.q}" } } },
+          { "type": "RadioButtonsGroup", "name": "card", "label": "Research Cards", "required": false, "visible": "${data.has_cards}", "data-source": "${data.cards}" },
+          { "type": "EmbeddedLink", "text": "Show older research", "visible": "${data.has_more}", "on-click-action": { "name": "data_exchange", "payload": { "cmd": "list", "cursor": "${data.next_cursor}" } } },
+          { "type": "Footer", "label": "Open research", "on-click-action": { "name": "data_exchange", "payload": { "cmd": "open", "card_id": "${form.card}" } } }
+        ]
+      }
+    },
+    {
+      "id": "OVERVIEW",
+      "title": "Research Card",
+      "data": {
+        "card_id": { "type": "string", "__example__": "00000000-0000-0000-0000-000000000000" },
+        "title": { "type": "string", "__example__": "CeraVe Foaming Cleanser" },
+        "subtitle": { "type": "string", "__example__": "CeraVe · 236ml · Skincare" },
+        "reference": { "type": "string", "__example__": "Research Card SR-100245 · Research ready" },
+        "summary": { "type": "string", "__example__": "A gentle foaming cleanser most owners with oily skin rate highly." },
+        "fit_text": { "type": "string", "__example__": "**Best for**\n• Oily skin" },
+        "has_fit": { "type": "boolean", "__example__": true },
+        "findings": { "type": "string", "__example__": "• Fragrance-free\n• Contains niacinamide" },
+        "sections": {
+          "type": "array",
+          "items": { "type": "object", "properties": { "id": { "type": "string" }, "title": { "type": "string" } } },
+          "__example__": [{ "id": "community", "title": "What owners say" }]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "${data.title}" },
+          { "type": "TextCaption", "text": "${data.subtitle}" },
+          { "type": "TextCaption", "text": "${data.reference}" },
+          { "type": "TextSubheading", "text": "Quick summary" },
+          { "type": "TextBody", "markdown": true, "text": "${data.summary}" },
+          { "type": "TextSubheading", "text": "Who it suits", "visible": "${data.has_fit}" },
+          { "type": "TextBody", "markdown": true, "text": "${data.fit_text}", "visible": "${data.has_fit}" },
+          { "type": "TextSubheading", "text": "Key findings" },
+          { "type": "TextBody", "markdown": true, "text": "${data.findings}" },
+          { "type": "RadioButtonsGroup", "name": "section", "label": "Go deeper", "required": true, "data-source": "${data.sections}" },
+          { "type": "Footer", "label": "View section", "on-click-action": { "name": "data_exchange", "payload": { "cmd": "section", "card_id": "${data.card_id}", "section": "${form.section}" } } }
+        ]
+      }
+    },
+    {
+      "id": "SECTION",
+      "title": "Research Card",
+      "terminal": true,
+      "data": {
+        "card_id": { "type": "string", "__example__": "00000000-0000-0000-0000-000000000000" },
+        "title": { "type": "string", "__example__": "What owners say" },
+        "body": { "type": "string", "__example__": "Most owners say it doesn't strip their skin." }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "${data.title}" },
+          { "type": "TextBody", "markdown": true, "text": "${data.body}" },
+          { "type": "TextCaption", "text": "Use the back arrow to see other sections." },
+          { "type": "Footer", "label": "Done", "on-click-action": { "name": "complete", "payload": {} } }
+        ]
+      }
+    },
+    {
+      "id": "DONE",
+      "title": "Research started",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "message": { "type": "string", "__example__": "I'll message you in the chat when your Research Card is ready." }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "On it" },
+          { "type": "TextBody", "text": "${data.message}" },
+          { "type": "Footer", "label": "Back to chat", "on-click-action": { "name": "complete", "payload": {} } }
+        ]
+      }
+    },
+    {
+      "id": "ERROR",
+      "title": "Sourced",
+      "terminal": true,
+      "success": false,
+      "data": {
+        "message": { "type": "string", "__example__": "This link has expired. Send “menu” in the chat to get a fresh one." }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Can't open that" },
+          { "type": "TextBody", "text": "${data.message}" },
+          { "type": "Footer", "label": "Back to chat", "on-click-action": { "name": "complete", "payload": {} } }
+        ]
+      }
+    }
+  ]
+}

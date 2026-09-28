@@ -1,4 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { userFromRequest } from "../_shared/core/auth.ts";
+import { flags, publicUrl } from "../_shared/core/env.ts";
 
 /**
  * product-intelligence — Sourced's universal Product Intelligence service.
@@ -18,6 +20,9 @@ const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const COMMUNITY_ACTIONS = new Set(["threads", "thread", "post", "reply", "helpful", "feed", "vote", "follow", "notifications", "notifications_read", "following", "upload", "room"]);
+const MEMBER_ONLY_ACTIONS = new Set(["post", "reply", "helpful", "vote", "follow", "notifications", "notifications_read", "following", "upload"]);
 
 const SEARCH_TTL_MS = 24 * 60 * 60 * 1000;
 const PROFILE_VERSION = 4;
@@ -1359,6 +1364,23 @@ async function runCommunity(store: Db, action: string, body: Json) {
         })),
     );
     await follow(store, threadId, author.id, true);
+    if (flags.whatsappNotifications) {
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const jobs = followers
+        .map((f) => String(f.member_id))
+        .filter((m) => uuid.test(m) && m !== author.id)
+        .map((m) => ({
+          kind: "notify",
+          idempotency_key: `reply:${reply.id}:${m}`,
+          payload: {
+            userId: m,
+            type: "community_reply",
+            entityId: threadId,
+            payload: { actor: author.name, product: str(thread.product_name, 120), threadUrl: `${publicUrl()}/thread/${threadId}`, threadPath: `thread/${threadId}` },
+          },
+        }));
+      if (jobs.length) await store.insertMany("integration_jobs", jobs).catch(() => undefined);
+    }
     return { reply };
   }
 
@@ -1545,6 +1567,21 @@ Deno.serve(async (req) => {
 
     const store = db();
     if (!store) return json({ error: "storage_unavailable" }, 503);
+
+    // Community identity comes only from the verified Supabase session, never from the body.
+    if (COMMUNITY_ACTIONS.has(action)) {
+      delete body.memberId;
+      delete body.author;
+      const user = await userFromRequest(req);
+      if (user) {
+        const profile = await store.select("profiles", `id=eq.${encodeURIComponent(user.id)}`);
+        const name = str(profile?.display_name, 40) || str(user.email?.split("@")[0], 40) || "Member";
+        body.memberId = user.id;
+        body.author = { id: user.id, name };
+      } else if (MEMBER_ONLY_ACTIONS.has(action)) {
+        return json({ error: "sign_in_required" }, 401);
+      }
+    }
 
     if (action === "ask") {
       const productId = str(body.productId, 100);
