@@ -18,7 +18,9 @@ import {
   ImageIcon,
   Lightbulb,
   MagnifyingGlass,
+  NotePencil,
   Question,
+  Quotes,
   ShareNetwork,
   SmileyNervous,
   Star,
@@ -354,14 +356,15 @@ export function BellButton({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
 // ---------------------------------------------------------------------------
 // Composer
 
-const COMPOSER_KINDS: Array<{ kind: ThreadKind; label: string; hint: string; title: string }> = [
-  { kind: 'review', label: 'Review', hint: 'You own it — how is it really?', title: 'Sum it up in one line' },
-  { kind: 'question', label: 'Ask', hint: 'Owners answer from experience', title: 'What do you want to know?' },
-  { kind: 'experience', label: 'Story', hint: 'Something that happened with it', title: 'What happened?' },
-  { kind: 'worry', label: 'Worry', hint: 'What’s stopping you from buying?', title: 'What are you worried about?' },
-  { kind: 'tip', label: 'Tip', hint: 'Help others get more from it', title: 'Your tip in one line' },
-  { kind: 'compare', label: 'Compare', hint: 'Torn between two?', title: 'Which one and why?' },
+const COMPOSER_KINDS: Array<{ kind: ThreadKind; label: string; hint: string; title: string; starters: string[] }> = [
+  { kind: 'review', label: 'Review', hint: 'You own it — how is it really?', title: 'Sum it up in one line', starters: ['I’ve had it for ', 'What surprised me: ', 'The one thing I’d change: ', 'I’d tell a friend '] },
+  { kind: 'question', label: 'Ask', hint: 'Owners answer from experience', title: 'What do you want to know?', starters: ['I’m planning to use it for ', 'Does anyone know if ', 'My budget is '] },
+  { kind: 'experience', label: 'Story', hint: 'Something that happened with it', title: 'What happened?', starters: ['It started when ', 'After a few weeks ', 'What I learned: '] },
+  { kind: 'worry', label: 'Worry', hint: 'What’s stopping you from buying?', title: 'What are you worried about?', starters: ['I’ve read that ', 'Last time I bought one ', 'Will it hold up if '] },
+  { kind: 'tip', label: 'Tip', hint: 'Help others get more from it', title: 'Your tip in one line', starters: ['Go into settings and ', 'Most people don’t know ', 'Skip the '] },
+  { kind: 'compare', label: 'Compare', hint: 'Torn between two?', title: 'Which one and why?', starters: ['I’ll mostly use it for ', 'What matters most to me is ', 'Price-wise '] },
 ];
+
 
 type PickedProduct = Pick<Product, 'id' | 'name' | 'brand' | 'category' | 'heroImageUrl'>;
 
@@ -506,23 +509,25 @@ export function Composer({
             </View>
           ) : null}
 
-          <TextInput
+          <WriteField
+            headline
+            Icon={Quotes}
+            label="Headline"
+            tag="Required"
             value={title}
             onChangeText={setTitle}
             placeholder={meta.title}
-            placeholderTextColor={colors.bone3}
             maxLength={280}
-            multiline
-            style={{ fontFamily: fonts.bold, fontSize: 21, lineHeight: 27, letterSpacing: -0.4, color: colors.bone, minHeight: 34, outlineStyle: 'none' } as never}
           />
-          <TextInput
+          <WriteField
+            Icon={NotePencil}
+            label="The details"
+            tag="Optional"
             value={body}
             onChangeText={setBody}
-            placeholder="Add details — how long you’ve had it, what surprised you, what you’d tell a friend…"
-            placeholderTextColor={colors.bone3}
+            placeholder="How long you’ve had it, what surprised you, what you’d tell a friend…"
             maxLength={2000}
-            multiline
-            style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 23, color: colors.bone, minHeight: 110, textAlignVertical: 'top', outlineStyle: 'none' } as never}
+            starters={meta.starters}
           />
 
           {photo ? (
@@ -554,6 +559,92 @@ export function Composer({
         </ScrollView>
       </SafeAreaView>
     </Modal>
+  );
+}
+
+function WriteField({
+  Icon,
+  label,
+  tag,
+  value,
+  onChangeText,
+  placeholder,
+  maxLength,
+  headline,
+  starters,
+}: {
+  Icon: typeof Quotes;
+  label: string;
+  tag: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+  maxLength: number;
+  headline?: boolean;
+  starters?: string[];
+}) {
+  const input = useRef<TextInput>(null);
+  const [focused, setFocused] = useState(false);
+  const near = value.length > maxLength * 0.85;
+  const active = focused || Boolean(value);
+  return (
+    <Pressable
+      onPress={() => input.current?.focus()}
+      style={{
+        backgroundColor: colors.lac,
+        borderRadius: 18,
+        paddingHorizontal: 14,
+        paddingTop: 12,
+        paddingBottom: 14,
+        gap: 8,
+        borderWidth: 1.5,
+        borderColor: focused ? colors.hi : 'transparent',
+        boxShadow: focused ? `0 0 0 4px ${colors.hiSoft}` : undefined,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: active ? colors.hi : colors.hiSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon size={13} color={active ? colors.white : colors.hi} weight="bold" />
+        </View>
+        <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 13, letterSpacing: 0.2, color: focused ? colors.hi : colors.bone2 }}>{label}</Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: near ? colors.coral : colors.bone3 }}>
+          {active ? `${value.length}/${maxLength}` : tag}
+        </Text>
+      </View>
+      <TextInput
+        ref={input}
+        value={value}
+        onChangeText={onChangeText}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder={placeholder}
+        placeholderTextColor={colors.bone3}
+        maxLength={maxLength}
+        multiline
+        style={
+          (headline
+            ? { fontFamily: fonts.bold, fontSize: 19, lineHeight: 25, letterSpacing: -0.3, color: colors.bone, minHeight: 28, outlineStyle: 'none' }
+            : { fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 23, color: colors.bone, minHeight: 104, textAlignVertical: 'top', outlineStyle: 'none' }) as never
+        }
+      />
+      {starters?.length && !value.trim() ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {starters.map((s) => (
+            <Pressable
+              key={s}
+              onPress={() => {
+                hapticSelect();
+                onChangeText(s);
+                setTimeout(() => input.current?.focus(), 0);
+              }}
+              style={({ pressed }) => ({ height: 30, paddingHorizontal: 11, borderRadius: 999, justifyContent: 'center', backgroundColor: colors.hiSoft, opacity: pressed ? 0.7 : 1 })}
+            >
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.hi }}>{s.trim()}…</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </Pressable>
   );
 }
 

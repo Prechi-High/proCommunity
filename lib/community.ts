@@ -159,8 +159,8 @@ export function trackProduct(
 export const NICHES = [
   { id: 'tech', label: 'Tech', re: /phone|charger|laptop|computer|tablet|headphone|earbud|speaker|camera|tv|television|console|game|watch|electronic|audio|power bank|router|monitor|keyboard|mouse|drone|solar|inverter|battery/i },
   { id: 'home', label: 'Home', re: /home|kitchen|blender|fridge|appliance|vacuum|furniture|mattress|bed|air|fan|cook|fryer|kettle|iron|lamp|decor|clean/i },
-  { id: 'care', label: 'Beauty & care', re: /beauty|skin|hair|cosmetic|makeup|fragrance|perfume|care|grooming|shav|serum|lotion|cream|soap/i },
   { id: 'style', label: 'Fashion', re: /shoe|sneaker|cloth|shirt|dress|bag|fashion|jean|jacket|apparel|wear|jewel/i },
+  { id: 'care', label: 'Beauty & care', re: /beauty|skin|hair|cosmetic|makeup|fragrance|perfume|care|grooming|shav|serum|lotion|cream|soap/i },
   { id: 'food', label: 'Food & drink', re: /food|drink|snack|coffee|tea|beverage|grocery|supplement|protein|vitamin|nutrition/i },
   { id: 'auto', label: 'Auto & tools', re: /car|auto|vehicle|tyre|tire|tool|drill|motor|bike/i },
   { id: 'kids', label: 'Baby & kids', re: /baby|kid|toy|child|diaper|stroller/i },

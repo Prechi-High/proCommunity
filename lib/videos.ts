@@ -382,6 +382,15 @@ export async function loadTagClips(
   return refreshed.length ? refreshed : cached;
 }
 
+/** Fetches clips for tags that have none cached yet, two at a time. */
+export async function discoverTags(product: Pick<Product, 'id' | 'name' | 'brand' | 'category'>, tags: ContentTagKey[]): Promise<void> {
+  const queue = [...tags];
+  const worker = async () => {
+    for (let tag = queue.shift(); tag; tag = queue.shift()) await loadTagClips(product, tag).catch(() => null);
+  };
+  await Promise.all([worker(), worker()]);
+}
+
 /** How many cached clips sit under each tag for a product. */
 export async function loadTagCounts(productId: string): Promise<Partial<Record<ContentTagKey, number>>> {
   if (!supabase) return {};

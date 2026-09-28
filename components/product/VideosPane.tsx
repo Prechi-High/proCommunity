@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
-import { Image, Modal, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Image, Modal, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { OfficialEmbed } from '@/components/VideoEmbed';
@@ -10,7 +10,7 @@ import { colors, fonts } from '@/constants/theme';
 import { hapticSelect, hapticTap } from '@/lib/haptics';
 import { tagLabel as clipTagLabel, tagsFor, type CategoryTag, type ContentTagKey } from '@/lib/taxonomy';
 import type { Product } from '@/lib/types';
-import { clipLabel, loadTagClips, loadTagCounts, type JourneyClip } from '@/lib/videos';
+import { clipLabel, discoverTags, loadTagClips, loadTagCounts, type JourneyClip } from '@/lib/videos';
 
 type VideoProduct = Pick<Product, 'id' | 'name' | 'brand' | 'category'>;
 type Filter = 'all' | ContentTagKey;
@@ -69,7 +69,11 @@ function TagChips({
             }}
           >
             <Text style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: on ? colors.white : colors.bone }}>{o.label}</Text>
-            {o.count ? <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: on ? 'rgba(255,255,255,0.6)' : colors.bone3 }}>{o.count}</Text> : null}
+            {o.count ? (
+              <View style={{ minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? 'rgba(255,255,255,0.18)' : colors.wineDeep }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 11.5, color: on ? colors.white : colors.bone2 }}>{o.count}</Text>
+              </View>
+            ) : null}
           </Pressable>
         );
       })}
@@ -160,9 +164,25 @@ export function VideosPane({ product, clips, loading }: { product: VideoProduct;
   const contentWidth = width - PAD * 2;
   const [filter, setFilter] = useState<Filter>('all');
   const [playing, setPlaying] = useState<{ clip: JourneyClip; tag: ContentTagKey } | null>(null);
-  const tags = useMemo(() => tagsFor(product.category), [product.category]);
-  const tagLabel = (k: ContentTagKey) => tags.find((t) => t.tagKey === k)?.tagLabel ?? clipTagLabel(k);
+  const allTags = useMemo(() => tagsFor(product.category), [product.category]);
+  const tagLabel = (k: ContentTagKey) => allTags.find((t) => t.tagKey === k)?.tagLabel ?? clipTagLabel(k);
   const counts = useQuery({ queryKey: ['tagcounts', product.id], queryFn: () => loadTagCounts(product.id), staleTime: 10 * 60_000 });
+  const missing = useMemo(
+    () => (counts.data ? allTags.filter((t) => !counts.data[t.tagKey]).map((t) => t.tagKey) : []),
+    [counts.data, allTags],
+  );
+  const discovered = useQuery({
+    queryKey: ['tagdiscover', product.id, missing.join(',')],
+    queryFn: async () => {
+      await discoverTags(product, missing);
+      return loadTagCounts(product.id);
+    },
+    enabled: missing.length > 0,
+    staleTime: Infinity,
+  });
+  const tagCounts = discovered.data ?? counts.data;
+  const tags = useMemo(() => allTags.filter((t) => (tagCounts?.[t.tagKey] ?? 0) > 0), [allTags, tagCounts]);
+  const searching = counts.isLoading || discovered.isFetching;
   const tagged = useTagClips(product, filter === 'all' ? null : filter);
 
   const list = filter === 'all' ? clips : tagged.data ?? [];
@@ -175,7 +195,7 @@ export function VideosPane({ product, clips, loading }: { product: VideoProduct;
   };
 
   const open = (clip: JourneyClip) =>
-    setPlaying({ clip, tag: filter === 'all' ? relevantTag(clip) ?? tags[0].tagKey : filter });
+    setPlaying({ clip, tag: filter === 'all' ? relevantTag(clip) ?? tags[0]?.tagKey ?? allTags[0].tagKey : filter });
 
   return (
     <View style={{ gap: 14 }}>
@@ -186,7 +206,13 @@ export function VideosPane({ product, clips, loading }: { product: VideoProduct;
         </Text>
       </View>
       <View style={{ marginHorizontal: -PAD }}>
-        <TagChips tags={tags} value={filter} onChange={setFilter} counts={counts.data} includeAll />
+        <TagChips tags={tags} value={filter} onChange={setFilter} counts={tagCounts} includeAll />
+        {searching ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: PAD, paddingTop: 10 }}>
+            <ActivityIndicator size="small" color={colors.hi} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.bone3 }}>Finding videos for more topics…</Text>
+          </View>
+        ) : null}
       </View>
       {busy ? (
         <GridSkeleton contentWidth={contentWidth} />
@@ -204,7 +230,7 @@ export function VideosPane({ product, clips, loading }: { product: VideoProduct;
         </Tile>
       )}
 
-      <PlayerSheet product={product} tags={tags} playing={playing} onPlay={setPlaying} onClose={() => setPlaying(null)} />
+      <PlayerSheet product={product} tags={tags} counts={tagCounts} playing={playing} onPlay={setPlaying} onClose={() => setPlaying(null)} />
     </View>
   );
 }
@@ -212,12 +238,14 @@ export function VideosPane({ product, clips, loading }: { product: VideoProduct;
 function PlayerSheet({
   product,
   tags,
+  counts,
   playing,
   onPlay,
   onClose,
 }: {
   product: VideoProduct;
   tags: CategoryTag[];
+  counts?: Partial<Record<ContentTagKey, number>>;
   playing: { clip: JourneyClip; tag: ContentTagKey } | null;
   onPlay: (p: { clip: JourneyClip; tag: ContentTagKey }) => void;
   onClose: () => void;
@@ -298,7 +326,7 @@ function PlayerSheet({
               <Text style={{ fontFamily: fonts.bold, fontSize: 17, letterSpacing: -0.3, color: colors.bone }}>Learn something else</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone3 }}>Pick a topic to see its videos.</Text>
             </View>
-            <TagChips tags={tags} value={explore} onChange={(t) => setExplore(t as ContentTagKey)} exclude={tag} />
+            <TagChips tags={tags} value={explore} onChange={(t) => setExplore(t as ContentTagKey)} counts={counts} exclude={tag} />
             {explore && explore !== tag ? (
               other.isLoading ? (
                 <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: PAD }}>

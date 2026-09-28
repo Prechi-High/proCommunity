@@ -11,7 +11,7 @@ import { ProductImage, Shimmer } from '@/components/kit';
 import { openLink } from '@/components/product/Panes';
 import { BellButton, Composer, KIND_STYLE, PostCard, WebVoicePost } from '@/components/social';
 import { colors, fonts } from '@/constants/theme';
-import { fetchFeed, fetchFollowing, fetchPulse, timeAgo, type FeedSort } from '@/lib/community';
+import { fetchFeed, fetchFollowing, fetchPulse, NICHES, nicheOf, timeAgo, type FeedSort, type NicheId } from '@/lib/community';
 import { hapticSelect, hapticTap } from '@/lib/haptics';
 import { useAppStore } from '@/lib/store';
 import type { CommunityThread, ThreadKind, TrendingProduct, WebVoice } from '@/lib/types';
@@ -35,6 +35,14 @@ const KINDS: Array<{ id: ThreadKind | 'all'; label: string }> = [
   { id: 'experience', label: 'Stories' },
 ];
 
+const CATEGORIES: Array<{ id: NicheId | 'all'; label: string }> = [
+  { id: 'all', label: 'All categories' },
+  ...NICHES.map((n) => ({ id: n.id, label: n.label })),
+  { id: 'other', label: 'Everything else' },
+];
+
+const matchNiche = (niche: NicheId | 'all', category: string | null | undefined) => niche === 'all' || nicheOf(category) === niche;
+
 export default function PulseScreen() {
   const router = useRouter();
   const qc = useQueryClient();
@@ -42,6 +50,8 @@ export default function PulseScreen() {
   const { requireMember, gate } = useMemberGate();
   const [tab, setTab] = useState<Tab>('hot');
   const [kind, setKind] = useState<ThreadKind | 'all'>('all');
+  const [niche, setNiche] = useState<NicheId | 'all'>('all');
+  const inNiche = (category: string | null | undefined) => matchNiche(niche, category);
   const [draft, setDraft] = useState('');
   const [q, setQ] = useState('');
   const [composing, setComposing] = useState<{ product?: CommunityThread | WebVoice | null; body?: string } | null>(null);
@@ -54,8 +64,11 @@ export default function PulseScreen() {
 
   const pulse = useQuery({ queryKey: ['pulse'], queryFn: () => fetchPulse(), staleTime: 60_000 });
   const feed = useQuery({
-    queryKey: ['feed', tab, kind, q, profile?.id],
-    queryFn: () => (tab === 'following' ? fetchFollowing() : fetchFeed({ sort: tab, kind: kind === 'all' ? null : kind, q: q || undefined })),
+    queryKey: ['feed', tab, kind, q, niche === 'all' ? 'all' : 'niche', profile?.id],
+    queryFn: () =>
+      tab === 'following'
+        ? fetchFollowing()
+        : fetchFeed({ sort: tab, kind: kind === 'all' ? null : kind, q: q || undefined, limit: niche === 'all' ? undefined : 80 }),
     staleTime: 20_000,
   });
   const compares = useQuery({
@@ -65,17 +78,19 @@ export default function PulseScreen() {
   });
 
   const threads = useMemo(() => {
-    const list = feed.data ?? [];
+    const list = (feed.data ?? []).filter((t) => matchNiche(niche, t.category));
     return tab === 'following' && kind !== 'all' ? list.filter((t) => t.kind === kind) : list;
-  }, [feed.data, tab, kind]);
+  }, [feed.data, tab, kind, niche]);
   const voices = useMemo(() => {
-    const all = pulse.data?.voices ?? [];
+    const all = (pulse.data?.voices ?? []).filter((v) => matchNiche(niche, v.category));
     if (!q) return all;
     const needle = q.toLowerCase();
     return all.filter((v) => `${v.product_name} ${v.text}`.toLowerCase().includes(needle));
-  }, [pulse.data, q]);
+  }, [pulse.data, q, niche]);
   const showVoices = tab === 'hot' && (kind === 'all' || kind === 'review' || kind === 'experience');
-  const trending = pulse.data?.trending ?? [];
+  const trending = (pulse.data?.trending ?? []).filter((t) => inNiche(t.category));
+  const hotCompares = (compares.data ?? []).filter((t) => inNiche(t.category));
+  const nicheName = CATEGORIES.find((c) => c.id === niche)?.label ?? '';
   const home = tab === 'hot' && kind === 'all' && !q;
 
   const stream = useMemo(() => {
@@ -184,6 +199,25 @@ export default function PulseScreen() {
               );
             })}
           </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 20, paddingHorizontal: 16 }}>
+            {CATEGORIES.map((c) => {
+              const on = c.id === niche;
+              return (
+                <Pressable
+                  key={c.id}
+                  onPress={() => {
+                    if (!on) hapticSelect();
+                    setNiche(c.id);
+                  }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                  style={{ paddingVertical: 6, borderBottomWidth: 2, borderBottomColor: on ? colors.hi : 'transparent' }}
+                >
+                  <Text style={{ fontFamily: on ? fonts.bold : fonts.medium, fontSize: 14, color: on ? colors.bone : colors.bone3 }}>{c.label}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
             {KINDS.map((k) => {
               const on = k.id === kind;
@@ -218,13 +252,13 @@ export default function PulseScreen() {
           </View>
         ) : null}
 
-        {home && (compares.data?.length ?? 0) > 0 ? (
+        {home && hotCompares.length > 0 ? (
           <View style={{ gap: 12 }}>
             <View style={{ paddingHorizontal: 16 }}>
               <SectionHead title="Hot comparisons" icon={<ArrowsLeftRight size={20} color={colors.hi} weight="bold" />} />
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 16 }}>
-              {compares.data!.map((t) => (
+              {hotCompares.map((t) => (
                 <Pressable
                   key={t.id}
                   onPress={() => openThread(t.id)}
@@ -278,7 +312,13 @@ export default function PulseScreen() {
           ) : (
             <View style={{ backgroundColor: colors.lac, borderRadius: 22, padding: 22, gap: 10, alignItems: 'flex-start' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 19, letterSpacing: -0.4, color: colors.bone }}>
-                {tab === 'following' ? 'Nothing followed yet' : q ? 'No posts match that yet' : 'Start the conversation'}
+                {tab === 'following'
+                  ? 'Nothing followed yet'
+                  : q
+                    ? 'No posts match that yet'
+                    : niche !== 'all'
+                      ? `Nothing in ${nicheName} yet`
+                      : 'Start the conversation'}
               </Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 21, color: colors.bone2 }}>
                 {tab === 'following'
