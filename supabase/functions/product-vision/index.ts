@@ -374,11 +374,19 @@ If text is partly hidden, infer from distinctive design. Name the specific model
 Return JSON only:
 {"brand":"","name":"product line + model, without the brand","model":"model number/code if known","variant":"size/colour/capacity etc","category":"short general type e.g. Wireless earbuds, Running shoes, Face serum","visible_text":[""],"features":["short distinguishing visual cues"],"search_query":"the most specific shopping query for this exact item","alternatives":["up to 3 other exact products it could be"],"confidence":0.0,"products":[]}
 The top-level fields describe the most prominent product.
-If the photo shows MORE THAN ONE distinct product (different items — not several units of the same item, not parts or accessories of one product, not background furniture),
-fill "products" with every distinct product, most prominent first, at most 6:
+ALWAYS fill "products" with EVERY distinct product visible in the photo, most prominent first, at most 6 — including the main one.
+Count different items (e.g. a phone, earbuds and a perfume on a table are 3 products); do not count several units of the
+same item, parts or accessories of one product, or furniture/background. If an item has no visible brand, still include it
+with a descriptive "name" (e.g. "Stainless steel water bottle"):
 [{"brand":"","name":"","model":"","category":"","search_query":"","box_2d":[ymin,xmin,ymax,xmax],"confidence":0.0}] with box_2d on a 0-1000 scale.
-For a single product leave "products" empty.
 If no product is visible return {"brand":"","name":"","confidence":0}.`;
+
+const DETECT_PROMPT = `List EVERY distinct product visible in this photo, most prominent first, at most 6.
+Count different items (a phone, earbuds and a perfume on a table are 3 products). Do not count several units of the same item,
+parts or accessories of one product, or furniture/background. Unbranded items still count — give a descriptive name.
+Return JSON only:
+{"products":[{"brand":"","name":"product line + model, without brand","model":"","category":"short general type","search_query":"most specific shopping query","box_2d":[ymin,xmin,ymax,xmax],"confidence":0.0}]}
+box_2d is on a 0-1000 scale. If there is no product return {"products":[]}.`;
 
 type Detected = { label: string; brand: string; name: string; model: string; category: string; searchQuery: string; box: number[] | null; confidence: number };
 
@@ -391,7 +399,7 @@ function toDetected(v: unknown): Detected[] {
     const brand = str(j.brand, 60);
     let name = str(j.name, 120);
     if (brand && name.toLowerCase().startsWith(brand.toLowerCase() + " ")) name = name.slice(brand.length).trim();
-    const label = [brand, name || str(j.model, 60)].filter(Boolean).join(" ");
+    const label = [brand, name || str(j.model, 60) || str(j.category, 50)].filter(Boolean).join(" ");
     const key = label.toLowerCase();
     if (!label || looksLikeJson(label) || seen.has(key)) continue;
     seen.add(key);
@@ -570,15 +578,22 @@ async function lens(url: string): Promise<Lens[]> {
 async function identifyExact(b64: string, mime: string, gKey: string) {
   const image = { inlineData: { mimeType: mime, data: b64 } };
   const upload = uploadScan(b64, mime);
-  const [first, matches] = await Promise.all([
+  const [first, detect, matches] = await Promise.all([
     geminiJson(gKey, [{ text: EXACT_PROMPT }, image], 20000),
+    geminiJson(gKey, [{ text: DETECT_PROMPT }, image], 16000),
     upload.then((u) => (u ? lens(u) : [])),
   ]);
   const imageUrl = await upload;
   let exact = toExact(first.data);
   const errors = [...first.errors];
   let model = first.model;
-  const detected = toDetected(first.data?.products);
+  // Single reads miss items now and then; a dedicated listing pass runs alongside and the fuller list wins.
+  const fromExact = toDetected(first.data?.products);
+  const fromDetect = toDetected(detect.data?.products);
+  const withBoxes = (l: Detected[]) => l.filter((d) => d.box).length;
+  const detected =
+    fromDetect.length > fromExact.length || (fromDetect.length === fromExact.length && withBoxes(fromDetect) > withBoxes(fromExact)) ? fromDetect : fromExact;
+  console.log(JSON.stringify({ ev: "vision_exact", model, detected: detected.length, exactList: fromExact.length, detectList: fromDetect.length, lens: matches.length, errors }));
   if (detected.length > 1) return { exact, matches, imageUrl, errors, model, detected };
 
   if (matches.length) {
@@ -657,6 +672,22 @@ Deno.serve(async (req) => {
   const gKey = secretValue("GEMINI_API_KEY") || secretValue("GOOGLE_API_KEY");
   if (wantsJson && gKey && !body.prompt) {
     const out = await withTimeout(identifyExact(b64, mime, gKey), GLOBAL_TIMEOUT_MS, "exact");
+    if (out.ok && out.val.detected.length > 1 && !(out.val.exact && exactLabel(out.val.exact))) {
+      const top = out.val.detected[0];
+      return json({
+        label: top.label,
+        brand: top.brand,
+        name: top.name,
+        model: top.model,
+        category: top.category,
+        confidence: top.confidence,
+        searchQuery: top.searchQuery,
+        imageUrl: out.val.imageUrl,
+        matches: [],
+        products: out.val.detected,
+      });
+    }
+    if (!out.ok || !out.val.exact) console.log(JSON.stringify({ ev: "vision_exact_failed", timeout: !out.ok, errors: out.ok ? out.val.errors : [] }));
     if (out.ok && out.val.exact) {
       const e = out.val.exact;
       const label = exactLabel(e);
@@ -677,7 +708,7 @@ Deno.serve(async (req) => {
           imageUrl: out.val.imageUrl,
           matches: [...picked, ...rest].slice(0, 12).map((m) => ({ ...m, exact: picked.includes(m) })),
           products: out.val.detected,
-          ...(debug ? { errors: out.val.errors, llm: out.val.model } : {}),
+          ...(debug ? { errors: out.val.errors, llm: out.val.model, build: "detect-pass-2" } : {}),
         });
       }
     }
