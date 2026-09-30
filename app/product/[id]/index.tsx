@@ -12,6 +12,7 @@ import { InvestigatingState, openLink, PricesPane, SourcesSheet, SpecsPane } fro
 import { VideosPane } from '@/components/product/VideosPane';
 import { galleryFor, GalleryStrip, MatchesSheet, ScanBanner, VariantChips } from '@/components/product/Gallery';
 import { Lightbox } from '@/components/Lightbox';
+import { useOwnershipNote } from '@/components/OwnershipNote';
 import { DiscussPane, OverviewPane, OwnersPane } from '@/components/product/PeoplePanes';
 import { colors, fonts } from '@/constants/theme';
 import { routeId } from '@/lib/catalog';
@@ -63,7 +64,7 @@ export default function ProductScreen() {
   const name = profile?.identity.name || (product ? displayName(product) : q ?? '');
 
   const owned = useOwnsProduct(id);
-  const verify = useVerifyOwner();
+  const note = useOwnershipNote();
   const myId = useAppStore((s) => s.profile?.id);
   const room = useQuery({ queryKey: ['room', id], queryFn: () => fetchRoom(id), enabled: Boolean(id), staleTime: 60_000 });
 
@@ -103,6 +104,8 @@ export default function ProductScreen() {
   const lowest = profile?.offers.find((o) => o.price) ?? null;
   const brand = profile?.identity.brand || product?.brand || '';
   const category = profile?.identity.category || product?.category || '';
+  const currentProduct = profile ? profileToProduct(profile, product) : { id, name, brand, category, heroImageUrl: image };
+  const verify = useVerifyOwner({ onVerified: () => note.start(currentProduct) });
   const threadList = threads.data ?? [];
   const photos = useMemo(() => galleryFor(profile, scan, image), [profile, scan, image]);
 
@@ -264,10 +267,20 @@ export default function ProductScreen() {
         <OwnershipStrip
           owned={Boolean(owned)}
           count={room.data?.verifiedOwners ?? 0}
-          onVerify={() => verify.start(profile ? profileToProduct(profile, product) : { id, name, brand, category, heroImageUrl: image })}
+          noteCount={room.data?.ownershipNotes ?? 0}
+          onVerify={() => verify.start(currentProduct)}
+          onNote={() => note.start(currentProduct)}
           onMine={() => myId && router.push({ pathname: '/member/[id]', params: { id: myId } } as unknown as Href)}
         />
       </View>
+
+      {room.data?.notes?.length ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 10 }}>
+          {room.data.notes.slice(0, 5).map((n) => (
+            <OwnershipNoteCard key={n.id} title={n.title} author={n.author_name} detail={n.used_duration || n.used_for || n.milestone.replace(/_/g, ' ')} />
+          ))}
+        </ScrollView>
+      ) : null}
 
       {scan ? (
         <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
@@ -360,11 +373,26 @@ export default function ProductScreen() {
       />
       {gate}
       {verify.sheet}
+      {note.sheet}
     </SafeAreaView>
   );
 }
 
-function OwnershipStrip({ owned, count, onVerify, onMine }: { owned: boolean; count: number; onVerify: () => void; onMine: () => void }) {
+function OwnershipStrip({
+  owned,
+  count,
+  noteCount,
+  onVerify,
+  onNote,
+  onMine,
+}: {
+  owned: boolean;
+  count: number;
+  noteCount: number;
+  onVerify: () => void;
+  onNote: () => void;
+  onMine: () => void;
+}) {
   const others = owned ? count - 1 : count;
   const crowd = others > 0 ? `${others} verified ${others === 1 ? 'owner' : 'owners'}${owned ? ' besides you' : ''}` : '';
   return (
@@ -391,11 +419,36 @@ function OwnershipStrip({ owned, count, onVerify, onMine }: { owned: boolean; co
           {owned ? 'You’re a verified owner' : 'Own this? Verify it with a photo'}
         </Text>
         <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12.5, color: owned ? colors.sageInk : colors.hiInk, opacity: 0.8 }}>
-          {owned ? crowd || 'Your answers about it carry the mark' : crowd ? `${crowd} answer here` : 'Your answers get a Verified owner mark'}
+          {owned ? `${noteCount ? `${noteCount} Ownership Notes here · ` : ''}Add your experience to your shelf` : crowd ? `${crowd} answer here` : 'Your answers get a Verified owner mark'}
         </Text>
       </View>
       <CaretRight size={14} color={owned ? colors.sage : colors.hi} weight="bold" />
+      {owned ? (
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            hapticTap();
+            onNote();
+          }}
+          style={{ height: 34, paddingHorizontal: 12, borderRadius: 17, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: colors.sageInk }}>Add note</Text>
+        </Pressable>
+      ) : null}
     </Pressable>
+  );
+}
+
+function OwnershipNoteCard({ title, author, detail }: { title: string; author: string; detail: string }) {
+  return (
+    <View style={{ width: 230, backgroundColor: colors.lac, borderRadius: 18, padding: 14, gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <SealCheck size={14} color={colors.hi} weight="fill" />
+        <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 12.5, color: colors.hiInk }}>{author}</Text>
+      </View>
+      <Text numberOfLines={2} style={{ fontFamily: fonts.bold, fontSize: 15, lineHeight: 19, color: colors.bone }}>{title}</Text>
+      {detail ? <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>{detail}</Text> : null}
+    </View>
   );
 }
 

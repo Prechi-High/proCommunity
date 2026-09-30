@@ -253,14 +253,20 @@ function MultiPickSheet({
   onOpen: (p: DetectedProduct) => void;
   onCompare: (list: DetectedProduct[]) => void;
 }) {
-  const [comparing, setComparing] = useState(false);
-  const [picked, setPicked] = useState<number[]>([]);
+  const [picked, setPicked] = useState<number[]>([0]);
   const n = scan.products.length;
 
   const toggle = (i: number) => {
     hapticSelect();
-    setPicked((cur) => (cur.includes(i) ? cur.filter((x) => x !== i) : cur.length >= MAX_COMPARE ? cur : [...cur, i]));
+    setPicked((cur) => {
+      if (cur.includes(i)) return cur.length === 1 ? cur : cur.filter((x) => x !== i);
+      return cur.length >= MAX_COMPARE ? cur : [...cur, i];
+    });
   };
+
+  const selected = picked.map((i) => scan.products[i]).filter(Boolean);
+  const canCheck = selected.length === 1;
+  const canCompare = selected.length >= 2;
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -274,12 +280,19 @@ function MultiPickSheet({
             <View style={{ flex: 1, gap: 3 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 21, letterSpacing: -0.4, color: colors.bone }}>We spotted {n} products</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 19, color: colors.bone2 }}>
-                {comparing ? `Choose 2 or ${MAX_COMPARE} to put side by side.` : 'Your photo has more than one product. Pick the one you want, or compare them.'}
+                Select one product to check it now, or select 2-{MAX_COMPARE} products to compare them side by side.
               </Text>
             </View>
             <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Close">
               <X size={20} color={colors.bone2} weight="bold" />
             </Pressable>
+          </View>
+
+          <View style={{ marginHorizontal: 20, marginTop: 12, backgroundColor: colors.hiSoft, borderRadius: 16, padding: 12, gap: 4 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: colors.hiInk }}>How this works</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.hiInk, opacity: 0.82 }}>
+              One selected item opens its product check. Multiple selected items open comparison, then we ask what matters to you before searching.
+            </Text>
           </View>
 
           <ScrollView style={{ marginTop: 14 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }} showsVerticalScrollIndicator={false}>
@@ -289,10 +302,10 @@ function MultiPickSheet({
               return (
                 <Pressable
                   key={`${p.label}-${i}`}
-                  onPress={() => (comparing ? toggle(i) : onOpen(p))}
-                  disabled={comparing && full}
-                  accessibilityRole={comparing ? 'checkbox' : 'button'}
-                  accessibilityState={comparing ? { checked: on, disabled: full } : undefined}
+                  onPress={() => toggle(i)}
+                  disabled={full}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: on, disabled: full }}
                   style={({ pressed }) => ({
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -302,7 +315,7 @@ function MultiPickSheet({
                     backgroundColor: on ? colors.hiSoft : colors.lac,
                     borderWidth: 1.5,
                     borderColor: on ? colors.hi : 'transparent',
-                    opacity: pressed || (comparing && full) ? 0.6 : 1,
+                    opacity: pressed || full ? 0.6 : 1,
                   })}
                 >
                   <CropThumb uri={scan.photo} width={scan.width} height={scan.height} box={p.box} category={p.category} />
@@ -313,77 +326,66 @@ function MultiPickSheet({
                     </Text>
                     {p.category ? <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>{p.category}</Text> : null}
                   </View>
-                  {comparing ? (
-                    <View
-                      style={{
-                        width: 24,
-                        height: 24,
-                        borderRadius: 7,
-                        borderWidth: on ? 0 : 1.5,
-                        borderColor: colors.bone3,
-                        backgroundColor: on ? colors.hi : 'transparent',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      {on ? <Check size={14} color={colors.white} weight="bold" /> : null}
-                    </View>
-                  ) : (
-                    <CaretRight size={16} color={colors.bone3} weight="bold" />
-                  )}
+                  <View
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: picked.length > 1 ? 8 : 13,
+                      borderWidth: on ? 0 : 1.5,
+                      borderColor: colors.bone3,
+                      backgroundColor: on ? colors.hi : 'transparent',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {on ? <Check size={14} color={colors.white} weight="bold" /> : null}
+                  </View>
                 </Pressable>
               );
             })}
           </ScrollView>
 
           <View style={{ paddingHorizontal: 20, paddingTop: 14, gap: 10 }}>
-            {comparing ? (
-              <>
-                <Pressable
-                  disabled={picked.length < 2}
-                  onPress={() => onCompare(picked.map((i) => scan.products[i]))}
-                  style={({ pressed }) => ({
-                    height: 52,
-                    borderRadius: 16,
-                    flexDirection: 'row',
-                    gap: 8,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: picked.length >= 2 ? colors.hi : colors.wineDeep,
-                    opacity: pressed ? 0.85 : 1,
-                  })}
-                >
-                  <ArrowsLeftRight size={18} color={colors.white} weight="bold" />
-                  <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.white }}>
-                    {picked.length >= 2 ? `Compare ${picked.length} side by side` : 'Select at least 2'}
-                  </Text>
-                </Pressable>
-                <Pressable onPress={() => { setComparing(false); setPicked([]); }} hitSlop={8} style={{ alignSelf: 'center' }}>
-                  <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone2 }}>Just pick one instead</Text>
-                </Pressable>
-              </>
-            ) : (
-              <Pressable
-                onPress={() => {
-                  hapticTap();
-                  setComparing(true);
-                  setPicked(n <= MAX_COMPARE ? scan.products.map((_, i) => i) : [0, 1]);
-                }}
-                style={({ pressed }) => ({
-                  height: 52,
-                  borderRadius: 16,
-                  flexDirection: 'row',
-                  gap: 8,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: colors.black,
-                  opacity: pressed ? 0.85 : 1,
-                })}
-              >
-                <ArrowsLeftRight size={18} color={colors.white} weight="bold" />
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.white }}>Compare them side by side</Text>
-              </Pressable>
-            )}
+            <Pressable
+              disabled={!canCheck}
+              onPress={() => selected[0] && onOpen(selected[0])}
+              style={({ pressed }) => ({
+                height: 50,
+                borderRadius: 16,
+                flexDirection: 'row',
+                gap: 8,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: canCheck ? colors.hi : colors.wineDeep,
+                opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <CaretRight size={18} color={colors.white} weight="bold" />
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 15.5, color: colors.white }}>
+                {canCheck ? `Check ${selected[0]?.name || 'selected product'}` : 'Select one product to check'}
+              </Text>
+            </Pressable>
+            <Pressable
+              disabled={!canCompare}
+              onPress={() => onCompare(selected)}
+              style={({ pressed }) => ({
+                height: 50,
+                borderRadius: 16,
+                flexDirection: 'row',
+                gap: 8,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: canCompare ? colors.black : colors.lac,
+                borderWidth: canCompare ? 0 : 1,
+                borderColor: colors.line,
+                opacity: pressed ? 0.85 : 1,
+              })}
+            >
+              <ArrowsLeftRight size={18} color={canCompare ? colors.white : colors.bone3} weight="bold" />
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 15.5, color: canCompare ? colors.white : colors.bone3 }}>
+                {canCompare ? `Compare ${selected.length} selected products` : `Select 2-${MAX_COMPARE} products to compare`}
+              </Text>
+            </Pressable>
           </View>
         </Pressable>
       </Pressable>

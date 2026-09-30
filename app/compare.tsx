@@ -630,7 +630,7 @@ function Row({ label, values, win }: { label: string; values: string[]; win: Win
 
 function Columns({ title, tone, cols }: { title: string; tone: 'good' | 'warn' | 'accent'; cols: string[][] }) {
   if (cols.every((c) => !c.length)) return null;
-  const dot = tone === 'good' ? colors.sage : tone === 'warn' ? colors.coral : colors.hi;
+  const dot = tone === 'good' ? colors.sage : tone === 'warn' ? colors.honey : colors.hi;
   return (
     <View style={{ backgroundColor: colors.lac, borderRadius: 20, padding: 14, gap: 10 }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.bone }}>{title}</Text>

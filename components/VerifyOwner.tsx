@@ -7,7 +7,7 @@ import { Camera, Lock, SealCheck, Warning, X } from '@/components/icons';
 import { PrimaryButton, ProductImage } from '@/components/kit';
 import { colors, fonts } from '@/constants/theme';
 import { hapticHeavy, hapticSuccess } from '@/lib/haptics';
-import { useRefreshOwnership, verifyOwnership, type VerifyOutcome } from '@/lib/owners';
+import { useRefreshOwnership, verifyOwnership, type OwnedProduct, type VerifyOutcome } from '@/lib/owners';
 import type { VisionAsset } from '@/lib/productVision';
 import type { Product } from '@/lib/types';
 import { WebCameraModal } from '@/lib/useScan';
@@ -27,7 +27,7 @@ function hasWebCamera(): boolean {
  * "I own this" → live in-app photo → checked against the product. Gallery uploads are never offered,
  * so a downloaded picture can't be used; the server also rejects screens, prints and stock images.
  */
-export function useVerifyOwner() {
+export function useVerifyOwner(options: { onVerified?: (product: Product, verification: OwnedProduct) => void } = {}) {
   const [product, setProduct] = useState<Product | null>(null);
   const [step, setStep] = useState<Step>({ kind: 'intro' });
   const { requireMember, gate } = useMemberGate();
@@ -89,7 +89,7 @@ export function useVerifyOwner() {
             onPress={() => undefined}
             style={{ backgroundColor: colors.wine, borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 30, gap: 16, width: '100%', maxWidth: 560, alignSelf: 'center' }}
           >
-            {product ? <Body product={product} step={step} onCamera={() => void openCamera()} onClose={close} /> : null}
+            {product ? <Body product={product} step={step} onCamera={() => void openCamera()} onClose={close} onVerified={options.onVerified} /> : null}
           </Pressable>
         </Pressable>
       </Modal>
@@ -99,7 +99,19 @@ export function useVerifyOwner() {
   return { start, sheet };
 }
 
-function Body({ product, step, onCamera, onClose }: { product: Product; step: Step; onCamera: () => void; onClose: () => void }) {
+function Body({
+  product,
+  step,
+  onCamera,
+  onClose,
+  onVerified,
+}: {
+  product: Product;
+  step: Step;
+  onCamera: () => void;
+  onClose: () => void;
+  onVerified?: (product: Product, verification: OwnedProduct) => void;
+}) {
   const header = (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <ProductImage uri={product.heroImageUrl ?? null} category={product.category} size={48} radius={14} />
@@ -175,10 +187,20 @@ function Body({ product, step, onCamera, onClose }: { product: Product; step: St
           </View>
           <Text style={{ fontFamily: fonts.bold, fontSize: 21, letterSpacing: -0.4, color: colors.bone, textAlign: 'center' }}>You’re a verified owner</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 21, color: colors.bone2, textAlign: 'center' }}>
-            Your answers about the {product.name} now show it, and it’s listed on your profile.
+            Your answers about the {product.name} now show it. Add an Ownership Note so your shelf starts helping other buyers.
           </Text>
         </View>
-        <PrimaryButton label="Done" onPress={onClose} />
+        <PrimaryButton
+          label="Add Ownership Note"
+          icon={SealCheck}
+          onPress={() => {
+            onClose();
+            onVerified?.(product, outcome.verification);
+          }}
+        />
+        <Pressable onPress={onClose} hitSlop={8} style={{ alignSelf: 'center' }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone2 }}>Done for now</Text>
+        </Pressable>
       </>
     );
   }

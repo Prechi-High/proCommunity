@@ -227,7 +227,7 @@ function NowYouKnow({ delay }: { delay: number }) {
 // Owners — every voice, filterable, then the patterns across reviews.
 
 function CitedList({ items, tone, profile }: { items: Cited[]; tone: 'good' | 'bad'; profile: ProductProfile }) {
-  const color = tone === 'good' ? colors.sage : colors.coral;
+  const color = tone === 'good' ? colors.sage : colors.honey;
   return (
     <View style={{ backgroundColor: colors.lac, borderRadius: 16, paddingHorizontal: 16 }}>
       {items.map((item, i) => {

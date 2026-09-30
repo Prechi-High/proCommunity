@@ -13,9 +13,9 @@ import { KIND_LABEL, timeAgo } from '@/lib/community';
 import { hapticTap } from '@/lib/haptics';
 import { fetchMember, type MemberReply, type MemberThread, type OwnedProduct } from '@/lib/owners';
 import { useAppStore } from '@/lib/store';
-import type { ThreadKind } from '@/lib/types';
+import type { OwnershipNote, ThreadKind } from '@/lib/types';
 
-type Tab = 'answers' | 'posts';
+type Tab = 'notes' | 'answers' | 'posts';
 
 export default function MemberScreen() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function MemberScreen() {
   const id = routeId(params.id);
   const myId = useAppStore((s) => s.profile?.id);
   const isMe = Boolean(myId && myId === id);
-  const [tab, setTab] = useState<Tab>('answers');
+  const [tab, setTab] = useState<Tab>('notes');
 
   const member = useQuery({ queryKey: ['member', id], queryFn: () => fetchMember(id), enabled: Boolean(id), staleTime: 60_000, retry: 1 });
   const m = member.data ?? null;
@@ -63,10 +63,11 @@ export default function MemberScreen() {
             <View style={{ alignItems: 'center', gap: 8, paddingTop: 6 }}>
               <Avatar name={m.name} size={76} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 26, letterSpacing: -0.6, color: colors.bone }}>{m.name}</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.hiInk }}>{isMe ? 'Your verified shelf' : `${m.name.split(' ')[0]}’s verified shelf`}</Text>
               {m.joinedAt ? <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, color: colors.bone3 }}>Member since {new Date(m.joinedAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</Text> : null}
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
                 <Stat value={m.stats.verified} label={m.stats.verified === 1 ? 'Verified product' : 'Verified products'} />
-                <Stat value={m.stats.answers} label={m.stats.answers === 1 ? 'Answer' : 'Answers'} />
+                <Stat value={m.stats.notes} label={m.stats.notes === 1 ? 'Ownership Note' : 'Ownership Notes'} />
                 <Stat value={m.stats.helpful} label="Found helpful" />
               </View>
             </View>
@@ -79,7 +80,12 @@ export default function MemberScreen() {
               {m.owned.length ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
                   {m.owned.map((o) => (
-                    <OwnedCard key={o.productId} item={o} onPress={() => openProduct(o.productId, o.productName)} />
+                    <OwnedCard
+                      key={o.productId}
+                      item={o}
+                      notes={m.notes.filter((n) => n.product_id === o.productId)}
+                      onPress={() => openProduct(o.productId, o.productName)}
+                    />
                   ))}
                 </ScrollView>
               ) : (
@@ -97,13 +103,20 @@ export default function MemberScreen() {
             <View style={{ gap: 12 }}>
               <PillTabs<Tab>
                 options={[
+                  { id: 'notes', label: 'Notes', count: m.notes.length },
                   { id: 'answers', label: 'Answers', count: m.replies.length },
                   { id: 'posts', label: 'Posts', count: m.threads.length },
                 ]}
                 value={tab}
                 onChange={setTab}
               />
-              {tab === 'answers' ? (
+              {tab === 'notes' ? (
+                m.notes.length ? (
+                  m.notes.map((n) => <NoteRow key={n.id} note={n} onProduct={() => openProduct(n.product_id, n.product_name)} />)
+                ) : (
+                  <Empty text={isMe ? 'Your Ownership Notes show up here after you verify a product and tell people how it actually lived with you.' : 'No Ownership Notes yet.'} />
+                )
+              ) : tab === 'answers' ? (
                 m.replies.length ? (
                   m.replies.map((r) => <AnswerRow key={r.id} reply={r} onPress={() => openThread(r.thread_id)} />)
                 ) : (
@@ -131,7 +144,8 @@ function Stat({ value, label }: { value: number; label: string }) {
   );
 }
 
-function OwnedCard({ item, onPress }: { item: OwnedProduct; onPress: () => void }) {
+function OwnedCard({ item, notes, onPress }: { item: OwnedProduct; notes: OwnershipNote[]; onPress: () => void }) {
+  const latest = notes[0];
   return (
     <Pressable
       onPress={() => {
@@ -147,10 +161,56 @@ function OwnedCard({ item, onPress }: { item: OwnedProduct; onPress: () => void 
         </View>
       </View>
       <Text numberOfLines={2} style={{ fontFamily: fonts.semibold, fontSize: 13.5, lineHeight: 18, color: colors.bone }}>{item.productName}</Text>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.bone3 }}>
-        {item.category ? `${item.category} · ` : ''}verified {item.verifiedAt ? timeAgo(item.verifiedAt) : ''}
+      <Text numberOfLines={2} style={{ fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 15, color: colors.bone3 }}>
+        {notes.length ? `${notes.length} Ownership ${notes.length === 1 ? 'Note' : 'Notes'}${latest?.used_duration ? ` · ${latest.used_duration}` : ''}` : `${item.category ? `${item.category} · ` : ''}verified ${item.verifiedAt ? timeAgo(item.verifiedAt) : ''}`}
       </Text>
     </Pressable>
+  );
+}
+
+function NoteRow({ note, onProduct }: { note: OwnershipNote; onProduct: () => void }) {
+  const details = [
+    note.used_duration ? `Used ${note.used_duration}` : '',
+    note.times_bought ? `${note.times_bought}x bought/used` : '',
+    note.time_to_problem ? `Problem after ${note.time_to_problem}` : '',
+    note.time_to_results ? `Results after ${note.time_to_results}` : '',
+  ].filter(Boolean);
+  return (
+    <View style={{ backgroundColor: colors.lac, borderRadius: 20, padding: 14, gap: 10 }}>
+      <Pressable
+        onPress={() => {
+          hapticTap();
+          onProduct();
+        }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+      >
+        <ProductImage uri={note.product_image} category={note.category ?? ''} size={42} radius={11} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.bone3 }}>{note.product_name}</Text>
+          <Text numberOfLines={2} style={{ fontFamily: fonts.bold, fontSize: 16, lineHeight: 20, color: colors.bone }}>{note.title}</Text>
+        </View>
+        <SealCheck size={17} color={colors.hi} weight="fill" />
+      </Pressable>
+      <Text numberOfLines={4} style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 21, color: colors.bone2 }}>{note.body}</Text>
+      {details.length ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {details.map((d) => (
+            <View key={d} style={{ backgroundColor: colors.hiSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.hiInk }}>{d}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        {note.rating ? <Text style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: colors.bone3 }}>{note.rating}/5</Text> : null}
+        {note.would_rebuy != null ? (
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: note.would_rebuy ? colors.sageInk : colors.honeyInk }}>
+            {note.would_rebuy ? 'Would buy again' : 'Would not buy again'}
+          </Text>
+        ) : null}
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>{timeAgo(note.created_at)}</Text>
+      </View>
+    </View>
   );
 }
 

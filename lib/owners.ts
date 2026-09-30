@@ -5,7 +5,7 @@ import { callIntel } from './products';
 import { prepareImage, type VisionAsset } from './productVision';
 import { useAppStore } from './store';
 import { supabaseAnonKey, supabaseUrl } from './supabase';
-import type { Product } from './types';
+import type { OwnershipMilestone, OwnershipNote, Product } from './types';
 
 /** A product a member proved they own with a live in-app photo. Ownership is per product, never global. */
 export interface OwnedProduct {
@@ -51,9 +51,10 @@ export interface MemberProfile {
   name: string;
   joinedAt: string | null;
   owned: OwnedProduct[];
+  notes: OwnershipNote[];
   replies: MemberReply[];
   threads: MemberThread[];
-  stats: { answers: number; posts: number; helpful: number; verified: number };
+  stats: { answers: number; posts: number; helpful: number; verified: number; notes: number };
 }
 
 export type VerifyOutcome =
@@ -63,6 +64,53 @@ export type VerifyOutcome =
 export async function fetchMember(id: string): Promise<MemberProfile> {
   const res = await callIntel<{ member: MemberProfile }>({ action: 'member', profileId: id }, 20000);
   return res.member;
+}
+
+export type OwnershipNoteInput = {
+  product: Pick<Product, 'id' | 'name' | 'brand' | 'category' | 'heroImageUrl'>;
+  milestone: OwnershipMilestone;
+  title: string;
+  body: string;
+  usedFor?: string;
+  usedDuration?: string;
+  timesBought?: number | null;
+  rating?: number | null;
+  wouldRebuy?: boolean | null;
+  timeToProblem?: string;
+  timeToResults?: string;
+  positiveTags?: string[];
+  issueTags?: string[];
+  contextTags?: string[];
+};
+
+/** A verified owner contributes an Ownership Note: richer than a review, useful to future answers. */
+export async function createOwnershipNote(input: OwnershipNoteInput): Promise<OwnershipNote> {
+  const res = await callIntel<{ note?: OwnershipNote }>(
+    {
+      action: 'ownership_note',
+      productId: input.product.id,
+      productName: input.product.name,
+      productImage: input.product.heroImageUrl ?? null,
+      brand: input.product.brand,
+      category: input.product.category,
+      milestone: input.milestone,
+      title: input.title,
+      body: input.body,
+      usedFor: input.usedFor,
+      usedDuration: input.usedDuration,
+      timesBought: input.timesBought,
+      rating: input.rating,
+      wouldRebuy: input.wouldRebuy,
+      timeToProblem: input.timeToProblem,
+      timeToResults: input.timeToResults,
+      positiveTags: input.positiveTags ?? [],
+      issueTags: input.issueTags ?? [],
+      contextTags: input.contextTags ?? [],
+    },
+    20000,
+  );
+  if (!res.note) throw new Error('note_failed');
+  return res.note;
 }
 
 const VERIFY_ERRORS: Record<string, string> = {

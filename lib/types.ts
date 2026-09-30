@@ -221,6 +221,37 @@ export interface CommunityNotification {
   created_at: string;
 }
 
+export type OwnershipMilestone = 'first_note' | 'one_week' | 'one_month' | 'three_months' | 'six_months' | 'one_year' | 'after_problem' | 'update';
+
+/** A verified owner telling Sourced what living with the product is actually like. */
+export interface OwnershipNote {
+  id: string;
+  user_id: string;
+  author_name: string;
+  product_id: string;
+  product_name: string;
+  product_image: string | null;
+  brand: string | null;
+  category: string | null;
+  verification_id?: string | null;
+  milestone: OwnershipMilestone;
+  title: string;
+  body: string;
+  used_for: string | null;
+  used_duration: string | null;
+  times_bought: number | null;
+  rating: number | null;
+  would_rebuy: boolean | null;
+  time_to_problem: string | null;
+  time_to_results: string | null;
+  positive_tags: string[];
+  issue_tags: string[];
+  context_tags: string[];
+  helpful: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ProductRoom {
   posts: number;
   byKind: Partial<Record<ThreadKind, number>>;
@@ -233,6 +264,8 @@ export interface ProductRoom {
   compares30d: number;
   verifiedOwners?: number;
   owners?: { id: string; name: string }[];
+  ownershipNotes?: number;
+  notes?: OwnershipNote[];
   score: number | null;
   consensus: string | null;
   praise: string[];
@@ -284,6 +317,7 @@ export interface Pulse {
   asks: { product_id: string; product_name: string | null; compare_id: string | null; question: string; answered: boolean; created_at: string }[];
   threads: CommunityThread[];
   voices?: WebVoice[];
+  notes?: OwnershipNote[];
   stats: { productsResearched: number; actionsThisWeek: number; questionsAsked: number };
 }
 

@@ -1,34 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter, type Href } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AvatarStack, SectionHead, ThreadCard, TrendingCard } from '@/components/community';
 import { Screen } from '@/components/Screen';
-import { Typewriter, type TypedLine } from '@/components/Typewriter';
 import { ArrowsLeftRight, Clock, Fire, Scan } from '@/components/icons';
 import { Eyebrow, ProductImage, SearchBar, Shimmer, Tile } from '@/components/kit';
 import { colors, fonts } from '@/constants/theme';
-import { fetchPulse, nicheLabel, nicheOf, type NicheId } from '@/lib/community';
+import { fetchPulse, nicheLabel, nicheOf, timeAgo, type NicheId } from '@/lib/community';
 import { hapticSelect, hapticTap } from '@/lib/haptics';
 import { displayName, getKnownProduct, rememberProduct } from '@/lib/products';
 import { useAppStore } from '@/lib/store';
-import type { TrendingProduct } from '@/lib/types';
+import type { OwnershipNote, TrendingProduct } from '@/lib/types';
 import { useScan } from '@/lib/useScan';
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 const TRY = ['AirPods Pro 2', 'Anker 20W charger', 'Nike Pegasus 41', 'Ninja blender', 'PS5 controller', 'Kindle Paperwhite'];
 
-const HEADLINES: TypedLine[] = [
-  { line: 'Know it before you buy it.', sub: 'Real owners. Real talk. Every product.' },
-  { line: 'Smart people search first.', sub: 'Two minutes here beats two years of regret.' },
-  { line: 'Remember the one that broke in a week?', sub: 'Its owners saw it coming. Ask them first.' },
-  { line: 'Great in the ad. What about month six?', sub: 'Hear from the people who actually kept it.' },
-  { line: 'Shazam for products.', sub: 'Point your camera. Know exactly what it is.' },
-  { line: 'The box won’t tell you. Owners will.', sub: 'Hidden flaws and honest praise — before you pay.' },
-  { line: 'Is it worth it — really?', sub: 'Answers from owners, not sellers.' },
-  { line: 'Don’t guess. Know.', sub: 'Your money deserves the whole truth.' },
+const SUBLINES = [
+  'Snap a product. Ask owners. Avoid bad buys.',
+  'See what broke, what lasted, and what people bought again.',
+  'Compare products by what owners actually experienced.',
+  'Build your verified shelf and help the next buyer.',
 ];
 
 const HINTS = [
@@ -65,6 +60,7 @@ export default function HomeScreen() {
   }, [trending]);
   const shown = niche === 'all' ? trending : trending.filter((t) => nicheOf(t.category) === niche);
   const threads = (pulse.data?.threads ?? []).slice(0, 4);
+  const notes = (pulse.data?.notes ?? []).slice(0, 4);
   const stats = pulse.data?.stats;
   const faces = [...new Set(threads.map((t) => t.author_name))].map((name) => ({ name }));
 
@@ -88,11 +84,10 @@ export default function HomeScreen() {
       <View style={{ paddingTop: 18, gap: 22 }}>
         <View style={{ gap: 8 }}>
           <Eyebrow color={colors.hi}>{profile ? `Welcome back, ${profile.displayName.split(' ')[0]}` : 'The product community'}</Eyebrow>
-          <Typewriter
-            lines={HEADLINES}
-            style={{ fontFamily: fonts.bold, fontSize: 34, letterSpacing: -1, lineHeight: 38, color: colors.bone }}
-            subStyle={{ fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 21, color: colors.bone2 }}
-          />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 34, letterSpacing: -1, lineHeight: 38, color: colors.bone }}>
+            Sourced is the product community where real owners help you decide.
+          </Text>
+          <AnimatedSubtext lines={SUBLINES} />
         </View>
 
         <SearchBar
@@ -190,6 +185,19 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
+        {notes.length ? (
+          <View style={{ gap: 12 }}>
+            <SectionHead title="Fresh from verified shelves" action="Pulse" onAction={() => router.push('/pulse' as Href)} />
+            {notes.map((n) => (
+              <OwnershipNotePreview
+                key={n.id}
+                note={n}
+                onPress={() => router.push({ pathname: '/product/[id]', params: { id: n.product_id, q: n.product_name } } as Href)}
+              />
+            ))}
+          </View>
+        ) : null}
+
         <View style={{ gap: 10 }}>
           <Eyebrow>{history.length ? 'Your recent searches' : 'Curious? Try'}</Eyebrow>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -261,5 +269,71 @@ function ScanOverlay({ visible, preview }: { visible: boolean; preview: string |
         </View>
       </View>
     </Modal>
+  );
+}
+
+function AnimatedSubtext({ lines }: { lines: string[] }) {
+  const [index, setIndex] = useState(0);
+  const fade = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const t = setInterval(() => {
+      Animated.sequence([
+        Animated.timing(fade, { toValue: 0, duration: 180, useNativeDriver: true }),
+        Animated.timing(fade, { toValue: 1, duration: 260, useNativeDriver: true }),
+      ]).start();
+      setIndex((i) => (i + 1) % lines.length);
+    }, 3600);
+    return () => clearInterval(t);
+  }, [fade, lines.length]);
+  return (
+    <Animated.Text style={{ opacity: fade, fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 21, color: colors.bone2 }}>
+      {lines[index]}
+    </Animated.Text>
+  );
+}
+
+function OwnershipNotePreview({ note, onPress }: { note: OwnershipNote; onPress: () => void }) {
+  const chips = [
+    note.used_duration ? `Used ${note.used_duration}` : '',
+    note.times_bought ? `${note.times_bought}x bought/used` : '',
+    note.time_to_problem ? `Problem after ${note.time_to_problem}` : '',
+    note.time_to_results ? `Results after ${note.time_to_results}` : '',
+  ].filter(Boolean);
+  return (
+    <Pressable
+      onPress={() => {
+        hapticTap();
+        onPress();
+      }}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        gap: 12,
+        backgroundColor: colors.lac,
+        borderRadius: 18,
+        padding: 12,
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      <ProductImage uri={note.product_image} category={note.category ?? ''} size={52} radius={13} />
+      <View style={{ flex: 1, gap: 5 }}>
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+          <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 12.5, color: colors.hiInk }}>
+            {note.author_name} added an Ownership Note
+          </Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.bone3 }}>{timeAgo(note.created_at)}</Text>
+        </View>
+        <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.bone3 }}>{note.product_name}</Text>
+        <Text numberOfLines={2} style={{ fontFamily: fonts.bold, fontSize: 15, lineHeight: 19, color: colors.bone }}>{note.title}</Text>
+        {chips.length ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+            {chips.slice(0, 2).map((c) => (
+              <View key={c} style={{ backgroundColor: colors.hiSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.hiInk }}>{c}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </View>
+    </Pressable>
   );
 }

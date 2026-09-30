@@ -21,8 +21,8 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const COMMUNITY_ACTIONS = new Set(["threads", "thread", "post", "reply", "helpful", "feed", "vote", "follow", "notifications", "notifications_read", "following", "upload", "room", "member"]);
-const MEMBER_ONLY_ACTIONS = new Set(["post", "reply", "helpful", "vote", "follow", "notifications", "notifications_read", "following", "upload"]);
+const COMMUNITY_ACTIONS = new Set(["threads", "thread", "post", "reply", "ownership_note", "helpful", "feed", "vote", "follow", "notifications", "notifications_read", "following", "upload", "room", "member"]);
+const MEMBER_ONLY_ACTIONS = new Set(["post", "reply", "ownership_note", "helpful", "vote", "follow", "notifications", "notifications_read", "following", "upload"]);
 
 const SEARCH_TTL_MS = 24 * 60 * 60 * 1000;
 const PROFILE_VERSION = 4;
@@ -998,7 +998,7 @@ function inList(ids: string[]): string {
 async function threadsFor(store: Db, ids: string[], limit: number): Promise<Json[]> {
   const list = inList(ids);
   return store.rows(
-    `community_threads?select=*,community_replies(id,author_name,is_owner,body,helpful,created_at)&or=(product_id.in.(${encodeURIComponent(list)}),compare_id.in.(${encodeURIComponent(list)}))&order=last_activity_at.desc&limit=${limit}`,
+    `community_threads?select=*,community_replies(id,author_id,author_name,is_owner,owner_product_id,owner_product_name,body,helpful,created_at)&or=(product_id.in.(${encodeURIComponent(list)}),compare_id.in.(${encodeURIComponent(list)}))&order=last_activity_at.desc&limit=${limit}`,
   );
 }
 
@@ -1006,10 +1006,33 @@ async function runAsk(store: Db, input: { productId: string; compareId?: string;
   const ids = [...new Set([input.productId, input.compareId, ...(input.compareIds ?? [])].filter(Boolean) as string[])].slice(0, 3);
   const profiles = await Promise.all(ids.map((id) => store.select("product_intel", `id=eq.${encodeURIComponent(id)}`)));
   const payloads = profiles.map((p) => p?.payload as Json | undefined).filter(Boolean) as Json[];
-  if (!payloads.length) return { error: "not_investigated" };
 
   type Item = { ref: string; author: string; avatar: string | null; platform: string; text: string; product: string; url: string | null };
   const items: Item[] = [];
+  const noteRows = ids.length
+    ? await store.rows(
+        `ownership_notes?select=*&product_id=in.(${encodeURIComponent(inList(ids))})&order=created_at.desc&limit=50`,
+      )
+    : [];
+  for (const n of noteRows) {
+    const details = [
+      str(n.used_for, 120) ? `used for ${str(n.used_for, 120)}` : "",
+      str(n.used_duration, 80) ? `used ${str(n.used_duration, 80)}` : "",
+      Number(n.times_bought) > 0 ? `bought/used ${Number(n.times_bought)} time(s)` : "",
+      str(n.time_to_problem, 80) ? `problem after ${str(n.time_to_problem, 80)}` : "",
+      str(n.time_to_results, 80) ? `results after ${str(n.time_to_results, 80)}` : "",
+      Array.isArray(n.issue_tags) && n.issue_tags.length ? `issues: ${(n.issue_tags as string[]).slice(0, 5).join(", ")}` : "",
+    ].filter(Boolean).join("; ");
+    items.push({
+      ref: `N${items.length + 1}`,
+      author: `${str(n.author_name, 40)} (verified owner)`,
+      avatar: null,
+      platform: "sourced",
+      text: `Ownership Note “${str(n.title, 120)}”${details ? ` (${details})` : ""}: ${str(n.body, 520)}`,
+      product: str(n.product_name, 80),
+      url: null,
+    });
+  }
   for (const p of payloads) {
     const pname = str((p.identity as Json | undefined)?.name, 80) || str(p.query, 80);
     for (const v of (Array.isArray(p.voices) ? p.voices : []) as Json[]) {
@@ -1042,11 +1065,22 @@ async function runAsk(store: Db, input: { productId: string; compareId?: string;
   const threads = await threadsFor(store, ids, 20);
   for (const t of threads) {
     const pname = str(t.product_name, 80);
+    if (str(t.title, 120) || str(t.body, 800)) {
+      items.push({
+        ref: `M${items.length + 1}`,
+        author: `${str(t.author_name, 40)}${t.owner_product_id ? " (verified owner)" : ""}`,
+        avatar: null,
+        platform: "sourced",
+        text: `Post: “${str(t.title, 160)}”${str(t.body, 800) ? ` — ${str(t.body, 800)}` : ""}`,
+        product: pname,
+        url: null,
+      });
+    }
     const replies = (Array.isArray(t.community_replies) ? t.community_replies : []) as Json[];
     for (const r of replies.slice(0, 12)) {
       items.push({
         ref: `M${items.length + 1}`,
-        author: `${str(r.author_name, 40)}${r.is_owner ? " (owner)" : ""}`,
+        author: `${str(r.author_name, 40)}${r.owner_product_id ? " (verified owner)" : r.is_owner ? " (owner)" : ""}`,
         avatar: null,
         platform: "sourced",
         text: `Re “${str(t.title, 120)}”: ${str(r.body, 360)}`,
@@ -1072,7 +1106,8 @@ ${items.slice(0, 70).map((i) => `${i.ref} | ${i.author} | ${i.product} | ${i.tex
 Return JSON:
 {"answer":"","mark":"3-9 words copied exactly from your answer — the key takeaway","cites":["V1"],"enough":true,"followups":["",""]}`;
 
-  const llm = items.length ? await callLlm(prompt, 700, 20000) : { data: null, model: null, errors: ["no_voices"] };
+  if (!items.length) return { error: payloads.length ? "no_voices" : "not_investigated" };
+  const llm = await callLlm(prompt, 700, 20000);
   const d = (llm.data ?? {}) as Json;
   const answer = str(d.answer, 900);
   const mark = str(d.mark, 90);
@@ -1083,7 +1118,7 @@ Return JSON:
     .map(({ ref, ...rest }) => ({ id: ref, ...rest, text: rest.text.slice(0, 240) }));
   const enough = d.enough !== false && Boolean(answer) && cites.length > 0;
 
-  const main = payloads[0];
+  const main = payloads[0] ?? ({ identity: { name: ids[0] }, query: ids[0] } as Json);
   await store.upsert("community_asks", {
     product_id: input.productId,
     product_name: str((main.identity as Json | undefined)?.name, 120),
@@ -1259,13 +1294,21 @@ async function ownedAmong(store: Db, memberId: string, productIds: string[]): Pr
   const ids = productIds.filter(Boolean);
   if (!memberId || !ids.length) return null;
   const rows = await store.rows(
-    `owner_verifications?select=product_id,product_name,product_image&user_id=eq.${encodeURIComponent(memberId)}&status=eq.verified&limit=200`,
+    `owner_verifications?select=id,product_id,product_name,product_image&user_id=eq.${encodeURIComponent(memberId)}&status=eq.verified&limit=200`,
   );
   for (const id of ids) {
     const hit = rows.find((r) => sameProduct(String(r.product_id), id));
     if (hit) return { product_id: String(hit.product_id), product_name: String(hit.product_name), product_image: (hit.product_image as string) ?? null };
   }
   return null;
+}
+
+async function verificationFor(store: Db, memberId: string, productId: string): Promise<Json | null> {
+  if (!memberId || !productId) return null;
+  const rows = await store.rows(
+    `owner_verifications?select=id,product_id,product_name,product_image,brand,category&user_id=eq.${encodeURIComponent(memberId)}&status=eq.verified&limit=200`,
+  );
+  return rows.find((r) => sameProduct(String(r.product_id), productId)) ?? null;
 }
 
 function ownerMark(owned: Owned | null): Json {
@@ -1391,11 +1434,12 @@ async function runSocial(store: Db, action: string, body: Json) {
     const productId = str(body.productId, 100);
     if (!productId) return { error: "missing_product" };
     const pid = encodeURIComponent(productId);
-    const [threads, intel, events, owners] = await Promise.all([
+    const [threads, intel, events, owners, notes] = await Promise.all([
       store.rows(`community_threads?select=kind,rating,votes,reply_count,follower_count,created_at&or=(product_id.eq.${pid},compare_id.eq.${pid})&limit=500`),
       store.select("product_intel", `id=eq.${pid}`),
       store.rows(`product_events?select=event,created_at&product_id=eq.${pid}&created_at=gte.${encodeURIComponent(new Date(Date.now() - 30 * 86400_000).toISOString())}&limit=5000`),
       store.rows(`owner_verifications?select=user_id,verified_at&product_id=eq.${pid}&status=eq.verified&order=verified_at.desc&limit=200`),
+      store.rows(`ownership_notes?select=*&product_id=eq.${pid}&order=created_at.desc&limit=8`),
     ]);
     const ownerIds = owners.slice(0, 5).map((o) => String(o.user_id));
     const ownerProfiles = ownerIds.length ? await store.rows(`profiles?select=id,display_name&id=in.(${ownerIds.join(",")})`) : [];
@@ -1417,6 +1461,8 @@ async function runSocial(store: Db, action: string, body: Json) {
         compares30d: events.filter((e) => e.event === "compare").length,
         verifiedOwners: owners.length,
         owners: ownerIds.map((id) => ({ id, name: str(ownerProfiles.find((p) => String(p.id) === id)?.display_name, 40) || "Member" })),
+        ownershipNotes: notes.length,
+        notes,
         score: payload?.score ?? null,
         consensus: payload?.consensus ?? null,
         praise: Array.isArray(payload?.praise) ? (payload!.praise as Json[]).slice(0, 3).map((p) => p.text) : [],
@@ -1430,9 +1476,10 @@ async function runSocial(store: Db, action: string, body: Json) {
     if (!id) return { error: "missing_member" };
     const m = encodeURIComponent(id);
     const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    const [profile, owned, replies, threads] = await Promise.all([
+    const [profile, owned, notes, replies, threads] = await Promise.all([
       uuid ? store.select("profiles", `id=eq.${m}`) : Promise.resolve(null),
       store.rows(`owner_verifications?select=product_id,product_name,brand,category,product_image,verified_at&user_id=eq.${m}&status=eq.verified&order=verified_at.desc&limit=100`),
+      store.rows(`ownership_notes?select=*&user_id=eq.${m}&order=created_at.desc&limit=80`),
       store.rows(
         `community_replies?select=id,body,helpful,created_at,is_owner,owner_product_id,owner_product_name,owner_product_image,thread_id,author_name,community_threads(id,title,product_id,product_name,product_image,compare_name)&author_id=eq.${m}&order=created_at.desc&limit=40`,
       ),
@@ -1440,8 +1487,8 @@ async function runSocial(store: Db, action: string, body: Json) {
         `community_threads?select=id,title,kind,product_id,product_name,product_image,compare_name,reply_count,votes,created_at,author_name,is_owner,owner_product_id,owner_product_name&author_id=eq.${m}&order=created_at.desc&limit=40`,
       ),
     ]);
-    const name = str(profile?.display_name, 40) || str(replies[0]?.author_name, 40) || str(threads[0]?.author_name, 40);
-    if (!name && !owned.length) return { error: "member_not_found" };
+    const name = str(profile?.display_name, 40) || str(notes[0]?.author_name, 40) || str(replies[0]?.author_name, 40) || str(threads[0]?.author_name, 40);
+    if (!name && !owned.length && !notes.length) return { error: "member_not_found" };
     return {
       member: {
         id,
@@ -1455,13 +1502,15 @@ async function runSocial(store: Db, action: string, body: Json) {
           productImage: o.product_image ?? null,
           verifiedAt: o.verified_at ?? null,
         })),
+        notes,
         replies: replies.map(({ author_name: _a, ...r }) => r),
         threads: threads.map(({ author_name: _a, ...t }) => t),
         stats: {
           answers: replies.length,
           posts: threads.length,
-          helpful: replies.reduce((a, r) => a + Number(r.helpful ?? 0), 0),
+          helpful: replies.reduce((a, r) => a + Number(r.helpful ?? 0), 0) + notes.reduce((a, n) => a + Number(n.helpful ?? 0), 0),
           verified: owned.length,
+          notes: notes.length,
         },
       },
     };
@@ -1528,6 +1577,52 @@ async function runCommunity(store: Db, action: string, body: Json) {
       event: "thread",
     });
     return { thread: { ...row, community_replies: [] } };
+  }
+
+  if (action === "ownership_note") {
+    const author = authorOf(body);
+    const productId = str(body.productId, 100);
+    const productName = str(body.productName, 160);
+    const title = str(body.title, 160);
+    const text = str(body.body, 2400);
+    if (!author) return { error: "missing_author" };
+    if (!productId || !productName || title.length < 4 || text.length < 8) return { error: "invalid_note" };
+    if (tooSpammy(title) || tooSpammy(text)) return { error: "links_not_allowed" };
+    const verification = await verificationFor(store, author.id, productId);
+    if (!verification) return { error: "verification_required" };
+    const milestone = str(body.milestone, 20);
+    const row = await store.insert("ownership_notes", {
+      user_id: author.id,
+      author_name: author.name,
+      product_id: productId,
+      product_name: productName,
+      product_image: str(body.productImage, 500) || verification.product_image || null,
+      brand: str(body.brand, 60) || verification.brand || null,
+      category: str(body.category, 60) || verification.category || null,
+      verification_id: verification.id,
+      milestone: ["first_note", "one_week", "one_month", "three_months", "six_months", "one_year", "after_problem", "update"].includes(milestone) ? milestone : "first_note",
+      title,
+      body: text,
+      used_for: str(body.usedFor, 200) || null,
+      used_duration: str(body.usedDuration, 80) || null,
+      times_bought: Number(body.timesBought) >= 0 ? Math.min(999, Math.round(Number(body.timesBought))) : null,
+      rating: Number(body.rating) >= 1 && Number(body.rating) <= 5 ? Math.round(Number(body.rating)) : null,
+      would_rebuy: typeof body.wouldRebuy === "boolean" ? body.wouldRebuy : null,
+      time_to_problem: str(body.timeToProblem, 80) || null,
+      time_to_results: str(body.timeToResults, 80) || null,
+      positive_tags: strList(body.positiveTags, 8, 40),
+      issue_tags: strList(body.issueTags, 8, 40),
+      context_tags: strList(body.contextTags, 8, 40),
+    });
+    if (!row) return { error: "note_failed" };
+    await store.upsert("product_events", {
+      product_id: productId,
+      name: productName,
+      category: str(body.category, 60) || null,
+      image: str(body.productImage, 500) || null,
+      event: "thread",
+    });
+    return { note: row };
   }
 
   if (action === "reply") {
@@ -1602,11 +1697,12 @@ async function runCommunity(store: Db, action: string, body: Json) {
 
 async function runPulse(store: Db, category: string) {
   const since = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
-  const [trending, recentProfiles, asks, threads, events] = await Promise.all([
+  const [trending, recentProfiles, asks, threads, notes, events] = await Promise.all([
     store.rpc("trending_products", { days: 14, cat: category || null, lim: 30 }),
     store.rows(`product_intel?select=id,name,brand,category,hero_image_url,verified_at,payload->voices,payload->score&order=verified_at.desc&limit=40`),
     store.rows(`community_asks?select=product_id,product_name,compare_id,question,answered,created_at&order=created_at.desc&limit=20`),
     store.rows(`community_threads?select=*&order=last_activity_at.desc&limit=40`),
+    store.rows(`ownership_notes?select=*&order=created_at.desc&limit=20`),
     store.rows(`product_events?select=product_id,event&created_at=gte.${encodeURIComponent(since(24 * 7))}&limit=2000`),
   ]);
   const list = trending.map((t) => ({
@@ -1664,6 +1760,7 @@ async function runPulse(store: Db, category: string) {
     trending: list,
     asks,
     threads,
+    notes: category ? notes.filter((n) => str(n.category, 60).toLowerCase() === category.toLowerCase()) : notes,
     stats: {
       productsResearched: people,
       actionsThisWeek: events.length,
@@ -1805,7 +1902,7 @@ Deno.serve(async (req) => {
       return json({ success: !("error" in out), ...out });
     }
 
-    if (["threads", "thread", "post", "reply", "helpful"].includes(action)) {
+    if (["threads", "thread", "post", "reply", "ownership_note", "helpful"].includes(action)) {
       const out = (await runCommunity(store, action, body)) as Json;
       return json({ success: !out.error, ...out }, out.error ? 400 : 200);
     }
