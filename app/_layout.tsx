@@ -91,6 +91,7 @@ function RootLayout() {
                 <Stack.Screen name="thread/[id]" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="compare" options={{ animation: 'slide_from_bottom' }} />
                 <Stack.Screen name="room/[id]" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="member/[id]" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="research/index" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="research/[id]" options={{ animation: 'slide_from_right' }} />

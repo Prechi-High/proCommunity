@@ -74,7 +74,7 @@ export default function NotificationsScreen() {
               <View style={{ flex: 1, gap: 3 }}>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 20, color: colors.bone }}>
                   <Text style={{ fontFamily: fonts.semibold }}>{item.actor_name}</Text>
-                  {item.kind === 'owner_reply' ? ' (owns it) replied to ' : ' replied to '}
+                  {item.kind === 'owner_reply' ? ' (verified owner) replied to ' : ' replied to '}
                   <Text style={{ fontFamily: fonts.semibold }}>“{item.thread_title}”</Text>
                 </Text>
                 {item.snippet ? (

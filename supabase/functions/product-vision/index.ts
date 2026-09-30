@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { verifyOwner } from "./verify.ts";
 
 /**
  * product-vision
@@ -371,8 +372,43 @@ stitching, sole pattern, cap/nozzle shape, packaging layout and colours, colourw
 If text is partly hidden, infer from distinctive design. Name the specific model/generation and variant
 (size, capacity, volume, colour, flavour, scent, storage) whenever visible or inferable.
 Return JSON only:
-{"brand":"","name":"product line + model, without the brand","model":"model number/code if known","variant":"size/colour/capacity etc","category":"short general type e.g. Wireless earbuds, Running shoes, Face serum","visible_text":[""],"features":["short distinguishing visual cues"],"search_query":"the most specific shopping query for this exact item","alternatives":["up to 3 other exact products it could be"],"confidence":0.0}
+{"brand":"","name":"product line + model, without the brand","model":"model number/code if known","variant":"size/colour/capacity etc","category":"short general type e.g. Wireless earbuds, Running shoes, Face serum","visible_text":[""],"features":["short distinguishing visual cues"],"search_query":"the most specific shopping query for this exact item","alternatives":["up to 3 other exact products it could be"],"confidence":0.0,"products":[]}
+The top-level fields describe the most prominent product.
+If the photo shows MORE THAN ONE distinct product (different items — not several units of the same item, not parts or accessories of one product, not background furniture),
+fill "products" with every distinct product, most prominent first, at most 6:
+[{"brand":"","name":"","model":"","category":"","search_query":"","box_2d":[ymin,xmin,ymax,xmax],"confidence":0.0}] with box_2d on a 0-1000 scale.
+For a single product leave "products" empty.
 If no product is visible return {"brand":"","name":"","confidence":0}.`;
+
+type Detected = { label: string; brand: string; name: string; model: string; category: string; searchQuery: string; box: number[] | null; confidence: number };
+
+function toDetected(v: unknown): Detected[] {
+  if (!Array.isArray(v)) return [];
+  const seen = new Set<string>();
+  const out: Detected[] = [];
+  for (const raw of v.slice(0, 8)) {
+    const j = (raw ?? {}) as Record<string, unknown>;
+    const brand = str(j.brand, 60);
+    let name = str(j.name, 120);
+    if (brand && name.toLowerCase().startsWith(brand.toLowerCase() + " ")) name = name.slice(brand.length).trim();
+    const label = [brand, name || str(j.model, 60)].filter(Boolean).join(" ");
+    const key = label.toLowerCase();
+    if (!label || looksLikeJson(label) || seen.has(key)) continue;
+    seen.add(key);
+    const box = Array.isArray(j.box_2d) && j.box_2d.length === 4 ? j.box_2d.map((n) => Math.max(0, Math.min(1000, Number(n) || 0))) : null;
+    out.push({
+      label,
+      brand,
+      name: name || label,
+      model: str(j.model, 60),
+      category: str(j.category, 50),
+      searchQuery: str(j.search_query, 140) || label,
+      box: box && box[2] > box[0] && box[3] > box[1] ? box : null,
+      confidence: Math.max(0, Math.min(1, Number(j.confidence) || 0.6)),
+    });
+  }
+  return out.slice(0, 6);
+}
 
 type Lens = { title: string; source: string; link: string; image: string };
 type Exact = {
@@ -542,6 +578,8 @@ async function identifyExact(b64: string, mime: string, gKey: string) {
   let exact = toExact(first.data);
   const errors = [...first.errors];
   let model = first.model;
+  const detected = toDetected(first.data?.products);
+  if (detected.length > 1) return { exact, matches, imageUrl, errors, model, detected };
 
   if (matches.length) {
     const reconcile = `You identified a product from this photo. Your first read: ${JSON.stringify(first.data ?? {}).slice(0, 900)}
@@ -560,7 +598,7 @@ match the photo. Return JSON only:
       model = second.model || model;
     }
   }
-  return { exact, matches, imageUrl, errors, model };
+  return { exact, matches, imageUrl, errors, model, detected: [] as Detected[] };
 }
 
 function exactLabel(e: Exact): string {
@@ -590,7 +628,7 @@ Deno.serve(async (req) => {
   const debug = url.searchParams.get("debug") === "1";
 
   let body:
-    | { imageBase64?: string; imageDataUri?: string; mimeType?: string; fileName?: string; prompt?: string; format?: string }
+    | { imageBase64?: string; imageDataUri?: string; mimeType?: string; fileName?: string; prompt?: string; format?: string; action?: string; source?: string; product?: Record<string, unknown> }
     | null = null;
   try { body = (await req.json()) as typeof body; } catch { body = null; }
   if (!body) return json({ error: "missing_body" }, 400);
@@ -607,6 +645,11 @@ Deno.serve(async (req) => {
     return json({ error: "missing_image" }, 400);
   }
   if (!b64) return json({ error: "empty_image" }, 400);
+
+  if (body.action === "verify_owner") {
+    const out = await verifyOwner(req, body as Record<string, unknown>, b64, mime, geminiJson, secretValue("GEMINI_API_KEY") || secretValue("GOOGLE_API_KEY"));
+    return json(out.body, out.status);
+  }
 
   const wantsJson = body.format === "json";
   const prompt = (body.prompt?.trim() && body.prompt.length >= 8) ? body.prompt : wantsJson ? JSON_PROMPT : DEFAULT_PROMPT;
@@ -633,6 +676,7 @@ Deno.serve(async (req) => {
           alternatives: e.alternatives,
           imageUrl: out.val.imageUrl,
           matches: [...picked, ...rest].slice(0, 12).map((m) => ({ ...m, exact: picked.includes(m) })),
+          products: out.val.detected,
           ...(debug ? { errors: out.val.errors, llm: out.val.model } : {}),
         });
       }

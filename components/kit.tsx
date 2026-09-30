@@ -532,6 +532,7 @@ export function GroupRow({
   last,
   icon: I,
   detail,
+  badge,
 }: {
   label: string;
   value?: string;
@@ -539,6 +540,7 @@ export function GroupRow({
   last?: boolean;
   icon?: IconCmp;
   detail?: string;
+  badge?: string;
 }) {
   const body = (
     <View
@@ -556,6 +558,7 @@ export function GroupRow({
         <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.bone }}>{label}</Text>
         {detail ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>{detail}</Text> : null}
       </View>
+      {badge ? <Pill label={badge} tone="accent" /> : null}
       {value ? (
         <Text numberOfLines={2} style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.bone2, maxWidth: '58%', textAlign: 'right' }}>
           {value}

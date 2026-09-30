@@ -21,7 +21,7 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const COMMUNITY_ACTIONS = new Set(["threads", "thread", "post", "reply", "helpful", "feed", "vote", "follow", "notifications", "notifications_read", "following", "upload", "room"]);
+const COMMUNITY_ACTIONS = new Set(["threads", "thread", "post", "reply", "helpful", "feed", "vote", "follow", "notifications", "notifications_read", "following", "upload", "room", "member"]);
 const MEMBER_ONLY_ACTIONS = new Set(["post", "reply", "helpful", "vote", "follow", "notifications", "notifications_read", "following", "upload"]);
 
 const SEARCH_TTL_MS = 24 * 60 * 60 * 1000;
@@ -1002,8 +1002,8 @@ async function threadsFor(store: Db, ids: string[], limit: number): Promise<Json
   );
 }
 
-async function runAsk(store: Db, input: { productId: string; compareId?: string; question: string }) {
-  const ids = [input.productId, input.compareId].filter(Boolean) as string[];
+async function runAsk(store: Db, input: { productId: string; compareId?: string; compareIds?: string[]; question: string }) {
+  const ids = [...new Set([input.productId, input.compareId, ...(input.compareIds ?? [])].filter(Boolean) as string[])].slice(0, 3);
   const profiles = await Promise.all(ids.map((id) => store.select("product_intel", `id=eq.${encodeURIComponent(id)}`)));
   const payloads = profiles.map((p) => p?.payload as Json | undefined).filter(Boolean) as Json[];
   if (!payloads.length) return { error: "not_investigated" };
@@ -1062,7 +1062,7 @@ using ONLY what real people said below. No outside knowledge, no marketing, no g
 If the voices don't cover the question, say so plainly and set "enough": false — e.g. "No owner has mentioned heat yet", then share the closest thing people did say, if any.
 Talk about "owners" or "people", never "the voices", "the data" or "the provided text".
 When possible say how many people back a point ("3 owners mention…"). Keep it to 2-4 short sentences.
-${compare ? "The shopper is comparing two products — be clear which product each point is about." : ""}
+${compare ? `The shopper is comparing ${payloads.length} products — be clear which product each point is about.` : ""}
 
 Question: "${input.question}"
 
@@ -1111,6 +1111,121 @@ Return JSON:
 }
 
 // ---------------------------------------------------------------------------
+// compare — what people compare these products for, then a focused, sourced comparison
+
+type CompareItem = { id: string; name: string; category: string };
+
+function compareItems(v: unknown): CompareItem[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((x) => ({ id: str((x as Json)?.id, 100), name: str((x as Json)?.name, 120), category: str((x as Json)?.category, 60) }))
+    .filter((x) => x.name)
+    .slice(0, 3);
+}
+
+const aspectCache = new Map<string, { at: number; aspects: Json[] }>();
+
+async function runCompareAspects(items: CompareItem[]) {
+  const key = items.map((i) => i.name.toLowerCase()).sort().join("|");
+  const hit = aspectCache.get(key);
+  if (hit && Date.now() - hit.at < 6 * 3600_000) return { aspects: hit.aspects, cached: true };
+
+  const vs = items.map((i) => i.name).join(" vs ");
+  const web = await serper<{ relatedSearches?: Array<{ query?: string }>; peopleAlsoAsk?: Array<{ question?: string }>; organic?: SerperOrganic[] }>(
+    "search",
+    { q: vs, num: 8 },
+  );
+  const signals = [
+    ...(web?.relatedSearches ?? []).map((r) => str(r.query, 120)),
+    ...(web?.peopleAlsoAsk ?? []).map((r) => str(r.question, 160)),
+    ...(web?.organic ?? []).map((o) => str(o.title, 140)),
+  ].filter(Boolean);
+
+  const prompt = `A shopper wants to compare: ${items.map((i) => `${i.name}${i.category ? ` (${i.category})` : ""}`).join("; ")}.
+First understand what kind of products these are. Then list the things people most often compare THESE products on —
+concrete, decision-relevant aspects specific to this product type (e.g. phones: "Battery life", "Camera in low light", "Browsing & app speed";
+skincare: "Oily skin", "Fragrance", "Price per ml"; shoes: "Cushioning for long runs", "Durability", "Fit & sizing").
+Use what people actually search for below when it's relevant. 6 to 8 aspects, most popular first, no duplicates, no generic "Overall quality".
+
+What people search and ask:
+${signals.slice(0, 30).map((s) => `- ${s}`).join("\n") || "- (none found)"}
+
+Return JSON: {"kind":"short product type","aspects":[{"label":"2-4 words","why":"one short line on what it decides"}]}`;
+
+  const llm = await callLlm(prompt, 1500, 24000);
+  const d = (llm.data ?? {}) as Json;
+  const aspects = (Array.isArray(d.aspects) ? d.aspects : [])
+    .map((a) => ({ label: str((a as Json)?.label, 40), why: str((a as Json)?.why, 120) }))
+    .filter((a) => a.label)
+    .slice(0, 8);
+  if (aspects.length) aspectCache.set(key, { at: Date.now(), aspects });
+  return { kind: str(d.kind, 40), aspects, cached: false, ...(aspects.length ? {} : { errors: llm.errors.slice(0, 4) }) };
+}
+
+async function runCompareFocus(store: Db | null, items: CompareItem[], aspect: string) {
+  const profiles = store
+    ? await Promise.all(items.map((i) => (i.id ? store.select("product_intel", `id=eq.${encodeURIComponent(i.id)}`) : Promise.resolve(null))))
+    : items.map(() => null);
+  const vs = items.map((i) => i.name).join(" vs ");
+  const web = await serper<{ organic?: SerperOrganic[] }>("search", { q: `${vs} ${aspect}`, num: 10 });
+  const sources = (web?.organic ?? [])
+    .filter((o) => o.link && o.snippet)
+    .slice(0, 8)
+    .map((o, i) => ({ n: i + 1, title: str(o.title, 140), url: str(o.link, 500), domain: domainOf(String(o.link)), snippet: str(o.snippet, 320) }));
+
+  const known = items.map((item, i) => {
+    const p = (profiles[i]?.payload ?? null) as Json | null;
+    if (!p) return `${item.name}: (no saved research yet)`;
+    const list = (v: unknown, n: number) => (Array.isArray(v) ? (v as Json[]).slice(0, n).map((x) => str(x.text ?? `${str(x.label, 40)}: ${str(x.value, 80)}`, 160)) : []);
+    return `${item.name}:
+  specs: ${list(p.specs, 14).join(" | ")}
+  owners praise: ${list(p.praise, 5).join(" | ")}
+  owners complain: ${list(p.complaints, 5).join(" | ")}`;
+  });
+
+  const prompt = `Compare these products specifically on "${aspect}": ${items.map((i) => i.name).join(", ")}.
+Use ONLY the evidence below. Cite web results by their number. If the evidence doesn't settle it, say so — never invent numbers.
+Be concrete (e.g. benchmark results, hours, measurements, what owners report). Plain words, no marketing.
+
+What Sourced already knows:
+${known.join("\n")}
+
+Web results for "${vs} ${aspect}":
+${sources.map((s) => `[${s.n}] ${s.title} — ${s.snippet}`).join("\n") || "(no web results)"}
+
+Return JSON:
+{"summary":"2-3 sentences answering which is better for ${aspect} and why",
+"winner":"the exact name of the better product, copied from this list: ${items.map((i) => JSON.stringify(i.name)).join(", ")} — or null if it's a tie or unclear",
+"products":[{"verdict":"one short line for this product on ${aspect}","points":["up to 3 short evidence points"],"cites":[1]}],
+"enough":true}
+"products" must follow the order given.`;
+
+  const llm = await callLlm(prompt, 2000, 28000);
+  const d = (llm.data ?? {}) as Json;
+  const rows = Array.isArray(d.products) ? (d.products as Json[]) : [];
+  const winnerName = str(d.winner, 160).toLowerCase();
+  const winnerAt = winnerName ? items.findIndex((i) => i.name.toLowerCase() === winnerName) : -1;
+  const winner = winnerAt >= 0 ? winnerAt : winnerName ? items.findIndex((i) => winnerName.includes(i.name.toLowerCase()) || i.name.toLowerCase().includes(winnerName)) : -1;
+  return {
+    aspect,
+    summary: str(d.summary, 600) || "There isn’t enough published on this yet to call it.",
+    winner: winner >= 0 ? winner : null,
+    enough: d.enough !== false && Boolean(str(d.summary, 10)),
+    products: items.map((item, i) => {
+      const r = (rows[i] ?? {}) as Json;
+      return {
+        id: item.id,
+        name: item.name,
+        verdict: str(r.verdict, 200),
+        points: strList(r.points, 3, 180),
+        cites: (Array.isArray(r.cites) ? r.cites : []).map(Number).filter((n) => sources.some((s) => s.n === n)).slice(0, 4),
+      };
+    }),
+    sources: sources.map(({ snippet: _s, ...rest }) => rest),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // community
 
 type Author = { id: string; name: string };
@@ -1120,6 +1235,46 @@ function authorOf(body: Json): Author | null {
   const id = str(a.id, 60);
   const name = str(a.name, 40);
   return id && name ? { id, name } : null;
+}
+
+type Owned = { product_id: string; product_name: string; product_image: string | null };
+
+function slugTokens(id: string): string[] {
+  return id.toLowerCase().split("-").filter((t) => t.length > 0);
+}
+
+/** Same product under a slightly different slug (e.g. with or without the brand prefix). */
+function sameProduct(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  if (short.length < 8) return false;
+  const s = slugTokens(short);
+  const l = slugTokens(long);
+  return s.every((t) => l.includes(t)) && l.length - s.length <= 1;
+}
+
+/** The member's verified ownership of any of these products — the only source of "verified owner". */
+async function ownedAmong(store: Db, memberId: string, productIds: string[]): Promise<Owned | null> {
+  const ids = productIds.filter(Boolean);
+  if (!memberId || !ids.length) return null;
+  const rows = await store.rows(
+    `owner_verifications?select=product_id,product_name,product_image&user_id=eq.${encodeURIComponent(memberId)}&status=eq.verified&limit=200`,
+  );
+  for (const id of ids) {
+    const hit = rows.find((r) => sameProduct(String(r.product_id), id));
+    if (hit) return { product_id: String(hit.product_id), product_name: String(hit.product_name), product_image: (hit.product_image as string) ?? null };
+  }
+  return null;
+}
+
+function ownerMark(owned: Owned | null): Json {
+  return {
+    is_owner: Boolean(owned),
+    owner_product_id: owned?.product_id ?? null,
+    owner_product_name: owned?.product_name ?? null,
+    owner_product_image: owned?.product_image ?? null,
+  };
 }
 
 function tooSpammy(text: string): boolean {
@@ -1236,11 +1391,14 @@ async function runSocial(store: Db, action: string, body: Json) {
     const productId = str(body.productId, 100);
     if (!productId) return { error: "missing_product" };
     const pid = encodeURIComponent(productId);
-    const [threads, intel, events] = await Promise.all([
+    const [threads, intel, events, owners] = await Promise.all([
       store.rows(`community_threads?select=kind,rating,votes,reply_count,follower_count,created_at&or=(product_id.eq.${pid},compare_id.eq.${pid})&limit=500`),
       store.select("product_intel", `id=eq.${pid}`),
       store.rows(`product_events?select=event,created_at&product_id=eq.${pid}&created_at=gte.${encodeURIComponent(new Date(Date.now() - 30 * 86400_000).toISOString())}&limit=5000`),
+      store.rows(`owner_verifications?select=user_id,verified_at&product_id=eq.${pid}&status=eq.verified&order=verified_at.desc&limit=200`),
     ]);
+    const ownerIds = owners.slice(0, 5).map((o) => String(o.user_id));
+    const ownerProfiles = ownerIds.length ? await store.rows(`profiles?select=id,display_name&id=in.(${ownerIds.join(",")})`) : [];
     const byKind: Record<string, number> = {};
     for (const t of threads) byKind[String(t.kind)] = (byKind[String(t.kind)] ?? 0) + 1;
     const rated = threads.filter((t) => Number(t.rating) > 0);
@@ -1257,10 +1415,54 @@ async function runSocial(store: Db, action: string, body: Json) {
         views30d: events.filter((e) => e.event === "view").length,
         viewsThisWeek: events.filter((e) => e.event === "view" && +new Date(String(e.created_at)) > week).length,
         compares30d: events.filter((e) => e.event === "compare").length,
+        verifiedOwners: owners.length,
+        owners: ownerIds.map((id) => ({ id, name: str(ownerProfiles.find((p) => String(p.id) === id)?.display_name, 40) || "Member" })),
         score: payload?.score ?? null,
         consensus: payload?.consensus ?? null,
         praise: Array.isArray(payload?.praise) ? (payload!.praise as Json[]).slice(0, 3).map((p) => p.text) : [],
         complaints: Array.isArray(payload?.complaints) ? (payload!.complaints as Json[]).slice(0, 3).map((p) => p.text) : [],
+      },
+    };
+  }
+
+  if (action === "member") {
+    const id = str(body.profileId, 60);
+    if (!id) return { error: "missing_member" };
+    const m = encodeURIComponent(id);
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const [profile, owned, replies, threads] = await Promise.all([
+      uuid ? store.select("profiles", `id=eq.${m}`) : Promise.resolve(null),
+      store.rows(`owner_verifications?select=product_id,product_name,brand,category,product_image,verified_at&user_id=eq.${m}&status=eq.verified&order=verified_at.desc&limit=100`),
+      store.rows(
+        `community_replies?select=id,body,helpful,created_at,is_owner,owner_product_id,owner_product_name,owner_product_image,thread_id,author_name,community_threads(id,title,product_id,product_name,product_image,compare_name)&author_id=eq.${m}&order=created_at.desc&limit=40`,
+      ),
+      store.rows(
+        `community_threads?select=id,title,kind,product_id,product_name,product_image,compare_name,reply_count,votes,created_at,author_name,is_owner,owner_product_id,owner_product_name&author_id=eq.${m}&order=created_at.desc&limit=40`,
+      ),
+    ]);
+    const name = str(profile?.display_name, 40) || str(replies[0]?.author_name, 40) || str(threads[0]?.author_name, 40);
+    if (!name && !owned.length) return { error: "member_not_found" };
+    return {
+      member: {
+        id,
+        name: name || "Member",
+        joinedAt: profile?.created_at ?? null,
+        owned: owned.map((o) => ({
+          productId: o.product_id,
+          productName: o.product_name,
+          brand: o.brand ?? null,
+          category: o.category ?? null,
+          productImage: o.product_image ?? null,
+          verifiedAt: o.verified_at ?? null,
+        })),
+        replies: replies.map(({ author_name: _a, ...r }) => r),
+        threads: threads.map(({ author_name: _a, ...t }) => t),
+        stats: {
+          answers: replies.length,
+          posts: threads.length,
+          helpful: replies.reduce((a, r) => a + Number(r.helpful ?? 0), 0),
+          verified: owned.length,
+        },
       },
     };
   }
@@ -1296,7 +1498,9 @@ async function runCommunity(store: Db, action: string, body: Json) {
     if (!author) return { error: "missing_author" };
     if (!productId || !productName || title.length < 4) return { error: "invalid_thread" };
     if (tooSpammy(title) || tooSpammy(str(body.body, 2000))) return { error: "links_not_allowed" };
+    const owned = await ownedAmong(store, author.id, [productId, str(body.compareId, 100)]);
     const row = await store.insert("community_threads", {
+      ...ownerMark(owned),
       product_id: productId,
       product_name: productName,
       product_image: str(body.productImage, 500) || null,
@@ -1335,11 +1539,12 @@ async function runCommunity(store: Db, action: string, body: Json) {
     if (tooSpammy(text)) return { error: "links_not_allowed" };
     const thread = await store.select("community_threads", `id=eq.${encodeURIComponent(threadId)}`);
     if (!thread) return { error: "thread_not_found" };
+    const owned = await ownedAmong(store, author.id, [str(thread.product_id, 100), str(thread.compare_id, 100)]);
     const reply = await store.insert("community_replies", {
       thread_id: threadId,
       author_id: author.id,
       author_name: author.name,
-      is_owner: body.isOwner === true,
+      ...ownerMark(owned),
       body: text,
     });
     if (!reply) return { error: "reply_failed" };
@@ -1357,7 +1562,7 @@ async function runCommunity(store: Db, action: string, body: Json) {
           member_id: m,
           thread_id: threadId,
           actor_name: author.name,
-          kind: body.isOwner === true ? "owner_reply" : "reply",
+          kind: owned ? "owner_reply" : "reply",
           snippet: text.slice(0, 140),
           thread_title: str(thread.title, 140),
           product_name: str(thread.product_name, 120),
@@ -1565,6 +1770,15 @@ Deno.serve(async (req) => {
       return json({ success: Boolean(hit), profile: hit?.payload ?? null });
     }
 
+    if (action === "compare_aspects" || action === "compare_focus") {
+      const items = compareItems(body.products);
+      if (items.length < 2) return json({ error: "need_two_products" }, 400);
+      if (action === "compare_aspects") return json({ success: true, ...(await runCompareAspects(items)) });
+      const aspect = str(body.aspect, 60);
+      if (aspect.length < 2) return json({ error: "missing_aspect" }, 400);
+      return json({ success: true, ...(await runCompareFocus(db(), items, aspect)) });
+    }
+
     const store = db();
     if (!store) return json({ error: "storage_unavailable" }, 503);
 
@@ -1587,7 +1801,7 @@ Deno.serve(async (req) => {
       const productId = str(body.productId, 100);
       const question = str(body.question, 400);
       if (!productId || question.length < 3) return json({ error: "missing_question" }, 400);
-      const out = await runAsk(store, { productId, question, compareId: str(body.compareId, 100) || undefined });
+      const out = await runAsk(store, { productId, question, compareId: str(body.compareId, 100) || undefined, compareIds: strList(body.compareIds, 2, 100) });
       return json({ success: !("error" in out), ...out });
     }
 
@@ -1596,7 +1810,7 @@ Deno.serve(async (req) => {
       return json({ success: !out.error, ...out }, out.error ? 400 : 200);
     }
 
-    if (["feed", "vote", "follow", "notifications", "notifications_read", "following", "upload", "room"].includes(action)) {
+    if (["feed", "vote", "follow", "notifications", "notifications_read", "following", "upload", "room", "member"].includes(action)) {
       const out = (await runSocial(store, action, body)) as Json;
       return json({ success: !out.error, ...out }, out.error ? 400 : 200);
     }

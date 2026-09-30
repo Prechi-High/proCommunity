@@ -168,6 +168,10 @@ export interface CommunityReply {
   author_id: string;
   author_name: string;
   is_owner: boolean;
+  /** Set only when the author verified owning this exact product with a live photo. */
+  owner_product_id?: string | null;
+  owner_product_name?: string | null;
+  owner_product_image?: string | null;
   body: string;
   helpful: number;
   created_at: string;
@@ -198,6 +202,10 @@ export interface CommunityThread {
   brand?: string | null;
   voted?: boolean;
   following?: boolean;
+  is_owner?: boolean;
+  owner_product_id?: string | null;
+  owner_product_name?: string | null;
+  owner_product_image?: string | null;
   community_replies?: CommunityReply[];
 }
 
@@ -223,6 +231,8 @@ export interface ProductRoom {
   views30d: number;
   viewsThisWeek: number;
   compares30d: number;
+  verifiedOwners?: number;
+  owners?: { id: string; name: string }[];
   score: number | null;
   consensus: string | null;
   praise: string[];

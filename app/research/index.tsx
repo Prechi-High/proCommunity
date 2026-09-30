@@ -26,7 +26,7 @@ export default function ResearchListScreen() {
           <View style={{ backgroundColor: colors.lac, borderRadius: 20, padding: 20, gap: 10, alignItems: 'flex-start' }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.bone }}>Keep your research in one place</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 21, color: colors.bone2 }}>
-              Sign in to save Research Cards from the app and WhatsApp, ask follow-up questions and share them.
+              Sign in to save Research Cards, ask follow-up questions and share them.
             </Text>
             <Pressable onPress={() => router.push('/(auth)/sign-in')} style={{ height: 42, paddingHorizontal: 18, borderRadius: 21, backgroundColor: colors.hi, justifyContent: 'center' }}>
               <Text style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: colors.white }}>Sign in</Text>
@@ -57,7 +57,7 @@ export default function ResearchListScreen() {
                 <Files size={36} color={colors.bone3} weight="regular" />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.bone, textAlign: 'center' }}>{term ? 'No matches' : 'No Research Cards yet'}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 21, color: colors.bone2, textAlign: 'center' }}>
-                  Open any product and tap “Save as Research Card”, or send a product photo to Sourced on WhatsApp.
+                  Open any product and tap “Save as Research Card”.
                 </Text>
               </View>
             )}

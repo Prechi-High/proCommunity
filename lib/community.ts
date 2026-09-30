@@ -115,10 +115,11 @@ export async function postThread(input: {
   return res.thread;
 }
 
-export async function postReply(threadId: string, body: string, isOwner: boolean): Promise<CommunityReply> {
+/** Owner status is decided server-side from the member's verified products, never by the client. */
+export async function postReply(threadId: string, body: string): Promise<CommunityReply> {
   const author = me();
   if (!author) throw new Error('join_first');
-  const res = await callIntel<{ reply?: CommunityReply }>({ action: 'reply', threadId, body, isOwner, author }, 15000);
+  const res = await callIntel<{ reply?: CommunityReply }>({ action: 'reply', threadId, body, author }, 15000);
   if (!res.reply) throw new Error('reply_failed');
   return res.reply;
 }
@@ -127,8 +128,35 @@ export async function markHelpful(replyId: string): Promise<void> {
   await callIntel({ action: 'helpful', replyId }, 10000).catch(() => undefined);
 }
 
-export async function askOwners(productId: string, question: string, compareId?: string): Promise<AskAnswer> {
-  return callIntel<AskAnswer>({ action: 'ask', productId, question, compareId }, 40000);
+export async function askOwners(productId: string, question: string, compareId?: string, compareIds?: string[]): Promise<AskAnswer> {
+  return callIntel<AskAnswer>({ action: 'ask', productId, question, compareId, compareIds }, 40000);
+}
+
+type CompareRef = { id: string; name: string; category?: string };
+
+export interface CompareAspect {
+  label: string;
+  why: string;
+}
+
+export interface CompareFocus {
+  aspect: string;
+  summary: string;
+  winner: number | null;
+  enough: boolean;
+  products: { id: string; name: string; verdict: string; points: string[]; cites: number[] }[];
+  sources: { n: number; title: string; url: string; domain: string }[];
+}
+
+/** What people most often compare these products on (e.g. battery life for phones). */
+export async function fetchCompareAspects(products: CompareRef[]): Promise<{ kind: string; aspects: CompareAspect[] }> {
+  const res = await callIntel<{ kind?: string; aspects?: CompareAspect[] }>({ action: 'compare_aspects', products }, 25000);
+  return { kind: res.kind ?? '', aspects: res.aspects ?? [] };
+}
+
+/** A focused comparison on one aspect, backed by a fresh web search. */
+export async function fetchCompareFocus(products: CompareRef[], aspect: string): Promise<CompareFocus> {
+  return callIntel<CompareFocus>({ action: 'compare_focus', products, aspect }, 45000);
 }
 
 export async function fetchPulse(category?: string): Promise<Pulse> {

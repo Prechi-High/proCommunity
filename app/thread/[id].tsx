@@ -14,8 +14,10 @@ import { colors, fonts } from '@/constants/theme';
 import { routeId } from '@/lib/catalog';
 import { askOwners, fetchThread, KIND_LABEL, markHelpful, postReply, timeAgo } from '@/lib/community';
 import { hapticSelect, hapticSuccess, hapticTap } from '@/lib/haptics';
+import { useOwnsProduct } from '@/lib/owners';
 import { useAppStore } from '@/lib/store';
 import type { CommunityReply, CommunityThread } from '@/lib/types';
+import { useVerifyOwner } from '@/components/VerifyOwner';
 
 export default function ThreadScreen() {
   const router = useRouter();
@@ -25,7 +27,6 @@ export default function ThreadScreen() {
   const profile = useAppStore((s) => s.profile);
   const { requireMember, gate } = useMemberGate();
   const [body, setBody] = useState('');
-  const [owner, setOwner] = useState(false);
   const [helped, setHelped] = useState<Record<string, boolean>>({});
   const [photo, setPhoto] = useState<string | null>(null);
 
@@ -37,6 +38,10 @@ export default function ThreadScreen() {
   });
   const t = thread.data ?? null;
   const replies = t?.community_replies ?? [];
+  const ownsMain = useOwnsProduct(t?.product_id);
+  const ownsCompare = useOwnsProduct(t?.compare_id);
+  const owned = ownsMain ?? ownsCompare;
+  const verify = useVerifyOwner();
 
   const owners = useMutation({
     mutationFn: () => askOwners(t!.product_id, t!.title, t!.compare_id ?? undefined),
@@ -44,7 +49,7 @@ export default function ThreadScreen() {
   });
 
   const reply = useMutation({
-    mutationFn: () => postReply(id, body.trim(), owner),
+    mutationFn: () => postReply(id, body.trim()),
     onSuccess: (r) => {
       hapticSuccess();
       setBody('');
@@ -64,6 +69,7 @@ export default function ThreadScreen() {
 
   const openProduct = (pid: string, name: string) =>
     router.push({ pathname: '/product/[id]', params: { id: pid, q: name } } as Href);
+  const openMember = (memberId: string) => router.push({ pathname: '/member/[id]', params: { id: memberId } } as unknown as Href);
 
   const canSend = body.trim().length >= 2 && !reply.isPending;
 
@@ -115,15 +121,21 @@ export default function ThreadScreen() {
               </View>
 
               <View style={{ backgroundColor: colors.lac, borderRadius: 22, padding: 18, gap: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Pressable onPress={() => openMember(t.author_id)} accessibilityLabel={`View ${t.author_name}’s profile`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Avatar name={t.author_name} size={38} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>{t.author_name}</Text>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>{t.author_name}</Text>
+                      {t.owner_product_id ? <VerifiedOwnerPill /> : null}
+                    </View>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>
                       {KIND_STYLE[t.kind]?.verb ?? 'posted'} · {timeAgo(t.created_at)}
                     </Text>
                   </View>
-                </View>
+                </Pressable>
+                {t.owner_product_id && t.owner_product_name ? (
+                  <OwnedChip name={t.owner_product_name} image={t.owner_product_image ?? null} onPress={() => openProduct(t.owner_product_id!, t.owner_product_name!)} />
+                ) : null}
                 {t.kind === 'review' && t.rating ? <RatingStars value={t.rating} size={18} /> : null}
                 <Text style={{ fontFamily: fonts.bold, fontSize: 22, lineHeight: 28, letterSpacing: -0.5, color: colors.bone }}>{t.title}</Text>
                 {t.body ? <Text style={{ fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 23, color: colors.bone2 }}>{t.body}</Text> : null}
@@ -181,7 +193,16 @@ export default function ThreadScreen() {
               </View>
 
               {replies.length ? (
-                replies.map((r) => <ReplyCard key={r.id} reply={r} helped={Boolean(helped[r.id])} onHelpful={() => helpful(r)} />)
+                replies.map((r) => (
+                  <ReplyCard
+                    key={r.id}
+                    reply={r}
+                    helped={Boolean(helped[r.id])}
+                    onHelpful={() => helpful(r)}
+                    onAuthor={() => openMember(r.author_id)}
+                    onProduct={(pid, name) => openProduct(pid, name)}
+                  />
+                ))
               ) : (
                 <View style={{ backgroundColor: colors.lac, borderRadius: 18, padding: 16, gap: 6 }}>
                   <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>Own or used it? You’re who they need.</Text>
@@ -196,37 +217,34 @@ export default function ThreadScreen() {
 
         {t ? (
           <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6, gap: 8, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.lac }}>
-            <Pressable
-              onPress={() => {
-                hapticSelect();
-                setOwner((o) => !o);
-              }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: owner }}
-            >
-              <View
-                style={{
-                  width: 18,
-                  height: 18,
-                  borderRadius: 5,
-                  borderWidth: owner ? 0 : 1.5,
-                  borderColor: colors.bone3,
-                  backgroundColor: owner ? colors.hi : 'transparent',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {owner ? <SealCheck size={12} color={colors.white} weight="fill" /> : null}
+            {owned ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
+                <SealCheck size={15} color={colors.hi} weight="fill" />
+                <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.hiInk }}>
+                  Answering as a verified owner of the {owned.productName}
+                </Text>
               </View>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: owner ? colors.hiInk : colors.bone2 }}>I own or have used this</Text>
-            </Pressable>
+            ) : (
+              <Pressable
+                onPress={() => {
+                  hapticSelect();
+                  verify.start({ id: t.product_id, name: t.product_name, brand: t.brand ?? '', category: t.category ?? '', heroImageUrl: t.product_image });
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}
+                accessibilityRole="button"
+              >
+                <SealCheck size={15} color={colors.bone2} weight="bold" />
+                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.bone2 }}>
+                  Own it? <Text style={{ color: colors.hi, fontFamily: fonts.semibold }}>Verify with a photo</Text> to answer as an owner
+                </Text>
+              </Pressable>
+            )}
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
               {profile ? <Avatar name={profile.displayName} size={32} /> : null}
               <TextInput
                 value={body}
                 onChangeText={setBody}
-                placeholder={owner ? 'How has it been for you?' : 'Add to the conversation…'}
+                placeholder={owned ? 'How has it been for you?' : 'Add to the conversation…'}
                 placeholderTextColor={colors.bone3}
                 multiline
                 maxLength={2000}
@@ -271,7 +289,49 @@ export default function ThreadScreen() {
       </KeyboardAvoidingView>
       <Lightbox images={photo ? [{ url: photo }] : []} index={photo ? 0 : null} onClose={() => setPhoto(null)} />
       {gate}
+      {verify.sheet}
     </SafeAreaView>
+  );
+}
+
+function VerifiedOwnerPill() {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.hiSoft, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+      <SealCheck size={11} color={colors.hi} weight="fill" />
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.hiInk }}>Verified owner</Text>
+    </View>
+  );
+}
+
+/** The product this person proved they own — tap to open it. */
+function OwnedChip({ name, image, onPress }: { name: string; image: string | null; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={() => {
+        hapticTap();
+        onPress();
+      }}
+      accessibilityLabel={`Owns ${name}. Open product`}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        alignSelf: 'flex-start',
+        maxWidth: '100%',
+        backgroundColor: colors.lac2,
+        borderRadius: 12,
+        paddingVertical: 5,
+        paddingLeft: 5,
+        paddingRight: 10,
+        opacity: pressed ? 0.75 : 1,
+      })}
+    >
+      <ProductImage uri={image} category="" size={26} radius={7} />
+      <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: fonts.medium, fontSize: 12.5, color: colors.bone2 }}>
+        Owns the <Text style={{ fontFamily: fonts.semibold, color: colors.bone }}>{name}</Text>
+      </Text>
+      <CaretRight size={11} color={colors.bone3} weight="bold" />
+    </Pressable>
   );
 }
 
@@ -303,22 +363,37 @@ function ProductChip({ name, image, category, onPress }: { name: string; image: 
   );
 }
 
-function ReplyCard({ reply, helped, onHelpful }: { reply: CommunityReply; helped: boolean; onHelpful: () => void }) {
+function ReplyCard({
+  reply,
+  helped,
+  onHelpful,
+  onAuthor,
+  onProduct,
+}: {
+  reply: CommunityReply;
+  helped: boolean;
+  onHelpful: () => void;
+  onAuthor: () => void;
+  onProduct: (id: string, name: string) => void;
+}) {
   const count = reply.helpful + (helped ? 1 : 0);
+  const verified = Boolean(reply.owner_product_id && reply.owner_product_name);
   return (
     <View style={{ flexDirection: 'row', gap: 10 }}>
-      <Avatar name={reply.author_name} size={34} />
+      <Pressable onPress={onAuthor} accessibilityLabel={`View ${reply.author_name}’s profile`}>
+        <Avatar name={reply.author_name} size={34} />
+      </Pressable>
       <View style={{ flex: 1, backgroundColor: colors.lac, borderRadius: 18, borderTopLeftRadius: 6, padding: 14, gap: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone }}>{reply.author_name}</Text>
-          {reply.is_owner ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.hiSoft, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
-              <SealCheck size={11} color={colors.hi} weight="fill" />
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.hiInk }}>Owns it</Text>
-            </View>
-          ) : null}
+          <Pressable onPress={onAuthor} hitSlop={6}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone }}>{reply.author_name}</Text>
+          </Pressable>
+          {verified ? <VerifiedOwnerPill /> : null}
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>· {timeAgo(reply.created_at)}</Text>
         </View>
+        {verified ? (
+          <OwnedChip name={reply.owner_product_name!} image={reply.owner_product_image ?? null} onPress={() => onProduct(reply.owner_product_id!, reply.owner_product_name!)} />
+        ) : null}
         <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.bone }}>{reply.body}</Text>
         <Pressable onPress={onHelpful} disabled={helped} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start' }}>
           <ThumbsUp size={14} color={helped ? colors.hi : colors.bone3} weight={helped ? 'fill' : 'bold'} />

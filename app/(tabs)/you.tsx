@@ -3,7 +3,8 @@ import { Pressable, Switch, Text, View } from 'react-native';
 
 import { Screen } from '@/components/Screen';
 import { Files, Globe, SealCheck, ShieldCheck, Trash, User, WhatsappLogo } from '@/components/icons';
-import { signOutEverywhere } from '@/lib/auth';
+import { isAuthUserId, signOutEverywhere } from '@/lib/auth';
+import { useMyMember } from '@/lib/owners';
 import { Eyebrow, Group, GroupRow, LargeTitle, Segmented } from '@/components/kit';
 import { Avatar } from '@/components/ui';
 import { colors, fonts } from '@/constants/theme';
@@ -20,6 +21,7 @@ export default function YouScreen() {
   const clearSearchHistory = useAppStore((s) => s.clearSearchHistory);
   const deleteMyData = useAppStore((s) => s.deleteMyData);
   const flagged = useAppStore((s) => s.flaggedPostIds);
+  const owned = useMyMember().data?.owned ?? [];
 
   return (
     <Screen>
@@ -47,9 +49,32 @@ export default function YouScreen() {
           </View>
         </Pressable>
 
+        {profile && isAuthUserId(profile.id) ? (
+          <Group>
+            <GroupRow
+              icon={SealCheck}
+              label="Verified products"
+              detail={
+                owned.length
+                  ? owned.slice(0, 3).map((o) => o.productName).join(', ') + (owned.length > 3 ? ` +${owned.length - 3} more` : '')
+                  : 'Prove you own something with a quick in-app photo. Your answers about it get the mark.'
+              }
+              value={owned.length ? String(owned.length) : undefined}
+              onPress={() => router.push({ pathname: '/member/[id]', params: { id: profile.id } } as unknown as Href)}
+            />
+            <GroupRow
+              icon={User}
+              label="Your public profile"
+              detail="What others see: verified products, answers and posts."
+              onPress={() => router.push({ pathname: '/member/[id]', params: { id: profile.id } } as unknown as Href)}
+              last
+            />
+          </Group>
+        ) : null}
+
         <Group>
-          <GroupRow icon={Files} label="My Research" detail="Research Cards from the app and WhatsApp." onPress={() => router.push('/research' as Href)} />
-          <GroupRow icon={WhatsappLogo} label="WhatsApp" detail="Research products by sending a photo or name." onPress={() => router.push('/settings/whatsapp' as Href)} last />
+          <GroupRow icon={Files} label="My Research" detail="Your saved Research Cards." onPress={() => router.push('/research' as Href)} />
+          <GroupRow icon={WhatsappLogo} label="WhatsApp" detail="Research products by sending a photo or name." badge="Coming soon" onPress={() => router.push('/settings/whatsapp' as Href)} last />
         </Group>
 
         <View style={{ gap: 8 }}>

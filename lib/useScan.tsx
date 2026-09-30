@@ -1,15 +1,20 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter, type Href } from 'expo-router';
 import { createElement, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, Modal, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { Camera, CameraRotate, UploadSimple, X } from '@/components/icons';
+import { ArrowsLeftRight, Camera, CameraRotate, CaretRight, Check, UploadSimple, X } from '@/components/icons';
+import { ProductImage } from '@/components/kit';
 import { colors, fonts } from '@/constants/theme';
 
 import { hapticHeavy, hapticSelect, hapticSuccess, hapticTap } from './haptics';
-import { extractProductFromPhoto, visionErrorCopy, type VisionAsset } from './productVision';
+import { extractProductFromPhoto, visionErrorCopy, type DetectedProduct, type VisionAsset, type VisionResult } from './productVision';
 import { rememberProduct, slugify } from './products';
 import { useAppStore } from './store';
+
+export const MAX_COMPARE = 3;
+
+type MultiScan = { photo: string; width: number; height: number; products: DetectedProduct[]; imageUrl: string };
 
 export type ScanStage = 'idle' | 'reading' | 'identifying';
 
@@ -38,6 +43,47 @@ export function useScan() {
   const [preview, setPreview] = useState<string | null>(null);
   const [choosing, setChoosing] = useState(false);
   const [webCamera, setWebCamera] = useState(false);
+  const [multi, setMulti] = useState<MultiScan | null>(null);
+
+  const photoFor = (asset: VisionAsset, vision: VisionResult) =>
+    vision.imageUrl || (asset.uri.startsWith('data:') && asset.uri.length > 400_000 ? '' : asset.uri);
+
+  /** Remembers a detected product (with the photo it came from) and returns its id. */
+  const adopt = (p: Pick<DetectedProduct, 'label' | 'name' | 'brand' | 'category' | 'confidence'>, photo: string, extra?: Partial<VisionResult>) => {
+    const id = slugify(p.label);
+    rememberProduct({
+      id,
+      name: p.name || p.label,
+      brand: p.brand ?? '',
+      category: p.category || 'Product',
+      heroImageUrl: extra?.matches?.find((m) => m.exact && m.image)?.image ?? null,
+    });
+    useAppStore.getState().rememberScan(id, {
+      photo,
+      label: p.label,
+      confidence: p.confidence ?? 0.6,
+      features: extra?.features ?? [],
+      alternatives: extra?.alternatives ?? [],
+      matches: extra?.matches ?? [],
+      at: new Date().toISOString(),
+    });
+    return id;
+  };
+
+  const openOne = (p: DetectedProduct, photo: string) => {
+    setMulti(null);
+    hapticTap();
+    const id = adopt(p, photo);
+    addSearch(p.label);
+    router.push({ pathname: '/product/[id]', params: { id, q: p.searchQuery || p.label, from: 'scan' } } as Href);
+  };
+
+  const compareMany = (list: DetectedProduct[], photo: string) => {
+    setMulti(null);
+    hapticSuccess();
+    const ids = list.slice(0, MAX_COMPARE).map((p) => adopt(p, photo));
+    router.push({ pathname: '/compare', params: { ids: ids.join(','), from: 'scan' } } as Href);
+  };
 
   const identify = async (asset: VisionAsset) => {
     try {
@@ -51,24 +97,12 @@ export function useScan() {
         return;
       }
       hapticSuccess();
-      const id = slugify(vision.label);
-      const photo = vision.imageUrl || (asset.uri.startsWith('data:') && asset.uri.length > 400_000 ? '' : asset.uri);
-      rememberProduct({
-        id,
-        name: vision.name || vision.label,
-        brand: vision.brand ?? '',
-        category: vision.category || 'Product',
-        heroImageUrl: vision.matches?.find((m) => m.exact && m.image)?.image ?? null,
-      });
-      useAppStore.getState().rememberScan(id, {
-        photo,
-        label: vision.label,
-        confidence: vision.confidence ?? 0.6,
-        features: vision.features ?? [],
-        alternatives: vision.alternatives ?? [],
-        matches: vision.matches ?? [],
-        at: new Date().toISOString(),
-      });
+      const photo = photoFor(asset, vision);
+      if (vision.products && vision.products.length > 1) {
+        setMulti({ photo: asset.uri, width: asset.width ?? 0, height: asset.height ?? 0, products: vision.products, imageUrl: photo });
+        return;
+      }
+      const id = adopt({ label: vision.label, name: vision.name || vision.label, brand: vision.brand ?? '', category: vision.category ?? '', confidence: vision.confidence ?? 0.6 }, photo, vision);
       addSearch(vision.label);
       router.push({ pathname: '/product/[id]', params: { id, q: vision.searchQuery || vision.label, from: 'scan' } } as Href);
     } catch (err) {
@@ -151,6 +185,14 @@ export function useScan() {
           }}
         />
       ) : null}
+      {multi ? (
+        <MultiPickSheet
+          scan={multi}
+          onClose={() => setMulti(null)}
+          onOpen={(p) => openOne(p, multi.imageUrl)}
+          onCompare={(list) => compareMany(list, multi.imageUrl)}
+        />
+      ) : null}
     </>
   );
 
@@ -182,10 +224,190 @@ function SheetOption({ icon, title, body, onPress, tone }: { icon: ReactNode; ti
   );
 }
 
+/** A square crop of the original photo around one detected product. */
+function CropThumb({ uri, width, height, box, category, size = 64 }: { uri: string; width: number; height: number; box: DetectedProduct['box']; category: string; size?: number }) {
+  if (!box || !width || !height || !uri) return <ProductImage uri={null} category={category} size={size} radius={14} />;
+  const [y0, x0, y1, x1] = box.map((n) => n / 1000);
+  const side = Math.max((x1 - x0) * width, (y1 - y0) * height) * 1.15;
+  const scale = size / side;
+  const cx = ((x0 + x1) / 2) * width;
+  const cy = ((y0 + y1) / 2) * height;
+  return (
+    <View style={{ width: size, height: size, borderRadius: 14, overflow: 'hidden', backgroundColor: colors.lac2 }}>
+      <Image
+        source={{ uri }}
+        style={{ position: 'absolute', width: width * scale, height: height * scale, left: size / 2 - cx * scale, top: size / 2 - cy * scale }}
+      />
+    </View>
+  );
+}
+
+function MultiPickSheet({
+  scan,
+  onClose,
+  onOpen,
+  onCompare,
+}: {
+  scan: MultiScan;
+  onClose: () => void;
+  onOpen: (p: DetectedProduct) => void;
+  onCompare: (list: DetectedProduct[]) => void;
+}) {
+  const [comparing, setComparing] = useState(false);
+  const [picked, setPicked] = useState<number[]>([]);
+  const n = scan.products.length;
+
+  const toggle = (i: number) => {
+    hapticSelect();
+    setPicked((cur) => (cur.includes(i) ? cur.filter((x) => x !== i) : cur.length >= MAX_COMPARE ? cur : [...cur, i]));
+  };
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+        <Pressable
+          onPress={() => undefined}
+          style={{ backgroundColor: colors.wine, borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingTop: 18, paddingBottom: 28, maxHeight: '88%' }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingHorizontal: 20 }}>
+            {scan.photo ? <Image source={{ uri: scan.photo }} style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: colors.lac2 }} resizeMode="cover" /> : null}
+            <View style={{ flex: 1, gap: 3 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 21, letterSpacing: -0.4, color: colors.bone }}>We spotted {n} products</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 19, color: colors.bone2 }}>
+                {comparing ? `Choose 2 or ${MAX_COMPARE} to put side by side.` : 'Your photo has more than one product. Pick the one you want, or compare them.'}
+              </Text>
+            </View>
+            <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Close">
+              <X size={20} color={colors.bone2} weight="bold" />
+            </Pressable>
+          </View>
+
+          <ScrollView style={{ marginTop: 14 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }} showsVerticalScrollIndicator={false}>
+            {scan.products.map((p, i) => {
+              const on = picked.includes(i);
+              const full = !on && picked.length >= MAX_COMPARE;
+              return (
+                <Pressable
+                  key={`${p.label}-${i}`}
+                  onPress={() => (comparing ? toggle(i) : onOpen(p))}
+                  disabled={comparing && full}
+                  accessibilityRole={comparing ? 'checkbox' : 'button'}
+                  accessibilityState={comparing ? { checked: on, disabled: full } : undefined}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: 10,
+                    borderRadius: 18,
+                    backgroundColor: on ? colors.hiSoft : colors.lac,
+                    borderWidth: 1.5,
+                    borderColor: on ? colors.hi : 'transparent',
+                    opacity: pressed || (comparing && full) ? 0.6 : 1,
+                  })}
+                >
+                  <CropThumb uri={scan.photo} width={scan.width} height={scan.height} box={p.box} category={p.category} />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    {p.brand ? <Text style={{ fontFamily: fonts.semibold, fontSize: 11.5, letterSpacing: 0.4, color: colors.hi, textTransform: 'uppercase' }}>{p.brand}</Text> : null}
+                    <Text numberOfLines={2} style={{ fontFamily: fonts.semibold, fontSize: 15.5, lineHeight: 20, color: colors.bone }}>
+                      {p.name || p.label}
+                    </Text>
+                    {p.category ? <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>{p.category}</Text> : null}
+                  </View>
+                  {comparing ? (
+                    <View
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: 7,
+                        borderWidth: on ? 0 : 1.5,
+                        borderColor: colors.bone3,
+                        backgroundColor: on ? colors.hi : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {on ? <Check size={14} color={colors.white} weight="bold" /> : null}
+                    </View>
+                  ) : (
+                    <CaretRight size={16} color={colors.bone3} weight="bold" />
+                  )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <View style={{ paddingHorizontal: 20, paddingTop: 14, gap: 10 }}>
+            {comparing ? (
+              <>
+                <Pressable
+                  disabled={picked.length < 2}
+                  onPress={() => onCompare(picked.map((i) => scan.products[i]))}
+                  style={({ pressed }) => ({
+                    height: 52,
+                    borderRadius: 16,
+                    flexDirection: 'row',
+                    gap: 8,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: picked.length >= 2 ? colors.hi : colors.wineDeep,
+                    opacity: pressed ? 0.85 : 1,
+                  })}
+                >
+                  <ArrowsLeftRight size={18} color={colors.white} weight="bold" />
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.white }}>
+                    {picked.length >= 2 ? `Compare ${picked.length} side by side` : 'Select at least 2'}
+                  </Text>
+                </Pressable>
+                <Pressable onPress={() => { setComparing(false); setPicked([]); }} hitSlop={8} style={{ alignSelf: 'center' }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone2 }}>Just pick one instead</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                onPress={() => {
+                  hapticTap();
+                  setComparing(true);
+                  setPicked(n <= MAX_COMPARE ? scan.products.map((_, i) => i) : [0, 1]);
+                }}
+                style={({ pressed }) => ({
+                  height: 52,
+                  borderRadius: 16,
+                  flexDirection: 'row',
+                  gap: 8,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: colors.black,
+                  opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <ArrowsLeftRight size={18} color={colors.white} weight="bold" />
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.white }}>Compare them side by side</Text>
+              </Pressable>
+            )}
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 const MAX_EDGE = 1280;
 
-/** Live browser camera (getUserMedia) with a shutter, for laptops and phones on the web. */
-function WebCameraModal({ onCapture, onClose, onFallback }: { onCapture: (asset: VisionAsset) => void; onClose: () => void; onFallback: () => void }) {
+/**
+ * Live browser camera (getUserMedia) with a shutter, for laptops and phones on the web.
+ * Without `onFallback` there is no escape hatch to a file picker — used where only a live photo counts.
+ */
+export function WebCameraModal({
+  onCapture,
+  onClose,
+  onFallback,
+  title = 'Fit the product in the frame',
+}: {
+  onCapture: (asset: VisionAsset) => void;
+  onClose: () => void;
+  onFallback?: () => void;
+  title?: string;
+}) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [facing, setFacing] = useState<'environment' | 'user'>('environment');
@@ -259,11 +481,15 @@ function WebCameraModal({ onCapture, onClose, onFallback }: { onCapture: (asset:
           <View pointerEvents="box-none" style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 } as never}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.white, textAlign: 'center' }}>Camera not available</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>
-              Allow camera access in your browser’s address bar, or use your device’s camera app instead.
+              {onFallback
+                ? 'Allow camera access in your browser’s address bar, or use your device’s camera app instead.'
+                : 'Allow camera access in your browser’s address bar, then try again. A live photo is needed here.'}
             </Text>
-            <Pressable onPress={onFallback} style={{ height: 46, paddingHorizontal: 20, borderRadius: 14, backgroundColor: colors.hi, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.white }}>Open device camera</Text>
-            </Pressable>
+            {onFallback ? (
+              <Pressable onPress={onFallback} style={{ height: 46, paddingHorizontal: 20, borderRadius: 14, backgroundColor: colors.hi, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.white }}>Open device camera</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
 
@@ -271,7 +497,7 @@ function WebCameraModal({ onCapture, onClose, onFallback }: { onCapture: (asset:
           <Pressable onPress={onClose} accessibilityLabel="Close camera" style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}>
             <X size={20} color={colors.white} weight="bold" />
           </Pressable>
-          <Text style={{ flex: 1, textAlign: 'center', fontFamily: fonts.semibold, fontSize: 15, color: colors.white }}>Fit the product in the frame</Text>
+          <Text style={{ flex: 1, textAlign: 'center', fontFamily: fonts.semibold, fontSize: 15, color: colors.white }}>{title}</Text>
           <View style={{ width: 42 }} />
         </View>
 

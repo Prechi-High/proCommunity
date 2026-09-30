@@ -5,7 +5,8 @@ import { Animated, Pressable, ScrollView, Share, Text, View } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PillTabs, useMemberGate } from '@/components/community';
-import { ArrowClockwise, ArrowLeft, ArrowsLeftRight, BookmarkSimple, ChatsCircle, Files, ShareNetwork } from '@/components/icons';
+import { ArrowClockwise, ArrowLeft, ArrowsLeftRight, BookmarkSimple, CaretRight, ChatsCircle, Files, SealCheck, ShareNetwork } from '@/components/icons';
+import { useVerifyOwner } from '@/components/VerifyOwner';
 import { Eyebrow, PrimaryButton, ProductImage } from '@/components/kit';
 import { InvestigatingState, openLink, PricesPane, SourcesSheet, SpecsPane } from '@/components/product/Panes';
 import { VideosPane } from '@/components/product/VideosPane';
@@ -14,7 +15,8 @@ import { Lightbox } from '@/components/Lightbox';
 import { DiscussPane, OverviewPane, OwnersPane } from '@/components/product/PeoplePanes';
 import { colors, fonts } from '@/constants/theme';
 import { routeId } from '@/lib/catalog';
-import { fetchThreads, postThread, trackProduct } from '@/lib/community';
+import { fetchRoom, fetchThreads, postThread, trackProduct } from '@/lib/community';
+import { useOwnsProduct } from '@/lib/owners';
 import { hapticSuccess, hapticTap } from '@/lib/haptics';
 import { displayName, formatPrice, getKnownProduct, investigateProduct, profileToProduct, rememberProduct, slugify } from '@/lib/products';
 import { research } from '@/lib/research';
@@ -59,6 +61,11 @@ export default function ProductScreen() {
   const profile = intel.data ?? null;
   const product = getKnownProduct(id) ?? known;
   const name = profile?.identity.name || (product ? displayName(product) : q ?? '');
+
+  const owned = useOwnsProduct(id);
+  const verify = useVerifyOwner();
+  const myId = useAppStore((s) => s.profile?.id);
+  const room = useQuery({ queryKey: ['room', id], queryFn: () => fetchRoom(id), enabled: Boolean(id), staleTime: 60_000 });
 
   const threads = useQuery({
     queryKey: ['threads', id],
@@ -253,6 +260,15 @@ export default function ProductScreen() {
         </View>
       </View>
 
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+        <OwnershipStrip
+          owned={Boolean(owned)}
+          count={room.data?.verifiedOwners ?? 0}
+          onVerify={() => verify.start(profile ? profileToProduct(profile, product) : { id, name, brand, category, heroImageUrl: image })}
+          onMine={() => myId && router.push({ pathname: '/member/[id]', params: { id: myId } } as unknown as Href)}
+        />
+      </View>
+
       {scan ? (
         <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
           <ScanBanner scan={scan} onPhoto={() => setViewing(0)} onMatches={() => setMatchesOpen(true)} />
@@ -343,7 +359,43 @@ export default function ProductScreen() {
         }}
       />
       {gate}
+      {verify.sheet}
     </SafeAreaView>
+  );
+}
+
+function OwnershipStrip({ owned, count, onVerify, onMine }: { owned: boolean; count: number; onVerify: () => void; onMine: () => void }) {
+  const others = owned ? count - 1 : count;
+  const crowd = others > 0 ? `${others} verified ${others === 1 ? 'owner' : 'owners'}${owned ? ' besides you' : ''}` : '';
+  return (
+    <Pressable
+      onPress={() => {
+        hapticTap();
+        (owned ? onMine : onVerify)();
+      }}
+      accessibilityRole="button"
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 14,
+        backgroundColor: owned ? colors.sageSoft : colors.hiSoft,
+        opacity: pressed ? 0.8 : 1,
+      })}
+    >
+      <SealCheck size={20} color={owned ? colors.sage : colors.hi} weight={owned ? 'fill' : 'bold'} />
+      <View style={{ flex: 1, gap: 1 }}>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: owned ? colors.sageInk : colors.hiInk }}>
+          {owned ? 'You’re a verified owner' : 'Own this? Verify it with a photo'}
+        </Text>
+        <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12.5, color: owned ? colors.sageInk : colors.hiInk, opacity: 0.8 }}>
+          {owned ? crowd || 'Your answers about it carry the mark' : crowd ? `${crowd} answer here` : 'Your answers get a Verified owner mark'}
+        </Text>
+      </View>
+      <CaretRight size={14} color={owned ? colors.sage : colors.hi} weight="bold" />
+    </Pressable>
   );
 }
 

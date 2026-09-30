@@ -18,6 +18,18 @@ export type VisionErrorCode =
   | 'vision_timeout'
   | 'http_error';
 
+/** One of several products spotted in the same photo; `box` is [ymin, xmin, ymax, xmax] on a 0–1000 scale. */
+export interface DetectedProduct {
+  label: string;
+  brand: string;
+  name: string;
+  model: string;
+  category: string;
+  searchQuery: string;
+  box: [number, number, number, number] | null;
+  confidence: number;
+}
+
 export interface VisionResult {
   ok: boolean;
   label: string | null;
@@ -32,6 +44,7 @@ export interface VisionResult {
   alternatives?: string[];
   imageUrl?: string | null;
   matches?: VisualMatch[];
+  products?: DetectedProduct[];
   errorCode?: VisionErrorCode;
   errorMessage?: string;
   hint?: string;
@@ -107,6 +120,11 @@ async function readRaw(asset: VisionAsset): Promise<{ base64: string; mime: stri
   return null;
 }
 
+/** Downscaled JPEG base64 for upload, falling back to the raw bytes. */
+export async function prepareImage(asset: VisionAsset): Promise<{ base64: string; mime: string } | null> {
+  return (await compress(asset)) ?? (await readRaw(asset));
+}
+
 async function postOnce(base64: string, mime: string): Promise<VisionResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -143,6 +161,9 @@ async function postOnce(base64: string, mime: string): Promise<VisionResult> {
       alternatives: strings(body.alternatives),
       imageUrl: typeof body.imageUrl === 'string' ? body.imageUrl : null,
       matches: Array.isArray(body.matches) ? (body.matches as VisualMatch[]).filter((m) => m && typeof m.title === 'string') : [],
+      products: Array.isArray(body.products)
+        ? (body.products as DetectedProduct[]).filter((p) => p && typeof p.label === 'string' && p.label.trim() && !/[{}]/.test(p.label))
+        : [],
     };
   } catch (err) {
     const aborted = err instanceof Error && err.name === 'AbortError';
@@ -155,11 +176,6 @@ async function postOnce(base64: string, mime: string): Promise<VisionResult> {
   } finally {
     clearTimeout(timer);
   }
-}
-
-/** Downscaled JPEG base64 for any picked or captured image. */
-export async function prepareImage(asset: VisionAsset): Promise<{ base64: string; mime: string } | null> {
-  return (await compress(asset)) ?? (await readRaw(asset));
 }
 
 const RETRYABLE = new Set<VisionErrorCode>(['network_error', 'timeout', 'vision_timeout', 'http_error']);
