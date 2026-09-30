@@ -77,7 +77,10 @@ export function SearchBar({
         {
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 10,
+          gap: 8,
+          width: '100%',
+          maxWidth: '100%',
+          minWidth: 0,
           backgroundColor: colors.lac,
           borderRadius: radii.search,
           paddingLeft: 14,
@@ -89,7 +92,9 @@ export function SearchBar({
         elevation.raised,
       ]}
     >
-      <MagnifyingGlass size={20} color={colors.bone3} weight="bold" />
+      <View style={{ flexShrink: 0 }}>
+        <MagnifyingGlass size={20} color={colors.bone3} weight="bold" />
+      </View>
       {onPress ? (
         <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 17, color: value ? colors.bone : colors.bone3 }}>
           {value || placeholder}
@@ -104,7 +109,7 @@ export function SearchBar({
           placeholder={placeholder}
           placeholderTextColor={colors.bone3}
           autoCorrect={false}
-          style={{ flex: 1, fontFamily: fonts.regular, fontSize: 17, color: colors.bone, paddingVertical: 0, outlineStyle: 'none' } as never}
+          style={{ flex: 1, flexShrink: 1, minWidth: 0, fontFamily: fonts.regular, fontSize: 17, color: colors.bone, paddingVertical: 0, outlineStyle: 'none' } as never}
         />
       )}
       {value && onChangeText ? (
@@ -126,6 +131,7 @@ export function SearchBar({
           style={{
             width: 40,
             height: 40,
+            flexShrink: 0,
             borderRadius: 10,
             backgroundColor: colors.hi,
             alignItems: 'center',
@@ -179,7 +185,7 @@ function LiveScanButton({ busy, onPress }: { busy?: boolean; onPress: () => void
         onPress();
       }}
       accessibilityLabel="Search with a photo"
-      style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
+      style={{ width: 40, height: 40, flexShrink: 0, alignItems: 'center', justifyContent: 'center' }}
     >
       <Animated.View
         pointerEvents="none"

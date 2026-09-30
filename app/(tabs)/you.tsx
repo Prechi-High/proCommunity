@@ -1,5 +1,5 @@
 import { useRouter, type Href } from 'expo-router';
-import { Pressable, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, Switch, Text, View } from 'react-native';
 
 import { Screen } from '@/components/Screen';
 import { Files, Globe, SealCheck, ShieldCheck, Trash, User, WhatsappLogo } from '@/components/icons';
@@ -110,14 +110,37 @@ export default function YouScreen() {
                 trackColor={{ true: colors.hi, false: colors.wineDeep }}
               />
             </View>
-            <GroupRow label="Clear search history" onPress={() => { hapticSelect(); clearSearchHistory(); }} />
+            <GroupRow
+              label="Clear search history"
+              onPress={() => {
+                hapticSelect();
+                Alert.alert('Clear search history?', 'This removes recent searches from this device. It cannot be undone.', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Clear',
+                    style: 'destructive',
+                    onPress: () => {
+                      hapticHeavy();
+                      clearSearchHistory();
+                    },
+                  },
+                ]);
+              }}
+            />
             <GroupRow
               label="Delete my data"
               icon={Trash}
               last
               onPress={() => {
                 hapticHeavy();
-                deleteMyData();
+                Alert.alert('Delete your data on this device?', 'This clears search history, saved products, and other local data. Your account stays active.', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => deleteMyData(),
+                  },
+                ]);
               }}
             />
           </Group>

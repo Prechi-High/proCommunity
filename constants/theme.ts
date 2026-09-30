@@ -41,6 +41,11 @@ export const colors = {
   mark: '#CFDCFF',
   markInk: '#0A0A0B',
   markDark: '#1A4DFF',
+  /** Praise vs warning markers — instant sentiment read on product pages. */
+  markGood: '#D4F0DF',
+  markGoodInk: '#0F5C32',
+  markBad: '#FFE0E0',
+  markBadInk: '#9B1C1C',
 } as const;
 
 export const radii = {

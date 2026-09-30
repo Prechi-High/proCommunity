@@ -224,5 +224,5 @@ export const KIND_LABEL: Record<ThreadKind, string> = {
   experience: 'Experience',
   compare: 'Comparison',
   tip: 'Tip',
-  review: 'Review',
+  review: 'Experience',
 };

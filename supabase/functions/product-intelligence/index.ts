@@ -1736,27 +1736,8 @@ async function runPulse(store: Db, category: string) {
     });
   }
   const people = new Set(events.map((e) => e.product_id)).size;
-  const voices: Json[] = [];
-  for (const p of recentProfiles) {
-    const vs = (Array.isArray(p.voices) ? (p.voices as Json[]) : [])
-      .filter((v) => str(v.text, 600).length > 40)
-      .sort((a, b) => Number(b.likes ?? 0) - Number(a.likes ?? 0))
-      .slice(0, 2);
-    for (const v of vs) {
-      voices.push({
-        ...v,
-        text: str(v.text, 600),
-        product_id: str(p.id, 100),
-        product_name: str(p.name, 140),
-        product_image: str(p.hero_image_url, 500) || null,
-        category: str(p.category, 60),
-        score: p.score ?? null,
-      });
-    }
-  }
-  voices.sort((a, b) => Number(b.likes ?? 0) - Number(a.likes ?? 0));
   return {
-    voices: voices.slice(0, 40),
+    voices: [],
     trending: list,
     asks,
     threads,

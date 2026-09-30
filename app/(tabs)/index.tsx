@@ -85,20 +85,22 @@ export default function HomeScreen() {
         <View style={{ gap: 8 }}>
           <Eyebrow color={colors.hi}>{profile ? `Welcome back, ${profile.displayName.split(' ')[0]}` : 'The product community'}</Eyebrow>
           <Text style={{ fontFamily: fonts.bold, fontSize: 34, letterSpacing: -1, lineHeight: 38, color: colors.bone }}>
-            Sourced is the product community where real owners help you decide.
+            Real owners help you decide.
           </Text>
           <AnimatedSubtext lines={SUBLINES} />
         </View>
 
-        <SearchBar
-          value={query}
-          onChangeText={setQuery}
-          onSubmit={() => go(query)}
-          onScan={scan.start}
-          busy={scan.busy}
-          placeholder={HINTS[hint]}
-          animateScan
-        />
+        <View style={{ width: '100%', maxWidth: '100%' }}>
+          <SearchBar
+            value={query}
+            onChangeText={setQuery}
+            onSubmit={() => go(query)}
+            onScan={scan.start}
+            busy={scan.busy}
+            placeholder={HINTS[hint]}
+            animateScan
+          />
+        </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: -8 }}>
           <AvatarStack people={faces.length >= 3 ? faces : [{ name: 'Ada N' }, { name: 'Kofi B' }, { name: 'Sam R' }, { name: 'Lina M' }]} size={24} max={4} ring={colors.wine} />
@@ -135,12 +137,17 @@ export default function HomeScreen() {
         </View>
 
         <View style={{ gap: 12 }}>
-          <SectionHead
-            title="Trending now"
-            icon={<Fire size={20} color={colors.coral} weight="fill" />}
-            action="Pulse"
-            onAction={() => router.push('/pulse' as Href)}
-          />
+          <View style={{ gap: 4 }}>
+            <SectionHead
+              title="Trending searches"
+              icon={<Fire size={20} color={colors.coral} weight="fill" />}
+              action="Pulse"
+              onAction={() => router.push('/pulse' as Href)}
+            />
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 18, color: colors.bone2 }}>
+              What people on Sourced are searching for right now.
+            </Text>
+          </View>
           {niches.length > 1 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
               {(['all', ...niches] as const).map((n) => {
@@ -172,7 +179,7 @@ export default function HomeScreen() {
               ))}
             </ScrollView>
           ) : (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>Search something — you’ll help set what’s trending.</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>Search something — you’ll help set what people look for next.</Text>
           )}
         </View>
 

@@ -227,7 +227,8 @@ function NowYouKnow({ delay }: { delay: number }) {
 // Owners — every voice, filterable, then the patterns across reviews.
 
 function CitedList({ items, tone, profile }: { items: Cited[]; tone: 'good' | 'bad'; profile: ProductProfile }) {
-  const color = tone === 'good' ? colors.sage : colors.honey;
+  const markTone = tone === 'good' ? 'good' : 'bad';
+  const dot = tone === 'good' ? colors.sage : colors.coral;
   return (
     <View style={{ backgroundColor: colors.lac, borderRadius: 16, paddingHorizontal: 16 }}>
       {items.map((item, i) => {
@@ -239,9 +240,15 @@ function CitedList({ items, tone, profile }: { items: Cited[]; tone: 'good' | 'b
             onPress={() => src && open(src.url)}
             style={{ flexDirection: 'row', gap: 12, paddingVertical: 12, borderBottomWidth: i === items.length - 1 ? 0 : 1, borderBottomColor: colors.line }}
           >
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color, marginTop: 7 }} />
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: dot, marginTop: 7 }} />
             <View style={{ flex: 1, gap: 3 }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14.5, lineHeight: 20, color: colors.bone }}>{item.text}</Text>
+              <Marker
+                text={item.text}
+                marks={[item.text]}
+                tone={markTone}
+                instant
+                style={{ fontFamily: fonts.medium, fontSize: 14.5, lineHeight: 20, color: colors.bone }}
+              />
               {src ? (
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>
                   {src.kind === 'community' ? 'People on ' : 'Reviewers on '}

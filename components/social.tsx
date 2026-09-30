@@ -189,7 +189,6 @@ export function PostCard({
       </Pressable>
 
       <View style={{ gap: 6 }}>
-        {thread.kind === 'review' && thread.rating ? <RatingStars value={thread.rating} /> : null}
         <Text style={{ fontFamily: fonts.bold, fontSize: 17.5, lineHeight: 23, letterSpacing: -0.3, color: colors.bone }}>{thread.title}</Text>
         {thread.body ? (
           <Text numberOfLines={4} style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.bone2 }}>
@@ -357,12 +356,9 @@ export function BellButton({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
 // Composer
 
 const COMPOSER_KINDS: Array<{ kind: ThreadKind; label: string; hint: string; title: string; starters: string[] }> = [
-  { kind: 'review', label: 'Review', hint: 'You own it — how is it really?', title: 'Sum it up in one line', starters: ['I’ve had it for ', 'What surprised me: ', 'The one thing I’d change: ', 'I’d tell a friend '] },
-  { kind: 'question', label: 'Ask', hint: 'Owners answer from experience', title: 'What do you want to know?', starters: ['I’m planning to use it for ', 'Does anyone know if ', 'My budget is '] },
-  { kind: 'experience', label: 'Story', hint: 'Something that happened with it', title: 'What happened?', starters: ['It started when ', 'After a few weeks ', 'What I learned: '] },
-  { kind: 'worry', label: 'Worry', hint: 'What’s stopping you from buying?', title: 'What are you worried about?', starters: ['I’ve read that ', 'Last time I bought one ', 'Will it hold up if '] },
-  { kind: 'tip', label: 'Tip', hint: 'Help others get more from it', title: 'Your tip in one line', starters: ['Go into settings and ', 'Most people don’t know ', 'Skip the '] },
-  { kind: 'compare', label: 'Compare', hint: 'Torn between two?', title: 'Which one and why?', starters: ['I’ll mostly use it for ', 'What matters most to me is ', 'Price-wise '] },
+  { kind: 'experience', label: 'Experience', hint: 'You used or own it — say how it really is', title: 'Sum it up in one line', starters: ['I’ve had it for ', 'What surprised me: ', 'The one thing I’d change: ', 'I’d tell a friend '] },
+  { kind: 'question', label: 'Question', hint: 'Owners reply from experience', title: 'What do you want to know?', starters: ['I’m planning to use it for ', 'Does anyone know if ', 'My budget is '] },
+  { kind: 'compare', label: 'Comparison', hint: 'Torn between two products?', title: 'What are you deciding between?', starters: ['I’ll mostly use it for ', 'What matters most to me is ', 'Price-wise '] },
 ];
 
 
@@ -384,12 +380,11 @@ export function Composer({
   initialBody?: string;
 }) {
   const profile = useAppStore((s) => s.profile);
-  const [kind, setKind] = useState<ThreadKind>(initialKind ?? 'review');
+  const [kind, setKind] = useState<ThreadKind>(initialKind ?? 'experience');
   const [product, setProduct] = useState<PickedProduct | null>(initialProduct ?? null);
   const [compare, setCompare] = useState<PickedProduct | null>(null);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState(initialBody ?? '');
-  const [rating, setRating] = useState(0);
   const [photo, setPhoto] = useState<{ uri: string; base64: string; mime: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -397,19 +392,18 @@ export function Composer({
 
   useEffect(() => {
     if (!visible) return;
-    setKind(initialKind ?? 'review');
+    setKind(initialKind ?? 'experience');
     setProduct(initialProduct ?? null);
     setCompare(null);
     setTitle('');
     setBody(initialBody ?? '');
-    setRating(0);
     setPhoto(null);
     setError('');
     setPicking(initialProduct ? null : 'product');
   }, [visible, initialProduct, initialKind, initialBody]);
 
   const meta = COMPOSER_KINDS.find((k) => k.kind === kind)!;
-  const ready = Boolean(product) && title.trim().length >= 4 && (kind !== 'review' || rating > 0) && (kind !== 'compare' || Boolean(compare)) && !busy;
+  const ready = Boolean(product) && title.trim().length >= 4 && (kind !== 'compare' || Boolean(compare)) && !busy;
 
   const attach = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, base64: true, allowsEditing: false });
@@ -432,7 +426,7 @@ export function Composer({
         body: body.trim() || undefined,
         compare: kind === 'compare' ? compare : null,
         imageUrl,
-        rating: kind === 'review' ? rating : null,
+        rating: null,
       });
       hapticSuccess();
       onPosted(thread);
@@ -502,13 +496,6 @@ export function Composer({
             />
           ) : null}
 
-          {kind === 'review' ? (
-            <View style={{ gap: 8 }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone2 }}>Your rating</Text>
-              <RatingStars value={rating} size={30} onChange={setRating} />
-            </View>
-          ) : null}
-
           <WriteField
             headline
             Icon={Quotes}
@@ -553,9 +540,6 @@ export function Composer({
           )}
 
           {error ? <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, color: colors.coral }}>{error}</Text> : null}
-          {!ready && product && title.trim().length >= 4 && kind === 'review' && !rating ? (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone3 }}>Tap the stars to rate it.</Text>
-          ) : null}
         </ScrollView>
       </SafeAreaView>
     </Modal>

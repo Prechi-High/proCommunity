@@ -73,16 +73,20 @@ export function Marker({
   text,
   marks,
   dark,
+  tone = 'default',
   delay = 0,
   style,
   speed = 55,
+  instant,
 }: {
   text: string;
   marks: (string | null | undefined)[];
   dark?: boolean;
+  tone?: 'default' | 'good' | 'bad';
   delay?: number;
   style?: StyleProp<TextStyle>;
   speed?: number;
+  instant?: boolean;
 }) {
   const segs = useMemo(() => splitMarks(text, marks.filter(Boolean) as string[]), [text, marks]);
   const tokens = useMemo(() => segs.map((s) => (s.marked ? s.text.split(/(\s+)/).filter(Boolean) : [s.text])), [segs]);
@@ -90,6 +94,10 @@ export function Marker({
   const [shown, setShown] = useState(0);
 
   useEffect(() => {
+    if (instant) {
+      setShown(total);
+      return;
+    }
     setShown(0);
     if (!total) return;
     let n = 0;
@@ -105,11 +113,25 @@ export function Marker({
       clearTimeout(start);
       if (interval) clearInterval(interval);
     };
-  }, [total, delay, speed, text]);
+  }, [total, delay, speed, text, instant]);
 
   let k = 0;
-  const bg = dark ? colors.markDark : colors.mark;
-  const fg = dark ? colors.white : colors.markInk;
+  const bg =
+    tone === 'good'
+      ? colors.markGood
+      : tone === 'bad'
+        ? colors.markBad
+        : dark
+          ? colors.markDark
+          : colors.mark;
+  const fg =
+    tone === 'good'
+      ? colors.markGoodInk
+      : tone === 'bad'
+        ? colors.markBadInk
+        : dark
+          ? colors.white
+          : colors.markInk;
   return (
     <Text style={style}>
       {segs.map((s, i) =>
@@ -296,6 +318,7 @@ export function VoiceCard({
       <Marker
         text={`“${voice.text}”`}
         marks={[voice.mark]}
+        tone={voice.stance === 'love' ? 'good' : voice.stance === 'warn' ? 'bad' : 'default'}
         delay={delay}
         style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.bone }}
       />
@@ -375,7 +398,7 @@ export function ThreadCard({
         <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: thread.reply_count ? colors.bone2 : colors.hi }}>
           {thread.reply_count
             ? `${thread.reply_count} ${thread.reply_count === 1 ? 'reply' : 'replies'}`
-            : 'Be the first to answer'}
+            : 'Be the first to reply'}
         </Text>
       </View>
     </Pressable>
@@ -778,10 +801,10 @@ export function SectionHead({ title, action, onAction, icon }: { title: string; 
 /** A product people are looking at right now, with the human signal behind its rank. */
 export function TrendingCard({ item, rank, onPress }: { item: TrendingProduct; rank: number; onPress: () => void }) {
   const signal = [
-    item.views ? `${compact(item.views)} looking` : '',
+    item.views ? `${compact(item.views)} searching` : '',
     item.asks ? `${item.asks} asked` : '',
     item.compares ? `${item.compares} compared` : '',
-  ].filter(Boolean)[0] || 'Being researched';
+  ].filter(Boolean)[0] || 'Trending search';
   return (
     <Pressable
       onPress={() => {

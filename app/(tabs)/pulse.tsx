@@ -8,13 +8,12 @@ import { Avatar, SectionHead, TrendingCard, useMemberGate } from '@/components/c
 import { ArrowsLeftRight, Fire, ImageIcon, MagnifyingGlass, Plus, TrendUp, X } from '@/components/icons';
 import { Lightbox } from '@/components/Lightbox';
 import { ProductImage, Shimmer } from '@/components/kit';
-import { openLink } from '@/components/product/Panes';
-import { BellButton, Composer, KIND_STYLE, PostCard, WebVoicePost } from '@/components/social';
+import { BellButton, Composer, KIND_STYLE, PostCard } from '@/components/social';
 import { colors, fonts } from '@/constants/theme';
 import { fetchFeed, fetchFollowing, fetchPulse, NICHES, nicheOf, timeAgo, type FeedSort, type NicheId } from '@/lib/community';
 import { hapticSelect, hapticTap } from '@/lib/haptics';
 import { useAppStore } from '@/lib/store';
-import type { CommunityThread, ThreadKind, TrendingProduct, WebVoice } from '@/lib/types';
+import type { CommunityThread, ThreadKind, TrendingProduct } from '@/lib/types';
 
 type Tab = FeedSort | 'following';
 
@@ -54,7 +53,7 @@ export default function PulseScreen() {
   const inNiche = (category: string | null | undefined) => matchNiche(niche, category);
   const [draft, setDraft] = useState('');
   const [q, setQ] = useState('');
-  const [composing, setComposing] = useState<{ product?: CommunityThread | WebVoice | null; body?: string } | null>(null);
+  const [composing, setComposing] = useState<{ product?: CommunityThread | null; body?: string } | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,34 +80,16 @@ export default function PulseScreen() {
     const list = (feed.data ?? []).filter((t) => matchNiche(niche, t.category));
     return tab === 'following' && kind !== 'all' ? list.filter((t) => t.kind === kind) : list;
   }, [feed.data, tab, kind, niche]);
-  const voices = useMemo(() => {
-    const all = (pulse.data?.voices ?? []).filter((v) => matchNiche(niche, v.category));
-    if (!q) return all;
-    const needle = q.toLowerCase();
-    return all.filter((v) => `${v.product_name} ${v.text}`.toLowerCase().includes(needle));
-  }, [pulse.data, q, niche]);
-  const showVoices = tab === 'hot' && (kind === 'all' || kind === 'review' || kind === 'experience');
   const trending = (pulse.data?.trending ?? []).filter((t) => inNiche(t.category));
   const hotCompares = (compares.data ?? []).filter((t) => inNiche(t.category));
   const nicheName = CATEGORIES.find((c) => c.id === niche)?.label ?? '';
   const home = tab === 'hot' && kind === 'all' && !q;
 
-  const stream = useMemo(() => {
-    type Item = { type: 'post'; t: CommunityThread } | { type: 'voice'; v: WebVoice };
-    const out: Item[] = [];
-    const vs = showVoices ? voices : [];
-    let vi = 0;
-    threads.forEach((t, i) => {
-      out.push({ type: 'post', t });
-      if ((i + 1) % 2 === 0 && vi < vs.length) out.push({ type: 'voice', v: vs[vi++] });
-    });
-    while (vi < vs.length && out.length < 40) out.push({ type: 'voice', v: vs[vi++] });
-    return out;
-  }, [threads, voices, showVoices]);
+  const stream = threads;
 
   const openRoom = (id: string, name: string) => router.push({ pathname: '/room/[id]', params: { id, name } } as unknown as Href);
   const openThread = (id: string) => router.push({ pathname: '/thread/[id]', params: { id } } as Href);
-  const compose = (seed: { product?: CommunityThread | WebVoice | null; body?: string } = {}) => requireMember(() => setComposing(seed));
+  const compose = (seed: { product?: CommunityThread | null; body?: string } = {}) => requireMember(() => setComposing(seed));
 
   const seedProduct = useMemo(
     () =>
@@ -241,8 +222,11 @@ export default function PulseScreen() {
 
         {home && trending.length ? (
           <View style={{ gap: 12 }}>
-            <View style={{ paddingHorizontal: 16 }}>
-              <SectionHead title="Trending products" icon={<Fire size={20} color={colors.coral} weight="fill" />} />
+            <View style={{ paddingHorizontal: 16, gap: 4 }}>
+              <SectionHead title="Trending searches" icon={<Fire size={20} color={colors.coral} weight="fill" />} />
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 18, color: colors.bone2 }}>
+                Products members are searching for most right now.
+              </Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 16 }}>
               {trending.slice(0, 12).map((t: TrendingProduct, i) => (
@@ -271,7 +255,7 @@ export default function PulseScreen() {
                   </View>
                   <Text numberOfLines={2} style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: colors.bone }}>{t.title}</Text>
                   <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.bone3 }}>
-                    {t.reply_count ? `${t.reply_count} weighing in` : 'Be the first to weigh in'} · {timeAgo(t.last_activity_at)}
+                    {t.reply_count ? `${t.reply_count} ${t.reply_count === 1 ? 'reply' : 'replies'}` : 'Be the first to reply'} · {timeAgo(t.last_activity_at)}
                   </Text>
                 </Pressable>
               ))}
@@ -289,26 +273,16 @@ export default function PulseScreen() {
           {feed.isLoading ? (
             [0, 1, 2].map((i) => <Shimmer key={i} height={180} radius={22} />)
           ) : stream.length ? (
-            stream.map((item) =>
-              item.type === 'post' ? (
-                <PostCard
-                  key={item.t.id}
-                  thread={item.t}
-                  requireMember={requireMember}
-                  onOpen={() => openThread(item.t.id)}
-                  onProduct={(id, name) => openRoom(id, name)}
-                  onImage={setPhoto}
-                />
-              ) : (
-                <WebVoicePost
-                  key={`v-${item.v.id}-${item.v.product_id}`}
-                  voice={item.v}
-                  onProduct={() => openRoom(item.v.product_id, item.v.product_name)}
-                  onOpen={(url) => void openLink(url)}
-                  onDiscuss={() => compose({ product: item.v, body: `Saw this from ${item.v.author}: “${item.v.text.slice(0, 160)}” — has anyone else found the same?` })}
-                />
-              ),
-            )
+            stream.map((t) => (
+              <PostCard
+                key={t.id}
+                thread={t}
+                requireMember={requireMember}
+                onOpen={() => openThread(t.id)}
+                onProduct={(id, name) => openRoom(id, name)}
+                onImage={setPhoto}
+              />
+            ))
           ) : (
             <View style={{ backgroundColor: colors.lac, borderRadius: 22, padding: 22, gap: 10, alignItems: 'flex-start' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 19, letterSpacing: -0.4, color: colors.bone }}>
