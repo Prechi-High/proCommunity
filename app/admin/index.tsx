@@ -1,5 +1,5 @@
-import { Redirect } from 'expo-router';
-import { useState } from 'react';
+import { Redirect, useRouter, type Href } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Pressable, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -42,6 +42,7 @@ import { communityPosts } from '@/lib/seed';
 import type { Product } from '@/lib/types';
 
 const products: Product[] = getAllProducts();
+import { isAuthUserId, refreshAuthProfile } from '@/lib/auth';
 import { useAppStore } from '@/lib/store';
 import { isVideoReviewEnabled, tagLabel } from '@/lib/taxonomy';
 import { platformLabel, voterKeyFor, type JourneyClip, type VideoPlatform } from '@/lib/videos';
@@ -100,6 +101,7 @@ function productContext(row: PendingVideo): string {
 type AdminTab = 'insights' | 'moderation';
 
 export default function AdminScreen() {
+  const router = useRouter();
   const profile = useAppStore((s) => s.profile);
   const flaggedPostIds = useAppStore((s) => s.flaggedPostIds);
   const resolveFlag = useAppStore((s) => s.resolveFlag);
@@ -108,6 +110,10 @@ export default function AdminScreen() {
   const [tab, setTab] = useState<AdminTab>('insights');
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [discoverProductId, setDiscoverProductId] = useState(products[0]?.id);
+
+  useEffect(() => {
+    void refreshAuthProfile();
+  }, []);
 
   const insightsQuery = useQuery({
     queryKey: ['admin-dashboard'],
@@ -149,8 +155,21 @@ export default function AdminScreen() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pending-videos'] }),
   });
 
-  if (!profile?.isAdmin) {
-    return <Redirect href="/(tabs)/you" />;
+  if (!profile || !isAuthUserId(profile.id)) {
+    return <Redirect href={{ pathname: '/(auth)/sign-in', params: { returnTo: '/admin' } }} />;
+  }
+
+  if (!profile.isAdmin) {
+    return (
+      <Screen>
+        <Heading size={21}>Admin</Heading>
+        <Body>
+          This signed-in account does not have admin access. Use the email that was granted admin (for example your founder
+          account), then open Admin again. If you just changed admin settings in the database, sign out and sign back in.
+        </Body>
+        <Button label="Back to You" onPress={() => router.replace('/(tabs)/you' as Href)} />
+      </Screen>
+    );
   }
 
   const flagged = [...communityPosts, ...userPosts].filter((post) =>

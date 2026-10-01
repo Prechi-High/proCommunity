@@ -34,6 +34,24 @@ const memoryStorage = {
   removeItem: async () => undefined,
 };
 
+/** Supabase auth must use browser localStorage on web — AsyncStorage can fail to restore sessions after refresh. */
+const authStorage =
+  Platform.OS === 'web' && typeof window !== 'undefined'
+    ? {
+        getItem: (key: string) => Promise.resolve(window.localStorage.getItem(key)),
+        setItem: (key: string, value: string) => {
+          window.localStorage.setItem(key, value);
+          return Promise.resolve();
+        },
+        removeItem: (key: string) => {
+          window.localStorage.removeItem(key);
+          return Promise.resolve();
+        },
+      }
+    : isBrowser
+      ? AsyncStorage
+      : memoryStorage;
+
 export const supabase: SupabaseClient | null =
   url && anon
     ? createClient(url, anon, {
@@ -41,7 +59,7 @@ export const supabase: SupabaseClient | null =
           persistSession: isBrowser,
           autoRefreshToken: isBrowser,
           detectSessionInUrl: Platform.OS === 'web' && isBrowser,
-          storage: isBrowser ? AsyncStorage : memoryStorage,
+          storage: authStorage,
         },
       })
     : null;

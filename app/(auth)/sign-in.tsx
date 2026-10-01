@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
@@ -6,17 +6,27 @@ import { Screen } from '@/components/Screen';
 import { ArrowLeft, Scales, SealCheck, ShieldCheck } from '@/components/icons';
 import { LargeTitle, PrimaryButton } from '@/components/kit';
 import { colors, fonts } from '@/constants/theme';
-import { currentSignIn, sendCode, setDisplayName, verifyCode } from '@/lib/auth';
+import {
+  currentSignIn,
+  fetchAuthHint,
+  getLastSignedInEmail,
+  resumeSession,
+  sendCode,
+  setDisplayName,
+  setLoginPassword,
+  signInWithPassword,
+  verifyCode,
+} from '@/lib/auth';
 import { hapticSuccess } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
 
 const PROMISES = [
   { icon: Scales, text: 'No seller pays to rank higher' },
   { icon: SealCheck, text: 'Every claim links to its source' },
-  { icon: ShieldCheck, text: 'No password — just a code to your email' },
+  { icon: ShieldCheck, text: 'This device keeps you signed in — no code every visit' },
 ];
 
-type Step = 'email' | 'code' | 'name';
+type Step = 'email' | 'password' | 'code' | 'name' | 'set-password';
 
 const inputStyle = {
   backgroundColor: colors.lac,
@@ -31,16 +41,28 @@ const inputStyle = {
   outlineStyle: 'none',
 } as never;
 
+function normalizeReturnTo(raw: string | string[] | undefined): string | null {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return null;
+  return value;
+}
+
 export default function SignInScreen() {
   const router = useRouter();
+  const { returnTo: returnToParam } = useLocalSearchParams<{ returnTo?: string | string[] }>();
+  const returnTo = normalizeReturnTo(returnToParam);
+  const [checking, setChecking] = useState(true);
   const [step, setStep] = useState<Step>('email');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => getLastSignedInEmail() ?? '');
+  const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendIn, setResendIn] = useState(0);
   const codeRef = useRef<TextInput>(null);
+  const lastEmail = getLastSignedInEmail();
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -52,30 +74,37 @@ export default function SignInScreen() {
   const done = () => {
     if (finished.current) return;
     finished.current = true;
-    if (router.canGoBack()) router.back();
+    if (returnTo) router.replace(returnTo as Href);
+    else if (router.canGoBack()) router.back();
     else router.replace('/(tabs)');
   };
 
-  // Opening the emailed link signs in without a code, in this tab or another one.
+  const finishSignIn = (needsName: boolean, offerPassword = false) => {
+    hapticSuccess();
+    if (needsName) setStep('name');
+    else if (offerPassword) setStep('set-password');
+    else done();
+  };
+
+  // Already signed in on this device — skip email and code.
   useEffect(() => {
-    const adopt = () =>
-      void currentSignIn().then((r) => {
-        if (!r || finished.current) return;
-        setStep((s) => {
-          if (s === 'name') return s;
-          if (r.needsName) return 'name';
-          setTimeout(done, 0);
-          return s;
-        });
-      });
-    adopt();
-    // Supabase auth calls inside the listener must be deferred to avoid a lock deadlock.
+    const adopt = async () => {
+      const resumed = await resumeSession().catch(() => null);
+      const r = resumed ?? (await currentSignIn());
+      if (!r || finished.current) return;
+      if (r.needsName) setStep('name');
+      else done();
+    };
+
+    void adopt().finally(() => setChecking(false));
+
     const sub = supabase?.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') setTimeout(adopt, 0);
+      if (event === 'SIGNED_IN') setTimeout(() => void adopt(), 0);
     });
     return () => sub?.data.subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
 
   const run = async (fn: () => Promise<void>) => {
@@ -90,9 +119,67 @@ export default function SignInScreen() {
     }
   };
 
+  const continueWithEmail = () =>
+    run(async () => {
+      const normalized = email.trim().toLowerCase();
+      const resumed = await resumeSession(normalized);
+      if (resumed) {
+        finishSignIn(resumed.needsName);
+        return;
+      }
+
+      const hint = await fetchAuthHint(normalized);
+      if (hint.passwordSignIn) {
+        setStep('password');
+        return;
+      }
+      if (hint.registered) {
+        await sendCode(normalized, returnTo ?? undefined, false);
+        setStep('code');
+        setCode('');
+        setResendIn(45);
+        setTimeout(() => codeRef.current?.focus(), 150);
+        return;
+      }
+
+      await sendCode(normalized, returnTo ?? undefined, true);
+      setStep('code');
+      setCode('');
+      setResendIn(45);
+      setTimeout(() => codeRef.current?.focus(), 150);
+    });
+
+  const continueAsLast = () =>
+    run(async () => {
+      if (!lastEmail) return;
+      setEmail(lastEmail);
+      const resumed = await resumeSession(lastEmail);
+      if (resumed) {
+        finishSignIn(resumed.needsName);
+        return;
+      }
+      const hint = await fetchAuthHint(lastEmail);
+      if (hint.passwordSignIn) {
+        setEmail(lastEmail);
+        setStep('password');
+        return;
+      }
+      setEmail(lastEmail);
+      await sendCode(lastEmail, returnTo ?? undefined, false);
+      setStep('code');
+      setResendIn(45);
+    });
+
+  const submitPassword = () =>
+    run(async () => {
+      const { needsName } = await signInWithPassword(email, password);
+      finishSignIn(needsName);
+    });
+
   const requestCode = () =>
     run(async () => {
-      await sendCode(email);
+      const hint = await fetchAuthHint(email.trim().toLowerCase());
+      await sendCode(email, returnTo ?? undefined, !hint.registered);
       setStep('code');
       setCode('');
       setResendIn(45);
@@ -102,17 +189,34 @@ export default function SignInScreen() {
   const submitCode = (value = code) =>
     run(async () => {
       const { needsName } = await verifyCode(email, value);
-      hapticSuccess();
-      if (needsName) setStep('name');
-      else done();
+      const hint = await fetchAuthHint(email.trim().toLowerCase());
+      finishSignIn(needsName, !hint.passwordSignIn);
     });
 
   const saveName = () =>
     run(async () => {
       await setDisplayName(name);
       hapticSuccess();
+      setStep('set-password');
+    });
+
+  const savePassword = () =>
+    run(async () => {
+      await setLoginPassword(newPassword);
+      hapticSuccess();
       done();
     });
+
+  if (checking) {
+    return (
+      <Screen>
+        <View style={{ paddingTop: 48, alignItems: 'center', gap: 12 }}>
+          <ActivityIndicator color={colors.hi} />
+          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.bone3 }}>Checking your session…</Text>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -121,13 +225,31 @@ export default function SignInScreen() {
           label="Back"
           icon={ArrowLeft}
           tone="plain"
-          onPress={() => (step === 'code' ? setStep('email') : done())}
+          onPress={() => {
+            if (step === 'code' || step === 'password') setStep('email');
+            else done();
+          }}
           style={{ alignSelf: 'flex-start', height: 38 }}
         />
 
         {step === 'email' ? (
           <>
-            <LargeTitle sub="Sign in to post in discussions, save products across devices and keep your Research Cards.">Join Sourced</LargeTitle>
+            <LargeTitle
+              sub={
+                returnTo === '/admin'
+                  ? 'If this device already knows your account, you go straight in. Otherwise use your password or a one-time email code.'
+                  : 'Already joined? Enter your email — we open your account on this device when we can, or ask for your password.'
+              }
+            >
+              {returnTo ? 'Sign in' : 'Welcome back'}
+            </LargeTitle>
+            {lastEmail ? (
+              <PrimaryButton
+                label={busy ? 'Opening…' : `Continue as ${lastEmail}`}
+                disabled={busy}
+                onPress={continueAsLast}
+              />
+            ) : null}
             <View style={{ gap: 12 }}>
               {PROMISES.map(({ icon: I, text }) => (
                 <View key={text} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -145,10 +267,31 @@ export default function SignInScreen() {
               placeholderTextColor={colors.bone3}
               value={email}
               onChangeText={setEmail}
-              onSubmitEditing={() => validEmail && !busy && requestCode()}
+              onSubmitEditing={() => validEmail && !busy && continueWithEmail()}
               style={inputStyle}
             />
-            <PrimaryButton label={busy ? 'Sending code…' : 'Email me a code'} disabled={!validEmail || busy} onPress={requestCode} />
+            <PrimaryButton label={busy ? 'Continuing…' : 'Continue'} disabled={!validEmail || busy} onPress={continueWithEmail} />
+          </>
+        ) : null}
+
+        {step === 'password' ? (
+          <>
+            <LargeTitle sub={`Sign in to ${email.trim().toLowerCase()}`}>Your password</LargeTitle>
+            <TextInput
+              autoCapitalize="none"
+              autoComplete="password"
+              secureTextEntry
+              placeholder="Password"
+              placeholderTextColor={colors.bone3}
+              value={password}
+              onChangeText={setPassword}
+              onSubmitEditing={() => password.length >= 8 && !busy && submitPassword()}
+              style={inputStyle}
+            />
+            <PrimaryButton label={busy ? 'Signing in…' : 'Sign in'} disabled={password.length < 8 || busy} onPress={submitPassword} />
+            <Pressable disabled={busy} onPress={requestCode} hitSlop={8} style={{ alignSelf: 'center' }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.hi }}>Email me a code instead</Text>
+            </Pressable>
           </>
         ) : null}
 
@@ -195,8 +338,29 @@ export default function SignInScreen() {
               style={inputStyle}
             />
             <PrimaryButton label="Continue" disabled={name.trim().length < 2 || busy} onPress={saveName} />
-            <Pressable onPress={done} hitSlop={8} style={{ alignSelf: 'center' }}>
+            <Pressable onPress={() => setStep('set-password')} hitSlop={8} style={{ alignSelf: 'center' }}>
               <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone3 }}>Skip for now</Text>
+            </Pressable>
+          </>
+        ) : null}
+
+        {step === 'set-password' ? (
+          <>
+            <LargeTitle sub="Next time you can enter email + password on a new device — no code unless you prefer it.">Set a login password</LargeTitle>
+            <TextInput
+              autoCapitalize="none"
+              autoComplete="new-password"
+              secureTextEntry
+              placeholder="At least 8 characters"
+              placeholderTextColor={colors.bone3}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              onSubmitEditing={() => newPassword.trim().length >= 8 && savePassword()}
+              style={inputStyle}
+            />
+            <PrimaryButton label={busy ? 'Saving…' : 'Save password'} disabled={newPassword.trim().length < 8 || busy} onPress={savePassword} />
+            <Pressable onPress={done} hitSlop={8} style={{ alignSelf: 'center' }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone3 }}>Skip — stay signed in on this device only</Text>
             </Pressable>
           </>
         ) : null}

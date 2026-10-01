@@ -2039,6 +2039,18 @@ Deno.serve(async (req) => {
       return json({ success: true, ...(await runAdminDashboard(store)) });
     }
 
+    if (action === "auth_hint") {
+      const email = str(body.email, 200).toLowerCase();
+      if (!email || !email.includes("@")) return json({ error: "invalid_email" }, 400);
+      const hintRows = await store.rpc("account_sign_in_hint", { target_email: email });
+      const row = (hintRows[0] ?? hintRows) as Json;
+      return json({
+        success: true,
+        registered: Boolean(row?.registered),
+        passwordSignIn: Boolean(row?.password_sign_in ?? row?.passwordSignIn),
+      });
+    }
+
     return json({ error: "unknown_action" }, 400);
   } catch (err) {
     return json({ error: "internal_error", message: err instanceof Error ? err.message : String(err) }, 500);
