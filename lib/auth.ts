@@ -1,53 +1,17 @@
 import type { Session } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 
 import { track } from './analytics';
+import { authCallbackPath, signInPath } from './authRedirect';
 import { useAppStore } from './store';
 import { supabase } from './supabase';
 
 /**
- * Sourced accounts: stay signed in on this device when possible; returning members can use
- * a password; new members verify email once with a code or link.
+ * Accounts live in Supabase Auth (auth.users) and public.profiles.
+ * The client only holds a short-lived session token; identity and saves are on the server.
  */
-
-const LAST_EMAIL_KEY = 'sourced:last-email';
-
-export function getLastSignedInEmail(): string | null {
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const v = window.localStorage.getItem(LAST_EMAIL_KEY)?.trim().toLowerCase();
-      return v && v.includes('@') ? v : null;
-    }
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
-
-function rememberLastEmail(email: string): void {
-  const normalized = email.trim().toLowerCase();
-  if (!normalized.includes('@')) return;
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(LAST_EMAIL_KEY, normalized);
-  } catch {
-    /* ignore */
-  }
-}
-
-export type AuthHint = { registered: boolean; passwordSignIn: boolean };
-
-export async function fetchAuthHint(email: string): Promise<AuthHint> {
-  try {
-    const { callIntel } = await import('./products');
-    const res = await callIntel<{ registered?: boolean; passwordSignIn?: boolean; error?: string }>({
-      action: 'auth_hint',
-      email: email.trim().toLowerCase(),
-    });
-    if (res.error) return { registered: true, passwordSignIn: false };
-    return { registered: Boolean(res.registered), passwordSignIn: Boolean(res.passwordSignIn) };
-  } catch {
-    return { registered: true, passwordSignIn: false };
-  }
-}
 
 export async function accessToken(): Promise<string | null> {
   if (!supabase) return null;
@@ -55,67 +19,98 @@ export async function accessToken(): Promise<string | null> {
   return data.session?.access_token ?? null;
 }
 
-export async function sendCode(email: string, returnTo?: string, createUser = true): Promise<void> {
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  returnTo?: string,
+): Promise<{ needsEmailConfirm: boolean; needsName: boolean }> {
   if (!supabase) throw new Error('auth_unavailable');
-  // Until custom SMTP is configured the default email carries a link instead of {{ .Token }}; on web it lands back here.
-  let emailRedirectTo: string | undefined;
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    const base = `${window.location.origin}/sign-in`;
-    const next = returnTo?.startsWith('/') ? returnTo : undefined;
-    emailRedirectTo = next ? `${base}?returnTo=${encodeURIComponent(next)}` : base;
-  }
-  const { error } = await supabase.auth.signInWithOtp({
+  const { data, error } = await supabase.auth.signUp({
     email: email.trim().toLowerCase(),
-    options: { shouldCreateUser: createUser, emailRedirectTo },
+    password,
+    options: { emailRedirectTo: authCallbackPath(returnTo) },
   });
-  if (error) throw new Error(error.status === 429 ? 'Too many codes requested. Wait a minute and try again.' : error.message);
-  track('auth_code_sent', {});
+  if (error) throw new Error(error.message);
+  if (data.session) {
+    const name = await syncSession(data.session);
+    track('auth_signed_up', {});
+    return { needsEmailConfirm: false, needsName: needsName(name, data.session) };
+  }
+  track('auth_signup_confirm_sent', {});
+  return { needsEmailConfirm: true, needsName: false };
 }
 
-/** Restore a saved session on this device (refresh token). Optionally require a matching email. */
-export async function resumeSession(email?: string): Promise<{ needsName: boolean } | null> {
-  if (!supabase) return null;
-  const want = email?.trim().toLowerCase();
-  const { data: refreshed } = await supabase.auth.refreshSession().catch(() => ({ data: { session: null } }));
-  let session = refreshed.session ?? (await supabase.auth.getSession()).data.session;
-  if (!session) return null;
-  const have = session.user.email?.trim().toLowerCase() ?? '';
-  if (want && have && want !== have) return null;
-  const name = await syncSession(session);
-  rememberLastEmail(have);
-  return { needsName: needsName(name, session) };
-}
-
-export async function signInWithPassword(email: string, password: string): Promise<{ needsName: boolean }> {
+export async function signInWithEmail(email: string, password: string): Promise<{ needsName: boolean }> {
   if (!supabase) throw new Error('auth_unavailable');
   const { data, error } = await supabase.auth.signInWithPassword({
     email: email.trim().toLowerCase(),
     password,
   });
   if (error || !data.session) {
-    throw new Error(error?.message?.toLowerCase().includes('invalid') ? 'Email or password is not right.' : error?.message ?? 'Could not sign in.');
+    throw new Error(
+      error?.message?.toLowerCase().includes('invalid') ? 'Email or password is not right.' : error?.message ?? 'Could not sign in.',
+    );
   }
   const name = await syncSession(data.session);
-  rememberLastEmail(email);
-  track('auth_signed_in', {});
+  track('auth_signed_in', { method: 'password' });
   return { needsName: needsName(name, data.session) };
 }
 
-export async function setLoginPassword(password: string): Promise<void> {
+export async function sendMagicLink(email: string, returnTo?: string): Promise<void> {
   if (!supabase) throw new Error('auth_unavailable');
-  const clean = password.trim();
-  if (clean.length < 8) throw new Error('Use at least 8 characters.');
-  const { error } = await supabase.auth.updateUser({ password: clean });
-  if (error) throw new Error(error.message);
+  const { error } = await supabase.auth.signInWithOtp({
+    email: email.trim().toLowerCase(),
+    options: {
+      shouldCreateUser: true,
+      emailRedirectTo: authCallbackPath(returnTo),
+    },
+  });
+  if (error) throw new Error(error.status === 429 ? 'Too many emails sent. Wait a minute and try again.' : error.message);
+  track('auth_magic_link_sent', {});
 }
 
-export async function verifyCode(email: string, code: string): Promise<{ needsName: boolean }> {
+export async function sendPasswordReset(email: string): Promise<void> {
   if (!supabase) throw new Error('auth_unavailable');
-  const { data, error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: code.trim(), type: 'email' });
-  if (error || !data.session) throw new Error(error?.message?.includes('expired') ? 'That code has expired. Request a new one.' : 'That code is not right. Check it and try again.');
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo: signInPath(),
+  });
+  if (error) throw new Error(error.message);
+  track('auth_reset_sent', {});
+}
+
+export async function signInWithGoogle(returnTo?: string): Promise<void> {
+  if (!supabase) throw new Error('auth_unavailable');
+  const redirectTo = authCallbackPath(returnTo);
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo },
+    });
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo, skipBrowserRedirect: true },
+  });
+  if (error || !data.url) throw new Error(error?.message ?? 'Could not start Google sign-in');
+
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  if (result.type !== 'success') throw new Error('Google sign-in was cancelled');
+  await completeAuthFromUrl(result.url);
+}
+
+export async function completeAuthFromUrl(url: string): Promise<{ needsName: boolean }> {
+  if (!supabase) throw new Error('auth_unavailable');
+  const parsed = Linking.parse(url);
+  const code = typeof parsed.queryParams?.code === 'string' ? parsed.queryParams.code : null;
+  if (!code) throw new Error('Sign-in link is missing a code. Try again from the app.');
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error || !data.session) throw new Error(error?.message ?? 'Could not complete sign-in');
   const name = await syncSession(data.session);
-  rememberLastEmail(email);
-  track('auth_signed_in', {});
+  track('auth_signed_in', { method: 'oauth' });
   return { needsName: needsName(name, data.session) };
 }
 
@@ -123,13 +118,12 @@ function needsName(name: string | null, session: Session): boolean {
   return !name || name === session.user.email?.split('@')[0];
 }
 
-/** Resolves once a session exists (code or emailed link); null when signed out. */
+/** Resolves once a verified Supabase session exists. */
 export async function currentSignIn(): Promise<{ needsName: boolean } | null> {
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();
   if (!data.session) return null;
   const name = await syncSession(data.session);
-  rememberLastEmail(data.session.user.email ?? '');
   return { needsName: needsName(name, data.session) };
 }
 
@@ -174,17 +168,13 @@ async function doSyncSession(session: Session): Promise<string | null> {
   state.setAuthProfile({
     id: user.id,
     email,
-    displayName: displayName || email.split('@')[0] || 'Member',
+    displayName: displayName || user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0] || 'Member',
     onboardingComplete: true,
     isAdmin,
   });
-  rememberLastEmail(email);
   void syncSaves(localFavorites.map((f) => f.productId));
   return displayName;
 }
-
-// ---------------------------------------------------------------------------
-// Saved products live in the account (saved_products) so the app and WhatsApp share them.
 
 type SavedRow = { product_id: string; name: string | null; brand: string | null; category: string | null; image: string | null };
 
@@ -200,7 +190,6 @@ function productRef(productId: string) {
 
 let syncing = false;
 
-/** Uploads device saves once, then adopts the account's saved list as the source of truth. */
 async function syncSaves(uploadIds: string[]): Promise<void> {
   syncing = true;
   try {
@@ -209,7 +198,7 @@ async function syncSaves(uploadIds: string[]): Promise<void> {
     const prev = new Map(useAppStore.getState().favorites.map((f) => [f.productId, f]));
     useAppStore.getState().setFavorites(saves.map((s) => prev.get(s.product_id) ?? { productId: s.product_id, priceAlertEnabled: false }));
   } catch {
-    // Keep the device list; the next sign-in retries.
+    /* retry on next sign-in */
   } finally {
     syncing = false;
   }
@@ -217,24 +206,18 @@ async function syncSaves(uploadIds: string[]): Promise<void> {
 
 let started = false;
 
-/** Call once at app start: restores the session and keeps saves mirrored to the account. */
 export function startAuth(): () => void {
   if (!supabase || started) return () => undefined;
   started = true;
-  void (async () => {
-    const { data } = await supabase.auth.getSession();
-    if (data.session) {
-      void syncSession(data.session);
-      return;
-    }
-    const resumed = await resumeSession().catch(() => null);
-    if (resumed) return;
-    // Legacy device-only profiles must sign in for real; their device saves are kept and uploaded on sign-in.
-    if (useAppStore.getState().profile) useAppStore.getState().clearProfile();
-  })();
+  void supabase.auth.getSession().then(({ data }) => {
+    if (data.session) void syncSession(data.session);
+    else if (useAppStore.getState().profile) useAppStore.getState().clearProfile();
+  });
   const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') useAppStore.getState().signOut();
-    if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && useAppStore.getState().profile?.id !== session.user.id) setTimeout(() => void syncSession(session), 0);
+    if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && useAppStore.getState().profile?.id !== session.user.id) {
+      setTimeout(() => void syncSession(session), 0);
+    }
   });
 
   const unsubscribe = useAppStore.subscribe((state, prev) => {
@@ -256,7 +239,6 @@ export function isAuthUserId(id: string | undefined | null): boolean {
   return Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
 }
 
-/** Re-read display name and admin flag from the server (e.g. after admin migration). */
 export async function refreshAuthProfile(): Promise<void> {
   if (!supabase) return;
   const { data } = await supabase.auth.getSession();
