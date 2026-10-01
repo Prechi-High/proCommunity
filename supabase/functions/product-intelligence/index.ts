@@ -1108,10 +1108,16 @@ What people said (ref | who | product | words) — verified owners listed first:
 ${items.slice(0, 70).map((i) => `${i.ref} | ${i.author} | ${i.product} | ${i.text}`).join("\n")}
 
 Return JSON:
-{"answer":"","mark":"3-9 words copied exactly from your answer — the key takeaway","cites":["V1"],"enough":true,"followups":["",""]}`;
+{"answer":"","mark":"3-9 words copied exactly from your answer — the key takeaway","highlights":[{"text":"exact phrase copied from your answer","tone":"hint|good|bad"}],"cites":["V1"],"enough":true,"followups":["",""]}
+
+Highlight rules (underline phrases in the answer):
+- "hint" (blue): phrases that directly help answer the shopper's question — facts, durations, specs, yes/no — even if negative (e.g. battery "lasts 30 minutes").
+- "good" (green): clear praise relevant to the question.
+- "bad" (red): warnings that the product is not OK — drawbacks not answering the question.
+Copy highlight text EXACTLY as it appears in your answer. Include 1-4 highlights when evidence supports them. Quote ownership notes verbatim when they answer the question.`;
 
   if (!items.length) return { error: payloads.length ? "no_voices" : "not_investigated" };
-  const llm = await callLlm(prompt, 700, 20000);
+  const llm = await callLlm(prompt, 900, 20000);
   const d = (llm.data ?? {}) as Json;
   const answer = str(d.answer, 900);
   const mark = str(d.mark, 90);
@@ -1121,6 +1127,62 @@ Return JSON:
     .slice(0, 6)
     .map(({ ref, ...rest }) => ({ id: ref, ...rest, text: rest.text.slice(0, 240) }));
   const enough = d.enough !== false && Boolean(answer) && cites.length > 0;
+
+  type HL = { text: string; tone: "hint" | "good" | "bad" };
+  const rawHl = (Array.isArray(d.highlights) ? d.highlights : []) as Json[];
+  const highlights: HL[] = [];
+  const answerLower = answer.toLowerCase();
+  const addHl = (text: string, tone: HL["tone"]) => {
+    const t = text.trim();
+    if (t.length < 4) return;
+    const inAnswer = answerLower.includes(t.toLowerCase());
+    const inSource = items.some((i) => i.text.toLowerCase().includes(t.toLowerCase()));
+    if (!inAnswer && !inSource) return;
+    if (highlights.some((h) => h.text.toLowerCase() === t.toLowerCase())) return;
+    highlights.push({ text: t, tone });
+  };
+  for (const h of rawHl) {
+    const t = str(h.text, 120);
+    const tone = str(h.tone, 8);
+    if (t && (tone === "good" || tone === "bad" || tone === "hint")) addHl(t, tone);
+  }
+  if (mark) addHl(mark, "hint");
+
+  const q = input.question.toLowerCase();
+  const qTopic = /battery|charge|last|hour|minute|power|life|durability|noise|heat|size|weight|screen/i.test(q);
+  for (const item of items.filter((i) => i.platform === "sourced" || i.author.includes("verified owner"))) {
+    const body = item.text.replace(/^Ownership Note[^:]*:\s*/i, "").replace(/^Post:[^—]*—\s*/i, "");
+    for (const chunk of body.split(/[.!?\n]+/)) {
+      const s = chunk.trim();
+      if (s.length < 12 || s.length > 160) continue;
+      const relevant =
+        (qTopic && /last|min|hour|battery|charge|power|dies|goes off|drain|life/i.test(s)) ||
+        q.split(/\s+/).filter((w) => w.length > 4).some((w) => s.toLowerCase().includes(w));
+      if (!relevant) continue;
+      const tone: HL["tone"] =
+        /love|great|recommend|worth it|excellent|amazing/i.test(s) ? "good" : /avoid|broken|terrible|regret|don't buy|not ok|goes off|dies/i.test(s) && !qTopic ? "bad" : "hint";
+      const idx = answerLower.indexOf(s.toLowerCase());
+      if (idx >= 0) addHl(answer.slice(idx, idx + s.length), tone);
+      else {
+        let matched = false;
+        const words = s.split(/\s+/);
+        for (let len = Math.min(words.length, 12); len >= 4; len--) {
+          for (let start = 0; start <= words.length - len; start++) {
+            const phrase = words.slice(start, start + len).join(" ");
+            if (phrase.length < 12) continue;
+            const j = answerLower.indexOf(phrase.toLowerCase());
+            if (j >= 0) {
+              addHl(answer.slice(j, j + phrase.length), tone);
+              matched = true;
+              break;
+            }
+          }
+          if (matched) break;
+        }
+        if (!matched) addHl(s, tone);
+      }
+    }
+  }
 
   const main = payloads[0] ?? ({ identity: { name: ids[0] }, query: ids[0] } as Json);
   await store.upsert("community_asks", {
@@ -1141,7 +1203,8 @@ Return JSON:
 
   return {
     answer: answer || "Nobody has talked about that yet. Ask the community — owners get notified.",
-    mark: mark && answer.toLowerCase().includes(mark.toLowerCase()) ? mark : "",
+    mark: mark && answer.toLowerCase().includes(mark.toLowerCase()) ? mark : highlights[0]?.text ?? "",
+    highlights: highlights.slice(0, 6),
     cites,
     enough,
     basedOn: items.length,

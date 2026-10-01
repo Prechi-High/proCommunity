@@ -290,9 +290,17 @@ export interface AskCite {
   url: string | null;
 }
 
+export type AskHighlightTone = 'hint' | 'good' | 'bad';
+
+export interface AskHighlight {
+  text: string;
+  tone: AskHighlightTone;
+}
+
 export interface AskAnswer {
   answer: string;
   mark: string;
+  highlights?: AskHighlight[];
   cites: AskCite[];
   enough: boolean;
   basedOn: number;

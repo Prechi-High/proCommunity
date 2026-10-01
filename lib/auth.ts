@@ -76,9 +76,11 @@ function syncSession(session: Session): Promise<string | null> {
 async function doSyncSession(session: Session): Promise<string | null> {
   const user = session.user;
   let displayName: string | null = null;
+  let isAdmin = false;
   if (supabase) {
-    const { data } = await supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle();
+    const { data } = await supabase.from('profiles').select('display_name,is_admin').eq('id', user.id).maybeSingle();
     displayName = (data?.display_name as string | undefined)?.trim() || null;
+    isAdmin = Boolean(data?.is_admin);
   }
   const email = user.email ?? '';
   const state = useAppStore.getState();
@@ -88,6 +90,7 @@ async function doSyncSession(session: Session): Promise<string | null> {
     email,
     displayName: displayName || email.split('@')[0] || 'Member',
     onboardingComplete: true,
+    isAdmin,
   });
   void syncSaves(localFavorites.map((f) => f.productId));
   return displayName;

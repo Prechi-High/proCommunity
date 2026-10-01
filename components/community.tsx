@@ -41,12 +41,22 @@ import { colors, elevation, fonts } from '@/constants/theme';
 import { askOwners, KIND_LABEL, timeAgo } from '@/lib/community';
 import { hapticSelect, hapticSuccess, hapticTap } from '@/lib/haptics';
 import { useAppStore } from '@/lib/store';
-import type { AskAnswer, AskCite, CommunityThread, ProductProfile, Stance, TrendingProduct, Voice } from '@/lib/types';
+import type { AskAnswer, AskCite, AskHighlight, CommunityThread, ProductProfile, Stance, TrendingProduct, Voice } from '@/lib/types';
 
 // ---------------------------------------------------------------------------
 // Marker — phrases get highlighted word by word, like a pen revealing what matters.
 
-type Seg = { text: string; marked: boolean };
+type Seg = { text: string; marked: boolean; tone?: AskHighlight['tone'] | 'default' };
+
+export type MarkerTone = 'default' | 'good' | 'bad' | 'hint';
+
+function toneColors(tone: MarkerTone, dark?: boolean) {
+  if (tone === 'good') return { bg: colors.markGood, fg: colors.markGoodInk };
+  if (tone === 'bad') return { bg: colors.markBad, fg: colors.markBadInk };
+  if (tone === 'hint') return { bg: colors.mark, fg: colors.markInk };
+  if (dark) return { bg: colors.markDark, fg: colors.white };
+  return { bg: colors.mark, fg: colors.markInk };
+}
 
 function splitMarks(text: string, marks: string[]): Seg[] {
   const clean = marks.map((m) => m.trim()).filter((m) => m.length > 1);
@@ -69,9 +79,44 @@ function splitMarks(text: string, marks: string[]): Seg[] {
   return out;
 }
 
+function splitColoredMarks(text: string, highlights: AskHighlight[]): Seg[] {
+  const lower = text.toLowerCase();
+  const ranges: Array<{ a: number; b: number; tone: AskHighlight['tone'] }> = [];
+  for (const h of highlights) {
+    const phrase = h.text.trim();
+    if (phrase.length < 3) continue;
+    let i = lower.indexOf(phrase.toLowerCase());
+    if (i < 0 && phrase.length > 24) {
+      const chunk = phrase.slice(0, Math.min(phrase.length, 48));
+      i = lower.indexOf(chunk.toLowerCase());
+      if (i >= 0) ranges.push({ a: i, b: i + chunk.length, tone: h.tone });
+      continue;
+    }
+    if (i >= 0) ranges.push({ a: i, b: i + phrase.length, tone: h.tone });
+  }
+  ranges.sort((x, y) => x.a - y.a);
+  const merged: typeof ranges = [];
+  for (const r of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && r.a < last.b) continue;
+    merged.push(r);
+  }
+  if (!merged.length) return [{ text, marked: false }];
+  const out: Seg[] = [];
+  let at = 0;
+  for (const { a, b, tone } of merged) {
+    if (a > at) out.push({ text: text.slice(at, a), marked: false });
+    out.push({ text: text.slice(a, b), marked: true, tone });
+    at = b;
+  }
+  if (at < text.length) out.push({ text: text.slice(at), marked: false });
+  return out;
+}
+
 export function Marker({
   text,
   marks,
+  highlights,
   dark,
   tone = 'default',
   delay = 0,
@@ -80,15 +125,22 @@ export function Marker({
   instant,
 }: {
   text: string;
-  marks: (string | null | undefined)[];
+  marks?: (string | null | undefined)[];
+  highlights?: AskHighlight[];
   dark?: boolean;
-  tone?: 'default' | 'good' | 'bad';
+  tone?: MarkerTone;
   delay?: number;
   style?: StyleProp<TextStyle>;
   speed?: number;
   instant?: boolean;
 }) {
-  const segs = useMemo(() => splitMarks(text, marks.filter(Boolean) as string[]), [text, marks]);
+  const segs = useMemo(() => {
+    if (highlights?.length) return splitColoredMarks(text, highlights);
+    return splitMarks(text, (marks ?? []).filter(Boolean) as string[]).map((s) => ({
+      ...s,
+      tone: s.marked ? (tone === 'default' ? 'hint' : tone) : undefined,
+    }));
+  }, [text, marks, highlights, tone]);
   const tokens = useMemo(() => segs.map((s) => (s.marked ? s.text.split(/(\s+)/).filter(Boolean) : [s.text])), [segs]);
   const total = useMemo(() => segs.reduce((n, s, i) => n + (s.marked ? tokens[i].length : 0), 0), [segs, tokens]);
   const [shown, setShown] = useState(0);
@@ -116,28 +168,13 @@ export function Marker({
   }, [total, delay, speed, text, instant]);
 
   let k = 0;
-  const bg =
-    tone === 'good'
-      ? colors.markGood
-      : tone === 'bad'
-        ? colors.markBad
-        : dark
-          ? colors.markDark
-          : colors.mark;
-  const fg =
-    tone === 'good'
-      ? colors.markGoodInk
-      : tone === 'bad'
-        ? colors.markBadInk
-        : dark
-          ? colors.white
-          : colors.markInk;
   return (
     <Text style={style}>
       {segs.map((s, i) =>
         s.marked ? (
           tokens[i].map((w, j) => {
             const on = k++ < shown;
+            const { bg, fg } = toneColors(s.tone ?? tone, dark);
             return (
               <Text
                 key={`${i}-${j}`}
@@ -583,14 +620,26 @@ export function AnswerCard({
             </View>
             <Marker
               text={answer.answer}
-              marks={[answer.mark]}
+              highlights={
+                answer.highlights?.length
+                  ? answer.highlights
+                  : answer.mark
+                    ? [{ text: answer.mark, tone: 'hint' }]
+                    : undefined
+              }
+              marks={answer.highlights?.length ? undefined : [answer.mark]}
               delay={250}
               style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 23, color: colors.bone }}
             />
             {answer.cites.length ? (
               <View style={{ gap: 8 }}>
                 {answer.cites.map((c) => (
-                  <CiteRow key={c.id} cite={c} onOpen={onOpen} />
+                  <CiteRow
+                    key={c.id}
+                    cite={c}
+                    highlights={answer.highlights?.filter((h) => c.text.toLowerCase().includes(h.text.toLowerCase()))}
+                    onOpen={onOpen}
+                  />
                 ))}
               </View>
             ) : null}
@@ -636,7 +685,7 @@ export function AnswerCard({
   );
 }
 
-function CiteRow({ cite, onOpen }: { cite: AskCite; onOpen?: (url: string) => void }) {
+function CiteRow({ cite, highlights, onOpen }: { cite: AskCite; highlights?: AskHighlight[]; onOpen?: (url: string) => void }) {
   return (
     <Pressable
       disabled={!cite.url}
@@ -649,7 +698,16 @@ function CiteRow({ cite, onOpen }: { cite: AskCite; onOpen?: (url: string) => vo
           <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: fonts.semibold, fontSize: 12.5, color: colors.bone }}>{cite.author}</Text>
           <PlatformTag platform={cite.platform} />
         </View>
-        <Text numberOfLines={3} style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.bone2 }}>{cite.text}</Text>
+        {highlights?.length ? (
+          <Marker
+            text={cite.text}
+            highlights={highlights}
+            instant
+            style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.bone2 }}
+          />
+        ) : (
+          <Text numberOfLines={3} style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.bone2 }}>{cite.text}</Text>
+        )}
       </View>
     </Pressable>
   );

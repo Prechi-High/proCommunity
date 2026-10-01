@@ -4,12 +4,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnswerCard, AskOwners, AvatarStack, SectionHead, useMemberGate } from '@/components/community';
-import { ArrowLeft, ArrowsLeftRight, ArrowSquareOut, ChatsCircle, MagnifyingGlass, Plus, Trophy, X } from '@/components/icons';
+import { AskOwners, AvatarStack, SectionHead, useMemberGate } from '@/components/community';
+import { ArrowLeft, ArrowsLeftRight, ArrowSquareOut, MagnifyingGlass, Plus, Trophy, X } from '@/components/icons';
 import { Eyebrow, PrimaryButton, ProductImage, ProductRow, ScoreDial, SearchBar, Shimmer } from '@/components/kit';
 import { openLink } from '@/components/product/Panes';
 import { colors, fonts } from '@/constants/theme';
-import { askOwners, fetchCompareAspects, fetchCompareFocus, postThread, trackProduct, type CompareFocus } from '@/lib/community';
+import { fetchCompareAspects, fetchCompareFocus, postThread, trackProduct, type CompareFocus } from '@/lib/community';
 import { hapticSelect, hapticSuccess, hapticTap } from '@/lib/haptics';
 import { displayName, formatPrice, getKnownProduct, investigateProduct, profileToProduct, rememberProduct, searchProducts } from '@/lib/products';
 import { useAppStore } from '@/lib/store';
@@ -82,15 +82,10 @@ export default function CompareScreen() {
 
   const focus = useMutation({ mutationFn: (a: string) => fetchCompareFocus(refs, a) });
 
-  const take = useMutation({
-    mutationFn: () => askOwners(filled[0], 'Which one should I pick, and what do owners say is the real difference?', filled[1], filled.slice(2)),
-  });
   const asked = useRef('');
   useEffect(() => {
     if (!ready || asked.current === pairKey) return;
     asked.current = pairKey;
-    take.reset();
-    take.mutate();
     slots.forEach((id, i) => id && trackProduct(productOf(id, profiles[i]), 'compare'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, pairKey]);
@@ -167,7 +162,39 @@ export default function CompareScreen() {
         <View style={{ width: 38 }} />
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, gap: 18 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1 }}
+        stickyHeaderIndices={[0]}
+        contentContainerStyle={{ paddingBottom: 32 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ backgroundColor: colors.wine, paddingHorizontal: 16, paddingBottom: 12, gap: 8 }}>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'stretch' }}>
+            {slots.map((id, i) => (
+              <SlotCard
+                key={`${i}-${id ?? 'empty'}`}
+                id={id}
+                name={names[i]}
+                profile={profiles[i]}
+                loading={Boolean(id) && Boolean(intel[i]?.isLoading)}
+                active={picking === i}
+                compact={slots.length > 2}
+                showScore={Boolean(aspect)}
+                onPick={() => setPicking(i)}
+                onClear={() => clear(i)}
+              />
+            ))}
+          </View>
+          {slots.length < MAX_COMPARE && filled.length === slots.length ? (
+            <Pressable onPress={addSlot} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center' }}>
+              <Plus size={14} color={colors.hi} weight="bold" />
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.hi }}>Add a {slots.length === 2 ? 'third' : 'another'} product</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        <View style={{ paddingHorizontal: 16, gap: 18, paddingTop: 8 }}>
         <View style={{ gap: 4 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 28, letterSpacing: -0.8, color: colors.bone }}>Side by side</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, color: colors.bone2 }}>
@@ -177,28 +204,6 @@ export default function CompareScreen() {
             <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.hiInk }}>Spotted together in your photo.</Text>
           ) : null}
         </View>
-
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'stretch' }}>
-          {slots.map((id, i) => (
-            <SlotCard
-              key={`${i}-${id ?? 'empty'}`}
-              id={id}
-              name={names[i]}
-              profile={profiles[i]}
-              loading={Boolean(id) && Boolean(intel[i]?.isLoading)}
-              active={picking === i}
-              compact={slots.length > 2}
-              onPick={() => setPicking(i)}
-              onClear={() => clear(i)}
-            />
-          ))}
-        </View>
-        {slots.length < MAX_COMPARE && filled.length === slots.length ? (
-          <Pressable onPress={addSlot} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', marginTop: -6 }}>
-            <Plus size={14} color={colors.hi} weight="bold" />
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.hi }}>Add a {slots.length === 2 ? 'third' : 'another'} product</Text>
-          </Pressable>
-        ) : null}
 
         {picking !== null ? (
           <Picker exclude={slots} onChoose={(p) => choose(picking, p)} slotLabel={['first', 'second', 'third'][picking] ?? 'next'} />
@@ -242,20 +247,8 @@ export default function CompareScreen() {
           )
         ) : null}
 
-        {ready ? (
+        {ready && aspect ? (
           <>
-            <View style={{ gap: 10 }}>
-              <SectionHead title="Owners’ take" icon={<ChatsCircle size={20} color={colors.hi} weight="bold" />} />
-              <AnswerCard
-                question="Which one should I pick?"
-                loading={take.isPending}
-                error={take.isError}
-                answer={take.data ?? null}
-                onRetry={() => take.mutate()}
-                onOpen={(url) => void openLink(url)}
-              />
-            </View>
-
             <Compared list={profiles.filter(Boolean) as ProductProfile[]} />
 
             <View style={{ gap: 10 }}>
@@ -281,6 +274,7 @@ export default function CompareScreen() {
             </View>
           </>
         ) : null}
+        </View>
       </ScrollView>
       {gate}
     </SafeAreaView>
@@ -335,7 +329,7 @@ function AspectPicker({
           </Text>
         </Pressable>
       ) : (
-        <View style={{ gap: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {aspects.map((a) => {
             const on = selected === a.label;
             return (
@@ -345,21 +339,14 @@ function AspectPicker({
                 accessibilityRole="radio"
                 accessibilityState={{ selected: on }}
                 style={({ pressed }) => ({
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 10,
                   paddingHorizontal: 14,
-                  paddingVertical: 11,
-                  borderRadius: 14,
+                  paddingVertical: 10,
+                  borderRadius: 999,
                   backgroundColor: on ? colors.hi : colors.lac2,
                   opacity: pressed ? 0.8 : 1,
                 })}
               >
-                <View style={{ flex: 1, gap: 1 }}>
-                  <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: on ? colors.white : colors.bone }}>{a.label}</Text>
-                  {a.why ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 17, color: on ? 'rgba(255,255,255,0.8)' : colors.bone3 }}>{a.why}</Text> : null}
-                </View>
-                <MagnifyingGlass size={15} color={on ? colors.white : colors.bone3} weight="bold" />
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: on ? colors.white : colors.bone }}>{a.label}</Text>
               </Pressable>
             );
           })}
@@ -462,6 +449,7 @@ function SlotCard({
   loading,
   active,
   compact,
+  showScore,
   onPick,
   onClear,
 }: {
@@ -471,6 +459,7 @@ function SlotCard({
   loading: boolean;
   active: boolean;
   compact: boolean;
+  showScore?: boolean;
   onPick: () => void;
   onClear: () => void;
 }) {
@@ -513,11 +502,8 @@ function SlotCard({
         <Shimmer height={48} width={48} radius={24} />
       ) : profile ? (
         <>
-          <ScoreDial score={profile.score} size={compact ? 48 : 58} stroke={compact ? 5 : 6} />
+          {showScore ? <ScoreDial score={profile.score} size={compact ? 48 : 58} stroke={compact ? 5 : 6} /> : null}
           <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.bone }}>{lowest ? formatPrice(lowest.price) : '—'}</Text>
-          {!compact ? (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.bone3, textAlign: 'center' }}>{profile.voices?.length ?? 0} owner voices</Text>
-          ) : null}
         </>
       ) : null}
     </View>
