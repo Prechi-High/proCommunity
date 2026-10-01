@@ -163,6 +163,28 @@ export async function fetchPulse(category?: string): Promise<Pulse> {
   return callIntel<Pulse>({ action: 'pulse', category }, 15000);
 }
 
+export interface AdminDashboard {
+  stats: {
+    members: number;
+    productViews7d: number;
+    saves7d: number;
+    compares7d: number;
+    posts7d: number;
+    quickQuestions7d: number;
+    ownershipNotes7d: number;
+  };
+  trending: Array<{ id: string; name: string; views: number; asks: number; heat: number }>;
+  recentThreads: Array<{ id: string; title: string; product_name: string; kind: string; author_name: string; created_at: string }>;
+  recentQuestions: Array<{ question: string; product_name: string; created_at: string }>;
+  windowDays: number;
+}
+
+export async function fetchAdminDashboard(): Promise<AdminDashboard> {
+  const res = await callIntel<AdminDashboard & { error?: string }>({ action: 'admin_dashboard' }, 20000);
+  if (res.error) throw new Error(res.error);
+  return res;
+}
+
 export function trackProduct(
   product: Pick<Product, 'id' | 'name' | 'brand' | 'category' | 'heroImageUrl'>,
   event: 'view' | 'compare' | 'save',

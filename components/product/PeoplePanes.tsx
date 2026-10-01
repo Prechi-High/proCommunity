@@ -28,7 +28,7 @@ import { openLink } from '@/components/product/Panes';
 import { colors, fonts } from '@/constants/theme';
 import { hapticSelect } from '@/lib/haptics';
 import { formatPrice, formatRange } from '@/lib/products';
-import type { Cited, CommunityThread, ProductProfile, Stance, ThreadKind, Voice } from '@/lib/types';
+import type { Cited, CommunityThread, OwnershipNote, ProductProfile, Stance, ThreadKind, Voice } from '@/lib/types';
 
 const open = (url: string) => void openLink(url);
 
@@ -45,11 +45,13 @@ function verifiedLabel(iso: string): string {
 export function OverviewPane({
   profile,
   threads,
+  ownershipNotes = [],
   onGo,
   onOpenSources,
 }: {
   profile: ProductProfile;
   threads: CommunityThread[];
+  ownershipNotes?: OwnershipNote[];
   onGo: (tab: 'owners' | 'discuss' | 'prices') => void;
   onOpenSources: () => void;
 }) {
@@ -125,6 +127,24 @@ export function OverviewPane({
         </Tile>
       ) : null}
 
+      {ownershipNotes.length ? (
+        <View style={{ gap: 8 }}>
+          <SectionHead title="Ownership notes" action={ownershipNotes.length > 2 ? `All ${ownershipNotes.length}` : undefined} onAction={ownershipNotes.length > 2 ? () => onGo('owners') : undefined} />
+          {ownershipNotes.slice(0, 3).map((n) => (
+            <View key={n.id} style={{ backgroundColor: colors.lac, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11, gap: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <SealCheck size={13} color={colors.sage} weight="fill" />
+                <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 12.5, color: colors.sageInk }}>{n.author_name}</Text>
+              </View>
+              <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: colors.bone }}>{n.title}</Text>
+              {n.body ? (
+                <Text numberOfLines={2} style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 18, color: colors.bone2 }}>{n.body}</Text>
+              ) : null}
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       {voices.length ? (
         <View style={{ gap: 10 }}>
           <SectionHead title="Owners are saying" action={`All ${voices.length}`} onAction={() => onGo('owners')} />
@@ -187,7 +207,7 @@ export function OverviewPane({
               : 'Got a question or a worry?'}
           </Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.hiInk, opacity: 0.8 }}>
-            Ask the owners anything — like you’d ask a friend.
+            Ask a quick question — we search member discussions first.
           </Text>
         </View>
         <ArrowRight size={18} color={colors.hi} weight="bold" />

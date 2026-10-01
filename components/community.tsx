@@ -406,7 +406,7 @@ export function ThreadCard({
 }
 
 // ---------------------------------------------------------------------------
-// Ask the owners — answers only from what real people said.
+// Quick answer — searches member discussions and ownership notes first.
 
 export function AskOwners({
   productId,
@@ -414,7 +414,7 @@ export function AskOwners({
   suggestions,
   onPostQuestion,
   onOpen,
-  placeholder = 'Ask like you’d ask a friend who owns it…',
+  placeholder = 'Ask anything about this product…',
   autoFocus,
 }: {
   productId: string;
@@ -446,9 +446,12 @@ export function AskOwners({
           <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: colors.hiSoft, alignItems: 'center', justifyContent: 'center' }}>
             <UsersThree size={15} color={colors.hi} weight="bold" />
           </View>
-          <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>Ask the owners</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.bone3 }}>answers only from real people</Text>
+          <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>Quick answer</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.bone3 }}>from member posts & notes</Text>
         </View>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.bone2 }}>
+          We search what Sourced members posted and verified owners wrote. Verified owner replies count most. If nothing covers your question, post it for owners to reply.
+        </Text>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
           <TextInput
             value={q}
@@ -480,7 +483,7 @@ export function AskOwners({
           <Pressable
             onPress={() => submit(q)}
             disabled={q.trim().length < 3 || ask.isPending}
-            accessibilityLabel="Ask"
+            accessibilityLabel="Search discussions"
             style={{
               width: 44,
               height: 44,
@@ -561,7 +564,7 @@ export function AnswerCard({
         ) : error || !answer ? (
           <Pressable onPress={onRetry}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 14.5, color: colors.bone2 }}>
-              Couldn’t reach the owners just now. <Text style={{ color: colors.hi }}>Try again</Text>
+              Couldn’t search discussions just now. <Text style={{ color: colors.hi }}>Try again</Text>
             </Text>
           </Pressable>
         ) : (
@@ -572,10 +575,10 @@ export function AnswerCard({
               ) : null}
               <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, color: colors.bone3 }}>
                 {answer.enough
-                  ? `From ${answer.cites.length} ${answer.cites.length === 1 ? 'person' : 'people'} who used it`
+                  ? `From ${answer.cites.length} member ${answer.cites.length === 1 ? 'source' : 'sources'} (verified owners weighted first)`
                   : answer.cites.length
-                    ? `No direct answer yet · closest from ${answer.cites.length} ${answer.cites.length === 1 ? 'person' : 'people'}`
-                    : 'Nobody has covered this yet'}
+                    ? `Not in discussions yet · closest from ${answer.cites.length} ${answer.cites.length === 1 ? 'post' : 'posts'}`
+                    : 'Not in member discussions yet'}
               </Text>
             </View>
             <Marker
@@ -622,7 +625,7 @@ export function AnswerCard({
             >
               <ChatsCircle size={16} color={colors.hi} weight="bold" />
               <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 13.5, color: colors.hi }}>
-                {answer.enough ? 'Still unsure? Ask the community directly' : 'Post this question to owners'}
+                {answer.enough ? 'Still unsure? Post to the community' : 'Post as a question for verified owners'}
               </Text>
             </Pressable>
             ) : null}
@@ -655,7 +658,7 @@ function CiteRow({ cite, onOpen }: { cite: AskCite; onOpen?: (url: string) => vo
 function ReadingPeople() {
   const pulse = useRef(new Animated.Value(0.35)).current;
   const [step, setStep] = useState(0);
-  const lines = ['Reading what owners said…', 'Checking community replies…', 'Weighing who agrees…'];
+  const lines = ['Searching member posts…', 'Reading ownership notes…', 'Prioritizing verified owners…'];
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([

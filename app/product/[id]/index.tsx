@@ -161,7 +161,13 @@ export default function ProductScreen() {
       case 'overview':
         return (
           <View style={{ gap: 24 }}>
-            <OverviewPane profile={profile} threads={threadList} onGo={go} onOpenSources={() => setSourcesOpen(true)} />
+            <OverviewPane
+              profile={profile}
+              threads={threadList}
+              ownershipNotes={room.data?.notes ?? []}
+              onGo={go}
+              onOpenSources={() => setSourcesOpen(true)}
+            />
             <GalleryStrip images={photos} hasScan={Boolean(scan?.photo)} onOpen={setViewing} />
             <VariantChips
               variants={profile.variants ?? []}
@@ -194,7 +200,7 @@ export default function ProductScreen() {
         return <VideosPane product={{ id, name: profile.identity.name || name, brand, category }} clips={clips.data ?? []} loading={clips.isLoading} />;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, profile, clips.data, clips.isLoading, threadList, threads.isLoading, draft, post.isPending, photos, scan]);
+  }, [tab, profile, clips.data, clips.isLoading, threadList, threads.isLoading, draft, post.isPending, photos, scan, room.data?.notes]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.wine }} edges={['top', 'bottom']}>
@@ -236,82 +242,71 @@ export default function ProductScreen() {
         </RoundButton>
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 16, paddingHorizontal: 16, alignItems: 'center' }}>
-        <Pressable
-          onPress={() => photos.length && setViewing(scan?.photo && photos.length > 1 ? 1 : 0)}
-          accessibilityLabel="View product photos"
-          disabled={!photos.length}
-        >
-          <ProductImage uri={image || photos[0]?.url} category={category} size={88} radius={20} style={{ borderWidth: 0 }} />
-          {photos.length > 1 ? (
-            <View style={{ position: 'absolute', right: 6, bottom: 6, backgroundColor: 'rgba(0,0,0,0.66)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.white }}>{photos.length}</Text>
-            </View>
-          ) : null}
-        </Pressable>
-        <View style={{ flex: 1, gap: 4 }}>
-          {brand ? <Eyebrow color={colors.hi}>{brand}</Eyebrow> : null}
-          <Text numberOfLines={3} style={{ fontFamily: fonts.bold, fontSize: 21, lineHeight: 25, letterSpacing: -0.5, color: colors.bone }}>
-            {name || 'Product'}
-          </Text>
-          {category ? (
-            <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone3 }}>
-              {category}
-              {profile?.identity.variant ? ` · ${profile.identity.variant}` : ''}
-            </Text>
-          ) : null}
-        </View>
-      </View>
-
-      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-        <OwnershipStrip
-          owned={Boolean(owned)}
-          count={room.data?.verifiedOwners ?? 0}
-          noteCount={room.data?.ownershipNotes ?? 0}
-          onVerify={() => verify.start(currentProduct)}
-          onNote={() => note.start(currentProduct)}
-          onMine={() => myId && router.push({ pathname: '/member/[id]', params: { id: myId } } as unknown as Href)}
-        />
-      </View>
-
-      {room.data?.notes?.length ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingTop: 10 }}>
-          {room.data.notes.slice(0, 5).map((n) => (
-            <OwnershipNoteCard key={n.id} title={n.title} author={n.author_name} detail={n.used_duration || n.used_for || n.milestone.replace(/_/g, ' ')} />
-          ))}
-        </ScrollView>
-      ) : null}
-
-      {scan ? (
-        <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-          <ScanBanner scan={scan} onPhoto={() => setViewing(0)} onMatches={() => setMatchesOpen(true)} />
-        </View>
-      ) : null}
-
-      <View style={{ paddingTop: 14, paddingBottom: 12 }}>
-        <PillTabs options={tabs} value={tab} onChange={go} />
-      </View>
-
       <ScrollView
         ref={scroller}
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+        stickyHeaderIndices={[0, 1]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: 24 }}
       >
-        {intel.isLoading ? (
-          <InvestigatingState />
-        ) : intel.isError || !profile ? (
-          <View style={{ alignItems: 'center', gap: 12, paddingTop: 40 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.bone }}>We couldn’t finish reading about this</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2, textAlign: 'center', lineHeight: 20 }}>
-              The connection dropped or sources were slow. Try again — nothing is lost.
+        <View style={{ flexDirection: 'row', gap: 16, paddingHorizontal: 16, paddingBottom: 10, alignItems: 'center', backgroundColor: colors.wine }}>
+          <Pressable
+            onPress={() => photos.length && setViewing(scan?.photo && photos.length > 1 ? 1 : 0)}
+            accessibilityLabel="View product photos"
+            disabled={!photos.length}
+          >
+            <ProductImage uri={image || photos[0]?.url} category={category} size={88} radius={20} style={{ borderWidth: 0 }} />
+            {photos.length > 1 ? (
+              <View style={{ position: 'absolute', right: 6, bottom: 6, backgroundColor: 'rgba(0,0,0,0.66)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.white }}>{photos.length}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+          <View style={{ flex: 1, gap: 4 }}>
+            {brand ? <Eyebrow color={colors.hi}>{brand}</Eyebrow> : null}
+            <Text numberOfLines={3} style={{ fontFamily: fonts.bold, fontSize: 21, lineHeight: 25, letterSpacing: -0.5, color: colors.bone }}>
+              {name || 'Product'}
             </Text>
-            <PrimaryButton label="Try again" icon={ArrowClockwise} onPress={() => void intel.refetch()} />
+            {category ? (
+              <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone3 }}>
+                {category}
+                {profile?.identity.variant ? ` · ${profile.identity.variant}` : ''}
+              </Text>
+            ) : null}
           </View>
-        ) : (
-          <Animated.View style={{ opacity: fade }}>{pane}</Animated.View>
-        )}
+        </View>
+
+        <View style={{ paddingTop: 4, paddingBottom: 12, backgroundColor: colors.wine }}>
+          <PillTabs options={tabs} value={tab} onChange={go} />
+        </View>
+
+        <View style={{ paddingHorizontal: 16, gap: 14 }}>
+          <OwnershipStrip
+            owned={Boolean(owned)}
+            count={room.data?.verifiedOwners ?? 0}
+            noteCount={room.data?.ownershipNotes ?? 0}
+            onVerify={() => verify.start(currentProduct)}
+            onNote={() => note.start(currentProduct)}
+            onMine={() => myId && router.push({ pathname: '/member/[id]', params: { id: myId } } as unknown as Href)}
+          />
+
+          {scan ? <ScanBanner scan={scan} onPhoto={() => setViewing(0)} onMatches={() => setMatchesOpen(true)} /> : null}
+
+          {intel.isLoading ? (
+            <InvestigatingState />
+          ) : intel.isError || !profile ? (
+            <View style={{ alignItems: 'center', gap: 12, paddingTop: 40 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.bone }}>We couldn’t finish reading about this</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2, textAlign: 'center', lineHeight: 20 }}>
+                The connection dropped or sources were slow. Try again — nothing is lost.
+              </Text>
+              <PrimaryButton label="Try again" icon={ArrowClockwise} onPress={() => void intel.refetch()} />
+            </View>
+          ) : (
+            <Animated.View style={{ opacity: fade }}>{pane}</Animated.View>
+          )}
+        </View>
       </ScrollView>
 
       {profile ? (
@@ -336,7 +331,7 @@ export default function ProductScreen() {
               {lowest ? formatPrice(lowest.price) : '—'}
             </Text>
           </View>
-          <RoundButton label="Ask the owners" onPress={() => go('discuss')} size={46}>
+          <RoundButton label="Quick question" onPress={() => go('discuss')} size={46}>
             <ChatsCircle size={20} color={colors.bone} weight="bold" />
           </RoundButton>
           <RoundButton
@@ -436,19 +431,6 @@ function OwnershipStrip({
         </Pressable>
       ) : null}
     </Pressable>
-  );
-}
-
-function OwnershipNoteCard({ title, author, detail }: { title: string; author: string; detail: string }) {
-  return (
-    <View style={{ width: 230, backgroundColor: colors.lac, borderRadius: 18, padding: 14, gap: 8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <SealCheck size={14} color={colors.hi} weight="fill" />
-        <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 12.5, color: colors.hiInk }}>{author}</Text>
-      </View>
-      <Text numberOfLines={2} style={{ fontFamily: fonts.bold, fontSize: 15, lineHeight: 19, color: colors.bone }}>{title}</Text>
-      {detail ? <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3 }}>{detail}</Text> : null}
-    </View>
   );
 }
 

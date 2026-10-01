@@ -1090,17 +1090,21 @@ async function runAsk(store: Db, input: { productId: string; compareId?: string;
     }
   }
 
+  const weight = (i: Item) => (i.author.includes("(verified owner)") ? 3 : i.platform === "sourced" ? 2 : 1);
+  items.sort((a, b) => weight(b) - weight(a));
+
   const compare = payloads.length > 1;
   const prompt = `You are Sourced, a community of product owners. Answer the shopper like a well-informed friend,
 using ONLY what real people said below. No outside knowledge, no marketing, no guessing.
-If the voices don't cover the question, say so plainly and set "enough": false — e.g. "No owner has mentioned heat yet", then share the closest thing people did say, if any.
+Verified owner notes and replies from verified owners are the strongest evidence — prefer them over generic web reviews when they answer the question.
+If member discussions don't cover the question, say so plainly and set "enough": false, then share the closest thing people did say, if any.
 Talk about "owners" or "people", never "the voices", "the data" or "the provided text".
 When possible say how many people back a point ("3 owners mention…"). Keep it to 2-4 short sentences.
 ${compare ? `The shopper is comparing ${payloads.length} products — be clear which product each point is about.` : ""}
 
 Question: "${input.question}"
 
-What people said (ref | who | product | words):
+What people said (ref | who | product | words) — verified owners listed first:
 ${items.slice(0, 70).map((i) => `${i.ref} | ${i.author} | ${i.product} | ${i.text}`).join("\n")}
 
 Return JSON:
@@ -1695,6 +1699,58 @@ async function runCommunity(store: Db, action: string, body: Json) {
   return { error: "unknown_action" };
 }
 
+async function runAdminDashboard(store: Db) {
+  const since7 = new Date(Date.now() - 7 * 86400_000).toISOString();
+  const [trending, events7, threads7, asks7, notes7, members, recentThreads, recentAsks] = await Promise.all([
+    store.rpc("trending_products", { days: 14, cat: null, lim: 15 }),
+    store.rows(`product_events?select=event,product_id,name&created_at=gte.${encodeURIComponent(since7)}&limit=5000`),
+    store.rows(`community_threads?select=id&created_at=gte.${encodeURIComponent(since7)}&limit=5000`),
+    store.rows(`community_asks?select=id&created_at=gte.${encodeURIComponent(since7)}&limit=5000`),
+    store.rows(`ownership_notes?select=id&created_at=gte.${encodeURIComponent(since7)}&limit=5000`),
+    store.rows(`profiles?select=id&limit=5000`),
+    store.rows(`community_threads?select=id,title,product_name,kind,author_name,created_at&order=created_at.desc&limit=12`),
+    store.rows(`community_asks?select=question,product_name,created_at&order=created_at.desc&limit=12`),
+  ]);
+  const byEvent: Record<string, number> = {};
+  for (const e of events7) byEvent[str(e.event, 12)] = (byEvent[str(e.event, 12)] ?? 0) + 1;
+  const views = byEvent.view ?? 0;
+  const saves = byEvent.save ?? 0;
+  const compares = byEvent.compare ?? 0;
+  return {
+    stats: {
+      members: members.length,
+      productViews7d: views,
+      saves7d: saves,
+      compares7d: compares,
+      posts7d: threads7.length,
+      quickQuestions7d: asks7.length,
+      ownershipNotes7d: notes7.length,
+    },
+    trending: (trending as Json[]).slice(0, 12).map((t) => ({
+      id: str(t.product_id, 100),
+      name: str(t.name, 140),
+      views: Number(t.views ?? 0),
+      asks: Number(t.asks ?? 0),
+      heat: Number(t.heat ?? 0),
+    })),
+    recentThreads: recentThreads.map((t) => ({
+      id: str(t.id, 100),
+      title: str(t.title, 160),
+      product_name: str(t.product_name, 120),
+      kind: str(t.kind, 20),
+      author_name: str(t.author_name, 60),
+      created_at: str(t.created_at, 40),
+    })),
+    recentQuestions: recentAsks.map((a) => ({
+      question: str(a.question, 200),
+      product_name: str(a.product_name, 120),
+      created_at: str(a.created_at, 40),
+    })),
+    since: since7,
+    windowDays: 7,
+  };
+}
+
 async function runPulse(store: Db, category: string) {
   const since = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
   const [trending, recentProfiles, asks, threads, notes, events] = await Promise.all([
@@ -1910,6 +1966,14 @@ Deno.serve(async (req) => {
 
     if (action === "pulse") {
       return json({ success: true, ...(await runPulse(store, str(body.category, 60))) });
+    }
+
+    if (action === "admin_dashboard") {
+      const user = await userFromRequest(req);
+      if (!user) return json({ error: "sign_in_required" }, 401);
+      const profile = await store.select("profiles", `id=eq.${encodeURIComponent(user.id)}`);
+      if (!profile?.is_admin) return json({ error: "forbidden" }, 403);
+      return json({ success: true, ...(await runAdminDashboard(store)) });
     }
 
     return json({ error: "unknown_action" }, 400);

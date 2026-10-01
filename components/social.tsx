@@ -15,7 +15,7 @@ import {
   ChatCircleDots,
   ChatTeardropText,
   Heart,
-  ImageIcon,
+  Scan,
   Lightbulb,
   MagnifyingGlass,
   NotePencil,
@@ -28,10 +28,10 @@ import {
 } from '@/components/icons';
 import { ProductImage } from '@/components/kit';
 import { colors, fonts } from '@/constants/theme';
-import { fetchNotifications, followThread, KIND_LABEL, postThread, timeAgo, uploadPostImage, voteThread } from '@/lib/community';
+import { fetchNotifications, followThread, KIND_LABEL, postThread, timeAgo, voteThread } from '@/lib/community';
 import { hapticSelect, hapticSuccess, hapticTap } from '@/lib/haptics';
-import { prepareImage } from '@/lib/productVision';
-import { displayName, searchProducts } from '@/lib/products';
+import { extractProductFromPhoto, prepareImage, visionErrorCopy, type VisionAsset } from '@/lib/productVision';
+import { displayName, rememberProduct, searchProducts, slugify } from '@/lib/products';
 import { useAppStore } from '@/lib/store';
 import type { CommunityThread, Product, ThreadKind, WebVoice } from '@/lib/types';
 
@@ -355,10 +355,31 @@ export function BellButton({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
 // ---------------------------------------------------------------------------
 // Composer
 
-const COMPOSER_KINDS: Array<{ kind: ThreadKind; label: string; hint: string; title: string; starters: string[] }> = [
-  { kind: 'experience', label: 'Experience', hint: 'You used or own it — say how it really is', title: 'Sum it up in one line', starters: ['I’ve had it for ', 'What surprised me: ', 'The one thing I’d change: ', 'I’d tell a friend '] },
-  { kind: 'question', label: 'Question', hint: 'Owners reply from experience', title: 'What do you want to know?', starters: ['I’m planning to use it for ', 'Does anyone know if ', 'My budget is '] },
-  { kind: 'compare', label: 'Comparison', hint: 'Torn between two products?', title: 'What are you deciding between?', starters: ['I’ll mostly use it for ', 'What matters most to me is ', 'Price-wise '] },
+const COMPOSER_KINDS: Array<{ kind: ThreadKind; label: string; hint: string; title: string; detailsPlaceholder: string; starters: string[] }> = [
+  {
+    kind: 'experience',
+    label: 'Experience',
+    hint: 'You used or own it — say how it really is',
+    title: 'Sum it up in one line',
+    detailsPlaceholder: 'How long you’ve had it, what surprised you, what you’d tell a friend…',
+    starters: ['I’ve had it for ', 'What surprised me: ', 'The one thing I’d change: ', 'I’d tell a friend '],
+  },
+  {
+    kind: 'question',
+    label: 'Question',
+    hint: 'Owners reply from experience',
+    title: 'What do you want to know?',
+    detailsPlaceholder: 'Your situation, budget, or what you’ve already read — helps owners reply…',
+    starters: ['I’m planning to use it for ', 'Does anyone know if ', 'My budget is '],
+  },
+  {
+    kind: 'compare',
+    label: 'Comparison',
+    hint: 'Torn between two products?',
+    title: 'What are you deciding between?',
+    detailsPlaceholder: 'How you’ll use them, what matters most, why you’re torn…',
+    starters: ['I’ll mostly use it for ', 'What matters most to me is ', 'Price-wise '],
+  },
 ];
 
 
@@ -385,7 +406,6 @@ export function Composer({
   const [compare, setCompare] = useState<PickedProduct | null>(null);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState(initialBody ?? '');
-  const [photo, setPhoto] = useState<{ uri: string; base64: string; mime: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [picking, setPicking] = useState<'product' | 'compare' | null>(initialProduct ? null : 'product');
@@ -397,7 +417,6 @@ export function Composer({
     setCompare(null);
     setTitle('');
     setBody(initialBody ?? '');
-    setPhoto(null);
     setError('');
     setPicking(initialProduct ? null : 'product');
   }, [visible, initialProduct, initialKind, initialBody]);
@@ -405,27 +424,17 @@ export function Composer({
   const meta = COMPOSER_KINDS.find((k) => k.kind === kind)!;
   const ready = Boolean(product) && title.trim().length >= 4 && (kind !== 'compare' || Boolean(compare)) && !busy;
 
-  const attach = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, base64: true, allowsEditing: false });
-    if (res.canceled || !res.assets?.[0]) return;
-    const a = res.assets[0];
-    const prepared = await prepareImage({ uri: a.uri, width: a.width, height: a.height, base64: a.base64, mimeType: a.mimeType });
-    if (prepared) setPhoto({ uri: a.uri, base64: prepared.base64, mime: prepared.mime });
-  };
-
   const submit = async () => {
     if (!ready || !product) return;
     setBusy(true);
     setError('');
     try {
-      const imageUrl = photo ? await uploadPostImage(photo.base64, photo.mime) : null;
       const thread = await postThread({
         product,
         kind,
         title: title.trim(),
         body: body.trim() || undefined,
         compare: kind === 'compare' ? compare : null,
-        imageUrl,
         rating: null,
       });
       hapticSuccess();
@@ -512,32 +521,10 @@ export function Composer({
             tag="Optional"
             value={body}
             onChangeText={setBody}
-            placeholder="How long you’ve had it, what surprised you, what you’d tell a friend…"
+            placeholder={meta.detailsPlaceholder}
             maxLength={2000}
             starters={meta.starters}
           />
-
-          {photo ? (
-            <View>
-              <Image source={{ uri: photo.uri }} style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: 16 }} resizeMode="cover" />
-              <Pressable
-                onPress={() => setPhoto(null)}
-                accessibilityLabel="Remove photo"
-                style={{ position: 'absolute', top: 10, right: 10, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <X size={15} color={colors.white} weight="bold" />
-              </Pressable>
-            </View>
-          ) : (
-            <Pressable
-              onPress={() => void attach()}
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, height: 50, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.line, borderStyle: 'dashed', opacity: pressed ? 0.7 : 1 })}
-            >
-              <ImageIcon size={20} color={colors.hi} weight="bold" />
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: colors.bone }}>Add a photo of yours</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone3 }}>posts with photos get more replies</Text>
-            </Pressable>
-          )}
 
           {error ? <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, color: colors.coral }}>{error}</Text> : null}
         </ScrollView>
@@ -659,12 +646,46 @@ function ProductSlot({ label, value, onChange }: { label: string; value: PickedP
 function ProductSearch({ onPick, onCancel }: { onPick: (p: PickedProduct) => void; onCancel?: () => void }) {
   const [draft, setDraft] = useState('');
   const [q, setQ] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState('');
   useEffect(() => {
     const t = setTimeout(() => setQ(draft.trim()), 450);
     return () => clearTimeout(t);
   }, [draft]);
   const res = useQuery({ queryKey: ['search', q], queryFn: () => searchProducts(q), enabled: q.length > 1, staleTime: 10 * 60_000 });
   const list = res.data?.products.slice(0, 6) ?? [];
+
+  const identifyPhoto = async () => {
+    setScanError('');
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.65, base64: true, allowsEditing: false });
+    if (res.canceled || !res.assets?.[0]) return;
+    const a = res.assets[0];
+    setScanning(true);
+    try {
+      const prepared = await prepareImage({ uri: a.uri, width: a.width, height: a.height, base64: a.base64, mimeType: a.mimeType });
+      if (!prepared) {
+        setScanError('Could not read that photo.');
+        return;
+      }
+      const asset: VisionAsset = { uri: a.uri, width: a.width, height: a.height, base64: prepared.base64, mimeType: prepared.mime };
+      const vision = await extractProductFromPhoto(asset);
+      if (!vision.ok || !vision.label) {
+        setScanError(visionErrorCopy(vision).body);
+        return;
+      }
+      const label = vision.searchQuery || vision.label;
+      const id = slugify(label);
+      const hero = vision.imageUrl || vision.matches?.find((m) => m.exact && m.image)?.image || null;
+      rememberProduct({ id, name: vision.name || label, brand: vision.brand ?? '', category: vision.category || 'Product', heroImageUrl: hero });
+      hapticSuccess();
+      onPick({ id, name: vision.name || label, brand: vision.brand ?? '', category: vision.category || 'Product', heroImageUrl: hero });
+    } catch {
+      setScanError('Photo identification failed. Try search instead.');
+    } finally {
+      setScanning(false);
+    }
+  };
+
   return (
     <View style={{ backgroundColor: colors.lac, borderRadius: 16, padding: 12, gap: 10 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.lac2, borderRadius: 12, paddingHorizontal: 12, height: 44 }}>
@@ -677,12 +698,21 @@ function ProductSearch({ onPick, onCancel }: { onPick: (p: PickedProduct) => voi
           placeholderTextColor={colors.bone3}
           style={{ flex: 1, fontFamily: fonts.regular, fontSize: 15.5, color: colors.bone, outlineStyle: 'none' } as never}
         />
+        <Pressable
+          onPress={() => void identifyPhoto()}
+          disabled={scanning}
+          accessibilityLabel="Identify product from photo"
+          style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.hi, alignItems: 'center', justifyContent: 'center', opacity: scanning ? 0.6 : 1 }}
+        >
+          {scanning ? <ActivityIndicator color={colors.white} size="small" /> : <Scan size={17} color={colors.white} weight="bold" />}
+        </Pressable>
         {onCancel ? (
           <Pressable onPress={onCancel} hitSlop={8}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.bone2 }}>Done</Text>
           </Pressable>
         ) : null}
       </View>
+      {scanError ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>{scanError}</Text> : null}
       {res.isFetching ? <ActivityIndicator color={colors.hi} /> : null}
       {list.map((p) => (
         <Pressable

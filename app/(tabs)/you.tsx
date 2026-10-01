@@ -158,7 +158,7 @@ export default function YouScreen() {
         {profile ? (
           <Group>
             {profile.isAdmin ? (
-              <GroupRow label={`Moderation queue (${flagged.length})`} onPress={() => router.push('/admin')} />
+              <GroupRow label="Admin — insights & moderation" detail={`${flagged.length} flagged posts`} onPress={() => router.push('/admin')} />
             ) : null}
             <GroupRow label="Sign out" last onPress={() => void signOutEverywhere()} />
           </Group>

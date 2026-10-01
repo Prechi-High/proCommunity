@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Image, Linking, Pressable, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Pressable, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Screen } from '@/components/Screen';
@@ -27,7 +27,8 @@ import {
   Warning,
   YoutubeLogo,
 } from '@/components/icons';
-import { colors } from '@/constants/theme';
+import { colors, fonts } from '@/constants/theme';
+import { fetchAdminDashboard } from '@/lib/community';
 import {
   approveVideo,
   discoverVideosForProduct,
@@ -96,14 +97,24 @@ function productContext(row: PendingVideo): string {
   return row.attribute_tag ?? '';
 }
 
+type AdminTab = 'insights' | 'moderation';
+
 export default function AdminScreen() {
   const profile = useAppStore((s) => s.profile);
   const flaggedPostIds = useAppStore((s) => s.flaggedPostIds);
   const resolveFlag = useAppStore((s) => s.resolveFlag);
   const userPosts = useAppStore((s) => s.userPosts);
   const queryClient = useQueryClient();
+  const [tab, setTab] = useState<AdminTab>('insights');
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [discoverProductId, setDiscoverProductId] = useState(products[0]?.id);
+
+  const insightsQuery = useQuery({
+    queryKey: ['admin-dashboard'],
+    queryFn: fetchAdminDashboard,
+    enabled: Boolean(profile?.isAdmin),
+    staleTime: 60_000,
+  });
 
   const pendingQuery = useQuery({
     queryKey: ['pending-videos'],
@@ -162,9 +173,79 @@ export default function AdminScreen() {
     discover.error?.message ??
     pendingQuery.data?.error;
 
+  const insights = insightsQuery.data;
+
   return (
     <Screen>
-      <Heading size={21}>Moderation</Heading>
+      <Heading size={21}>Admin</Heading>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {(['insights', 'moderation'] as const).map((id) => {
+          const on = tab === id;
+          return (
+            <Pressable
+              key={id}
+              onPress={() => setTab(id)}
+              style={{ paddingHorizontal: 14, height: 36, borderRadius: 999, justifyContent: 'center', backgroundColor: on ? colors.ink : colors.mist }}
+            >
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: on ? colors.white : colors.inkSoft }}>{id === 'insights' ? 'Insights' : 'Moderation'}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {tab === 'insights' ? (
+        <>
+          <Caption>Last 7 days on Sourced — searches, posts, quick questions, and what’s heating up.</Caption>
+          {insightsQuery.isLoading ? <ActivityIndicator color={colors.rosewood} /> : null}
+          {insightsQuery.error ? <Caption color={colors.rosewood}>Could not load dashboard. Redeploy product-intelligence if this is new.</Caption> : null}
+          {insights ? (
+            <>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                {[
+                  ['Members', insights.stats.members],
+                  ['Product views', insights.stats.productViews7d],
+                  ['Saves', insights.stats.saves7d],
+                  ['Compares', insights.stats.compares7d],
+                  ['Posts', insights.stats.posts7d],
+                  ['Quick Qs', insights.stats.quickQuestions7d],
+                  ['Owner notes', insights.stats.ownershipNotes7d],
+                ].map(([label, value]) => (
+                  <Card key={label as string} style={{ minWidth: '46%', flexGrow: 1, gap: 4, paddingVertical: 14 }}>
+                    <Caption>{label as string}</Caption>
+                    <Title>{String(value)}</Title>
+                  </Card>
+                ))}
+              </View>
+              <SectionHeader title="Trending searches" hint="What people are looking up most." />
+              {insights.trending.length ? (
+                insights.trending.map((t, i) => (
+                  <Card key={t.id} style={{ gap: 4 }}>
+                    <Title>{`${i + 1}. ${t.name}`}</Title>
+                    <Caption>{`${t.views} searches · ${t.asks} quick questions · heat ${t.heat}`}</Caption>
+                  </Card>
+                ))
+              ) : (
+                <Caption>No trending data yet.</Caption>
+              )}
+              <SectionHeader title="Recent posts" />
+              {insights.recentThreads.map((t) => (
+                <Card key={t.id} style={{ gap: 4 }}>
+                  <Title>{t.title}</Title>
+                  <Caption>{`${t.kind} · ${t.product_name} · ${t.author_name}`}</Caption>
+                </Card>
+              ))}
+              <SectionHeader title="Recent quick questions" />
+              {insights.recentQuestions.map((q, i) => (
+                <Card key={`${q.created_at}-${i}`} style={{ gap: 4 }}>
+                  <Body>{q.question}</Body>
+                  <Caption>{q.product_name}</Caption>
+                </Card>
+              ))}
+            </>
+          ) : null}
+        </>
+      ) : (
+        <>
       <Caption>
         Flag medical claims and adverse-reaction posts. Serious reactions route to the merchant, not to
         us. Negative opinion is not a reason to remove a post.
@@ -339,6 +420,8 @@ export default function AdminScreen() {
             <Button label="Resolve" kind="quiet" icon={Check} onPress={() => resolveFlag(post.id)} />
           </Card>
         ))
+      )}
+        </>
       )}
     </Screen>
   );
