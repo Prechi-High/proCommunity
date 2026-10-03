@@ -1,16 +1,12 @@
 import type { Session } from '@supabase/supabase-js';
-import * as Linking from 'expo-linking';
-import * as WebBrowser from 'expo-web-browser';
-import { Platform } from 'react-native';
 
 import { track } from './analytics';
-import { authCallbackPath, signInPath } from './authRedirect';
 import { useAppStore } from './store';
 import { supabase } from './supabase';
 
 /**
- * Accounts live in Supabase Auth (auth.users) and public.profiles.
- * The client only holds a short-lived session token; identity and saves are on the server.
+ * Supabase Auth is the authority: sessions, JWTs, and profiles in Postgres.
+ * Email OTP delivery is handled by the server; verification uses verifyOtp on the client.
  */
 
 export async function accessToken(): Promise<string | null> {
@@ -19,98 +15,28 @@ export async function accessToken(): Promise<string | null> {
   return data.session?.access_token ?? null;
 }
 
-export async function signUpWithEmail(
-  email: string,
-  password: string,
-  returnTo?: string,
-): Promise<{ needsEmailConfirm: boolean; needsName: boolean }> {
+export async function completeEmailOtpVerification(email: string, code: string): Promise<{ needsName: boolean }> {
   if (!supabase) throw new Error('auth_unavailable');
-  const { data, error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.verifyOtp({
     email: email.trim().toLowerCase(),
-    password,
-    options: { emailRedirectTo: authCallbackPath(returnTo) },
+    token: code.trim(),
+    type: 'email',
   });
-  if (error) throw new Error(error.message);
-  if (data.session) {
-    const name = await syncSession(data.session);
-    track('auth_signed_up', {});
-    return { needsEmailConfirm: false, needsName: needsName(name, data.session) };
-  }
-  track('auth_signup_confirm_sent', {});
-  return { needsEmailConfirm: true, needsName: false };
-}
 
-export async function signInWithEmail(email: string, password: string): Promise<{ needsName: boolean }> {
-  if (!supabase) throw new Error('auth_unavailable');
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: email.trim().toLowerCase(),
-    password,
-  });
-  if (error || !data.session) {
-    throw new Error(
-      error?.message?.toLowerCase().includes('invalid') ? 'Email or password is not right.' : error?.message ?? 'Could not sign in.',
-    );
+  if (error) {
+    track('auth_email_verification_failed', {});
+    const msg = error.message.toLowerCase();
+    if (msg.includes('expired')) throw new Error('That code has expired. Request a new one.');
+    throw new Error("That code isn't correct. Check it and try again.");
   }
+
+  if (!data.session || !data.user) {
+    track('auth_email_verification_failed', {});
+    throw new Error("That code isn't correct. Check it and try again.");
+  }
+
   const name = await syncSession(data.session);
-  track('auth_signed_in', { method: 'password' });
-  return { needsName: needsName(name, data.session) };
-}
-
-export async function sendMagicLink(email: string, returnTo?: string): Promise<void> {
-  if (!supabase) throw new Error('auth_unavailable');
-  const { error } = await supabase.auth.signInWithOtp({
-    email: email.trim().toLowerCase(),
-    options: {
-      shouldCreateUser: true,
-      emailRedirectTo: authCallbackPath(returnTo),
-    },
-  });
-  if (error) throw new Error(error.status === 429 ? 'Too many emails sent. Wait a minute and try again.' : error.message);
-  track('auth_magic_link_sent', {});
-}
-
-export async function sendPasswordReset(email: string): Promise<void> {
-  if (!supabase) throw new Error('auth_unavailable');
-  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-    redirectTo: signInPath(),
-  });
-  if (error) throw new Error(error.message);
-  track('auth_reset_sent', {});
-}
-
-export async function signInWithGoogle(returnTo?: string): Promise<void> {
-  if (!supabase) throw new Error('auth_unavailable');
-  const redirectTo = authCallbackPath(returnTo);
-
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo },
-    });
-    if (error) throw new Error(error.message);
-    return;
-  }
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo, skipBrowserRedirect: true },
-  });
-  if (error || !data.url) throw new Error(error?.message ?? 'Could not start Google sign-in');
-
-  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-  if (result.type !== 'success') throw new Error('Google sign-in was cancelled');
-  await completeAuthFromUrl(result.url);
-}
-
-export async function completeAuthFromUrl(url: string): Promise<{ needsName: boolean }> {
-  if (!supabase) throw new Error('auth_unavailable');
-  const parsed = Linking.parse(url);
-  const code = typeof parsed.queryParams?.code === 'string' ? parsed.queryParams.code : null;
-  if (!code) throw new Error('Sign-in link is missing a code. Try again from the app.');
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error || !data.session) throw new Error(error?.message ?? 'Could not complete sign-in');
-  const name = await syncSession(data.session);
-  track('auth_signed_in', { method: 'oauth' });
+  track('auth_email_code_verified', {});
   return { needsName: needsName(name, data.session) };
 }
 

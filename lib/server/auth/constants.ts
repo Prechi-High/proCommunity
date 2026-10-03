@@ -1,0 +1,5 @@
+export const OTP_RESEND_COOLDOWN_SECONDS = 60;
+export const OTP_MAX_EMAIL_REQUESTS_PER_HOUR = 5;
+export const OTP_MAX_IP_REQUESTS_PER_HOUR = 20;
+export const OTP_CODE_LENGTH = 6;
+export const AUTH_REQUEST_MAX_BODY_BYTES = 512;

@@ -39,6 +39,7 @@
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.3",
     "expo-web-browser": "~57.0.3",
+    "nodemailer": "^7.0.13",
     "phosphor-react-native": "^3.0.0",
     "posthog-react-native": "^4.74.0",
     "react": "19.2.3",
@@ -57,6 +58,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.2",
+    "@types/nodemailer": "^7.0.12",
     "@types/react": "~19.2.2",
     "tsx": "^4.23.13",
     "typescript": "~6.0.3"

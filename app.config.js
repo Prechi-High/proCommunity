@@ -19,6 +19,7 @@ module.exports = {
       supabaseUrl: env('EXPO_PUBLIC_SUPABASE_URL', PUBLIC_SUPABASE_URL),
       supabaseAnonKey: env('EXPO_PUBLIC_SUPABASE_ANON_KEY', PUBLIC_SUPABASE_ANON_KEY),
       videoReviewEnabled: env('VIDEO_REVIEW_ENABLED', 'false') === 'true',
+      authApiUrl: env('EXPO_PUBLIC_AUTH_API_URL', ''),
     },
   },
 };
