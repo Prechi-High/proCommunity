@@ -66,10 +66,9 @@ export default function SignInScreen() {
     try {
       const normalized = emailSchema.parse(email.trim().toLowerCase());
       await requestEmailCode(normalized);
-      router.push({
-        pathname: '/(auth)/verify-email',
-        params: { email: normalized, ...(returnTo ? { returnTo } : {}) },
-      } as Href);
+      const qs = new URLSearchParams({ email: normalized });
+      if (returnTo) qs.set('returnTo', returnTo);
+      router.push(`/verify-email?${qs.toString()}` as Href);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Try again.');
     } finally {

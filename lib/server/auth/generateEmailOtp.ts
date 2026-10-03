@@ -9,7 +9,7 @@ export async function generateEmailOtp(email: string): Promise<GenerateOtpResult
   const supabase = getSupabaseAdmin();
   const normalized = email.trim().toLowerCase();
 
-  const attempt = async (type: 'magiclink' | 'signup') => {
+  const attempt = async (type: 'magiclink' | 'invite') => {
     return supabase.auth.admin.generateLink({
       type,
       email: normalized,
@@ -18,7 +18,7 @@ export async function generateEmailOtp(email: string): Promise<GenerateOtpResult
 
   let { data, error } = await attempt('magiclink');
   if (error) {
-    const retry = await attempt('signup');
+    const retry = await attempt('invite');
     data = retry.data;
     error = retry.error;
   }
