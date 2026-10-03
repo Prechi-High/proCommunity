@@ -222,7 +222,7 @@ export default function ProductScreen() {
         <RoundButton
           label="Share"
           onPress={() => {
-            void Share.share({ message: `What owners really say about ${name} — on Sourced` });
+            void Share.share({ message: `What owners really say about ${name} — on Unmask` });
           }}
         >
           <ShareNetwork size={18} color={colors.bone} weight="bold" />

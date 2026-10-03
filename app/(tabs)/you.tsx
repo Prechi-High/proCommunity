@@ -147,7 +147,7 @@ export default function YouScreen() {
         </View>
 
         <View style={{ gap: 8 }}>
-          <Eyebrow>How Sourced works</Eyebrow>
+          <Eyebrow>How Unmask works</Eyebrow>
           <Group>
             <GroupRow icon={Globe} label="Evidence from the open web" detail="Specs, reviews, community discussions and store listings." />
             <GroupRow icon={SealCheck} label="Every claim is sourced" detail="Tap any praise, complaint or spec to see where it came from." />

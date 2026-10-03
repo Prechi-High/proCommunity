@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ArrowClockwise, ArrowLeft, MagnifyingGlass } from '@/components/icons';
 import { Eyebrow, FeatureCard, Group, PrimaryButton, ProductRow, SearchBar, Shimmer } from '@/components/kit';
+import { BRAND_COPY } from '@/constants/brand';
 import { colors, fonts } from '@/constants/theme';
 import { hapticSelect } from '@/lib/haptics';
 import { displayName, rememberProduct, searchProducts, slugify } from '@/lib/products';
@@ -139,6 +140,7 @@ export default function ResultsScreen() {
           </View>
         ) : top ? (
           <>
+            <Eyebrow>{BRAND_COPY.resultsIntro}</Eyebrow>
             <FeatureCard product={top} label="Best match" onPress={() => open(top)} />
             {rest.length ? (
               <View style={{ gap: 8 }}>

@@ -288,7 +288,7 @@ const PLATFORM: Record<string, { label: string; Icon: typeof Globe; color: strin
   reddit: { label: 'Reddit', Icon: RedditLogo, color: '#FF4500' },
   review: { label: 'Review', Icon: Globe, color: colors.bone2 },
   forum: { label: 'Forum', Icon: ChatsCircle, color: colors.bone2 },
-  sourced: { label: 'Sourced member', Icon: SealCheck, color: colors.hi },
+  sourced: { label: 'Unmask member', Icon: SealCheck, color: colors.hi },
 };
 
 export function PlatformTag({ platform }: { platform: string }) {
@@ -487,7 +487,7 @@ export function AskOwners({
           <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.bone3 }}>from member posts & notes</Text>
         </View>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.bone2 }}>
-          We search what Sourced members posted and verified owners wrote. Verified owner replies count most. If nothing covers your question, post it for owners to reply.
+          We search what Unmask members posted and verified owners wrote. Verified owner replies count most. If nothing covers your question, post it for owners to reply.
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
           <TextInput

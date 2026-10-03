@@ -63,7 +63,7 @@ export function useVerifyOwner(options: { onVerified?: (product: Product, verifi
   const openCamera = async () => {
     if (Platform.OS === 'web') {
       if (hasWebCamera()) setStep({ kind: 'camera' });
-      else setStep({ kind: 'error', message: 'This browser can’t open a live camera. Open Sourced on your phone to verify.' });
+      else setStep({ kind: 'error', message: 'This browser can’t open a live camera. Open Unmask on your phone to verify.' });
       return;
     }
     const permission = await ImagePicker.requestCameraPermissionsAsync();

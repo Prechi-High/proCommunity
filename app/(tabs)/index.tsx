@@ -6,7 +6,9 @@ import { ActivityIndicator, Animated, Image, Modal, Pressable, ScrollView, Text,
 import { AvatarStack, SectionHead, ThreadCard, TrendingCard } from '@/components/community';
 import { Screen } from '@/components/Screen';
 import { ArrowsLeftRight, Clock, Fire, Scan } from '@/components/icons';
+import { BrandTagline, Logo } from '@/components/brand/Logo';
 import { Eyebrow, ProductImage, SearchBar, Shimmer, Tile } from '@/components/kit';
+import { BRAND_COPY } from '@/constants/brand';
 import { colors, fonts } from '@/constants/theme';
 import { fetchPulse, nicheLabel, nicheOf, timeAgo, type NicheId } from '@/lib/community';
 import { hapticSelect, hapticTap } from '@/lib/haptics';
@@ -20,18 +22,18 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const TRY = ['AirPods Pro 2', 'Anker 20W charger', 'Nike Pegasus 41', 'Ninja blender', 'PS5 controller', 'Kindle Paperwhite'];
 
 const SUBLINES = [
-  'Snap a product. Ask owners. Avoid bad buys.',
-  'See what broke, what lasted, and what people bought again.',
-  'Compare products by what owners actually experienced.',
-  'Build your verified shelf and help the next buyer.',
+  BRAND_COPY.positioning,
+  'Connect product facts, sources and real experience before you spend.',
+  'See what owners report — not just what the brand claims.',
+  'Evidence when we have it; honesty when we do not.',
 ];
 
 const HINTS = [
-  'What are you thinking of buying?',
+  BRAND_COPY.searchPrompt,
   'Try “AirPods Pro 2”',
   'Try “Ninja air fryer”',
   'Try “Nike Pegasus 41”',
-  'Or snap it with the camera →',
+  'Or unmask it with a photo →',
 ];
 
 export default function HomeScreen() {
@@ -82,10 +84,12 @@ export default function HomeScreen() {
   return (
     <Screen>
       <View style={{ paddingTop: 18, gap: 22 }}>
-        <View style={{ gap: 8 }}>
-          <Eyebrow color={colors.hi}>{profile ? `Welcome back, ${profile.displayName.split(' ')[0]}` : 'The product community'}</Eyebrow>
+        <View style={{ gap: 10 }}>
+          <Logo variant="combination" height={26} />
+          <BrandTagline />
+          <Eyebrow color={colors.hi}>{profile ? `Welcome back, ${profile.displayName.split(' ')[0]}` : BRAND_COPY.searchPrompt}</Eyebrow>
           <Text style={{ fontFamily: fonts.bold, fontSize: 34, letterSpacing: -1, lineHeight: 38, color: colors.bone }}>
-            Real owners help you decide.
+            See beyond the sales pitch.
           </Text>
           <AnimatedSubtext lines={SUBLINES} />
         </View>
@@ -117,7 +121,7 @@ export default function HomeScreen() {
               <Scan size={22} color={colors.white} weight="bold" />
             </View>
             <View style={{ gap: 2 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.white, letterSpacing: -0.3 }}>Snap it</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.white, letterSpacing: -0.3 }}>{BRAND_COPY.homeAction}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 16, color: 'rgba(255,255,255,0.66)' }}>
                 Seen it somewhere? Find out what it is.
               </Text>
@@ -145,7 +149,7 @@ export default function HomeScreen() {
               onAction={() => router.push('/pulse' as Href)}
             />
             <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 18, color: colors.bone2 }}>
-              What people on Sourced are searching for right now.
+              What people on Unmask are searching for right now.
             </Text>
           </View>
           {niches.length > 1 ? (

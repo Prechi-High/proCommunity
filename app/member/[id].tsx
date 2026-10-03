@@ -94,7 +94,7 @@ export default function MemberScreen() {
                   <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone2 }}>
                     {isMe
                       ? 'Open a product you own and tap “I own this” to verify it with a quick photo. Your answers about it will carry the mark.'
-                      : 'Verified owners proved they own a product with a live photo in Sourced.'}
+                      : 'Verified owners proved they own a product with a live photo in Unmask.'}
                   </Text>
                 </View>
               )}

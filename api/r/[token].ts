@@ -106,13 +106,13 @@ function page(card: Card, og: { title: string; description: string; image: strin
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(og.title)}</title>
 <meta name="description" content="${esc(og.description)}">
-<meta property="og:type" content="article"><meta property="og:site_name" content="Sourced">
+<meta property="og:type" content="article"><meta property="og:site_name" content="Unmask">
 <meta property="og:title" content="${esc(og.title)}"><meta property="og:description" content="${esc(og.description)}">
 <meta property="og:url" content="${esc(url)}">${image ? `<meta property="og:image" content="${esc(image)}">` : ''}
 <meta name="twitter:card" content="${image ? 'summary_large_image' : 'summary'}">
 <meta name="robots" content="noindex">
 <style>
-:root{--ink:#16130f;--muted:#6f675c;--line:#e8e2d8;--bg:#faf7f2;--card:#fff;--accent:#1f5c4a}
+:root{--ink:#161616;--muted:#595959;--line:#DDDAD4;--bg:#F6F4EF;--card:#fff;--accent:#2457FF}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif}
 main{max-width:680px;margin:0 auto;padding:28px 18px 64px}.brand{font-weight:700;letter-spacing:.02em;color:var(--accent);text-decoration:none}
 .hero{display:flex;gap:16px;align-items:center;margin:22px 0 8px}.hero img{width:96px;height:96px;object-fit:contain;border-radius:14px;background:var(--card);border:1px solid var(--line)}
@@ -124,20 +124,20 @@ blockquote{margin:10px 0;padding-left:12px;border-left:3px solid var(--line)}cit
 .cta{display:block;text-align:center;margin-top:22px;padding:14px;border-radius:999px;background:var(--ink);color:#fff;text-decoration:none;font-weight:600}a{color:var(--accent)}
 footer{color:var(--muted);font-size:12px;margin-top:22px;text-align:center}
 </style></head><body><main>
-<a class="brand" href="${esc(appUrl)}">Sourced</a>
+<a class="brand" href="${esc(appUrl)}">Unmask</a>
 <div class="hero">${safeUrl(card.imageUrl ?? primary?.image) ? `<img src="${esc(safeUrl(card.imageUrl ?? primary?.image))}" alt="">` : ''}
 <div><h1>${esc(card.title || primary?.name || 'Product research')}</h1><div class="ref">${esc([primary?.brand, primary?.category].filter(Boolean).join(' · '))}</div><div class="ref">Research Card ${esc(card.reference)}</div></div></div>
 ${sections || '<section><p>This research is still being prepared.</p></section>'}
 ${sources ? `<section><h3>Sources</h3><ul>${sources}</ul></section>` : ''}
-<a class="cta" href="${esc(appUrl)}">Research your own products on Sourced</a>
+<a class="cta" href="${esc(appUrl)}">Research your own products on Unmask</a>
 <footer>Shared research summary. Personal details are never included.</footer>
 </main></body></html>`;
 }
 
 function notFound(appUrl: string): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Research not available · Sourced</title><meta name="robots" content="noindex">
-<style>body{margin:0;font:16px/1.5 -apple-system,Segoe UI,Inter,sans-serif;background:#faf7f2;color:#16130f;display:grid;place-items:center;min-height:100vh;padding:20px;text-align:center}a{color:#1f5c4a}</style></head>
-<body><div><h1>This research isn't available</h1><p>The link may have been revoked or expired.</p><p><a href="${esc(appUrl)}">Go to Sourced</a></p></div></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Research not available · Unmask</title><meta name="robots" content="noindex">
+<style>body{margin:0;font:16px/1.5 -apple-system,Segoe UI,Inter,sans-serif;background:#F6F4EF;color:#161616;display:grid;place-items:center;min-height:100vh;padding:20px;text-align:center}a{color:#2457FF}</style></head>
+<body><div><h1>This research isn't available</h1><p>The link may have been revoked or expired.</p><p><a href="${esc(appUrl)}">Go to Unmask</a></p></div></body></html>`;
 }
 
 export default async function handler(req: Req, res: Res) {

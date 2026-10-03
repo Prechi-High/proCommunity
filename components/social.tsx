@@ -213,7 +213,7 @@ export function PostCard({
         <View style={{ flex: 1 }} />
         {a.followers > 1 ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.bone3 }}>{a.followers} following</Text> : null}
         <Pressable
-          onPress={() => void Share.share({ message: `“${thread.title}” — about ${thread.product_name}, on Sourced` })}
+          onPress={() => void Share.share({ message: `“${thread.title}” — about ${thread.product_name}, on Unmask` })}
           hitSlop={8}
           accessibilityLabel="Share"
           style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' }}

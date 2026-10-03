@@ -15,9 +15,9 @@ export class GmailAuthEmailProvider implements AuthEmailProvider {
 
     const html = renderVerificationCodeEmail({ code: params.code });
     await getMailTransport().sendMail({
-      from: `Sourced <${fromAddress}>`,
+      from: `Unmask <${fromAddress}>`,
       to: params.to,
-      subject: 'Your Sourced verification code',
+      subject: 'Your Unmask verification code',
       html,
     });
   }

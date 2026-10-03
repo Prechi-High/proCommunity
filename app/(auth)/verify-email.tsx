@@ -102,7 +102,7 @@ export default function VerifyEmailScreen() {
     return (
       <Screen>
         <View style={{ paddingTop: 12, gap: 20 }}>
-          <LargeTitle sub="Saved on your Sourced profile.">What should we call you?</LargeTitle>
+          <LargeTitle sub="Saved on your Unmask profile.">What should we call you?</LargeTitle>
           <TextInput
             value={name}
             onChangeText={setName}

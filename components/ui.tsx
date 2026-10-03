@@ -14,7 +14,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, elevation, fonts, radii, type } from '@/constants/theme';
+import { Logo } from '@/components/brand/Logo';
+import { colors, DISCLAIMER, elevation, fonts, radii, type } from '@/constants/theme';
 import {
   ArrowFatUp,
   Check as CheckIcon,
@@ -525,7 +526,7 @@ export function Disclaimer({ compact = false }: { compact?: boolean }) {
           color: colors.bone2,
         }}
       >
-        Sourced organises public evidence. Check the seller and product details before you buy.
+        {DISCLAIMER}
       </Text>
     </View>
   );
@@ -755,17 +756,6 @@ export function QuoteTile({ body, height }: { body: string; height: number }) {
   );
 }
 
-export function Wordmark({ size = type.wordmark, color = colors.bone }: { size?: number; color?: string }) {
-  return (
-    <Text
-      style={{
-        fontFamily: fonts.serifBold,
-        fontSize: size,
-        color,
-        letterSpacing: -0.5,
-      }}
-    >
-      Sourced
-    </Text>
-  );
+export function Wordmark({ size = type.wordmark, tone = 'ink' }: { size?: number; color?: string; tone?: 'ink' | 'white' }) {
+  return <Logo variant="wordmark" tone={tone} height={size} />;
 }

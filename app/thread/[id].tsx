@@ -84,7 +84,7 @@ export default function ThreadScreen() {
         </Text>
         <IconButton
           label="Share"
-          onPress={() => t && void Share.share({ message: `“${t.title}” — owners are answering on Sourced` })}
+          onPress={() => t && void Share.share({ message: `“${t.title}” — owners are answering on Unmask` })}
         >
           <ShareNetwork size={18} color={colors.bone} weight="bold" />
         </IconButton>

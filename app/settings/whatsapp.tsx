@@ -7,7 +7,7 @@ import { TopBar } from '@/components/research';
 import { colors, fonts } from '@/constants/theme';
 
 const PREVIEW = [
-  { icon: Camera, title: 'Send a photo or a name', body: 'Snap a product in a store and send it to Sourced like any chat.' },
+  { icon: Camera, title: 'Send a photo or a name', body: 'Snap a product in a store and send it to Unmask like any chat.' },
   { icon: Files, title: 'Get a Research Card back', body: 'What owners say, prices and stores — saved to your account, same as in the app.' },
   { icon: ChatsCircle, title: 'Ask follow-ups', body: '“Is it good for oily skin?” “Compare it with…” — right in the conversation.' },
 ];
@@ -22,7 +22,7 @@ export default function WhatsAppComingSoonScreen() {
             <WhatsappLogo size={40} color={colors.sage} weight="fill" />
           </View>
           <Pill label="Coming soon" tone="accent" />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, letterSpacing: -0.7, color: colors.bone, textAlign: 'center' }}>Sourced on WhatsApp</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 26, letterSpacing: -0.7, color: colors.bone, textAlign: 'center' }}>Unmask on WhatsApp</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.bone2, textAlign: 'center' }}>
             We’re putting the finishing touches on it. It will arrive in a later update — nothing to set up until then.
           </Text>

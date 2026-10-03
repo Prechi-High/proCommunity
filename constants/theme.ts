@@ -1,61 +1,60 @@
 import { Platform, type ViewStyle } from 'react-native';
 
+import { BRAND_COPY } from './brand';
+
 /**
- * Sourced design system — royal blue + black, Apple-grade restraint.
- * Token names are historical: `wine` = page background, `lac` = card, `bone` = primary ink,
- * `hi` = the single accent. Keep new screens on these tokens so the palette stays swappable.
+ * Unmask design tokens — ink, warm white, cobalt (see Unmask Brand Kit).
+ * Legacy names (`wine`, `lac`, `bone`, `hi`) keep existing screens swappable.
  */
 export const colors = {
-  wine: '#F5F5F7',
-  wineDeep: '#EBEBF0',
+  wine: '#F6F4EF',
+  wineDeep: '#EDEAE4',
   lac: '#FFFFFF',
-  lac2: '#F2F2F5',
-  redact: '#000000',
-  bone: '#0A0A0B',
-  bone2: '#56565C',
-  bone3: '#8E8E93',
-  line: '#E3E3E8',
-  sage: '#1F9D55',
-  honey: '#C27C0E',
-  coral: '#D93A3A',
-  hi: '#1A4DFF',
-  hiSoft: '#E8EEFF',
-  hiInk: '#0F2FA8',
-  stage: '#E9E9EE',
-  shell: '#F5F5F7',
-  ink: '#0A0A0B',
-  inkSoft: '#56565C',
-  rosewood: '#1A4DFF',
-  rosewoodSoft: '#E8EEFF',
-  honeySoft: '#FFF4E0',
-  honeyInk: '#8A5500',
-  honeyBadge: '#C27C0E',
-  sageSoft: '#E6F6EC',
-  sageInk: '#137A3F',
-  coralSoft: '#FDEBEB',
-  mist: '#EFEFF3',
+  lac2: '#F0EDE8',
+  redact: '#161616',
+  bone: '#161616',
+  bone2: '#595959',
+  bone3: '#8A8780',
+  line: '#DDDAD4',
+  sage: '#236044',
+  honey: '#7A4B00',
+  coral: '#A52323',
+  hi: '#2457FF',
+  hiSoft: '#E9EEFF',
+  hiInk: '#1A3FCC',
+  stage: '#E8E5DF',
+  shell: '#F6F4EF',
+  ink: '#161616',
+  inkSoft: '#595959',
+  rosewood: '#2457FF',
+  rosewoodSoft: '#E9EEFF',
+  honeySoft: '#FFF6E8',
+  honeyInk: '#7A4B00',
+  honeyBadge: '#7A4B00',
+  sageSoft: '#E8F3ED',
+  sageInk: '#236044',
+  coralSoft: '#FBEAEA',
+  mist: '#EDEAE4',
   white: '#FFFFFF',
-  black: '#000000',
-  webShell: '#E9E9EE',
-  /** Highlighter: the "we just exposed it" reveal behind key phrases. */
+  black: '#161616',
+  webShell: '#E8E5DF',
   mark: '#CFDCFF',
-  markInk: '#0A0A0B',
-  markDark: '#1A4DFF',
-  /** Praise vs warning markers — instant sentiment read on product pages. */
-  markGood: '#D4F0DF',
-  markGoodInk: '#0F5C32',
-  markBad: '#FFE0E0',
-  markBadInk: '#9B1C1C',
+  markInk: '#161616',
+  markDark: '#2457FF',
+  markGood: '#D8EDE3',
+  markGoodInk: '#236044',
+  markBad: '#F5DEDE',
+  markBadInk: '#A52323',
 } as const;
 
 export const radii = {
-  card: 20,
-  button: 14,
-  photo: 16,
+  card: 12,
+  button: 8,
+  photo: 12,
   chip: 999,
   notice: 0,
   thumb: 12,
-  search: 14,
+  search: 12,
   ib: 12,
 } as const;
 
@@ -64,9 +63,9 @@ export const space = {
   sm: 8,
   md: 12,
   lg: 16,
-  xl: 20,
-  xxl: 24,
-  sec: 36,
+  xl: 24,
+  xxl: 32,
+  sec: 48,
 } as const;
 
 export const type = {
@@ -75,8 +74,8 @@ export const type = {
   hLg: 28,
   hMd: 17,
   hSm: 14,
-  body: 15,
-  caption: 13,
+  body: 16,
+  caption: 14,
   eyebrow: 12,
   button: 16,
   chip: 14,
@@ -87,20 +86,20 @@ export const type = {
 export const elevation = Platform.select({
   web: {
     flat: {},
-    raised: { boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 6px 20px rgba(0,0,0,0.06)' },
-    lifted: { boxShadow: '0 20px 60px rgba(0,0,0,0.12)' },
+    raised: { boxShadow: '0 1px 2px rgba(22,22,22,0.04), 0 6px 20px rgba(22,22,22,0.06)' },
+    lifted: { boxShadow: '0 20px 60px rgba(22,22,22,0.12)' },
   },
   default: {
     flat: { shadowOpacity: 0, elevation: 0 },
     raised: {
-      shadowColor: '#000',
+      shadowColor: '#161616',
       shadowOpacity: 0.06,
       shadowRadius: 14,
       shadowOffset: { width: 0, height: 6 },
       elevation: 2,
     },
     lifted: {
-      shadowColor: '#000',
+      shadowColor: '#161616',
       shadowOpacity: 0.14,
       shadowRadius: 28,
       shadowOffset: { width: 0, height: 16 },
@@ -110,14 +109,14 @@ export const elevation = Platform.select({
 }) as Record<'flat' | 'raised' | 'lifted', ViewStyle>;
 
 export const scrim = {
-  soft: 'rgba(0,0,0,0.18)',
-  strong: 'rgba(0,0,0,0.62)',
+  soft: 'rgba(22,22,22,0.18)',
+  strong: 'rgba(22,22,22,0.62)',
   onLight: 'rgba(255,255,255,0.72)',
 } as const;
 
 export const scrimGradient = {
-  soft: ['rgba(245,245,247,0)', 'rgba(245,245,247,0.5)', 'rgba(245,245,247,0.96)'] as const,
-  strong: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.28)', 'rgba(0,0,0,0.8)'] as const,
+  soft: ['rgba(246,244,239,0)', 'rgba(246,244,239,0.5)', 'rgba(246,244,239,0.96)'] as const,
+  strong: ['rgba(22,22,22,0)', 'rgba(22,22,22,0.28)', 'rgba(22,22,22,0.8)'] as const,
 } as const;
 
 export const fonts = {
@@ -129,5 +128,4 @@ export const fonts = {
   serifBold: 'GeneralSans-Bold',
 } as const;
 
-export const DISCLAIMER =
-  'Sourced organises public evidence from across the web. Always check the seller and product details before you buy.';
+export const DISCLAIMER = BRAND_COPY.disclaimer;

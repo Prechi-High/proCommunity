@@ -194,7 +194,7 @@ function OwnershipNoteForm({
         <View style={{ backgroundColor: colors.hiSoft, borderRadius: 18, padding: 14, gap: 4 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 18, letterSpacing: -0.3, color: colors.hiInk }}>Tell it like you’d tell a friend</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 19, color: colors.hiInk, opacity: 0.82 }}>
-            This goes on your verified shelf and helps Sourced answer future questions with real owner experience.
+            This goes on your verified shelf and helps Unmask answer future questions with real owner experience.
           </Text>
         </View>
 

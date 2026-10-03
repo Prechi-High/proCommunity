@@ -120,7 +120,7 @@ export function useScan() {
       const permission = camera ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         hapticHeavy();
-        notify('Permission needed', 'Allow access so Sourced can identify the product from a photo.');
+        notify('Permission needed', 'Allow access so Unmask can identify the product from a photo.');
         return;
       }
     }

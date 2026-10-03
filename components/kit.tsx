@@ -15,7 +15,9 @@ import {
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
+import { FocusU } from '@/components/brand/FocusU';
 import { CaretRight, categoryIcon, MagnifyingGlass, Scan, Star, X } from '@/components/icons';
+import { BRAND_COPY } from '@/constants/brand';
 import { colors, elevation, fonts, radii } from '@/constants/theme';
 import { hapticSelect, hapticTap } from '@/lib/haptics';
 import { displayName, formatPrice } from '@/lib/products';
@@ -29,7 +31,7 @@ export function LargeTitle({ children, sub }: { children: ReactNode; sub?: strin
       <Text style={{ fontFamily: fonts.bold, fontSize: 34, letterSpacing: -1, color: colors.bone, lineHeight: 38 }}>
         {children}
       </Text>
-      {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.bone2 }}>{sub}</Text> : null}
+      {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.bone2 }}>{sub}</Text> : null}
     </View>
   );
 }
@@ -57,7 +59,7 @@ export function SearchBar({
   onScan,
   onPress,
   autoFocus,
-  placeholder = 'Search any product',
+  placeholder = BRAND_COPY.searchPlaceholder,
   busy,
   animateScan,
 }: {
@@ -216,7 +218,7 @@ function LiveScanButton({ busy, onPress }: { busy?: boolean; onPress: () => void
           <ActivityIndicator color={colors.white} size="small" />
         ) : (
           <>
-            <Scan size={21} color={colors.white} weight="bold" />
+            <FocusU size={22} color={colors.white} />
             <Animated.View
               pointerEvents="none"
               style={{
@@ -608,7 +610,7 @@ export function PrimaryButton({
       style={({ pressed }) => [
         {
           height: 50,
-          borderRadius: 14,
+          borderRadius: radii.button,
           backgroundColor: bg,
           alignItems: 'center',
           justifyContent: 'center',

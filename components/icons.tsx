@@ -1,7 +1,7 @@
 /**
  * The single icon surface for the whole app.
  *
- * Sourced uses Phosphor exclusively: line weight by default, filled only to
+ * Unmask uses Phosphor exclusively: line weight by default, filled only to
  * mark an active or completed state. Nothing else — no emoji, no glyph
  * characters standing in for icons. Screens import from here rather than from
  * `phosphor-react-native` directly so this rule stays enforceable.

@@ -32,7 +32,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="pulse"
         options={{
-          title: 'Pulse',
+          title: 'Explore',
           tabBarIcon: ({ color, focused }) => <Pulse size={24} color={String(color)} weight={focused ? 'bold' : 'regular'} />,
         }}
       />
