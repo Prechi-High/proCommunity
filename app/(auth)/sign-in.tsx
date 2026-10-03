@@ -69,7 +69,7 @@ export default function SignInScreen() {
       router.push({
         pathname: '/(auth)/verify-email',
         params: { email: normalized, ...(returnTo ? { returnTo } : {}) },
-      });
+      } as Href);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Try again.');
     } finally {
