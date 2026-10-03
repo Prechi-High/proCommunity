@@ -6,8 +6,8 @@ import { ActivityIndicator, Animated, Image, Modal, Pressable, ScrollView, Text,
 import { AvatarStack, SectionHead, ThreadCard, TrendingCard } from '@/components/community';
 import { Screen } from '@/components/Screen';
 import { ArrowsLeftRight, Clock, Fire, Scan } from '@/components/icons';
-import { BrandTagline, Logo } from '@/components/brand/Logo';
-import { Eyebrow, ProductImage, SearchBar, Shimmer, Tile } from '@/components/kit';
+import { Logo } from '@/components/brand/Logo';
+import { Eyebrow, PrimaryButton, ProductImage, SearchBar, Shimmer, Tile } from '@/components/kit';
 import { BRAND_COPY } from '@/constants/brand';
 import { colors, fonts } from '@/constants/theme';
 import { fetchPulse, nicheLabel, nicheOf, timeAgo, type NicheId } from '@/lib/community';
@@ -85,8 +85,7 @@ export default function HomeScreen() {
     <Screen>
       <View style={{ paddingTop: 18, gap: 22 }}>
         <View style={{ gap: 10 }}>
-          <Logo variant="combination" height={26} />
-          <BrandTagline />
+          <Logo variant="fullTagline" height={56} />
           <Eyebrow color={colors.hi}>{profile ? `Welcome back, ${profile.displayName.split(' ')[0]}` : BRAND_COPY.searchPrompt}</Eyebrow>
           <Text style={{ fontFamily: fonts.bold, fontSize: 34, letterSpacing: -1, lineHeight: 38, color: colors.bone }}>
             See beyond the sales pitch.
@@ -94,16 +93,37 @@ export default function HomeScreen() {
           <AnimatedSubtext lines={SUBLINES} />
         </View>
 
-        <View style={{ width: '100%', maxWidth: '100%' }}>
+        <View style={{ width: '100%', maxWidth: '100%', gap: 10 }}>
           <SearchBar
             value={query}
             onChangeText={setQuery}
             onSubmit={() => go(query)}
-            onScan={scan.start}
+            onScan={scan.openCamera}
             busy={scan.busy}
             placeholder={HINTS[hint]}
             animateScan
           />
+          <PrimaryButton label="Search" onPress={() => go(query)} disabled={!query.trim()} />
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Pressable
+              onPress={() => {
+                hapticTap();
+                scan.openCamera();
+              }}
+              style={{ flex: 1, minHeight: 44, borderRadius: 8, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.lac, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>Take photo</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                hapticTap();
+                scan.openUpload();
+              }}
+              style={{ flex: 1, minHeight: 44, borderRadius: 8, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.lac, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>Upload photo</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: -8 }}>
@@ -145,7 +165,7 @@ export default function HomeScreen() {
             <SectionHead
               title="Trending searches"
               icon={<Fire size={20} color={colors.coral} weight="fill" />}
-              action="Pulse"
+              action="Explore"
               onAction={() => router.push('/pulse' as Href)}
             />
             <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 18, color: colors.bone2 }}>

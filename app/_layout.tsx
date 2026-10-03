@@ -7,6 +7,7 @@ import { useEffect, type ReactNode } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { BrandIntroGate } from '@/components/brand/BrandIntroGate';
 import { WebShell } from '@/components/Screen';
 import { colors } from '@/constants/theme';
 import { startAuth } from '@/lib/auth';
@@ -78,6 +79,7 @@ function RootLayout() {
         <ObservabilityProvider>
           <WebShell>
             <AuthGate>
+              <BrandIntroGate>
               <View style={{ flex: 1 }}>
               <Stack
                 screenOptions={{
@@ -101,6 +103,7 @@ function RootLayout() {
                 <Stack.Screen name="admin/index" />
               </Stack>
               </View>
+              </BrandIntroGate>
             </AuthGate>
           </WebShell>
         </ObservabilityProvider>

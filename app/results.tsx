@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ResearchOverlay } from '@/components/brand/ResearchOverlay';
 import { ArrowClockwise, ArrowLeft, MagnifyingGlass } from '@/components/icons';
 import { Eyebrow, FeatureCard, Group, PrimaryButton, ProductRow, SearchBar, Shimmer } from '@/components/kit';
 import { BRAND_COPY } from '@/constants/brand';
@@ -11,6 +12,9 @@ import { colors, fonts } from '@/constants/theme';
 import { hapticSelect } from '@/lib/haptics';
 import { displayName, rememberProduct, searchProducts, slugify } from '@/lib/products';
 import { useAppStore } from '@/lib/store';
+import { stageForTextSearch } from '@/lib/research/overlayStages';
+import { nextResearchRequestId } from '@/lib/research/requestScope';
+import { useResearchElapsed } from '@/lib/research/useResearchElapsed';
 import { useScan } from '@/lib/useScan';
 import type { Product } from '@/lib/types';
 
@@ -23,6 +27,7 @@ export default function ResultsScreen() {
   const [category, setCategory] = useState<string>('All');
   const addSearch = useAppStore((s) => s.addSearch);
   const scan = useScan();
+  const requestRef = useRef<string | null>(null);
 
   useEffect(() => {
     setDraft(initial);
@@ -59,11 +64,18 @@ export default function ResultsScreen() {
 
   const submit = () => {
     const t = draft.trim();
-    if (!t) return;
+    if (!t) {
+      return;
+    }
+    requestRef.current = nextResearchRequestId();
     addSearch(t);
     setCategory('All');
     setQuery(t);
   };
+
+  const searching = query.trim().length > 1 && (isLoading || isFetching);
+  const elapsed = useResearchElapsed(searching);
+  const researchStage = stageForTextSearch({ fetching: searching, hasResults: Boolean(data?.products?.length), elapsedMs: elapsed });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.wine }} edges={['top']}>
@@ -174,6 +186,14 @@ export default function ResultsScreen() {
         ) : null}
       </ScrollView>
       {scan.sheet}
+      <ResearchOverlay
+        visible={searching}
+        stage={researchStage}
+        onCancel={() => {
+          setQuery('');
+          setDraft('');
+        }}
+      />
     </SafeAreaView>
   );
 }

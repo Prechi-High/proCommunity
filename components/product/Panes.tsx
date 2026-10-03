@@ -1,11 +1,13 @@
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Linking, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { ArrowSquareOut, ArrowsLeftRight, CheckCircle, Globe, Storefront, X } from '@/components/icons';
-import { Eyebrow, Group, GroupRow, Pill, Shimmer, Stars, Tile } from '@/components/kit';
+import { ResearchOverlay } from '@/components/brand/ResearchOverlay';
+import { ArrowSquareOut, ArrowsLeftRight, Globe, Storefront, X } from '@/components/icons';
+import { Eyebrow, Group, GroupRow, Pill, Stars, Tile } from '@/components/kit';
 import { colors, fonts } from '@/constants/theme';
 import { hapticTap } from '@/lib/haptics';
+import { stageForTextSearch } from '@/lib/research/overlayStages';
+import { useResearchElapsed } from '@/lib/research/useResearchElapsed';
 import { formatPrice, formatRange } from '@/lib/products';
 import type { ProductProfile } from '@/lib/types';
 
@@ -211,68 +213,8 @@ export function SourcesSheet({ profile, visible, onClose }: { profile: ProductPr
 
 // ---------------------------------------------------------------------------
 
-const STEPS = [
-  'Finding the exact product',
-  'Listening to owners on YouTube and Reddit',
-  'Reading reviews and discussions',
-  'Checking what sellers charge',
-  'Marking what you need to know',
-];
-
 export function InvestigatingState() {
-  const [step, setStep] = useState(0);
-  const pulse = useRef(new Animated.Value(0.4)).current;
-  useEffect(() => {
-    const timers = STEPS.map((_, i) => setTimeout(() => setStep(i), i * 2800));
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 600, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0.4, duration: 600, useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => {
-      timers.forEach(clearTimeout);
-      loop.stop();
-    };
-  }, [pulse]);
-  return (
-    <View style={{ gap: 14 }}>
-      <Tile style={{ gap: 14 }}>
-        {STEPS.map((label, i) => {
-          const done = i < step;
-          const current = i === step;
-          return (
-            <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              {done ? (
-                <CheckCircle size={20} color={colors.sage} weight="fill" />
-              ) : current ? (
-                <Animated.View style={{ opacity: pulse }}>
-                  <ActivityIndicator size="small" color={colors.hi} />
-                </Animated.View>
-              ) : (
-                <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: colors.line }} />
-              )}
-              <Text
-                style={{
-                  fontFamily: current ? fonts.semibold : fonts.regular,
-                  fontSize: 15,
-                  color: done || current ? colors.bone : colors.bone3,
-                }}
-              >
-                {label}
-              </Text>
-            </View>
-          );
-        })}
-      </Tile>
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Shimmer height={104} radius={20} style={{ flex: 1 }} width="48%" />
-        <Shimmer height={104} radius={20} style={{ flex: 1 }} width="48%" />
-      </View>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.bone3, textAlign: 'center' }}>
-        We’re reading real people so you don’t have to. First look takes a few seconds.
-      </Text>
-    </View>
-  );
+  const elapsed = useResearchElapsed(true);
+  const stage = stageForTextSearch({ fetching: true, hasResults: false, elapsedMs: elapsed });
+  return <ResearchOverlay visible={true} mode="inline" stage={stage} />;
 }

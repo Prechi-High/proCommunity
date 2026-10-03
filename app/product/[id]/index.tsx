@@ -14,6 +14,7 @@ import { galleryFor, GalleryStrip, MatchesSheet, ScanBanner, VariantChips } from
 import { Lightbox } from '@/components/Lightbox';
 import { useOwnershipNote } from '@/components/OwnershipNote';
 import { DiscussPane, OverviewPane, OwnersPane } from '@/components/product/PeoplePanes';
+import { BRAND_SECTIONS } from '@/constants/brand';
 import { colors, fonts } from '@/constants/theme';
 import { routeId } from '@/lib/catalog';
 import { fetchRoom, fetchThreads, postThread, trackProduct } from '@/lib/community';
@@ -151,7 +152,7 @@ export default function ProductScreen() {
     { id: 'owners' as const, label: 'Owners', count: voiceCount || undefined },
     { id: 'discuss' as const, label: 'Ask & discuss', count: threadList.length || undefined },
     { id: 'specs' as const, label: 'Specs' },
-    { id: 'prices' as const, label: 'Prices' },
+    { id: 'prices' as const, label: BRAND_SECTIONS.whereToBuy },
     { id: 'videos' as const, label: 'Videos' },
   ];
 

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
-import { BrandTagline, Logo } from '@/components/brand/Logo';
+import { Logo } from '@/components/brand/Logo';
 import { Screen } from '@/components/Screen';
 import { ArrowLeft, GoogleLogo, Scales, SealCheck, ShieldCheck } from '@/components/icons';
 import { LargeTitle, PrimaryButton } from '@/components/kit';
@@ -93,8 +93,7 @@ export default function SignInScreen() {
         <PrimaryButton label="Back" icon={ArrowLeft} tone="plain" onPress={done} style={{ alignSelf: 'flex-start', height: 38 }} />
 
         <View style={{ gap: 6 }}>
-          <Logo variant="wordmark" height={32} />
-          <BrandTagline />
+          <Logo variant="fullTagline" height={52} />
         </View>
 
         <Pressable

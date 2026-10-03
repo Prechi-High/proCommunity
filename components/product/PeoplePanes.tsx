@@ -25,6 +25,7 @@ import {
 } from '@/components/icons';
 import { Eyebrow, Pill, ScoreDial, Tile } from '@/components/kit';
 import { openLink } from '@/components/product/Panes';
+import { BRAND_SECTIONS } from '@/constants/brand';
 import { colors, fonts } from '@/constants/theme';
 import { hapticSelect } from '@/lib/haptics';
 import { formatPrice, formatRange } from '@/lib/products';
@@ -71,7 +72,7 @@ export function OverviewPane({
           ) : (
             <UsersThree size={18} color="rgba(255,255,255,0.7)" weight="bold" />
           )}
-          <Eyebrow color="rgba(255,255,255,0.6)">What owners concluded</Eyebrow>
+          <Eyebrow color="rgba(255,255,255,0.6)">{BRAND_SECTIONS.whatToKnow}</Eyebrow>
         </View>
         <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
           <Marker

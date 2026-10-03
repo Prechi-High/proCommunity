@@ -14,10 +14,21 @@ export const BRAND_COPY = {
   positioning: 'Your product investigator — see beyond the sales pitch.',
 } as const;
 
+export const BRAND_SECTIONS = {
+  whatToKnow: 'What to know',
+  claimsEvidence: 'Claims & evidence',
+  ownerExperiences: 'Owner experiences',
+  watchFor: 'What to watch for',
+  whereToBuy: 'Where to buy',
+  alternatives: 'Alternatives',
+} as const;
+
 export const brandAssets = {
   wordmarkInk: require('../assets/brand/wordmark-ink.png'),
   combinationInk: require('../assets/brand/combination-ink.png'),
   combinationWhite: require('../assets/brand/combination-white.png'),
+  fullTaglineInk: require('../assets/brand/full-tagline-ink.png'),
+  fullTaglineWhite: require('../assets/brand/full-tagline-white.png'),
   symbolInk: require('../assets/brand/symbol-ink.png'),
   symbolWhite: require('../assets/brand/symbol-white.png'),
 } as const;

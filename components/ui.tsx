@@ -756,6 +756,6 @@ export function QuoteTile({ body, height }: { body: string; height: number }) {
   );
 }
 
-export function Wordmark({ size = type.wordmark, tone = 'ink' }: { size?: number; color?: string; tone?: 'ink' | 'white' }) {
-  return <Logo variant="wordmark" tone={tone} height={size} />;
+export function Wordmark({ size = 52, tone = 'ink' }: { size?: number; color?: string; tone?: 'ink' | 'white' }) {
+  return <Logo variant="fullTagline" tone={tone} height={size} />;
 }

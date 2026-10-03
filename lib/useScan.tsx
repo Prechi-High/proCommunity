@@ -3,11 +3,15 @@ import { useRouter, type Href } from 'expo-router';
 import { createElement, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { ResearchOverlay } from '@/components/brand/ResearchOverlay';
+import { FocusCorners } from '@/components/brand/FocusCorners';
 import { ArrowsLeftRight, Camera, CameraRotate, CaretRight, Check, UploadSimple, X } from '@/components/icons';
-import { ProductImage } from '@/components/kit';
+import { PrimaryButton, ProductImage } from '@/components/kit';
 import { colors, fonts } from '@/constants/theme';
 
 import { hapticHeavy, hapticSelect, hapticSuccess, hapticTap } from './haptics';
+import { stageForPhotoIdentify } from './research/overlayStages';
+import { useResearchElapsed } from './research/useResearchElapsed';
 import { extractProductFromPhoto, visionErrorCopy, type DetectedProduct, type VisionAsset, type VisionResult } from './productVision';
 import { rememberProduct, slugify } from './products';
 import { useAppStore } from './store';
@@ -44,6 +48,9 @@ export function useScan() {
   const [choosing, setChoosing] = useState(false);
   const [webCamera, setWebCamera] = useState(false);
   const [multi, setMulti] = useState<MultiScan | null>(null);
+  const [pendingReview, setPendingReview] = useState<VisionAsset | null>(null);
+  const identifyElapsed = useResearchElapsed(stage !== 'idle');
+  const identifyStage = stageForPhotoIdentify(identifyElapsed);
 
   const photoFor = (asset: VisionAsset, vision: VisionResult) =>
     vision.imageUrl || (asset.uri.startsWith('data:') && asset.uri.length > 400_000 ? '' : asset.uri);
@@ -130,7 +137,14 @@ export function useScan() {
       return;
     }
     const a = result.assets[0];
-    await identify({ uri: a.uri, fileName: a.fileName, width: a.width, height: a.height, base64: a.base64, mimeType: a.mimeType });
+    setPendingReview({ uri: a.uri, fileName: a.fileName, width: a.width, height: a.height, base64: a.base64, mimeType: a.mimeType });
+  };
+
+  const confirmReview = async () => {
+    if (!pendingReview) return;
+    const asset = pendingReview;
+    setPendingReview(null);
+    await identify(asset);
   };
 
   const takePhoto = () => {
@@ -181,10 +195,14 @@ export function useScan() {
           }}
           onCapture={(asset) => {
             setWebCamera(false);
-            void identify(asset);
+            setPendingReview(asset);
           }}
         />
       ) : null}
+      {pendingReview ? (
+        <PhotoReviewModal asset={pendingReview} onBack={() => setPendingReview(null)} onRetake={() => setPendingReview(null)} onUse={() => void confirmReview()} />
+      ) : null}
+      <ResearchOverlay visible={stage !== 'idle'} stage={identifyStage} photoUri={preview} onCancel={() => { setStage('idle'); setPreview(null); }} />
       {multi ? (
         <MultiPickSheet
           scan={multi}
@@ -196,7 +214,40 @@ export function useScan() {
     </>
   );
 
-  return { start, stage, preview, busy: stage !== 'idle', sheet };
+  return { start, openCamera: takePhoto, openUpload: upload, stage, preview, busy: stage !== 'idle', sheet };
+}
+
+function PhotoReviewModal({
+  asset,
+  onBack,
+  onRetake,
+  onUse,
+}: {
+  asset: VisionAsset;
+  onBack: () => void;
+  onRetake: () => void;
+  onUse: () => void;
+}) {
+  return (
+    <Modal visible animationType="slide" onRequestClose={onBack}>
+      <View style={{ flex: 1, backgroundColor: colors.black }}>
+        <Image source={{ uri: asset.uri }} style={{ flex: 1 }} resizeMode="contain" />
+        <View style={{ padding: 20, gap: 10, backgroundColor: colors.wine, borderTopWidth: 1, borderTopColor: colors.line }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 17, color: colors.bone }}>Use this photo?</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2, lineHeight: 20 }}>
+            We’ll identify the product from packaging and labels. Retake if the label isn’t clear.
+          </Text>
+          <PrimaryButton label="Use photo" onPress={onUse} />
+          <Pressable onPress={onRetake} style={{ minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.hi }}>Retake</Text>
+          </Pressable>
+          <Pressable onPress={onBack} style={{ minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.bone3 }}>Back</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
 function SheetOption({ icon, title, body, onPress, tone }: { icon: ReactNode; title: string; body: string; onPress: () => void; tone?: 'accent' }) {
@@ -469,7 +520,9 @@ export function WebCameraModal({
         })}
 
         {status === 'live' ? (
-          <View pointerEvents="none" style={{ position: 'absolute', top: '18%', bottom: '24%', left: '10%', right: '10%', borderRadius: 28, borderWidth: 2, borderColor: 'rgba(255,255,255,0.7)' }} />
+          <View pointerEvents="none" style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
+            <FocusCorners size={280} color="rgba(255,255,255,0.85)" />
+          </View>
         ) : null}
 
         {status === 'starting' ? (
