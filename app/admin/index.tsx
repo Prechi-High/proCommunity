@@ -28,6 +28,7 @@ import {
   YoutubeLogo,
 } from '@/components/icons';
 import { colors, fonts } from '@/constants/theme';
+import { AdminInsightsPanel } from '@/components/admin/AdminInsightsPanel';
 import { fetchAdminDashboard } from '@/lib/community';
 import {
   approveVideo,
@@ -213,56 +214,7 @@ export default function AdminScreen() {
       </View>
 
       {tab === 'insights' ? (
-        <>
-          <Caption>Last 7 days on Sourced — searches, posts, quick questions, and what’s heating up.</Caption>
-          {insightsQuery.isLoading ? <ActivityIndicator color={colors.rosewood} /> : null}
-          {insightsQuery.error ? <Caption color={colors.rosewood}>Could not load dashboard. Redeploy product-intelligence if this is new.</Caption> : null}
-          {insights ? (
-            <>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                {[
-                  ['Members', insights.stats.members],
-                  ['Product views', insights.stats.productViews7d],
-                  ['Saves', insights.stats.saves7d],
-                  ['Compares', insights.stats.compares7d],
-                  ['Posts', insights.stats.posts7d],
-                  ['Quick Qs', insights.stats.quickQuestions7d],
-                  ['Owner notes', insights.stats.ownershipNotes7d],
-                ].map(([label, value]) => (
-                  <Card key={label as string} style={{ minWidth: '46%', flexGrow: 1, gap: 4, paddingVertical: 14 }}>
-                    <Caption>{label as string}</Caption>
-                    <Title>{String(value)}</Title>
-                  </Card>
-                ))}
-              </View>
-              <SectionHeader title="Trending searches" hint="What people are looking up most." />
-              {insights.trending.length ? (
-                insights.trending.map((t, i) => (
-                  <Card key={t.id} style={{ gap: 4 }}>
-                    <Title>{`${i + 1}. ${t.name}`}</Title>
-                    <Caption>{`${t.views} searches · ${t.asks} quick questions · heat ${t.heat}`}</Caption>
-                  </Card>
-                ))
-              ) : (
-                <Caption>No trending data yet.</Caption>
-              )}
-              <SectionHeader title="Recent posts" />
-              {insights.recentThreads.map((t) => (
-                <Card key={t.id} style={{ gap: 4 }}>
-                  <Title>{t.title}</Title>
-                  <Caption>{`${t.kind} · ${t.product_name} · ${t.author_name}`}</Caption>
-                </Card>
-              ))}
-              <SectionHeader title="Recent quick questions" />
-              {insights.recentQuestions.map((q, i) => (
-                <Card key={`${q.created_at}-${i}`} style={{ gap: 4 }}>
-                  <Body>{q.question}</Body>
-                  <Caption>{q.product_name}</Caption>
-                </Card>
-              ))}
-            </>
-          ) : null}
-        </>
+        <AdminInsightsPanel insights={insights} loading={insightsQuery.isLoading} error={Boolean(insightsQuery.error)} />
       ) : (
         <>
       <Caption>

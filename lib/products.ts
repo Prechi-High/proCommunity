@@ -115,8 +115,10 @@ export function slugify(text: string): string {
 export async function searchProducts(query: string): Promise<SearchResponse> {
   const q = query.trim();
   if (!q) return { products: [], knowledge: null };
+  const { getVisitorKeyForApi } = await import('./siteAnalytics');
+  const visitorKey = await getVisitorKeyForApi().catch(() => '');
   const res = await callIntel<{ products?: RawCandidate[]; knowledge?: SearchKnowledge | null }>(
-    { action: 'search', query: q },
+    { action: 'search', query: q, visitorKey },
     30000,
   );
   const products = (res.products ?? []).map(fromCandidate);

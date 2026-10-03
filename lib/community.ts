@@ -172,7 +172,30 @@ export interface AdminDashboard {
     posts7d: number;
     quickQuestions7d: number;
     ownershipNotes7d: number;
+    visitsToday?: number;
+    searchesToday?: number;
+    productViewsToday?: number;
+    returnVisitsToday?: number;
+    newVisitsToday?: number;
+    uniqueVisitors30d?: number;
+    totalVisits30d?: number;
+    totalSearches30d?: number;
+    signupsToday?: number;
+    signups30d?: number;
+    membersActiveToday?: number;
   };
+  series?: {
+    visits: Array<{ date: string; value: number }>;
+    searches: Array<{ date: string; value: number }>;
+    productViews: Array<{ date: string; value: number }>;
+    signups: Array<{ date: string; value: number }>;
+  };
+  members?: {
+    newToday: Array<{ id: string; email: string; displayName: string; createdAt: string }>;
+    recent: Array<{ id: string; email: string; displayName: string; createdAt: string; lastSignInAt: string | null }>;
+  };
+  recentSearches?: Array<{ query: string; at: string; signedIn: boolean }>;
+  recentVisits?: Array<{ at: string; event: string; signedIn: boolean; returning: boolean }>;
   trending: Array<{ id: string; name: string; views: number; asks: number; heat: number }>;
   recentThreads: Array<{ id: string; title: string; product_name: string; kind: string; author_name: string; created_at: string }>;
   recentQuestions: Array<{ question: string; product_name: string; created_at: string }>;

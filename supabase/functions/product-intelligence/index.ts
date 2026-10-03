@@ -1762,33 +1762,191 @@ async function runCommunity(store: Db, action: string, body: Json) {
   return { error: "unknown_action" };
 }
 
+function utcDayKey(iso: string): string {
+  return iso.length >= 10 ? iso.slice(0, 10) : "";
+}
+
+function lastUtcDays(n: number): string[] {
+  const out: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - i);
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
+}
+
+function bucketCounts(rows: Json[], field: string, pick?: (row: Json) => boolean): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    if (pick && !pick(row)) continue;
+    const key = utcDayKey(str(row[field], 40));
+    if (!key) continue;
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function toSeries(days: string[], bucket: Record<string, number>) {
+  return days.map((date) => ({ date, value: bucket[date] ?? 0 }));
+}
+
 async function runAdminDashboard(store: Db) {
+  const windowDays = 30;
+  const since30 = new Date(Date.now() - windowDays * 86400_000).toISOString();
   const since7 = new Date(Date.now() - 7 * 86400_000).toISOString();
-  const [trending, events7, threads7, asks7, notes7, members, recentThreads, recentAsks] = await Promise.all([
+  const today = new Date().toISOString().slice(0, 10);
+  const todayStart = `${today}T00:00:00.000Z`;
+
+  const [
+    trending,
+    events30,
+    analytics30,
+    threads7,
+    asks7,
+    notes7,
+    profiles,
+    recentThreads,
+    recentAsks,
+    memberDir,
+  ] = await Promise.all([
     store.rpc("trending_products", { days: 14, cat: null, lim: 15 }),
-    store.rows(`product_events?select=event,product_id,name&created_at=gte.${encodeURIComponent(since7)}&limit=5000`),
+    store.rows(`product_events?select=event,product_id,name,created_at&created_at=gte.${encodeURIComponent(since30)}&limit=20000`),
+    store.rows(`analytics_events?select=event,visitor_key,user_id,query,created_at&created_at=gte.${encodeURIComponent(since30)}&limit=20000`),
     store.rows(`community_threads?select=id&created_at=gte.${encodeURIComponent(since7)}&limit=5000`),
     store.rows(`community_asks?select=id&created_at=gte.${encodeURIComponent(since7)}&limit=5000`),
     store.rows(`ownership_notes?select=id&created_at=gte.${encodeURIComponent(since7)}&limit=5000`),
-    store.rows(`profiles?select=id&limit=5000`),
+    store.rows(`profiles?select=id,display_name,created_at&order=created_at.desc&limit=5000`),
     store.rows(`community_threads?select=id,title,product_name,kind,author_name,created_at&order=created_at.desc&limit=12`),
     store.rows(`community_asks?select=question,product_name,created_at&order=created_at.desc&limit=12`),
+    store.rpc("admin_member_directory", { lim: 40 }),
   ]);
-  const byEvent: Record<string, number> = {};
-  for (const e of events7) byEvent[str(e.event, 12)] = (byEvent[str(e.event, 12)] ?? 0) + 1;
-  const views = byEvent.view ?? 0;
-  const saves = byEvent.save ?? 0;
-  const compares = byEvent.compare ?? 0;
+
+  const days = lastUtcDays(windowDays);
+  const productViewRows = events30.filter((e) => str(e.event, 12) === "view");
+  const visitRows = analytics30.filter((e) => str(e.event, 20) === "visit" || str(e.event, 20) === "session_start");
+  const searchRows = analytics30.filter((e) => str(e.event, 20) === "search");
+
+  const byEvent7: Record<string, number> = {};
+  for (const e of events30.filter((r) => str(r.created_at, 40) >= since7)) {
+    byEvent7[str(e.event, 12)] = (byEvent7[str(e.event, 12)] ?? 0) + 1;
+  }
+
+  const visitsToday = visitRows.filter((r) => utcDayKey(str(r.created_at, 40)) === today).length;
+  const searchesToday = searchRows.filter((r) => utcDayKey(str(r.created_at, 40)) === today).length;
+  const productViewsToday = productViewRows.filter((r) => utcDayKey(str(r.created_at, 40)) === today).length;
+
+  const visitorsBeforeToday = new Set<string>();
+  for (const r of visitRows) {
+    const key = str(r.visitor_key, 80);
+    if (!key || str(r.created_at, 40) >= todayStart) continue;
+    visitorsBeforeToday.add(key);
+  }
+  let returnVisitsToday = 0;
+  let newVisitsToday = 0;
+  for (const r of visitRows) {
+    if (utcDayKey(str(r.created_at, 40)) !== today) continue;
+    const key = str(r.visitor_key, 80);
+    if (!key) continue;
+    if (visitorsBeforeToday.has(key)) returnVisitsToday += 1;
+    else newVisitsToday += 1;
+  }
+
+  const uniqueVisitors30 = new Set(visitRows.map((r) => str(r.visitor_key, 80)).filter(Boolean)).size;
+
+  const signupsToday = profiles.filter((p) => utcDayKey(str(p.created_at, 40)) === today).length;
+  const signups30 = profiles.filter((p) => str(p.created_at, 40) >= since30).length;
+
+  const membersToday = (memberDir as Json[]).filter((m) => {
+    const last = str(m.last_sign_in_at, 40);
+    return last && utcDayKey(last) === today;
+  }).length;
+
+  const newAccountsToday = (memberDir as Json[]).filter((m) => utcDayKey(str(m.profile_created_at, 40)) === today);
+
+  const visitHistory = toSeries(days, bucketCounts(visitRows, "created_at"));
+  const searchHistory = toSeries(days, bucketCounts(searchRows, "created_at"));
+  const productViewHistory = toSeries(days, bucketCounts(productViewRows, "created_at"));
+  const signupHistory = toSeries(days, bucketCounts(profiles, "created_at"));
+
+  const recentSearches = searchRows
+    .slice()
+    .sort((a, b) => +new Date(str(b.created_at, 40)) - +new Date(str(a.created_at, 40)))
+    .slice(0, 15)
+    .map((r) => ({
+      query: str(r.query, 200),
+      at: str(r.created_at, 40),
+      signedIn: Boolean(r.user_id),
+    }));
+
+  const firstVisitAtByKey = new Map<string, number>();
+  for (const r of visitRows) {
+    const key = str(r.visitor_key, 80);
+    if (!key) continue;
+    const t = +new Date(str(r.created_at, 40));
+    const prev = firstVisitAtByKey.get(key);
+    if (prev === undefined || t < prev) firstVisitAtByKey.set(key, t);
+  }
+  const recentVisits = visitRows
+    .slice()
+    .sort((a, b) => +new Date(str(b.created_at, 40)) - +new Date(str(a.created_at, 40)))
+    .slice(0, 25)
+    .map((r) => {
+      const key = str(r.visitor_key, 80);
+      const t = +new Date(str(r.created_at, 40));
+      const first = key ? firstVisitAtByKey.get(key) : undefined;
+      return {
+        at: str(r.created_at, 40),
+        event: str(r.event, 20),
+        signedIn: Boolean(r.user_id),
+        returning: Boolean(key && first !== undefined && first < t),
+      };
+    });
+
   return {
     stats: {
-      members: members.length,
-      productViews7d: views,
-      saves7d: saves,
-      compares7d: compares,
+      members: profiles.length,
+      productViews7d: byEvent7.view ?? 0,
+      saves7d: byEvent7.save ?? 0,
+      compares7d: byEvent7.compare ?? 0,
       posts7d: threads7.length,
       quickQuestions7d: asks7.length,
       ownershipNotes7d: notes7.length,
+      visitsToday,
+      searchesToday,
+      productViewsToday,
+      returnVisitsToday,
+      newVisitsToday,
+      uniqueVisitors30d: uniqueVisitors30,
+      totalVisits30d: visitRows.length,
+      totalSearches30d: searchRows.length,
+      signupsToday,
+      signups30d: signups30,
+      membersActiveToday: membersToday,
     },
+    series: {
+      visits: visitHistory,
+      searches: searchHistory,
+      productViews: productViewHistory,
+      signups: signupHistory,
+    },
+    members: {
+      newToday: newAccountsToday.map((m) => ({
+        id: str(m.user_id, 40),
+        email: str(m.email, 120),
+        displayName: str(m.display_name, 80),
+        createdAt: str(m.profile_created_at, 40),
+      })),
+      recent: (memberDir as Json[]).slice(0, 20).map((m) => ({
+        id: str(m.user_id, 40),
+        email: str(m.email, 120),
+        displayName: str(m.display_name, 80),
+        createdAt: str(m.profile_created_at, 40),
+        lastSignInAt: str(m.last_sign_in_at, 40) || null,
+      })),
+    },
+    recentSearches,
+    recentVisits,
     trending: (trending as Json[]).slice(0, 12).map((t) => ({
       id: str(t.product_id, 100),
       name: str(t.name, 140),
@@ -1809,8 +1967,8 @@ async function runAdminDashboard(store: Db) {
       product_name: str(a.product_name, 120),
       created_at: str(a.created_at, 40),
     })),
-    since: since7,
-    windowDays: 7,
+    since: since30,
+    windowDays,
   };
 }
 
@@ -1947,7 +2105,32 @@ Deno.serve(async (req) => {
   try {
     if (action === "search") {
       if (!query) return json({ error: "missing_query" }, 400);
+      const store = db();
+      if (store) {
+        const user = await userFromRequest(req);
+        void store.insert("analytics_events", {
+          event: "search",
+          query,
+          user_id: user?.id ?? null,
+          visitor_key: str(body.visitorKey, 80) || null,
+        });
+      }
       return json({ success: true, ...(await runSearch(query, country)) });
+    }
+
+    if (action === "analytics") {
+      const store = db();
+      if (!store) return json({ error: "storage_unavailable" }, 503);
+      const event = str(body.event, 24);
+      if (!["visit", "session_start"].includes(event)) return json({ error: "invalid_event" }, 400);
+      const user = await userFromRequest(req);
+      await store.insert("analytics_events", {
+        event,
+        user_id: user?.id ?? null,
+        visitor_key: str(body.visitorKey, 80) || null,
+        path: str(body.path, 200) || null,
+      });
+      return json({ success: true });
     }
 
     if (action === "investigate") {

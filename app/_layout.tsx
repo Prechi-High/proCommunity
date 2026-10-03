@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { WebShell } from '@/components/Screen';
 import { colors } from '@/constants/theme';
 import { startAuth } from '@/lib/auth';
+import { recordSiteVisit } from '@/lib/siteAnalytics';
 import { ObservabilityProvider, wrapRoot } from '@/lib/observability';
 import { useAppStore } from '@/lib/store';
 
@@ -29,6 +30,7 @@ function AuthGate({ children }: { children: ReactNode }) {
   // Search never needs an account; signing in (email code) unlocks community, saves sync, research and WhatsApp.
   useEffect(() => {
     if (!hydrated) return;
+    void recordSiteVisit('/');
     return startAuth();
   }, [hydrated]);
 
