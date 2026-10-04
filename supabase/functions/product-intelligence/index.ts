@@ -732,11 +732,12 @@ Return JSON:
  "reveals": [{"text":"","mark":"","refs":["C2","S4"]}],
  "variants": [{"label":"e.g. 45W, 256GB, Black, 50 ml, Size 10","kind":"size|color|capacity|model|flavor|pack","query":"full search query for that exact variant"}],
  "identity_confidence": 0.0,
- "brand_claims":[{"topic":"short label for THIS product (e.g. battery life, stain resistance, noise level — never generic Performance/Durability)","exact_text":"verbatim promise from brand listing or packaging in the evidence","conditions":"when it applies","criterion":"how owners would confirm or deny it","partial_criterion":"defined partial match only","brand_source":1,"claim_type":"general"}],
+ "brand_claims":[{"topic":"","exact_text":"","conditions":"","criterion":"","partial_criterion":"","brand_source":1,"claim_type":"general"}],
+ "owner_claims":[{"topic":"short theme owners discuss (e.g. battery life, sizing, smell)","summary":"one plain sentence: what people keep saying about this theme","refs":["C1","S3"]}],
  "owner_discoveries":[{"topic":"","observation_type":"benefit|concern|usage","summary":"","refs":["C1"],"context":"","buying_implication":""}]
 }
-Limits: specs ≤ 8, praise ≤ 5, complaints ≤ 5, best_for ≤ 4, not_for ≤ 3, uses ≤ 4, alternatives ≤ 3, voices ≤ 10, reveals ≤ 5, variants ≤ 8, brand_claims ≤ 8, owner_discoveries ≤ 6.
-brand_claims: REQUIRED when evidence exists — return 3–8 promises specific to what THIS product is for (category + summary). Pull exact_text from manufacturer/store copy in sources. Never use placeholder topics like Performance or Durability unless those exact words are in the brand copy. owner_discoveries are observations NOT tied to a brand promise.`;
+Limits: specs ≤ 8, praise ≤ 5, complaints ≤ 5, best_for ≤ 4, not_for ≤ 3, uses ≤ 4, alternatives ≤ 3, voices ≤ 10, reveals ≤ 5, variants ≤ 8, brand_claims ≤ 4, owner_claims ≤ 8, owner_discoveries ≤ 6.
+owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 3–8 themes mined from reviews, comments, Reddit, forums (NOT from empty brand pages). Each theme MUST cite refs (C/S numbers) that support it. summary is your synthesis of what owners say, not official marketing. brand_claims only when real manufacturer/store copy exists in evidence; otherwise leave brand_claims empty. owner_discoveries are one-off observations that do not fit a main theme.`;
 
   const llm = evidence.length || comments.length ? await callLlm(prompt, 3400, 32000) : { data: null, model: null, errors: ["no_evidence"] };
   const d = (llm.data ?? {}) as Json;
@@ -803,6 +804,7 @@ brand_claims: REQUIRED when evidence exists — return 3–8 promises specific t
 
   type Voice = {
     id: string;
+    evidenceRef?: string;
     platform: "youtube" | "reddit" | "review" | "forum";
     author: string;
     avatar: string | null;
@@ -865,6 +867,7 @@ brand_claims: REQUIRED when evidence exists — return 3–8 promises specific t
     if ((!mark && !LIVED.test(base.text)) || asksFirst(base.text)) continue;
     voices.push({
       ...base,
+      evidenceRef: str(raw.ref, 8).toUpperCase(),
       mark,
       stance: stance === "love" || stance === "warn" ? stance : "mixed",
       topic: str(raw.topic, 30),
@@ -945,6 +948,11 @@ brand_claims: REQUIRED when evidence exists — return 3–8 promises specific t
     brand_source: Number.isInteger(Number(c.brand_source)) ? Number(c.brand_source) : undefined,
     claim_type: str(c.claim_type, 40),
   }));
+  const ownerClaimsRaw = (Array.isArray(d.owner_claims) ? (d.owner_claims as Json[]) : []).map((o) => ({
+    topic: str(o.topic, 80),
+    summary: str(o.summary, 400),
+    refs: Array.isArray(o.refs) ? (o.refs as Json[]).map((r) => str(r, 20)) : [],
+  }));
   const discoveriesRaw = (Array.isArray(d.owner_discoveries) ? (d.owner_discoveries as Json[]) : []).map((o) => ({
     topic: str(o.topic, 80),
     observation_type: str(o.observation_type, 20),
@@ -958,8 +966,15 @@ brand_claims: REQUIRED when evidence exists — return 3–8 promises specific t
     identityConfidence,
     identity,
     brandClaims: brandClaimsRaw,
+    ownerClaimsRaw,
     discoveriesRaw,
-    voices: voices.map((v) => ({ ref: v.id, mark: v.mark, stance: v.stance, topic: v.topic, text: v.text })),
+    voices: voices.map((v) => ({
+      ref: (v as Voice & { evidenceRef?: string }).evidenceRef || v.id,
+      mark: v.mark,
+      stance: v.stance,
+      topic: v.topic,
+      text: v.text,
+    })),
     reveals: reveals.map((r) => ({ text: r.text, mark: r.mark })),
     praise,
     complaints,

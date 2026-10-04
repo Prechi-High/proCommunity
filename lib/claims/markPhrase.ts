@@ -18,7 +18,10 @@ export function isGenericStoredClaim(topic: string, brandStatement: string): boo
   return false;
 }
 
-export function findingsNeedRefresh(findings: { claims: Array<{ topic: string; brandStatement: string }> }): boolean {
+export function findingsNeedRefresh(findings: {
+  claims: Array<{ topic: string; brandStatement: string; claimOrigin?: string }>;
+}): boolean {
   if (!findings.claims.length) return true;
+  if (findings.claims.some((c) => !c.claimOrigin)) return true;
   return findings.claims.some((c) => isGenericStoredClaim(c.topic, c.brandStatement));
 }

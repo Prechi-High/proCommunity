@@ -22,6 +22,8 @@ export type ScoreInputs = {
   hasMaterialTestConflict: boolean;
   hasIndependentTestCorroboration: boolean;
   contextCompleteRatio: number;
+  minDistinctOwnerUnits?: number;
+  minIndependentOrigins?: number;
 };
 
 export function roundDisplayScore(raw: number): number {
@@ -38,8 +40,10 @@ export function scoringGates(inputs: ScoreInputs): { score: number | null; unava
   if (!inputs.identityExact) return { score: null, unavailableReason: 'similar_product_only' };
   if (inputs.claimType === 'health_efficacy') return { score: null, unavailableReason: 'health_or_efficacy' };
   if (!inputs.hasCriterion) return { score: null, unavailableReason: 'no_criterion' };
-  if (inputs.distinctOwnerUnits < 5) return { score: null, unavailableReason: 'insufficient_owners' };
-  if (inputs.independentOrigins < 2) return { score: null, unavailableReason: 'insufficient_origins' };
+  const minOwners = inputs.minDistinctOwnerUnits ?? 5;
+  const minOrigins = inputs.minIndependentOrigins ?? 2;
+  if (inputs.distinctOwnerUnits < minOwners) return { score: null, unavailableReason: 'insufficient_owners' };
+  if (inputs.independentOrigins < minOrigins) return { score: null, unavailableReason: 'insufficient_origins' };
   const raw = computeRawClaimScore(inputs.counts);
   if (raw === null) return { score: null, unavailableReason: 'zero_denominator' };
   return { score: roundDisplayScore(raw), unavailableReason: null };

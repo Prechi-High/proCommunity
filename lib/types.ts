@@ -64,6 +64,8 @@ export type Stance = 'love' | 'mixed' | 'warn';
 /** A real person's words about a product, kept verbatim with where they said it. */
 export interface Voice {
   id: string;
+  /** C1 / S2 style ref from investigate LLM — used to attach owner themes to comments. */
+  evidenceRef?: string;
   platform: VoicePlatform;
   author: string;
   avatar: string | null;

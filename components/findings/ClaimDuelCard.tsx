@@ -3,6 +3,7 @@ import { Animated, Modal, Pressable, ScrollView, Text, View } from 'react-native
 
 import { Marker } from '@/components/community';
 import { CaretRight } from '@/components/icons';
+import { UNMASK_COPY } from '@/components/findings/copy';
 import { Eyebrow } from '@/components/kit';
 import { markPhraseInText } from '@/lib/claims/markPhrase';
 import { SCORE_UNAVAILABLE_REASONS } from '@/lib/claims/policy';
@@ -10,16 +11,29 @@ import type { ClaimComparison } from '@/lib/claims/types';
 import { colors, fonts, radii } from '@/constants/theme';
 
 function verdictTone(claim: ClaimComparison): { bg: string; fg: string; label: string } {
-  if (claim.score === null) return { bg: colors.mist, fg: colors.bone2, label: 'Still gathering evidence' };
-  if (claim.score >= 8) return { bg: colors.markGood, fg: colors.markGoodInk, label: 'Mostly holds up' };
-  if (claim.score >= 3) return { bg: colors.marker, fg: colors.markerInk, label: 'Mixed in practice' };
-  return { bg: colors.markBad, fg: colors.markBadInk, label: 'Owners push back' };
+  const owner = claim.claimOrigin !== 'brand';
+  if (claim.score === null) return { bg: colors.mist, fg: colors.bone2, label: 'Still gathering voices' };
+  if (claim.score >= 8) {
+    return {
+      bg: colors.markGood,
+      fg: colors.markGoodInk,
+      label: owner ? 'Skews positive' : 'Owners mostly agree',
+    };
+  }
+  if (claim.score >= 3) {
+    return { bg: colors.marker, fg: colors.markerInk, label: owner ? 'Split opinions' : 'Mixed vs brand' };
+  }
+  return {
+    bg: colors.markBad,
+    fg: colors.markBadInk,
+    label: owner ? 'Skews critical' : 'Owners push back',
+  };
 }
 
-function bucketLabel(c: 'support' | 'partial' | 'contradict') {
-  if (c === 'support') return 'Backs it up';
-  if (c === 'partial') return 'Partly — depends';
-  return 'Pushes back';
+function bucketLabel(c: 'support' | 'partial' | 'contradict', owner: boolean) {
+  if (c === 'support') return owner ? UNMASK_COPY.positive : 'Backs it up';
+  if (c === 'partial') return owner ? UNMASK_COPY.mixed : 'Partly — depends';
+  return owner ? UNMASK_COPY.critical : 'Pushes back';
 }
 
 function bucketColor(c: 'support' | 'partial' | 'contradict') {
@@ -40,6 +54,7 @@ export function ClaimDuelCard({
   const [open, setOpen] = useState(defaultOpen ?? index === 0);
   const [explain, setExplain] = useState(false);
   const reveal = useRef(new Animated.Value(open ? 1 : 0)).current;
+  const isOwnerTheme = claim.claimOrigin !== 'brand';
 
   useEffect(() => {
     Animated.timing(reveal, { toValue: open ? 1 : 0, duration: open ? 220 : 160, useNativeDriver: true }).start();
@@ -52,6 +67,7 @@ export function ClaimDuelCard({
   const teaser = against[0]?.summary || partial[0]?.summary || supporting[0]?.summary || claim.buyingImplication;
 
   const scoreDisplay = claim.score !== null ? `${claim.score}` : '—';
+  const scoreCaption = isOwnerTheme ? UNMASK_COPY.scoreOwner : UNMASK_COPY.scoreBrand;
 
   return (
     <View style={{ borderRadius: radii.card, overflow: 'hidden', borderWidth: 1, borderColor: colors.line, backgroundColor: colors.lac }}>
@@ -64,7 +80,7 @@ export function ClaimDuelCard({
         <View style={{ backgroundColor: colors.bone, paddingHorizontal: 16, paddingVertical: 14, gap: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <Text style={{ fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)' }}>
-              Promise {index + 1}
+              Theme {index + 1}
             </Text>
             <View style={{ backgroundColor: tone.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 }}>
               <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: tone.fg }}>{tone.label}</Text>
@@ -80,12 +96,16 @@ export function ClaimDuelCard({
 
         <View style={{ flexDirection: 'row', alignItems: 'stretch', minHeight: 72 }}>
           <View style={{ flex: 1, padding: 14, gap: 6, justifyContent: 'center' }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', color: colors.bone3 }}>Agreement</Text>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', color: colors.bone3 }}>
+              {scoreCaption}
+            </Text>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 34, letterSpacing: -1, color: colors.bone }}>{scoreDisplay}</Text>
               {claim.score !== null ? <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.bone3 }}>/10</Text> : null}
             </View>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone2 }}>{claim.eligibleOwnerCount} owner reports weighed</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone2 }}>
+              {claim.eligibleOwnerCount} comment{claim.eligibleOwnerCount === 1 ? '' : 's'} & posts in this theme
+            </Text>
           </View>
           <View style={{ width: 1, backgroundColor: colors.line }} />
           <View style={{ width: 52, alignItems: 'center', justifyContent: 'center' }}>
@@ -101,11 +121,11 @@ export function ClaimDuelCard({
           <View style={{ height: 1, backgroundColor: colors.line }} />
           <View style={{ padding: 16, gap: 18, backgroundColor: colors.wine }}>
             <View style={{ gap: 8 }}>
-              <Eyebrow color={colors.bone3}>The brand says</Eyebrow>
+              <Eyebrow color={colors.bone3}>{isOwnerTheme ? UNMASK_COPY.ownerTheme : UNMASK_COPY.brandAlso}</Eyebrow>
               <View style={{ backgroundColor: colors.lac, borderRadius: radii.card, padding: 14, borderLeftWidth: 4, borderLeftColor: colors.hi }}>
                 <Marker
                   text={claim.brandStatement}
-                  marks={[pickMark(claim.brandStatement)]}
+                  marks={[markPhraseInText(claim.brandStatement)]}
                   tone="hint"
                   instant={index > 0}
                   style={{ fontFamily: fonts.medium, fontSize: 16, lineHeight: 24, color: colors.bone }}
@@ -119,16 +139,12 @@ export function ClaimDuelCard({
               </View>
             </View>
 
-            <View style={{ alignItems: 'center', gap: 4 }}>
-              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.lac, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.bone2 }}>vs</Text>
-              </View>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.bone3 }}>What owners experienced</Text>
+            <View style={{ gap: 6 }}>
+              <Eyebrow color={colors.bone3}>{UNMASK_COPY.inTheirWords}</Eyebrow>
+              <OwnerBucket title={bucketLabel('support', isOwnerTheme)} color={bucketColor('support')} rows={supporting} tone="good" />
+              <OwnerBucket title={bucketLabel('partial', isOwnerTheme)} color={bucketColor('partial')} rows={partial} tone="hint" />
+              <OwnerBucket title={bucketLabel('contradict', isOwnerTheme)} color={bucketColor('contradict')} rows={against} tone="bad" />
             </View>
-
-            <OwnerBucket title={bucketLabel('support')} color={bucketColor('support')} rows={supporting} tone="good" />
-            <OwnerBucket title={bucketLabel('partial')} color={bucketColor('partial')} rows={partial} tone="hint" />
-            <OwnerBucket title={bucketLabel('contradict')} color={bucketColor('contradict')} rows={against} tone="bad" />
 
             <View style={{ gap: 6, paddingTop: 4 }}>
               <Eyebrow>Before you buy</Eyebrow>
@@ -136,7 +152,9 @@ export function ClaimDuelCard({
             </View>
 
             <Pressable onPress={() => setExplain(true)} style={{ minHeight: 44, justifyContent: 'center' }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.hi }}>How we scored this promise</Text>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.hi }}>
+                {isOwnerTheme ? 'How we scored this theme' : 'How we scored this vs the brand'}
+              </Text>
             </Pressable>
           </View>
         </Animated.View>
@@ -186,25 +204,18 @@ function OwnerBucket({
   );
 }
 
-function pickMark(text: string): string {
-  const words = text.split(/\s+/).filter(Boolean);
-  if (words.length <= 4) return text;
-  const start = Math.max(0, Math.floor(words.length / 3));
-  return words.slice(start, start + 4).join(' ');
-}
-
 function ScoreExplainModal({ claim, visible, onClose }: { claim: ClaimComparison; visible: boolean; onClose: () => void }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(22,22,22,0.55)', justifyContent: 'flex-end' }} onPress={onClose}>
         <Pressable onPress={() => undefined} style={{ backgroundColor: colors.lac, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 22, maxHeight: '78%' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.bone, marginBottom: 8 }}>How we scored this promise</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.bone, marginBottom: 8 }}>How we scored this theme</Text>
           <ScrollView style={{ gap: 8 }}>
             <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.bone2 }}>
               {claim.scoreExplanation.formula}
             </Text>
             <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.bone, marginTop: 12 }}>
-              {claim.scoreExplanation.supportCount} back it up · {claim.scoreExplanation.partialCount} partial · {claim.scoreExplanation.contradictCount} push back ·{' '}
+              {claim.scoreExplanation.supportCount} positive · {claim.scoreExplanation.partialCount} mixed · {claim.scoreExplanation.contradictCount} critical ·{' '}
               {claim.scoreExplanation.excludedCount} excluded
             </Text>
             {claim.unavailableReason ? (

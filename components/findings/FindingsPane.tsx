@@ -17,9 +17,9 @@ function UnmaskHero({ findings, brand }: { findings: ProductFindings; brand: str
   const contested = scored.filter((c) => (c.score ?? 0) < 3).length;
   const headline =
     findings.claims.length === 0
-      ? 'We’re still collecting promises and owner reports for this product.'
-      : `${findings.claims.length} brand promise${findings.claims.length === 1 ? '' : 's'} checked${
-          scored.length ? ` · ${backed} hold up · ${mixed} mixed · ${contested} contested` : ''
+      ? 'We’re still pulling themes from reviews and discussions for this product.'
+      : `${findings.claims.length} discussion theme${findings.claims.length === 1 ? '' : 's'}${
+          scored.length ? ` · ${backed} lean positive · ${mixed} split · ${contested} lean critical` : ''
         }`;
 
   const hook = findings.keyFindings[0];
@@ -32,7 +32,7 @@ function UnmaskHero({ findings, brand }: { findings: ProductFindings; brand: str
         <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: 'rgba(255,255,255,0.78)' }}>{UNMASK_COPY.leadBody}</Text>
         {brand ? (
           <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.marker }}>
-            Checking {brand}’s story against owner experience
+            From real owner comments about {brand} — not empty product pages
           </Text>
         ) : null}
       </View>
@@ -125,10 +125,10 @@ export function FindingsPane({ profile, onOpenSources }: { profile: ProductProfi
 
       <View style={{ gap: 14 }}>
         <View style={{ gap: 4 }}>
-          <Eyebrow>Promise by promise</Eyebrow>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 20, letterSpacing: -0.4, color: colors.bone }}>The brand said it. Owners lived it.</Text>
+          <Eyebrow>Theme by theme</Eyebrow>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 20, letterSpacing: -0.4, color: colors.bone }}>What people keep talking about.</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone2 }}>
-            Each card is one claim — with the receipts on who backs it up and who doesn’t.
+            Each card is a pattern from reviews and comments — with the actual quotes underneath.
           </Text>
         </View>
         {sortedClaims.map((c, i) => (

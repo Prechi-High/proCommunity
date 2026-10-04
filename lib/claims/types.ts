@@ -28,9 +28,13 @@ export type ClaimEvidenceRow = {
   exclusionReason?: string;
 };
 
+export type ClaimOrigin = 'owner' | 'brand';
+
 export type ClaimComparison = {
   id: string;
   topic: string;
+  /** Owner themes from reviews/comments; brand when official copy exists and owners discuss it. */
+  claimOrigin: ClaimOrigin;
   findingLabel: string;
   brandStatement: string;
   brandSourceId: number | null;
