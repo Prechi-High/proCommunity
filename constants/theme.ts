@@ -45,6 +45,10 @@ export const colors = {
   markGoodInk: '#236044',
   markBad: '#F5DEDE',
   markBadInk: '#A52323',
+  /** Unmask highlighter marker accent */
+  marker: '#F2D25B',
+  markerInk: '#161616',
+  markerConcern: '#C45C4A',
 } as const;
 
 export const radii = {

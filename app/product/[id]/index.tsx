@@ -8,6 +8,7 @@ import { PillTabs, useMemberGate } from '@/components/community';
 import { ArrowClockwise, ArrowLeft, ArrowsLeftRight, BookmarkSimple, CaretRight, ChatsCircle, Files, SealCheck, ShareNetwork } from '@/components/icons';
 import { useVerifyOwner } from '@/components/VerifyOwner';
 import { Eyebrow, PrimaryButton, ProductImage } from '@/components/kit';
+import { FindingsPane } from '@/components/findings/FindingsPane';
 import { InvestigatingState, openLink, PricesPane, SourcesSheet, SpecsPane } from '@/components/product/Panes';
 import { VideosPane } from '@/components/product/VideosPane';
 import { galleryFor, GalleryStrip, MatchesSheet, ScanBanner, VariantChips } from '@/components/product/Gallery';
@@ -26,7 +27,7 @@ import { useAppStore } from '@/lib/store';
 import type { ThreadKind } from '@/lib/types';
 import { loadProductClips } from '@/lib/videos';
 
-type Tab = 'overview' | 'owners' | 'discuss' | 'specs' | 'prices' | 'videos';
+type Tab = 'findings' | 'overview' | 'owners' | 'discuss' | 'specs' | 'prices' | 'videos';
 
 export default function ProductScreen() {
   const router = useRouter();
@@ -34,7 +35,7 @@ export default function ProductScreen() {
   const params = useLocalSearchParams<{ id: string; q?: string; tab?: string }>();
   const id = routeId(params.id);
   const q = typeof params.q === 'string' ? params.q : undefined;
-  const [tab, setTab] = useState<Tab>(params.tab === 'discuss' ? 'discuss' : 'overview');
+  const [tab, setTab] = useState<Tab>(params.tab === 'discuss' ? 'discuss' : params.tab === 'overview' ? 'overview' : 'findings');
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [viewing, setViewing] = useState<number | null>(null);
   const [matchesOpen, setMatchesOpen] = useState(false);
@@ -148,6 +149,7 @@ export default function ProductScreen() {
 
   const voiceCount = profile?.voices?.length ?? 0;
   const tabs = [
+    { id: 'findings' as const, label: 'Findings' },
     { id: 'overview' as const, label: 'Overview' },
     { id: 'owners' as const, label: 'Owners', count: voiceCount || undefined },
     { id: 'discuss' as const, label: 'Ask & discuss', count: threadList.length || undefined },
@@ -159,6 +161,8 @@ export default function ProductScreen() {
   const pane = useMemo(() => {
     if (!profile) return null;
     switch (tab) {
+      case 'findings':
+        return <FindingsPane profile={profile} onOpenSources={() => setSourcesOpen(true)} />;
       case 'overview':
         return (
           <View style={{ gap: 24 }}>

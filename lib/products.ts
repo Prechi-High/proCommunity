@@ -160,8 +160,23 @@ export async function investigateProduct(input: {
     force: input.force === true,
   });
   if (!res.profile) throw new Error('empty_profile');
-  rememberProduct(profileToProduct(res.profile, known));
-  return res.profile;
+  const profile = res.profile;
+  if (!profile.findings) {
+    const { buildProductFindings } = await import('./claims/buildFindings');
+    profile.findings = buildProductFindings({
+      identityConfidence: profile.identityConfidence ?? (profile.identity.model ? 0.72 : 0.4),
+      identity: profile.identity,
+      brandClaims: [],
+      discoveriesRaw: [],
+      voices: (profile.voices ?? []).map((v) => ({ ref: v.id, mark: v.mark, stance: v.stance, topic: v.topic })),
+      reveals: (profile.reveals ?? []).map((r) => ({ text: r.text, mark: r.mark })),
+      praise: profile.praise,
+      complaints: profile.complaints,
+      sources: profile.sources.map((s) => ({ n: s.n, domain: s.domain, kind: s.kind })),
+    });
+  }
+  rememberProduct(profileToProduct(profile, known));
+  return profile;
 }
 
 export async function loadProduct(id: string): Promise<Product | null> {

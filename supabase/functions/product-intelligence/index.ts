@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { buildProductFindings } from "../_shared/claims/buildFindings.ts";
 import { userFromRequest } from "../_shared/core/auth.ts";
 import { flags, publicUrl } from "../_shared/core/env.ts";
 
@@ -25,7 +26,7 @@ const COMMUNITY_ACTIONS = new Set(["threads", "thread", "post", "reply", "owners
 const MEMBER_ONLY_ACTIONS = new Set(["post", "reply", "ownership_note", "helpful", "vote", "follow", "notifications", "notifications_read", "following", "upload"]);
 
 const SEARCH_TTL_MS = 24 * 60 * 60 * 1000;
-const PROFILE_VERSION = 4;
+const PROFILE_VERSION = 5;
 
 type Json = Record<string, unknown>;
 
@@ -730,9 +731,12 @@ Return JSON:
  "voices": [{"ref":"C1","mark":"","stance":"love|mixed|warn","topic":"2-3 words"}],
  "reveals": [{"text":"","mark":"","refs":["C2","S4"]}],
  "variants": [{"label":"e.g. 45W, 256GB, Black, 50 ml, Size 10","kind":"size|color|capacity|model|flavor|pack","query":"full search query for that exact variant"}],
- "identity_confidence": 0.0
+ "identity_confidence": 0.0,
+ "brand_claims":[{"topic":"durability|airflow|compatibility|etc","exact_text":"verbatim brand promise with qualifiers","conditions":"when it applies","criterion":"how owners would confirm or deny it","partial_criterion":"defined partial match only","brand_source":1,"claim_type":"general"}],
+ "owner_discoveries":[{"topic":"","observation_type":"benefit|concern|usage","summary":"","refs":["C1"],"context":"","buying_implication":""}]
 }
-Limits: specs ≤ 8, praise ≤ 5, complaints ≤ 5, best_for ≤ 4, not_for ≤ 3, uses ≤ 4, alternatives ≤ 3, voices ≤ 10, reveals ≤ 5, variants ≤ 8 (real variations this exact product is sold in — sizes, colours, capacities, sibling models; [] if none).`;
+Limits: specs ≤ 8, praise ≤ 5, complaints ≤ 5, best_for ≤ 4, not_for ≤ 3, uses ≤ 4, alternatives ≤ 3, voices ≤ 10, reveals ≤ 5, variants ≤ 8, brand_claims ≤ 4, owner_discoveries ≤ 6.
+brand_claims must be atomic promises with testable criteria — never score health/medical efficacy here. owner_discoveries are observations NOT tied to a brand promise.`;
 
   const llm = evidence.length || comments.length ? await callLlm(prompt, 3400, 32000) : { data: null, model: null, errors: ["no_evidence"] };
   const d = (llm.data ?? {}) as Json;
@@ -931,6 +935,37 @@ Limits: specs ≤ 8, praise ≤ 5, complaints ≤ 5, best_for ≤ 4, not_for ≤
     .filter((v) => v.label && v.query)
     .slice(0, 8);
 
+  const identityConfidence = Math.min(1, Math.max(0, Number(d.identity_confidence) || (identity.model ? 0.72 : 0.4)));
+  const brandClaimsRaw = (Array.isArray(d.brand_claims) ? (d.brand_claims as Json[]) : []).map((c) => ({
+    topic: str(c.topic, 80),
+    exact_text: str(c.exact_text, 400),
+    conditions: str(c.conditions, 200),
+    criterion: str(c.criterion, 300),
+    partial_criterion: str(c.partial_criterion, 300),
+    brand_source: Number.isInteger(Number(c.brand_source)) ? Number(c.brand_source) : undefined,
+    claim_type: str(c.claim_type, 40),
+  }));
+  const discoveriesRaw = (Array.isArray(d.owner_discoveries) ? (d.owner_discoveries as Json[]) : []).map((o) => ({
+    topic: str(o.topic, 80),
+    observation_type: str(o.observation_type, 20),
+    summary: str(o.summary, 400),
+    refs: Array.isArray(o.refs) ? (o.refs as Json[]).map((r) => str(r, 20)) : [],
+    context: str(o.context, 200),
+    buying_implication: str(o.buying_implication, 300),
+  }));
+
+  const findings = buildProductFindings({
+    identityConfidence,
+    identity,
+    brandClaims: brandClaimsRaw,
+    discoveriesRaw,
+    voices: voices.map((v) => ({ ref: v.id, mark: v.mark, stance: v.stance, topic: v.topic })),
+    reveals: reveals.map((r) => ({ text: r.text, mark: r.mark })),
+    praise,
+    complaints,
+    sources: evidence.map(({ n, domain, kind }) => ({ n, domain, kind })),
+  });
+
   const profile = {
     version: PROFILE_VERSION,
     id,
@@ -967,6 +1002,8 @@ Limits: specs ≤ 8, praise ≤ 5, complaints ≤ 5, best_for ≤ 4, not_for ≤
     sources: evidence.map(({ n, title, url, domain, kind }) => ({ n, title, url, domain, kind })),
     verifiedAt: new Date().toISOString(),
     llm: llm.model,
+    identityConfidence,
+    findings,
   };
 
   if (store && llm.data) {

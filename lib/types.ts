@@ -125,6 +125,9 @@ export interface ProductProfile {
   variants?: ProductVariant[];
   sources: EvidenceSource[];
   verifiedAt: string;
+  /** Claim agreement scores & owner discoveries (policy v1). */
+  findings?: import('./claims/types').ProductFindings;
+  identityConfidence?: number;
 }
 
 export interface GalleryImage {

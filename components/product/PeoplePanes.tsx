@@ -23,7 +23,7 @@ import {
   UsersThree,
   X,
 } from '@/components/icons';
-import { Eyebrow, Pill, ScoreDial, Tile } from '@/components/kit';
+import { Eyebrow, Pill, Tile } from '@/components/kit';
 import { openLink } from '@/components/product/Panes';
 import { BRAND_SECTIONS } from '@/constants/brand';
 import { colors, fonts } from '@/constants/theme';
@@ -74,19 +74,13 @@ export function OverviewPane({
           )}
           <Eyebrow color="rgba(255,255,255,0.6)">{BRAND_SECTIONS.whatToKnow}</Eyebrow>
         </View>
-        <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
           <Marker
             text={headline || 'We gathered what people who used it are saying.'}
             marks={[profile.consensusMark]}
             dark
             delay={350}
-            style={{ flex: 1, fontFamily: fonts.medium, fontSize: 17, lineHeight: 24, color: colors.white, letterSpacing: -0.2 }}
+            style={{ fontFamily: fonts.medium, fontSize: 17, lineHeight: 24, color: colors.white, letterSpacing: -0.2 }}
           />
-          <View style={{ alignItems: 'center', gap: 3 }}>
-            <ScoreDial score={profile.score} size={76} stroke={7} onDark />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, color: 'rgba(255,255,255,0.5)' }}>owner score</Text>
-          </View>
-        </View>
         <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: 'rgba(255,255,255,0.55)' }}>{peopleLine(profile)}</Text>
       </Tile>
 
