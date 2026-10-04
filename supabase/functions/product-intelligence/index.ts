@@ -732,11 +732,11 @@ Return JSON:
  "reveals": [{"text":"","mark":"","refs":["C2","S4"]}],
  "variants": [{"label":"e.g. 45W, 256GB, Black, 50 ml, Size 10","kind":"size|color|capacity|model|flavor|pack","query":"full search query for that exact variant"}],
  "identity_confidence": 0.0,
- "brand_claims":[{"topic":"durability|airflow|compatibility|etc","exact_text":"verbatim brand promise with qualifiers","conditions":"when it applies","criterion":"how owners would confirm or deny it","partial_criterion":"defined partial match only","brand_source":1,"claim_type":"general"}],
+ "brand_claims":[{"topic":"short label for THIS product (e.g. battery life, stain resistance, noise level — never generic Performance/Durability)","exact_text":"verbatim promise from brand listing or packaging in the evidence","conditions":"when it applies","criterion":"how owners would confirm or deny it","partial_criterion":"defined partial match only","brand_source":1,"claim_type":"general"}],
  "owner_discoveries":[{"topic":"","observation_type":"benefit|concern|usage","summary":"","refs":["C1"],"context":"","buying_implication":""}]
 }
-Limits: specs ≤ 8, praise ≤ 5, complaints ≤ 5, best_for ≤ 4, not_for ≤ 3, uses ≤ 4, alternatives ≤ 3, voices ≤ 10, reveals ≤ 5, variants ≤ 8, brand_claims ≤ 4, owner_discoveries ≤ 6.
-brand_claims must be atomic promises with testable criteria — never score health/medical efficacy here. owner_discoveries are observations NOT tied to a brand promise.`;
+Limits: specs ≤ 8, praise ≤ 5, complaints ≤ 5, best_for ≤ 4, not_for ≤ 3, uses ≤ 4, alternatives ≤ 3, voices ≤ 10, reveals ≤ 5, variants ≤ 8, brand_claims ≤ 8, owner_discoveries ≤ 6.
+brand_claims: REQUIRED when evidence exists — return 3–8 promises specific to what THIS product is for (category + summary). Pull exact_text from manufacturer/store copy in sources. Never use placeholder topics like Performance or Durability unless those exact words are in the brand copy. owner_discoveries are observations NOT tied to a brand promise.`;
 
   const llm = evidence.length || comments.length ? await callLlm(prompt, 3400, 32000) : { data: null, model: null, errors: ["no_evidence"] };
   const d = (llm.data ?? {}) as Json;
@@ -959,10 +959,13 @@ brand_claims must be atomic promises with testable criteria — never score heal
     identity,
     brandClaims: brandClaimsRaw,
     discoveriesRaw,
-    voices: voices.map((v) => ({ ref: v.id, mark: v.mark, stance: v.stance, topic: v.topic })),
+    voices: voices.map((v) => ({ ref: v.id, mark: v.mark, stance: v.stance, topic: v.topic, text: v.text })),
     reveals: reveals.map((r) => ({ text: r.text, mark: r.mark })),
     praise,
     complaints,
+    uses: strList(d.uses, 4, 80),
+    bestFor: strList(d.best_for, 4, 90),
+    summary: str(d.summary, 300) || evidence[0]?.snippet || '',
     sources: evidence.map(({ n, domain, kind }) => ({ n, domain, kind })),
   });
 

@@ -18,6 +18,7 @@ export type KeyFinding = {
 export type ClaimEvidenceRow = {
   id: string;
   summary: string;
+  markerPhrase?: string;
   classification: 'support' | 'partial' | 'contradict' | 'unclear';
   sourceType: 'owner_report' | 'brand_claim' | 'independent_test' | 'ai_summary';
   sourceId: number | null;

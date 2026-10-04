@@ -4,6 +4,7 @@ import { Animated, Modal, Pressable, ScrollView, Text, View } from 'react-native
 import { Marker } from '@/components/community';
 import { CaretRight } from '@/components/icons';
 import { Eyebrow } from '@/components/kit';
+import { markPhraseInText } from '@/lib/claims/markPhrase';
 import { SCORE_UNAVAILABLE_REASONS } from '@/lib/claims/policy';
 import type { ClaimComparison } from '@/lib/claims/types';
 import { colors, fonts, radii } from '@/constants/theme';
@@ -165,17 +166,22 @@ function OwnerBucket({
         <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.bone }}>{title}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>({rows.length})</Text>
       </View>
-      {rows.slice(0, 4).map((e) => (
-        <View key={e.id} style={{ backgroundColor: colors.lac, borderRadius: 10, padding: 12, borderLeftWidth: 3, borderLeftColor: color }}>
-          <Marker
-            text={e.summary}
-            marks={[pickMark(e.summary)]}
-            tone={tone}
-            instant
-            style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.bone }}
-          />
-        </View>
-      ))}
+      {rows.slice(0, 4).map((e) => {
+        const rowTone =
+          e.classification === 'contradict' ? 'bad' : e.classification === 'support' ? 'good' : tone;
+        const phrase = markPhraseInText(e.summary, e.markerPhrase);
+        return (
+          <View key={e.id} style={{ backgroundColor: colors.lac, borderRadius: 10, padding: 12, borderLeftWidth: 3, borderLeftColor: color }}>
+            <Marker
+              text={e.summary}
+              marks={[phrase]}
+              tone={rowTone}
+              instant
+              style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.bone }}
+            />
+          </View>
+        );
+      })}
     </View>
   );
 }

@@ -130,6 +130,42 @@ export async function searchCatalog(query: string): Promise<Product[]> {
   return (await searchProducts(query)).products;
 }
 
+async function hydrateProductFindings(profile: ProductProfile): Promise<void> {
+  const { buildProductFindings } = await import('./claims/buildFindings');
+  const { findingsNeedRefresh, isGenericStoredClaim } = await import('./claims/markPhrase');
+  if (profile.findings && !findingsNeedRefresh(profile.findings)) return;
+  const brandClaims =
+    profile.findings?.claims
+      .filter((c) => !isGenericStoredClaim(c.topic, c.brandStatement))
+      .map((c) => ({
+        topic: c.topic,
+        exact_text: c.brandStatement,
+        criterion: c.criterion,
+        partial_criterion: c.partialCriterion,
+        brand_source: c.brandSourceId ?? undefined,
+      })) ?? [];
+  profile.findings = buildProductFindings({
+    identityConfidence: profile.identityConfidence ?? (profile.identity.model ? 0.72 : 0.4),
+    identity: profile.identity,
+    brandClaims,
+    discoveriesRaw: [],
+    voices: (profile.voices ?? []).map((v) => ({
+      ref: v.id,
+      mark: v.mark,
+      stance: v.stance,
+      topic: v.topic,
+      text: v.text,
+    })),
+    reveals: (profile.reveals ?? []).map((r) => ({ text: r.text, mark: r.mark })),
+    praise: profile.praise,
+    complaints: profile.complaints,
+    uses: profile.uses,
+    bestFor: profile.bestFor,
+    summary: profile.summary,
+    sources: profile.sources.map((s) => ({ n: s.n, domain: s.domain, kind: s.kind })),
+  });
+}
+
 export function profileToProduct(profile: ProductProfile, base?: Product): Product {
   const low = profile.offers.find((o) => o.price)?.price ?? null;
   return {
@@ -161,20 +197,7 @@ export async function investigateProduct(input: {
   });
   if (!res.profile) throw new Error('empty_profile');
   const profile = res.profile;
-  if (!profile.findings) {
-    const { buildProductFindings } = await import('./claims/buildFindings');
-    profile.findings = buildProductFindings({
-      identityConfidence: profile.identityConfidence ?? (profile.identity.model ? 0.72 : 0.4),
-      identity: profile.identity,
-      brandClaims: [],
-      discoveriesRaw: [],
-      voices: (profile.voices ?? []).map((v) => ({ ref: v.id, mark: v.mark, stance: v.stance, topic: v.topic })),
-      reveals: (profile.reveals ?? []).map((r) => ({ text: r.text, mark: r.mark })),
-      praise: profile.praise,
-      complaints: profile.complaints,
-      sources: profile.sources.map((s) => ({ n: s.n, domain: s.domain, kind: s.kind })),
-    });
-  }
+  await hydrateProductFindings(profile);
   rememberProduct(profileToProduct(profile, known));
   return profile;
 }
@@ -185,6 +208,7 @@ export async function loadProduct(id: string): Promise<Product | null> {
   try {
     const res = await callIntel<{ profile?: ProductProfile | null }>({ action: 'get', productId: id }, 15000);
     if (res.profile) {
+      await hydrateProductFindings(res.profile);
       const product = profileToProduct(res.profile);
       rememberProduct(product);
       return product;

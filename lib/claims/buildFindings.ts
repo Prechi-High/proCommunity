@@ -1,3 +1,4 @@
+import { markPhraseInText } from './markPhrase';
 import { CLAIM_POLICY_VERSION, CLAIM_SCORE_DISCLAIMER } from './policy';
 import {
   buildScoreExplanation,
@@ -8,7 +9,7 @@ import {
 } from './scoring';
 import type { ClaimComparison, KeyFinding, OwnerDiscovery, ProductFindings, ProductMatchLevel } from './types';
 
-type Voice = { ref: string; mark: string; stance: string; topic: string; author?: string };
+type Voice = { ref: string; mark: string; stance: string; topic: string; text?: string; author?: string };
 type Source = { n: number; domain: string; kind: string };
 type BrandClaimRaw = {
   topic?: string;
@@ -23,6 +24,7 @@ type DiscoveryRaw = {
   topic?: string;
   observation_type?: string;
   summary?: string;
+  marker_phrase?: string;
   refs?: string[];
   context?: string;
   buying_implication?: string;
@@ -60,6 +62,9 @@ export function buildProductFindings(input: {
   reveals: Array<{ text: string; mark: string }>;
   praise: Array<{ text: string; source: number | null }>;
   complaints: Array<{ text: string; source: number | null }>;
+  uses?: string[];
+  bestFor?: string[];
+  summary?: string;
   sources: Source[];
   matchOverride?: ProductMatchLevel;
 }): ProductFindings {
@@ -83,28 +88,35 @@ export function buildProductFindings(input: {
   };
 
   const claims: ClaimComparison[] = [];
-  const claimRows = input.brandClaims.length
-    ? input.brandClaims
-    : synthesizeClaimsFromBullets(input.praise, input.complaints);
+  const claimRows = resolveClaimRows(input);
 
-  claimRows.slice(0, 5).forEach((raw, idx) => {
+  claimRows.slice(0, 8).forEach((raw, idx) => {
     const topic = String(raw.topic || `Topic ${idx + 1}`).slice(0, 80);
-    const criterion = String(raw.criterion || '').trim();
-    const partialCriterion = String(raw.partial_criterion || '').trim();
-    const claimType = /health|medical|cure|safe for all|dermatologist/i.test(`${raw.exact_text} ${topic}`)
+    const brandStatement = String(raw.exact_text || '').trim() || topic;
+    const criterion = String(raw.criterion || '').trim() || defaultCriterion(topic).criterion;
+    const partialCriterion = String(raw.partial_criterion || '').trim() || defaultCriterion(topic).partial;
+    const claimType = /health|medical|cure|safe for all|dermatologist/i.test(`${brandStatement} ${topic}`)
       ? 'health_efficacy'
       : 'general';
 
-    const related = input.voices.filter((v) => overlap(v.topic, topic) > 0.2 || overlap(v.mark, topic) > 0.15);
-    const pool = related.length ? related : input.voices.slice(0, 8);
+    const claimBlob = `${topic} ${brandStatement} ${criterion}`;
+    const related = input.voices
+      .map((v) => ({ v, rel: voiceClaimRelevance(v, claimBlob, topic) }))
+      .filter((x) => x.rel >= 0.1)
+      .sort((a, b) => b.rel - a.rel)
+      .slice(0, 12)
+      .map((x) => x.v);
 
-    const evidenceRows = pool.map((v, i) => {
+    const evidenceRows = related.map((v, i) => {
       const classification = stanceToClass(v.stance, Boolean(partialCriterion));
       const origin = originFromRef(v.ref, input.sources);
       const eligible = classification !== 'unclear';
+      const summary = (v.text || v.mark || v.topic).trim().slice(0, 360);
+      const markerPhrase = markPhraseInText(summary, v.mark);
       return {
         id: `ev_${idx}_${i}`,
-        summary: v.mark || v.topic,
+        summary,
+        markerPhrase,
         classification,
         sourceType: 'owner_report' as const,
         sourceId: null,
@@ -114,15 +126,36 @@ export function buildProductFindings(input: {
       };
     });
 
+    const complaintRows = input.complaints
+      .filter((c) => overlap(c.text, claimBlob) >= 0.1)
+      .slice(0, 4)
+      .map((c, i) => {
+        const summary = c.text.trim().slice(0, 360);
+        return {
+          id: `ev_${idx}_c_${i}`,
+          summary,
+          markerPhrase: markPhraseInText(summary),
+          classification: 'contradict' as const,
+          sourceType: 'owner_report' as const,
+          sourceId: c.source,
+          origin: c.source != null ? originFromRef(`S${c.source}`, input.sources) : 'review',
+          eligible: true,
+        };
+      });
+
+    const mergedEvidence = [...evidenceRows, ...complaintRows].filter(
+      (row, i, arr) => arr.findIndex((r) => r.summary === row.summary) === i,
+    );
+
     const counts: ClaimCounts = {
-      support: evidenceRows.filter((e) => e.classification === 'support' && e.eligible).length,
-      partial: evidenceRows.filter((e) => e.classification === 'partial' && e.eligible).length,
-      contradict: evidenceRows.filter((e) => e.classification === 'contradict' && e.eligible).length,
-      excluded: evidenceRows.filter((e) => !e.eligible).length,
+      support: mergedEvidence.filter((e) => e.classification === 'support' && e.eligible).length,
+      partial: mergedEvidence.filter((e) => e.classification === 'partial' && e.eligible).length,
+      contradict: mergedEvidence.filter((e) => e.classification === 'contradict' && e.eligible).length,
+      excluded: mergedEvidence.filter((e) => !e.eligible).length,
     };
 
-    const distinctUnits = new Set(pool.map((v) => v.ref)).size;
-    const origins = countOrigins(evidenceRows.filter((e) => e.eligible));
+    const distinctUnits = new Set(related.map((v) => v.ref)).size;
+    const origins = countOrigins(mergedEvidence.filter((e) => e.eligible));
 
     const gate = scoringGates({
       identityExact: match.canScoreClaims,
@@ -150,7 +183,7 @@ export function buildProductFindings(input: {
       id: `claim_${idx}`,
       topic,
       findingLabel: topic,
-      brandStatement: String(raw.exact_text || 'No relevant statement found in reviewed brand material.'),
+      brandStatement: brandStatement || 'No relevant statement found in reviewed brand material.',
       brandSourceId: typeof raw.brand_source === 'number' ? raw.brand_source : null,
       conditions: String(raw.conditions || ''),
       criterion,
@@ -163,7 +196,7 @@ export function buildProductFindings(input: {
       confidenceReasons: conf.reasons,
       eligibleOwnerCount: counts.support + counts.partial + counts.contradict,
       buyingImplication: buyingImplication(rawScore, topic),
-      evidence: evidenceRows,
+      evidence: mergedEvidence,
       scoreExplanation: buildScoreExplanation(counts),
       defaultExpanded: idx === 0,
     });
@@ -178,7 +211,7 @@ export function buildProductFindings(input: {
         ? d.observation_type
         : 'usage') as OwnerDiscovery['observationType'],
       summary: String(d.summary || '').slice(0, 400),
-      markerPhrase: String(d.summary || '').split(/\s+/).slice(0, 4).join(' '),
+      markerPhrase: markPhraseInText(String(d.summary || ''), d.marker_phrase),
       sourceCount: Array.isArray(d.refs) ? d.refs.length : 1,
       mentionLabel: `Mentioned in ${Array.isArray(d.refs) ? d.refs.length : 1} distinct owner reports`,
       context: String(d.context || ''),
@@ -238,37 +271,98 @@ function overlap(a: string, b: string): number {
   return hit / Math.max(ta.size, tb.size);
 }
 
-function synthesizeClaimsFromBullets(
-  praise: Array<{ text: string; source: number | null }>,
-  complaints: Array<{ text: string; source: number | null }>,
-): BrandClaimRaw[] {
+function resolveClaimRows(input: {
+  brandClaims: BrandClaimRaw[];
+  praise: Array<{ text: string; source: number | null }>;
+  uses?: string[];
+  bestFor?: string[];
+  summary?: string;
+}): BrandClaimRaw[] {
+  const fromLlm = input.brandClaims.filter((c) => c.topic && c.exact_text && !isGenericClaimRow(c));
+  const synth = synthesizeClaimsFromProductSignals(input);
+  const merged: BrandClaimRaw[] = [...fromLlm];
+  for (const row of synth) {
+    if (merged.some((m) => overlap(String(m.topic), String(row.topic)) > 0.55)) continue;
+    merged.push(row);
+  }
+  return merged.length ? merged : synth;
+}
+
+function isGenericClaimRow(c: BrandClaimRaw): boolean {
+  const t = String(c.topic || '').toLowerCase();
+  const text = String(c.exact_text || '').toLowerCase();
+  if (t === 'performance' || t === 'durability' || t === 'quality') return true;
+  if (text.includes('manufacturer information unavailable')) return true;
+  return false;
+}
+
+function synthesizeClaimsFromProductSignals(input: {
+  praise: Array<{ text: string; source: number | null }>;
+  uses?: string[];
+  bestFor?: string[];
+  summary?: string;
+}): BrandClaimRaw[] {
   const rows: BrandClaimRaw[] = [];
-  if (praise[0]) {
+  const pushLine = (line: string, source?: number) => {
+    const text = line.trim();
+    if (!text || text.length < 8) return;
+    const topic = topicFromLine(text);
+    const { criterion, partial } = defaultCriterion(topic);
     rows.push({
-      topic: 'Performance',
-      exact_text: 'Manufacturer information unavailable',
-      criterion: 'Owners report the product performs as expected for typical use.',
-      partial_criterion: 'Some owners report mixed performance in specific conditions.',
-      brand_source: praise[0].source ?? undefined,
+      topic,
+      exact_text: text.slice(0, 400),
+      criterion,
+      partial_criterion: partial,
+      brand_source: source,
     });
-  }
-  if (complaints[0]) {
-    rows.push({
-      topic: 'Durability',
-      exact_text: 'Manufacturer information unavailable',
-      criterion: 'Owners report acceptable durability over months of regular use.',
-      partial_criterion: 'Some owners report early wear under heavy use.',
-      brand_source: complaints[0].source ?? undefined,
-    });
-  }
-  return rows;
+  };
+
+  for (const p of input.praise) pushLine(p.text, p.source ?? undefined);
+  for (const u of input.uses ?? []) pushLine(u);
+  for (const b of input.bestFor ?? []) pushLine(`Best for ${b.replace(/^best for\s+/i, '')}`);
+  const summary = (input.summary || '').trim();
+  if (summary.length >= 12 && summary.length <= 200 && rows.length < 3) pushLine(summary);
+
+  return rows.slice(0, 8);
+}
+
+function topicFromLine(text: string): string {
+  let s = text.replace(/^[\s•\-*]+/, '').trim();
+  s = s.split(/\n/)[0].trim();
+  const clause = s.split(/[.;:!?—–]/)[0].trim();
+  const words = clause.split(/\s+/).filter(Boolean);
+  const skip = new Set(['the', 'a', 'an', 'this', 'that', 'with', 'for', 'and', 'or', 'is', 'are', 'to', 'in', 'on', 'it', 'its', 'best']);
+  const meaningful = words.filter((w) => !skip.has(w.toLowerCase()));
+  let topic = meaningful.slice(0, 5).join(' ');
+  if (!topic) topic = words.slice(0, 4).join(' ');
+  if (topic.length > 56) topic = `${topic.slice(0, 53)}…`;
+  return topic.charAt(0).toUpperCase() + topic.slice(1);
+}
+
+function defaultCriterion(topic: string): { criterion: string; partial: string } {
+  const t = topic.toLowerCase();
+  return {
+    criterion: `Owners describe real-world experience related to “${t}”.`,
+    partial: `Some owners report mixed results on “${t}” depending on conditions.`,
+  };
+}
+
+function voiceClaimRelevance(v: Voice, claimBlob: string, topic: string): number {
+  return Math.max(
+    overlap(v.topic, topic),
+    overlap(v.topic, claimBlob),
+    overlap(v.mark, claimBlob),
+    overlap(v.text || '', claimBlob),
+    overlap(v.text || '', topic),
+  );
 }
 
 function synthesizeDiscoveries(reveals: Array<{ text: string; mark: string }>): DiscoveryRaw[] {
   return reveals.map((r) => ({
     topic: 'What owners also noticed',
-    observation_type: 'usage',
+    observation_type: /worst|broke|issue|problem|watch|avoid|fail/i.test(r.text) ? 'concern' : 'usage',
     summary: r.text,
+    marker_phrase: r.mark,
     buying_implication: 'Factor this into your decision alongside official specs.',
   }));
 }

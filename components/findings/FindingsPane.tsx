@@ -5,6 +5,7 @@ import { Marker } from '@/components/community';
 import { ClaimDuelCard } from '@/components/findings/ClaimDuelCard';
 import { UNMASK_COPY } from '@/components/findings/copy';
 import { Eyebrow, Tile } from '@/components/kit';
+import { markPhraseInText } from '@/lib/claims/markPhrase';
 import type { OwnerDiscovery, ProductFindings } from '@/lib/claims/types';
 import type { ProductProfile } from '@/lib/types';
 import { colors, fonts, radii } from '@/constants/theme';
@@ -80,8 +81,8 @@ function DiscoveryCard({ d }: { d: OwnerDiscovery }) {
         <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.bone }}>{d.topic}</Text>
         <Marker
           text={d.summary}
-          marks={[d.markerPhrase || pickPhrase(d.summary)]}
-          tone={isConcern ? 'bad' : 'good'}
+          marks={[markPhraseInText(d.summary, d.markerPhrase)]}
+          tone={isConcern ? 'bad' : d.observationType === 'benefit' ? 'good' : 'hint'}
           instant
           style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.bone }}
         />
@@ -90,11 +91,6 @@ function DiscoveryCard({ d }: { d: OwnerDiscovery }) {
       </View>
     </View>
   );
-}
-
-function pickPhrase(s: string): string {
-  const w = s.split(/\s+/).filter(Boolean);
-  return w.slice(0, Math.min(5, w.length)).join(' ');
 }
 
 export function FindingsPane({ profile, onOpenSources }: { profile: ProductProfile; onOpenSources: () => void }) {
