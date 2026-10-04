@@ -1,176 +1,165 @@
-import { useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { Pressable, Text, View } from 'react-native';
 
-import { MarkerText } from '@/components/findings/MarkerText';
-import { Eyebrow, Group, GroupRow, Tile } from '@/components/kit';
-import { SCORE_UNAVAILABLE_REASONS } from '@/lib/claims/policy';
-import type { ClaimComparison, ProductFindings } from '@/lib/claims/types';
-import type { EvidenceSource, ProductProfile } from '@/lib/types';
-import { colors, fonts } from '@/constants/theme';
+import { Marker } from '@/components/community';
+import { ClaimDuelCard } from '@/components/findings/ClaimDuelCard';
+import { UNMASK_COPY } from '@/components/findings/copy';
+import { Eyebrow, Tile } from '@/components/kit';
+import type { OwnerDiscovery, ProductFindings } from '@/lib/claims/types';
+import type { ProductProfile } from '@/lib/types';
+import { colors, fonts, radii } from '@/constants/theme';
 
-function ProductMatchNotice({ findings }: { findings: ProductFindings }) {
-  const m = findings.match;
-  const tone = m.level === 'exact' ? colors.sageInk : m.level === 'possible' ? colors.honeyInk : colors.bone2;
+function UnmaskHero({ findings, brand }: { findings: ProductFindings; brand: string }) {
+  const scored = findings.claims.filter((c) => c.score !== null);
+  const backed = scored.filter((c) => (c.score ?? 0) >= 8).length;
+  const mixed = scored.filter((c) => (c.score ?? 0) >= 3 && (c.score ?? 0) < 8).length;
+  const contested = scored.filter((c) => (c.score ?? 0) < 3).length;
+  const headline =
+    findings.claims.length === 0
+      ? 'We’re still collecting promises and owner reports for this product.'
+      : `${findings.claims.length} brand promise${findings.claims.length === 1 ? '' : 's'} checked${
+          scored.length ? ` · ${backed} hold up · ${mixed} mixed · ${contested} contested` : ''
+        }`;
+
+  const hook = findings.keyFindings[0];
   return (
-    <Tile style={{ gap: 6, borderWidth: 1, borderColor: colors.line }}>
-      <Eyebrow>Product match</Eyebrow>
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: tone }}>
-        {m.level === 'exact' ? 'Exact match' : m.level === 'possible' ? 'Possible match' : 'Unknown model'}
-      </Text>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone2 }}>{m.message}</Text>
-    </Tile>
-  );
-}
-
-function ClaimAgreementScore({
-  claim,
-  onExplain,
-}: {
-  claim: ClaimComparison;
-  onExplain: () => void;
-}) {
-  const scoreText = claim.score !== null ? `${claim.score}/10` : 'Not enough evidence to score';
-  return (
-    <View style={{ gap: 8 }}>
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.bone2 }}>Claim agreement</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
-        <Text accessibilityLabel={`Claim agreement ${scoreText}`} style={{ fontFamily: fonts.bold, fontSize: 36, color: colors.bone, letterSpacing: -1 }}>
-          {claim.score !== null ? scoreText : '—'}
+    <View style={{ borderRadius: radii.card, overflow: 'hidden', backgroundColor: colors.bone }}>
+      <View style={{ padding: 20, gap: 12 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 26, letterSpacing: -0.8, lineHeight: 30, color: colors.white }}>
+          {UNMASK_COPY.leadTitle}
         </Text>
-        <View style={{ flex: 1, minWidth: 140, gap: 4 }}>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>{claim.agreementLabel}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone2 }}>
-            Evidence confidence: {claim.confidence.charAt(0).toUpperCase() + claim.confidence.slice(1)}
+        <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: 'rgba(255,255,255,0.78)' }}>{UNMASK_COPY.leadBody}</Text>
+        {brand ? (
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.marker }}>
+            Checking {brand}’s story against owner experience
           </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>
-            Based on {claim.eligibleOwnerCount} eligible owner reports
-          </Text>
-        </View>
+        ) : null}
       </View>
-      {claim.score !== null ? (
-        <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.line, overflow: 'hidden' }}>
-          <View style={{ width: `${(claim.score / 10) * 100}%`, height: 6, backgroundColor: colors.hi }} />
-        </View>
-      ) : null}
-      {claim.unavailableReason ? (
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone2 }}>
-          {SCORE_UNAVAILABLE_REASONS[claim.unavailableReason]}
-        </Text>
-      ) : null}
-      <Pressable onPress={onExplain} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.hi }}>How this was calculated</Text>
-      </Pressable>
+      <View style={{ backgroundColor: colors.lac, paddingHorizontal: 16, paddingVertical: 14, gap: 10 }}>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.bone2 }}>{headline}</Text>
+        {hook ? (
+          <Marker
+            text={hook.text}
+            marks={[hook.markerPhrase || '']}
+            tone="hint"
+            delay={200}
+            style={{ fontFamily: fonts.medium, fontSize: 16, lineHeight: 24, color: colors.bone }}
+          />
+        ) : null}
+      </View>
     </View>
   );
 }
 
-function ClaimComparisonCard({ claim, sources }: { claim: ClaimComparison; sources: EvidenceSource[] }) {
-  const [open, setOpen] = useState(Boolean(claim.defaultExpanded));
-  const [explain, setExplain] = useState(false);
-  const collapsedLabel = claim.score !== null ? `${claim.score}/10 · ${claim.agreementLabel}` : 'Not enough evidence to score';
-
+function MatchStrip({ findings }: { findings: ProductFindings }) {
+  const m = findings.match;
+  if (m.level === 'exact') return null;
   return (
-    <Tile style={{ gap: 0, padding: 0, overflow: 'hidden' }}>
-      <Pressable
-        onPress={() => setOpen((v) => !v)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        style={{ padding: 16, gap: 6, minHeight: 44 }}
-      >
-        <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.bone }}>{claim.topic}</Text>
-        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.bone2 }}>{collapsedLabel}</Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>
-          {claim.eligibleOwnerCount} eligible reports · {claim.confidence} confidence
-        </Text>
-      </Pressable>
-      {open ? (
-        <View style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 14, borderTopWidth: 1, borderTopColor: colors.line }}>
-          <ClaimAgreementScore claim={claim} onExplain={() => setExplain(true)} />
-          <View style={{ gap: 6 }}>
-            <Eyebrow>Brand claim</Eyebrow>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.bone }}>{claim.brandStatement}</Text>
-            {claim.conditions ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone2 }}>Conditions: {claim.conditions}</Text> : null}
-          </View>
-          <View style={{ gap: 8 }}>
-            <Eyebrow>Owner reports</Eyebrow>
-            {claim.evidence.slice(0, 6).map((e) => (
-              <View key={e.id} style={{ gap: 2 }}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.bone }}>{e.summary}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>
-                  {e.classification} · {e.sourceType} · {e.origin}
-                </Text>
-              </View>
-            ))}
-          </View>
-          <View style={{ gap: 4 }}>
-            <Eyebrow>Buying implication</Eyebrow>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone2 }}>{claim.buyingImplication}</Text>
-          </View>
-        </View>
-      ) : null}
-      <Modal visible={explain} transparent animationType="fade" onRequestClose={() => setExplain(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(22,22,22,0.5)', justifyContent: 'flex-end' }} onPress={() => setExplain(false)}>
-          <Pressable onPress={() => undefined} style={{ backgroundColor: colors.lac, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20, gap: 10, maxHeight: '80%' }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.bone }}>How this was calculated</Text>
-            <ScrollView>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.bone2 }}>
-                {claim.scoreExplanation.formula}
-                {'\n\n'}
-                {claim.scoreExplanation.supportCount} support · {claim.scoreExplanation.partialCount} partial · {claim.scoreExplanation.contradictCount} conflict ·{' '}
-                {claim.scoreExplanation.excludedCount} excluded
-                {'\n\n'}
-                Policy {claim.scoreExplanation.policyVersion} · {claim.scoreExplanation.computedAt}
-              </Text>
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+    <Tile style={{ gap: 6, borderWidth: 1, borderColor: colors.honey, backgroundColor: colors.honeySoft }}>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.honeyInk }}>
+        {m.level === 'possible' ? 'Confirm the exact model' : 'We need a clearer match'}
+      </Text>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.honeyInk }}>{m.message}</Text>
     </Tile>
   );
 }
 
+function DiscoveryCard({ d }: { d: OwnerDiscovery }) {
+  const isConcern = d.observationType === 'concern';
+  const accent = isConcern ? colors.coral : d.observationType === 'benefit' ? colors.sage : colors.hi;
+  const label = isConcern ? 'Watch for' : d.observationType === 'benefit' ? 'Pleasant surprise' : 'Good to know';
+
+  return (
+    <View style={{ borderRadius: radii.card, backgroundColor: colors.lac, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: colors.wineDeep }}>
+        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: accent }} />
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 12, letterSpacing: 0.4, textTransform: 'uppercase', color: colors.bone2 }}>{label}</Text>
+        <Text style={{ flex: 1, textAlign: 'right', fontFamily: fonts.regular, fontSize: 11, color: colors.bone3 }}>{d.mentionLabel}</Text>
+      </View>
+      <View style={{ padding: 14, gap: 8 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.bone }}>{d.topic}</Text>
+        <Marker
+          text={d.summary}
+          marks={[d.markerPhrase || pickPhrase(d.summary)]}
+          tone={isConcern ? 'bad' : 'good'}
+          instant
+          style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.bone }}
+        />
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.bone2 }}>{d.buyingImplication}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.bone3 }}>{d.manufacturerRelation}</Text>
+      </View>
+    </View>
+  );
+}
+
+function pickPhrase(s: string): string {
+  const w = s.split(/\s+/).filter(Boolean);
+  return w.slice(0, Math.min(5, w.length)).join(' ');
+}
+
 export function FindingsPane({ profile, onOpenSources }: { profile: ProductProfile; onOpenSources: () => void }) {
   const findings = profile.findings;
+  const brand = profile.identity.brand;
+
+  const sortedClaims = useMemo(() => {
+    if (!findings) return [];
+    return [...findings.claims].sort((a, b) => {
+      const drama = (c: typeof a) => {
+        if (c.score === null) return 0;
+        if (c.score < 3) return 3;
+        if (c.score < 8) return 2;
+        return 1;
+      };
+      return drama(b) - drama(a) || (b.score ?? 0) - (a.score ?? 0);
+    });
+  }, [findings]);
+
   if (!findings) {
     return (
-      <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>
-        Findings are still loading. Try refreshing this product.
+      <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.bone2 }}>
+        Unmasking this product… pull to refresh if this stays empty.
       </Text>
     );
   }
 
   return (
-    <View style={{ gap: 20 }}>
-      <ProductMatchNotice findings={findings} />
-      <View style={{ gap: 10 }}>
-        <Eyebrow>Key findings</Eyebrow>
-        {findings.keyFindings.map((kf) => (
-          <Tile key={kf.id} style={{ gap: 8 }}>
-            {kf.markerPhrase ? <MarkerText text={kf.text} highlight={kf.markerPhrase} /> : <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.bone }}>{kf.text}</Text>}
-          </Tile>
+    <View style={{ gap: 28 }}>
+      <UnmaskHero findings={findings} brand={brand} />
+      <MatchStrip findings={findings} />
+
+      <View style={{ gap: 14 }}>
+        <View style={{ gap: 4 }}>
+          <Eyebrow>Promise by promise</Eyebrow>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 20, letterSpacing: -0.4, color: colors.bone }}>The brand said it. Owners lived it.</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone2 }}>
+            Each card is one claim — with the receipts on who backs it up and who doesn’t.
+          </Text>
+        </View>
+        {sortedClaims.map((c, i) => (
+          <ClaimDuelCard key={c.id} claim={c} index={i} defaultOpen={i === 0} />
         ))}
+        {!sortedClaims.length ? (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>
+            No testable brand promises yet. Try refreshing after more sources load.
+          </Text>
+        ) : null}
       </View>
-      <View style={{ gap: 10 }}>
-        <Eyebrow>Claims & evidence</Eyebrow>
-        {findings.claims.map((c) => (
-          <ClaimComparisonCard key={c.id} claim={c} sources={profile.sources} />
-        ))}
-      </View>
-      <View style={{ gap: 10 }}>
-        <Eyebrow>What owners also noticed</Eyebrow>
-        {findings.discoveries.map((d) => (
-          <Tile key={d.id} style={{ gap: 8 }}>
-            <MarkerText text={d.summary} highlight="also noticed" variant="underline" />
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone }}>{d.topic}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone2 }}>{d.mentionLabel}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone3 }}>{d.manufacturerRelation}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone2 }}>{d.buyingImplication}</Text>
-          </Tile>
-        ))}
-      </View>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.bone3 }}>{findings.disclaimer}</Text>
-      <Pressable onPress={onOpenSources} style={{ minHeight: 44, justifyContent: 'center' }}>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.hi }}>View all sources</Text>
+
+      {findings.discoveries.length ? (
+        <View style={{ gap: 12 }}>
+          <View style={{ gap: 4 }}>
+            <Eyebrow>{UNMASK_COPY.beyondPitch}</Eyebrow>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 20, letterSpacing: -0.4, color: colors.bone }}>{UNMASK_COPY.beyondPitchSub}</Text>
+          </View>
+          {findings.discoveries.map((d) => (
+            <DiscoveryCard key={d.id} d={d} />
+          ))}
+        </View>
+      ) : null}
+
+      <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.bone3 }}>{UNMASK_COPY.disclaimerFoot}</Text>
+      <Pressable onPress={onOpenSources} accessibilityRole="button" style={{ minHeight: 48, justifyContent: 'center', alignItems: 'center', borderRadius: radii.button, borderWidth: 1, borderColor: colors.line }}>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.hi }}>{UNMASK_COPY.sources}</Text>
       </Pressable>
     </View>
   );

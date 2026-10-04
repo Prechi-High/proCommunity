@@ -149,7 +149,7 @@ export default function ProductScreen() {
 
   const voiceCount = profile?.voices?.length ?? 0;
   const tabs = [
-    { id: 'findings' as const, label: 'Findings' },
+    { id: 'findings' as const, label: 'Unmask' },
     { id: 'overview' as const, label: 'Overview' },
     { id: 'owners' as const, label: 'Owners', count: voiceCount || undefined },
     { id: 'discuss' as const, label: 'Ask & discuss', count: threadList.length || undefined },
