@@ -1,7 +1,7 @@
 import { Text, View, type ViewStyle } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
-import { CheckCircle, Shield } from '@/components/icons';
+import { CheckCircle, ShieldCheck } from '@/components/icons';
 import { colors, fonts, radii } from '@/constants/theme';
 import type { DimensionTone } from '@/lib/unmask/types';
 
@@ -73,7 +73,7 @@ export function UnmaskedBadge() {
         backgroundColor: colors.sageSoft,
       }}
     >
-      <Shield size={12} color={colors.sage} weight="fill" />
+      <ShieldCheck size={12} color={colors.sage} weight="fill" />
       <Text style={{ fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 0.6, color: colors.sageInk }}>UNMASKED</Text>
     </View>
   );
