@@ -65,7 +65,7 @@ function MatchStrip({ findings }: { findings: ProductFindings }) {
   );
 }
 
-function DiscoveryCard({ d }: { d: OwnerDiscovery }) {
+export function DiscoveryCard({ d }: { d: OwnerDiscovery }) {
   const isConcern = d.observationType === 'concern';
   const accent = isConcern ? colors.coral : d.observationType === 'benefit' ? colors.sage : colors.hi;
   const label = isConcern ? 'Watch for' : d.observationType === 'benefit' ? 'Pleasant surprise' : 'Good to know';

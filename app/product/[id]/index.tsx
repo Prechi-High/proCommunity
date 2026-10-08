@@ -8,13 +8,12 @@ import { PillTabs, useMemberGate } from '@/components/community';
 import { ArrowClockwise, ArrowLeft, ArrowsLeftRight, BookmarkSimple, CaretRight, ChatsCircle, Files, SealCheck, ShareNetwork } from '@/components/icons';
 import { useVerifyOwner } from '@/components/VerifyOwner';
 import { Eyebrow, PrimaryButton, ProductImage } from '@/components/kit';
-import { FindingsPane } from '@/components/findings/FindingsPane';
+import { ProductUnmaskFlow } from '@/components/unmask/ProductUnmaskFlow';
 import { InvestigatingState, openLink, PricesPane, SourcesSheet, SpecsPane } from '@/components/product/Panes';
-import { VideosPane } from '@/components/product/VideosPane';
 import { galleryFor, GalleryStrip, MatchesSheet, ScanBanner, VariantChips } from '@/components/product/Gallery';
 import { Lightbox } from '@/components/Lightbox';
 import { useOwnershipNote } from '@/components/OwnershipNote';
-import { DiscussPane, OverviewPane, OwnersPane } from '@/components/product/PeoplePanes';
+import { DiscussPane } from '@/components/product/PeoplePanes';
 import { BRAND_SECTIONS } from '@/constants/brand';
 import { colors, fonts } from '@/constants/theme';
 import { routeId } from '@/lib/catalog';
@@ -27,7 +26,7 @@ import { useAppStore } from '@/lib/store';
 import type { ThreadKind } from '@/lib/types';
 import { loadProductClips } from '@/lib/videos';
 
-type Tab = 'findings' | 'overview' | 'owners' | 'discuss' | 'specs' | 'prices' | 'videos';
+type Tab = 'unmask' | 'discuss' | 'specs' | 'prices';
 
 export default function ProductScreen() {
   const router = useRouter();
@@ -35,7 +34,8 @@ export default function ProductScreen() {
   const params = useLocalSearchParams<{ id: string; q?: string; tab?: string }>();
   const id = routeId(params.id);
   const q = typeof params.q === 'string' ? params.q : undefined;
-  const [tab, setTab] = useState<Tab>(params.tab === 'discuss' ? 'discuss' : params.tab === 'overview' ? 'overview' : 'findings');
+  const [tab, setTab] = useState<Tab>(params.tab === 'discuss' ? 'discuss' : 'unmask');
+  const [communityDraft, setCommunityDraft] = useState('');
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [viewing, setViewing] = useState<number | null>(null);
   const [matchesOpen, setMatchesOpen] = useState(false);
@@ -147,65 +147,69 @@ export default function ProductScreen() {
     scroller.current?.scrollTo({ y: 0, animated: false });
   };
 
-  const voiceCount = profile?.voices?.length ?? 0;
   const tabs = [
-    { id: 'findings' as const, label: 'Unmask' },
-    { id: 'overview' as const, label: 'Overview' },
-    { id: 'owners' as const, label: 'Owners', count: voiceCount || undefined },
-    { id: 'discuss' as const, label: 'Ask & discuss', count: threadList.length || undefined },
+    { id: 'unmask' as const, label: 'Unmask' },
+    { id: 'discuss' as const, label: 'Community', count: threadList.length || undefined },
     { id: 'specs' as const, label: 'Specs' },
     { id: 'prices' as const, label: BRAND_SECTIONS.whereToBuy },
-    { id: 'videos' as const, label: 'Videos' },
   ];
 
+  const discussDraft = communityDraft ? { kind: 'question' as const, title: communityDraft } : draft;
+
   const pane = useMemo(() => {
-    if (!profile) return null;
+    if (!profile && tab !== 'unmask') return null;
+    const currentProduct = profile
+      ? profileToProduct(profile, product)
+      : { id, name, brand, category, heroImageUrl: image };
     switch (tab) {
-      case 'findings':
-        return <FindingsPane profile={profile} onOpenSources={() => setSourcesOpen(true)} />;
-      case 'overview':
+      case 'unmask':
         return (
-          <View style={{ gap: 24 }}>
-            <OverviewPane
-              profile={profile}
-              threads={threadList}
-              ownershipNotes={room.data?.notes ?? []}
-              onGo={go}
-              onOpenSources={() => setSourcesOpen(true)}
-            />
-            <GalleryStrip images={photos} hasScan={Boolean(scan?.photo)} onOpen={setViewing} />
-            <VariantChips
-              variants={profile.variants ?? []}
-              current={[profile.identity.variant, profile.identity.size, name].join(' ')}
-              onPick={(v) => openAlternative(v.query)}
-            />
-          </View>
+          <ProductUnmaskFlow
+            product={currentProduct}
+            profile={profile}
+            intelLoading={intel.isLoading}
+            intelError={intel.isError}
+            onRetryIntel={() => void intel.refetch()}
+            clipsLoading={clips.isLoading}
+            clips={clips.data ?? []}
+            scanPhoto={scan?.photo}
+            onCompare={() => {
+              if (profile) trackProduct(profileToProduct(profile, product), 'compare');
+              router.push({ pathname: '/compare', params: { a: id } } as Href);
+            }}
+            onOpenSources={() => setSourcesOpen(true)}
+            onAskCommunity={(question) => {
+              setCommunityDraft(question);
+              setDraft({ kind: 'question', title: question });
+              setTab('discuss');
+            }}
+          />
         );
-      case 'owners':
-        return <OwnersPane profile={profile} />;
       case 'discuss':
+        if (!profile) return null;
         return (
           <DiscussPane
             profile={profile}
             productId={id}
             threads={threadList}
             loading={threads.isLoading}
-            draft={draft}
-            onDraft={setDraft}
+            draft={discussDraft}
+            onDraft={(d) => {
+              setDraft(d);
+              setCommunityDraft(d.title);
+            }}
             posting={post.isPending}
             onPost={() => requireMember(() => post.mutate())}
             onOpenThread={(tid) => router.push({ pathname: '/thread/[id]', params: { id: tid } } as Href)}
           />
         );
       case 'specs':
-        return <SpecsPane profile={profile} onAlternative={openAlternative} />;
+        return profile ? <SpecsPane profile={profile} onAlternative={openAlternative} /> : null;
       case 'prices':
-        return <PricesPane profile={profile} />;
-      case 'videos':
-        return <VideosPane product={{ id, name: profile.identity.name || name, brand, category }} clips={clips.data ?? []} loading={clips.isLoading} />;
+        return profile ? <PricesPane profile={profile} /> : null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, profile, clips.data, clips.isLoading, threadList, threads.isLoading, draft, post.isPending, photos, scan, room.data?.notes]);
+  }, [tab, profile, clips.data, clips.isLoading, threadList, threads.isLoading, draft, post.isPending, photos, scan, communityDraft, intel.isLoading]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.wine }} edges={['top', 'bottom']}>
@@ -298,9 +302,9 @@ export default function ProductScreen() {
 
           {scan ? <ScanBanner scan={scan} onPhoto={() => setViewing(0)} onMatches={() => setMatchesOpen(true)} /> : null}
 
-          {intel.isLoading ? (
+          {tab !== 'unmask' && intel.isLoading ? (
             <InvestigatingState />
-          ) : intel.isError || !profile ? (
+          ) : tab !== 'unmask' && (intel.isError || !profile) ? (
             <View style={{ alignItems: 'center', gap: 12, paddingTop: 40 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.bone }}>We couldn’t finish reading about this</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2, textAlign: 'center', lineHeight: 20 }}>
@@ -336,7 +340,7 @@ export default function ProductScreen() {
               {lowest ? formatPrice(lowest.price) : '—'}
             </Text>
           </View>
-          <RoundButton label="Quick question" onPress={() => go('discuss')} size={46}>
+          <RoundButton label="Community" onPress={() => go('discuss')} size={46}>
             <ChatsCircle size={20} color={colors.bone} weight="bold" />
           </RoundButton>
           <RoundButton
