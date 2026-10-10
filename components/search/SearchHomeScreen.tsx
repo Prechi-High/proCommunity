@@ -1,15 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import {
+  Animated,
   Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   Text,
   View,
   useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Screen } from '@/components/Screen';
 import {
@@ -25,18 +29,17 @@ import {
   Lightbulb,
   MagnifyingGlass,
   Scan,
-  Scales,
-  Star,
   TShirt,
-  Warning,
 } from '@/components/icons';
 import { ProductImage, SearchBar, Shimmer } from '@/components/kit';
+import { PulseConversationCard } from '@/components/pulse/PulseConversationCard';
 import { brandAssets } from '@/constants/brand';
-import { SEARCH_CATEGORY_IMAGE_URLS, SEARCH_HOME_CATEGORIES } from '@/constants/searchHome';
+import { SEARCH_CATEGORY_IMAGES, SEARCH_HOME_CATEGORIES, searchHomeHero } from '@/constants/searchHome';
 import { colors, elevation, fonts, radii } from '@/constants/theme';
-import { fetchPulse, nicheOf, timeAgo } from '@/lib/community';
+import { fetchPulse, timeAgo } from '@/lib/community';
 import { hapticSelect, hapticTap } from '@/lib/haptics';
 import { rememberProduct } from '@/lib/products';
+import { buildMixedTrendingFeed } from '@/lib/searchHomeTrending';
 import { useAppStore } from '@/lib/store';
 import type { CommunityThread, TrendingProduct } from '@/lib/types';
 import { useScan } from '@/lib/useScan';
@@ -45,51 +48,15 @@ const PINK = ['#FDF2F4', '#F8E4E9', '#FDF2F4'] as const;
 const PINK_BANNER = '#F9E8EC';
 const BLUE_BANNER = '#E8F0FA';
 
+const SCREEN_PAD_H = 8;
+const CATEGORY_COLS = 4;
+const TRENDING_VISIBLE = 5;
+const CONVO_HOME_VISIBLE = 3;
+
 function compact(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return String(n);
-}
-
-function HeroIllustration() {
-  return (
-    <View style={{ width: 132, height: 140, alignItems: 'center', justifyContent: 'center' }}>
-      <View
-        style={{
-          width: 88,
-          height: 88,
-          borderRadius: 16,
-          backgroundColor: colors.lac,
-          borderWidth: 1,
-          borderColor: colors.line,
-          alignItems: 'center',
-          justifyContent: 'center',
-          transform: [{ rotate: '-6deg' }],
-          ...elevation.raised,
-        }}
-      >
-        <Text style={{ fontFamily: fonts.serifBold, fontSize: 42, color: colors.hi, marginTop: -4 }}>U</Text>
-      </View>
-      <View style={{ position: 'absolute', top: 4, right: -4, backgroundColor: colors.lac, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, ...elevation.raised }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Star size={12} color={colors.gold} weight="fill" />
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.bone }}>Real reviews</Text>
-        </View>
-      </View>
-      <View style={{ position: 'absolute', top: 44, right: -12, backgroundColor: colors.lac, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, ...elevation.raised }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Warning size={12} color={colors.coral} weight="fill" />
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.bone }}>Hidden issues</Text>
-        </View>
-      </View>
-      <View style={{ position: 'absolute', bottom: 8, right: -8, backgroundColor: colors.lac, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, ...elevation.raised }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Scales size={12} color={colors.hi} weight="bold" />
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.bone }}>Side-by-side</Text>
-        </View>
-      </View>
-    </View>
-  );
 }
 
 function StepMiniIcons() {
@@ -100,36 +67,97 @@ function StepMiniIcons() {
     { Icon: TShirt, bg: '#EDE8FF' },
   ];
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, maxWidth: 120 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'center' }}>
       {items.map(({ Icon, bg }, i) => (
-        <View key={i} style={{ width: 52, height: 44, borderRadius: 10, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon size={22} color={colors.bone} weight="bold" />
+        <View key={i} style={{ width: 36, height: 30, borderRadius: 8, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon size={16} color={colors.bone} weight="bold" />
         </View>
       ))}
     </View>
   );
 }
 
-const SCREEN_PAD_H = 8;
-const CATEGORY_COLS = 4;
-const TRENDING_COLS = 3;
-
 export function SearchHomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const catGap = 8;
   const categoryWidth = (width - SCREEN_PAD_H * 2 - catGap * (CATEGORY_COLS - 1)) / CATEGORY_COLS;
   const trendGap = 8;
-  const trendingWidth = (width - SCREEN_PAD_H * 2 - trendGap * (TRENDING_COLS - 1)) / TRENDING_COLS;
+  const trendingWidth = (width - SCREEN_PAD_H * 2 - trendGap * (TRENDING_VISIBLE - 1)) / TRENDING_VISIBLE;
+  const convoGap = 8;
+  const convoCardW = (width - SCREEN_PAD_H * 2 - convoGap * (CONVO_HOME_VISIBLE - 1)) / CONVO_HOME_VISIBLE;
+  const stepGap = 6;
+  const stepInnerW = width - SCREEN_PAD_H * 2;
+  const stepCardW = (stepInnerW - stepGap * 2) / 3;
+
   const [query, setQuery] = useState('');
+  const [stickySearch, setStickySearch] = useState(false);
+  const scrollY = useRef(0);
+  const stickyOpacity = useRef(new Animated.Value(0)).current;
   const scan = useScan();
   const selectedCategories = useAppStore((s) => s.searchCategoryIds);
   const toggleCategory = useAppStore((s) => s.toggleSearchCategory);
 
   const pulse = useQuery({ queryKey: ['pulse'], queryFn: () => fetchPulse(), staleTime: 60_000 });
-  const trending = pulse.data?.trending ?? [];
+  const trendingRaw = pulse.data?.trending ?? [];
+  const mixedTrending = useMemo(() => buildMixedTrendingFeed(trendingRaw, 12), [trendingRaw]);
   const compares = (pulse.data?.threads ?? []).filter((t) => t.kind === 'compare').slice(0, 2);
-  const questions = (pulse.data?.threads ?? []).filter((t) => t.kind === 'question').slice(0, 1);
+  const allThreads = pulse.data?.threads ?? [];
+
+  const hotConversations = useMemo(() => {
+    return [...allThreads]
+      .filter((t) => t.kind !== 'compare')
+      .sort((a, b) => {
+        const scoreA = (a.reply_count ?? 0) + (a.votes ?? 0) * 2;
+        const scoreB = (b.reply_count ?? 0) + (b.votes ?? 0) * 2;
+        return scoreB - scoreA;
+      })
+      .slice(0, 8);
+  }, [allThreads]);
+
+  const conversationCards = useMemo(() => {
+    return hotConversations.map((thread) => {
+      const related = allThreads.filter((th) => th.product_id === thread.product_id);
+      const postCount = related.reduce((sum, th) => sum + 1 + (th.reply_count ?? 0), 0) || thread.reply_count + 1;
+      const item: TrendingProduct = {
+        id: thread.product_id,
+        name: thread.product_name,
+        brand: thread.brand ?? '',
+        category: thread.category ?? '',
+        image: thread.product_image,
+        views: 0,
+        asks: 0,
+        threads: postCount,
+        compares: 0,
+        heat: postCount,
+      };
+      return { thread, item, title: thread.title, postCount };
+    });
+  }, [hotConversations, allThreads]);
+
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = e.nativeEvent.contentOffset.y;
+    const dy = y - scrollY.current;
+    scrollY.current = y;
+
+    if (dy > 6 && y > 120) {
+      if (stickySearch) {
+        setStickySearch(false);
+        Animated.timing(stickyOpacity, { toValue: 0, duration: 180, useNativeDriver: true }).start();
+      }
+    } else if (dy < -6 && y > 40) {
+      if (!stickySearch) {
+        setStickySearch(true);
+        Animated.timing(stickyOpacity, { toValue: 1, duration: 180, useNativeDriver: true }).start();
+      }
+    } else if (y <= 40) {
+      if (stickySearch) {
+        setStickySearch(false);
+        Animated.timing(stickyOpacity, { toValue: 0, duration: 180, useNativeDriver: true }).start();
+      }
+    }
+  };
 
   const go = (q: string) => {
     const trimmed = q.trim();
@@ -147,9 +175,42 @@ export function SearchHomeScreen() {
     router.push({ pathname: '/product/[id]', params: { id: t.id, q: t.name } } as Href);
   };
 
+  const openThread = (id: string) => router.push({ pathname: '/thread/[id]', params: { id } } as Href);
+
+  const stickyTop = insets.top + 8;
+
   return (
     <Screen>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }}>
+      <Animated.View
+        pointerEvents={stickySearch ? 'auto' : 'none'}
+        style={{
+          position: 'absolute',
+          top: stickyTop,
+          left: SCREEN_PAD_H,
+          right: SCREEN_PAD_H,
+          zIndex: 20,
+          opacity: stickyOpacity,
+          transform: [{ translateY: stickyOpacity.interpolate({ inputRange: [0, 1], outputRange: [-10, 0] }) }],
+        }}
+      >
+        <View style={{ backgroundColor: colors.wine, borderRadius: 14, padding: 4, ...elevation.raised }}>
+          <SearchBar
+            value={query}
+            onChangeText={setQuery}
+            onSubmit={() => go(query)}
+            onScan={scan.start}
+            busy={scan.busy}
+            placeholder="Search products, brands or questions..."
+          />
+        </View>
+      </Animated.View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 28 }}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      >
         <View style={{ paddingHorizontal: SCREEN_PAD_H, paddingTop: 12, gap: 20 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <Image source={brandAssets.fullTaglineInk} style={{ height: 52, width: 168, resizeMode: 'contain' }} accessibilityLabel="Unmask" />
@@ -163,19 +224,23 @@ export function SearchHomeScreen() {
             </Pressable>
           </View>
 
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-            <View style={{ flex: 1, gap: 8, paddingTop: 4 }}>
+          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+            <View style={{ flex: 1, gap: 8, paddingTop: 2 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 11, letterSpacing: 1.1, color: colors.hi, textTransform: 'uppercase' }}>
                 Research. Compare. Unmask.
               </Text>
-              <Text style={{ fontFamily: fonts.serifBold, fontSize: 26, lineHeight: 30, letterSpacing: -0.6, color: colors.bone }}>
+              <Text style={{ fontFamily: fonts.serifBold, fontSize: 24, lineHeight: 28, letterSpacing: -0.6, color: colors.bone }}>
                 Unmask what you&apos;re about to buy.
               </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 21, color: colors.bone2 }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 20, color: colors.bone2 }}>
                 Real product facts, real experiences, real people.
               </Text>
             </View>
-            <HeroIllustration />
+            <Image
+              source={searchHomeHero}
+              style={{ width: 148, height: 132, resizeMode: 'contain' }}
+              accessibilityLabel="Unmask product insights"
+            />
           </View>
 
           <SearchBar
@@ -191,45 +256,48 @@ export function SearchHomeScreen() {
             colors={[...PINK]}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
-            style={{ marginHorizontal: -SCREEN_PAD_H, paddingVertical: 16, gap: 14 }}
+            style={{ marginHorizontal: -SCREEN_PAD_H, paddingVertical: 14, gap: 10 }}
           >
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone, textAlign: 'center', paddingHorizontal: SCREEN_PAD_H }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone, textAlign: 'center', paddingHorizontal: SCREEN_PAD_H }}>
               3 simple steps to <Text style={{ fontFamily: fonts.serifBold, color: colors.hi }}>unmask</Text> any product
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4, paddingHorizontal: SCREEN_PAD_H }}>
+            <View style={{ flexDirection: 'row', gap: stepGap, paddingHorizontal: SCREEN_PAD_H }}>
               <StepCard
+                width={stepCardW}
                 n={1}
                 title="Choose a category"
-                body="Get the right investigation template"
+                body="Get the right template"
                 extra={<StepMiniIcons />}
               />
               <StepCard
+                width={stepCardW}
                 n={2}
                 title="Search or snap"
-                body="Type a product or take a photo"
+                body="Type or take a photo"
                 extra={
-                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-                    <View style={{ flex: 1, height: 40, borderRadius: 10, backgroundColor: colors.lac, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line }}>
-                      <MagnifyingGlass size={20} color={colors.bone3} weight="bold" />
+                  <View style={{ flexDirection: 'row', gap: 4, marginTop: 2 }}>
+                    <View style={{ flex: 1, height: 32, borderRadius: 8, backgroundColor: colors.lac, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line }}>
+                      <MagnifyingGlass size={16} color={colors.bone3} weight="bold" />
                     </View>
-                    <View style={{ flex: 1, height: 40, borderRadius: 10, backgroundColor: colors.hi, alignItems: 'center', justifyContent: 'center' }}>
-                      <Scan size={20} color={colors.white} weight="bold" />
+                    <View style={{ flex: 1, height: 32, borderRadius: 8, backgroundColor: colors.hi, alignItems: 'center', justifyContent: 'center' }}>
+                      <Scan size={16} color={colors.white} weight="bold" />
                     </View>
                   </View>
                 }
               />
               <StepCard
+                width={stepCardW}
                 n={3}
-                title="Unmask the product"
-                body="See real facts, reviews, comparisons and more"
+                title="Unmask"
+                body="Facts, reviews & more"
                 extra={
-                  <View style={{ marginTop: 6, height: 48, borderRadius: 10, backgroundColor: colors.lac, borderWidth: 1, borderColor: colors.line, padding: 8, justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.hi }}>Unmask scorecard</Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.bone3 }}>Evidence · Videos · Ask</Text>
+                  <View style={{ marginTop: 4, height: 36, borderRadius: 8, backgroundColor: colors.lac, borderWidth: 1, borderColor: colors.line, padding: 6, justifyContent: 'center' }}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 9, color: colors.hi }}>Scorecard</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 8, color: colors.bone3 }}>Evidence · Ask</Text>
                   </View>
                 }
               />
-            </ScrollView>
+            </View>
           </LinearGradient>
 
           <View style={{ gap: 12 }}>
@@ -271,12 +339,12 @@ export function SearchHomeScreen() {
                       </View>
                     ) : null}
                     <Image
-                      source={{ uri: SEARCH_CATEGORY_IMAGE_URLS[cat.id] }}
-                      style={{ width: '100%', height: 52, borderRadius: 8 }}
+                      source={SEARCH_CATEGORY_IMAGES[cat.id]}
+                      style={{ width: '100%', height: 52, borderRadius: 8, backgroundColor: colors.lac2 }}
                       resizeMode="cover"
                       accessibilityIgnoresInvertColors
                     />
-                    <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.bone }} numberOfLines={2}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.bone }} numberOfLines={2}>
                       {cat.label}
                     </Text>
                   </Pressable>
@@ -309,23 +377,17 @@ export function SearchHomeScreen() {
               </Pressable>
             </View>
             {pulse.isLoading ? (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: trendGap }}>
-                {Array.from({ length: TRENDING_COLS }, (_, i) => (
-                  <Shimmer key={i} height={trendingWidth * 1.05} width={trendingWidth} radius={12} />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: trendGap }}>
+                {Array.from({ length: TRENDING_VISIBLE }, (_, i) => (
+                  <Shimmer key={i} height={trendingWidth * 1.1} width={trendingWidth} radius={12} />
                 ))}
-              </View>
-            ) : trending.length ? (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: trendGap }}>
-                {trending.slice(0, 6).map((t, i) => (
-                  <SearchTrendingCard
-                    key={t.id}
-                    item={t}
-                    rank={i + 1}
-                    onPress={() => openTrending(t)}
-                    width={trendingWidth}
-                  />
+              </ScrollView>
+            ) : mixedTrending.length ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: trendGap, paddingRight: SCREEN_PAD_H }}>
+                {mixedTrending.map((t, i) => (
+                  <SearchTrendingCard key={t.id} item={t} rank={i + 1} onPress={() => openTrending(t)} width={trendingWidth} />
                 ))}
-              </View>
+              </ScrollView>
             ) : (
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>Search something to get started.</Text>
             )}
@@ -343,11 +405,38 @@ export function SearchHomeScreen() {
               </Pressable>
             </View>
             {compares.length ? (
-              compares.map((t) => <CompareRow key={t.id} thread={t} onPress={() => router.push({ pathname: '/thread/[id]', params: { id: t.id } } as Href)} />)
+              compares.map((t) => <CompareRow key={t.id} thread={t} onPress={() => openThread(t.id)} />)
             ) : (
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>No comparisons yet — start one from a product page.</Text>
             )}
           </View>
+
+          {conversationCards.length > 0 ? (
+            <View style={{ gap: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Fire size={20} color={colors.coral} weight="fill" />
+                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.bone }}>Hot conversations</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: convoGap }}>
+                {conversationCards.slice(0, 6).map(({ item, title, postCount, thread }) => (
+                  <PulseConversationCard
+                    key={thread.id}
+                    item={item}
+                    title={title}
+                    postCount={postCount}
+                    width={convoCardW}
+                    onPress={() => openThread(thread.id)}
+                  />
+                ))}
+              </ScrollView>
+              <Pressable
+                onPress={() => router.push('/pulse' as Href)}
+                style={{ alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999, backgroundColor: colors.hi }}
+              >
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.white }}>View more on Pulse</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           <Pressable
             onPress={() => router.push('/pulse' as Href)}
@@ -362,15 +451,6 @@ export function SearchHomeScreen() {
             </View>
             <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.hi }}>Explore Pulse ›</Text>
           </Pressable>
-
-          {questions[0] ? (
-            <Pressable
-              onPress={() => router.push({ pathname: '/thread/[id]', params: { id: questions[0].id } } as Href)}
-              style={{ backgroundColor: colors.lac, borderRadius: radii.card, padding: 14, borderWidth: 1, borderColor: colors.line }}
-            >
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone }} numberOfLines={2}>{questions[0].title}</Text>
-            </Pressable>
-          ) : null}
         </View>
       </ScrollView>
       {scan.sheet}
@@ -378,14 +458,18 @@ export function SearchHomeScreen() {
   );
 }
 
-function StepCard({ n, title, body, extra }: { n: number; title: string; body: string; extra?: ReactNode }) {
+function StepCard({ n, title, body, extra, width }: { n: number; title: string; body: string; extra?: ReactNode; width: number }) {
   return (
-    <View style={{ width: 168, backgroundColor: 'rgba(255,255,255,0.65)', borderRadius: 14, padding: 12, gap: 6 }}>
-      <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.hi, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.white }}>{n}</Text>
+    <View style={{ width, backgroundColor: 'rgba(255,255,255,0.72)', borderRadius: 12, padding: 8, gap: 4, alignItems: 'center' }}>
+      <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.hi, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.white }}>{n}</Text>
       </View>
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.bone }}>{title}</Text>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 11, lineHeight: 15, color: colors.bone2 }}>{body}</Text>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.bone, textAlign: 'center' }} numberOfLines={2}>
+        {title}
+      </Text>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 9, lineHeight: 12, color: colors.bone2, textAlign: 'center' }} numberOfLines={2}>
+        {body}
+      </Text>
       {extra}
     </View>
   );

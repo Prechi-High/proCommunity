@@ -1,3 +1,5 @@
+import type { ImageSourcePropType } from 'react-native';
+
 import type { NicheId } from '@/lib/community';
 
 export type SearchCategoryId = NicheId | 'other';
@@ -7,16 +9,18 @@ export type SearchHomeCategory = {
   label: string;
 };
 
-/** Category photos (Unsplash) for search home grid */
-export const SEARCH_CATEGORY_IMAGE_URLS: Record<SearchCategoryId, string> = {
-  tech: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=480&h=360&fit=crop',
-  care: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=480&h=360&fit=crop',
-  home: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=480&h=360&fit=crop',
-  style: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=480&h=360&fit=crop',
-  food: 'https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=480&h=360&fit=crop',
-  auto: 'https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=480&h=360&fit=crop',
-  kids: 'https://images.unsplash.com/photo-1515488042361-ee00e017ddd1?w=480&h=360&fit=crop',
-  other: 'https://images.unsplash.com/photo-1607083206869-4c7672cf72e7?w=480&h=360&fit=crop',
+export const searchHomeHero = require('@/assets/search-home/hero-unmask.png') as number;
+
+/** Bundled category photos (mockup crops + reliable loads). */
+export const SEARCH_CATEGORY_IMAGES: Record<SearchCategoryId, ImageSourcePropType> = {
+  tech: require('@/assets/search-home/categories/tech.jpg'),
+  care: require('@/assets/search-home/categories/care.jpg'),
+  home: require('@/assets/search-home/categories/home.jpg'),
+  style: require('@/assets/search-home/categories/style.jpg'),
+  food: require('@/assets/search-home/categories/food.jpg'),
+  auto: require('@/assets/search-home/categories/auto.jpg'),
+  kids: require('@/assets/search-home/categories/kids.jpg'),
+  other: require('@/assets/search-home/categories/other.jpg'),
 };
 
 export const SEARCH_HOME_CATEGORIES: SearchHomeCategory[] = [
