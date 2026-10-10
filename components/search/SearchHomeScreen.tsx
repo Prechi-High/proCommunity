@@ -21,7 +21,6 @@ import {
   DeviceMobile,
   Fire,
   Flower,
-  Heart,
   House,
   Lightbulb,
   MagnifyingGlass,
@@ -33,7 +32,7 @@ import {
 } from '@/components/icons';
 import { ProductImage, SearchBar, Shimmer } from '@/components/kit';
 import { brandAssets } from '@/constants/brand';
-import { SEARCH_CATEGORY_IMAGES, SEARCH_HOME_CATEGORIES } from '@/constants/searchHome';
+import { SEARCH_CATEGORY_IMAGE_URLS, SEARCH_HOME_CATEGORIES } from '@/constants/searchHome';
 import { colors, elevation, fonts, radii } from '@/constants/theme';
 import { fetchPulse, nicheOf, timeAgo } from '@/lib/community';
 import { hapticSelect, hapticTap } from '@/lib/haptics';
@@ -111,14 +110,19 @@ function StepMiniIcons() {
   );
 }
 
+const SCREEN_PAD_H = 8;
+const CATEGORY_COLS = 4;
+const TRENDING_COLS = 3;
+
 export function SearchHomeScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const col = (width - 48) / 2;
+  const catGap = 8;
+  const categoryWidth = (width - SCREEN_PAD_H * 2 - catGap * (CATEGORY_COLS - 1)) / CATEGORY_COLS;
+  const trendGap = 8;
+  const trendingWidth = (width - SCREEN_PAD_H * 2 - trendGap * (TRENDING_COLS - 1)) / TRENDING_COLS;
   const [query, setQuery] = useState('');
   const scan = useScan();
-  const favorites = useAppStore((s) => s.favorites);
-  const toggleFavorite = useAppStore((s) => s.toggleFavorite);
   const selectedCategories = useAppStore((s) => s.searchCategoryIds);
   const toggleCategory = useAppStore((s) => s.toggleSearchCategory);
 
@@ -146,7 +150,7 @@ export function SearchHomeScreen() {
   return (
     <Screen>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }}>
-        <View style={{ paddingHorizontal: 16, paddingTop: 12, gap: 20 }}>
+        <View style={{ paddingHorizontal: SCREEN_PAD_H, paddingTop: 12, gap: 20 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <Image source={brandAssets.fullTaglineInk} style={{ height: 52, width: 168, resizeMode: 'contain' }} accessibilityLabel="Unmask" />
             <Pressable
@@ -183,11 +187,16 @@ export function SearchHomeScreen() {
             placeholder="Search products, brands or questions..."
           />
 
-          <LinearGradient colors={[...PINK]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={{ borderRadius: radii.card, padding: 16, gap: 14 }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone, textAlign: 'center' }}>
+          <LinearGradient
+            colors={[...PINK]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={{ marginHorizontal: -SCREEN_PAD_H, paddingVertical: 16, gap: 14 }}
+          >
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.bone, textAlign: 'center', paddingHorizontal: SCREEN_PAD_H }}>
               3 simple steps to <Text style={{ fontFamily: fonts.serifBold, color: colors.hi }}>unmask</Text> any product
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4, paddingHorizontal: SCREEN_PAD_H }}>
               <StepCard
                 n={1}
                 title="Choose a category"
@@ -233,7 +242,7 @@ export function SearchHomeScreen() {
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.hi }}>See all ›</Text>
               </Pressable>
             </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: catGap }}>
               {SEARCH_HOME_CATEGORIES.map((cat) => {
                 const selected = selectedCategories.includes(cat.id);
                 return (
@@ -246,32 +255,30 @@ export function SearchHomeScreen() {
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: selected }}
                     style={{
-                      width: col,
+                      width: categoryWidth,
                       backgroundColor: colors.lac,
-                      borderRadius: 16,
-                      padding: 12,
-                      gap: 8,
+                      borderRadius: 12,
+                      padding: 6,
+                      gap: 6,
                       borderWidth: selected ? 2 : 1,
                       borderColor: selected ? colors.hi : colors.line,
                       ...elevation.raised,
                     }}
                   >
                     {selected ? (
-                      <View style={{ position: 'absolute', top: 10, right: 10, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.hi, alignItems: 'center', justifyContent: 'center' }}>
-                        <Check size={14} color={colors.white} weight="bold" />
+                      <View style={{ position: 'absolute', top: 6, right: 6, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.hi, alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
+                        <Check size={11} color={colors.white} weight="bold" />
                       </View>
                     ) : null}
                     <Image
-                      source={SEARCH_CATEGORY_IMAGES[cat.id]}
-                      style={{ width: '100%', height: 72, borderRadius: 12 }}
+                      source={{ uri: SEARCH_CATEGORY_IMAGE_URLS[cat.id] }}
+                      style={{ width: '100%', height: 52, borderRadius: 8 }}
                       resizeMode="cover"
                       accessibilityIgnoresInvertColors
                     />
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.bone }}>{cat.label}</Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 16, color: colors.bone2 }} numberOfLines={2}>{cat.subtitle}</Text>
-                    <View style={{ alignSelf: 'flex-end' }}>
-                      <CaretRight size={14} color={colors.bone3} weight="bold" />
-                    </View>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.bone }} numberOfLines={2}>
+                      {cat.label}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -302,24 +309,23 @@ export function SearchHomeScreen() {
               </Pressable>
             </View>
             {pulse.isLoading ? (
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <Shimmer height={200} width={col} radius={16} />
-                <Shimmer height={200} width={col} radius={16} />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: trendGap }}>
+                {Array.from({ length: TRENDING_COLS }, (_, i) => (
+                  <Shimmer key={i} height={trendingWidth * 1.05} width={trendingWidth} radius={12} />
+                ))}
               </View>
             ) : trending.length ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 8 }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: trendGap }}>
                 {trending.slice(0, 6).map((t, i) => (
                   <SearchTrendingCard
                     key={t.id}
                     item={t}
                     rank={i + 1}
-                    saved={favorites.some((f) => f.productId === t.id)}
-                    onSave={() => toggleFavorite(t.id)}
                     onPress={() => openTrending(t)}
-                    width={col * 0.92}
+                    width={trendingWidth}
                   />
                 ))}
-              </ScrollView>
+              </View>
             ) : (
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>Search something to get started.</Text>
             )}
@@ -389,37 +395,27 @@ function SearchTrendingCard({
   item,
   rank,
   width,
-  saved,
-  onSave,
   onPress,
 }: {
   item: TrendingProduct;
   rank: number;
   width: number;
-  saved: boolean;
-  onSave: () => void;
   onPress: () => void;
 }) {
   const signal = item.views ? `${compact(item.views)} searching` : 'Trending now';
+  const imageSize = width;
   return (
-    <Pressable onPress={() => { hapticTap(); onPress(); }} style={{ width, gap: 8 }}>
+    <Pressable onPress={() => { hapticTap(); onPress(); }} style={{ width, gap: 6 }}>
       <View>
-        <ProductImage uri={item.image} category={item.category} size={width} radius={16} style={{ width, height: width * 0.85 }} />
-        <View style={{ position: 'absolute', top: 8, left: 8, minWidth: 26, height: 26, borderRadius: 13, paddingHorizontal: 7, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.white }}>{rank}</Text>
+        <ProductImage uri={item.image} category={item.category} size={imageSize} radius={12} style={{ width: imageSize, height: imageSize * 0.72 }} />
+        <View style={{ position: 'absolute', top: 6, left: 6, minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.white }}>{rank}</Text>
         </View>
-        <Pressable
-          onPress={(e) => { e.stopPropagation(); hapticTap(); onSave(); }}
-          hitSlop={10}
-          style={{ position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Heart size={18} color={saved ? colors.hi : colors.bone3} weight={saved ? 'fill' : 'regular'} />
-        </Pressable>
       </View>
-      <Text numberOfLines={2} style={{ fontFamily: fonts.semibold, fontSize: 13.5, lineHeight: 17, color: colors.bone }}>{item.name}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#4A7FD4' }} />
-        <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.bone2 }}>{signal}</Text>
+      <Text numberOfLines={2} style={{ fontFamily: fonts.semibold, fontSize: 11.5, lineHeight: 14, color: colors.bone }}>{item.name}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4A7FD4' }} />
+        <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: colors.bone2 }} numberOfLines={1}>{signal}</Text>
       </View>
     </Pressable>
   );
