@@ -3,6 +3,8 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { track } from './analytics';
+import type { SearchCategoryId } from '@/constants/searchHome';
+
 import { communityPosts } from './seed';
 import type {
   AppNotification,
@@ -41,6 +43,9 @@ export interface AppState {
   helpfulVotes: string[];
   notifications: AppNotification[];
   searchHistory: SearchHistoryItem[];
+  /** Selected investigation categories on Search home (does not navigate away). */
+  searchCategoryIds: SearchCategoryId[];
+  toggleSearchCategory: (id: SearchCategoryId) => void;
   flaggedPostIds: string[];
   userThreads: DiscussionThread[];
   hapticsMode: HapticsMode;
@@ -125,6 +130,12 @@ export const useAppStore = create<AppState>()(
       setHydrated: () => set({ hydrated: true }),
       ...emptyUserSlice,
       searchHistory: [] as SearchHistoryItem[],
+      searchCategoryIds: [] as SearchCategoryId[],
+      toggleSearchCategory: (id) => {
+        const cur = get().searchCategoryIds;
+        if (cur.includes(id)) set({ searchCategoryIds: cur.filter((x) => x !== id) });
+        else set({ searchCategoryIds: [...cur, id] });
+      },
       hapticsMode: 'full' as HapticsMode,
       saveSearchHistory: true,
       recentProductIds: [] as string[],
