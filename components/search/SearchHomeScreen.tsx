@@ -22,6 +22,7 @@ import {
   Fire,
   Flower,
   Heart,
+  House,
   Lightbulb,
   MagnifyingGlass,
   Scan,
