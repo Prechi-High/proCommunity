@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter, type Href } from 'expo-router';
-import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -35,7 +35,7 @@ import { colors, fonts } from '@/constants/theme';
 import { fetchFeed, fetchFollowing, fetchPulse, NICHES, nicheOf, type FeedSort, type NicheId } from '@/lib/community';
 import { hapticSelect, hapticTap } from '@/lib/haptics';
 import { useAppStore } from '@/lib/store';
-import type { CommunityThread, ThreadKind, TrendingProduct } from '@/lib/types';
+import type { CommunityThread, ThreadKind } from '@/lib/types';
 import { useScan } from '@/lib/useScan';
 
 type Tab = FeedSort | 'following';
@@ -50,7 +50,9 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'following', label: 'Following' },
 ];
 
-function nicheIcon(id: NicheId): ComponentType<{ size?: number; color?: string; weight?: string }> {
+type NicheIcon = typeof DeviceMobile;
+
+function nicheIcon(id: NicheId): NicheIcon {
   switch (id) {
     case 'tech':
       return DeviceMobile;
@@ -71,7 +73,7 @@ function nicheIcon(id: NicheId): ComponentType<{ size?: number; color?: string; 
   }
 }
 
-const INTEREST_TAGS: Array<{ id: NicheId | 'all'; label: string; Icon: ComponentType<{ size?: number; color?: string; weight?: string }> }> = [
+const INTEREST_TAGS: Array<{ id: NicheId | 'all'; label: string; Icon: NicheIcon }> = [
   { id: 'all', label: 'Everything', Icon: ShieldCheck },
   ...NICHES.map((n) => ({
     id: n.id,
