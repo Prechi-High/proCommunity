@@ -7,8 +7,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMemberGate } from '@/components/community';
 import { ProductScreenChrome } from '@/components/shell/ProductScreenChrome';
 import { ProductSubTabs } from '@/components/shell/ProductSubTabs';
-import { ProductUnmaskFlow } from '@/components/unmask/ProductUnmaskFlow';
-import { InvestigatingState, PricesPane, SourcesSheet } from '@/components/product/Panes';
+import {
+  ProductIdentifyFloatingFooter,
+  ProductUnmaskFlow,
+  type IdentifyFooterActions,
+} from '@/components/unmask/ProductUnmaskFlow';
+import { PricesPane, SourcesSheet } from '@/components/product/Panes';
 import { galleryFor, MatchesSheet, ScanBanner } from '@/components/product/Gallery';
 import { Lightbox } from '@/components/Lightbox';
 import { useOwnershipNote } from '@/components/OwnershipNote';
@@ -34,6 +38,8 @@ export default function ProductScreen() {
   const [pricesOpen, setPricesOpen] = useState(false);
   const [viewing, setViewing] = useState<number | null>(null);
   const [matchesOpen, setMatchesOpen] = useState(false);
+  const [identifyFooterVisible, setIdentifyFooterVisible] = useState(false);
+  const [identifyFooter, setIdentifyFooter] = useState<IdentifyFooterActions | null>(null);
   const scan = useAppStore((s) => s.scans[id]);
   const favorites = useAppStore((s) => s.favorites);
   const toggleFavorite = useAppStore((s) => s.toggleFavorite);
@@ -120,61 +126,75 @@ export default function ProductScreen() {
         <ProductSubTabs value={tab} onChange={changeTab} />
       </ProductScreenChrome>
 
-      <ScrollView
-        ref={scroller}
-        style={{ flex: 1 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingBottom: 32 }}
-      >
-        <View style={{ paddingHorizontal: 16, paddingTop: 12, gap: 12 }}>
-          {scan ? <ScanBanner scan={scan} onPhoto={() => setViewing(0)} onMatches={() => setMatchesOpen(true)} /> : null}
+      <View style={{ flex: 1, position: 'relative' }}>
+        <ScrollView
+          ref={scroller}
+          style={{ flex: 1, backgroundColor: identifyFooterVisible ? '#F9F6F0' : colors.wine }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: identifyFooterVisible ? 150 : 32 }}
+        >
+          <View style={{ paddingHorizontal: 16, paddingTop: 12, gap: 12 }}>
+            {!identifyFooterVisible && scan ? (
+              <ScanBanner scan={scan} onPhoto={() => setViewing(0)} onMatches={() => setMatchesOpen(true)} />
+            ) : null}
 
-          <OwnershipStrip
-            owned={Boolean(owned)}
-            count={room.data?.verifiedOwners ?? 0}
-            onVerify={() => verify.start(currentProduct)}
-            onNote={() => note.start(currentProduct)}
-            onMine={() => myId && router.push({ pathname: '/member/[id]', params: { id: myId } } as unknown as Href)}
+            {!identifyFooterVisible ? (
+              <OwnershipStrip
+                owned={Boolean(owned)}
+                count={room.data?.verifiedOwners ?? 0}
+                onVerify={() => verify.start(currentProduct)}
+                onNote={() => note.start(currentProduct)}
+                onMine={() => myId && router.push({ pathname: '/member/[id]', params: { id: myId } } as unknown as Href)}
+              />
+            ) : null}
+
+            {intel.isError && !profile && !intel.isLoading ? (
+              <View style={{ alignItems: 'center', gap: 12, paddingTop: 40 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.bone }}>We couldn&apos;t finish reading about this</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2, textAlign: 'center' }}>
+                  Try again — nothing is lost.
+                </Text>
+                <Pressable onPress={() => void intel.refetch()}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.hi }}>Try again</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <ProductUnmaskFlow
+                product={currentProduct}
+                profile={profile}
+                intelLoading={intel.isLoading}
+                intelError={intel.isError}
+                onRetryIntel={() => void intel.refetch()}
+                clipsLoading={clips.isLoading}
+                clips={clips.data ?? []}
+                scanPhoto={scan?.photo}
+                photoUrls={photos.map((p) => p.url)}
+                tab={tab}
+                onTabChange={changeTab}
+                onCompare={() => {
+                  if (profile) trackProduct(profileToProduct(profile, product), 'compare');
+                  router.push({ pathname: '/compare', params: { a: id } } as Href);
+                }}
+                onOpenSources={() => setSourcesOpen(true)}
+                onAskCommunity={onAskCommunity}
+                onOpenPrices={() => setPricesOpen(true)}
+                onIdentifyFooter={(visible, actions) => {
+                  setIdentifyFooterVisible(visible);
+                  setIdentifyFooter(actions);
+                }}
+              />
+            )}
+          </View>
+        </ScrollView>
+        {identifyFooter ? (
+          <ProductIdentifyFloatingFooter
+            visible={identifyFooterVisible}
+            onUnmask={identifyFooter.onUnmask}
+            onViewSpecs={identifyFooter.onViewSpecs}
           />
-
-          {intel.isLoading && !profile ? (
-            <InvestigatingState />
-          ) : intel.isError && !profile ? (
-            <View style={{ alignItems: 'center', gap: 12, paddingTop: 40 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.bone }}>We couldn&apos;t finish reading about this</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2, textAlign: 'center' }}>
-                Try again — nothing is lost.
-              </Text>
-              <Pressable onPress={() => void intel.refetch()}>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.hi }}>Try again</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <ProductUnmaskFlow
-              product={currentProduct}
-              profile={profile}
-              intelLoading={intel.isLoading}
-              intelError={intel.isError}
-              onRetryIntel={() => void intel.refetch()}
-              clipsLoading={clips.isLoading}
-              clips={clips.data ?? []}
-              scanPhoto={scan?.photo}
-              tab={tab}
-              onTabChange={changeTab}
-              onCompare={() => {
-                if (profile) trackProduct(profileToProduct(profile, product), 'compare');
-                router.push({ pathname: '/compare', params: { a: id } } as Href);
-              }}
-              onOpenSources={() => setSourcesOpen(true)}
-              onAskCommunity={onAskCommunity}
-              onOpenPrices={() => setPricesOpen(true)}
-            />
-          )}
-        </View>
-      </ScrollView>
-
-      <SafeAreaView edges={['bottom']} style={{ backgroundColor: colors.lac }} />
+        ) : null}
+      </View>
 
       <SourcesSheet profile={profile} visible={sourcesOpen} onClose={() => setSourcesOpen(false)} />
       <Modal visible={pricesOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setPricesOpen(false)}>

@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ArrowRight } from '@/components/icons';
 import { PrimaryButton } from '@/components/kit';
 
 import { SpecsPane } from '@/components/product/Panes';
 import { VideosPane } from '@/components/product/VideosPane';
-import { colors, fonts } from '@/constants/theme';
+import { colors, fonts, radii } from '@/constants/theme';
+import { hapticTap } from '@/lib/haptics';
 import { deriveUnmaskBundle } from '@/lib/unmask/derive';
 import { investigationComplete } from '@/lib/unmask/investigationStages';
 import { hasUnmaskRevealed, markUnmaskRevealed } from '@/lib/unmask/revealSession';
@@ -15,11 +19,20 @@ import type { JourneyClip } from '@/lib/videos';
 
 import { AskUnmaskTab } from './AskUnmaskTab';
 import { HighlightsTab } from './HighlightsTab';
-import { ProductFoundView } from './ProductFoundView';
+import { ProductDiscoveringView } from './ProductDiscoveringView';
+import { ProductIdentifyView } from './ProductIdentifyView';
 import { DimensionDetail, ScorecardTab } from './ScorecardTab';
 import { UnmaskingView } from './UnmaskingView';
 
+const MAROON = '#6B0F1A';
+const DISCOVER_MIN_MS = 2800;
+
 type FlowPhase = 'found' | 'investigating' | 'unmasked';
+
+export type IdentifyFooterActions = {
+  onUnmask: () => void;
+  onViewSpecs: () => void;
+};
 
 type Props = {
   product: Product;
@@ -30,12 +43,14 @@ type Props = {
   clipsLoading: boolean;
   clips: JourneyClip[];
   scanPhoto?: string | null;
+  photoUrls: string[];
   tab: UnmaskTab;
   onTabChange: (tab: UnmaskTab) => void;
   onCompare: () => void;
   onOpenSources: () => void;
   onAskCommunity: (question: string) => void;
   onOpenPrices?: () => void;
+  onIdentifyFooter?: (visible: boolean, actions: IdentifyFooterActions | null) => void;
 };
 
 export function ProductUnmaskFlow({
@@ -47,20 +62,65 @@ export function ProductUnmaskFlow({
   clipsLoading,
   clips,
   scanPhoto,
+  photoUrls,
   tab,
   onTabChange,
   onCompare,
   onOpenSources,
   onAskCommunity,
   onOpenPrices,
+  onIdentifyFooter,
 }: Props) {
   const [phase, setPhase] = useState<FlowPhase>(() => (hasUnmaskRevealed(product.id) ? 'unmasked' : 'found'));
   const [dimensionId, setDimensionId] = useState<string | null>(null);
+  const [discoverMinDone, setDiscoverMinDone] = useState(() => hasUnmaskRevealed(product.id));
+  const [discoverIntelDone, setDiscoverIntelDone] = useState(() => hasUnmaskRevealed(product.id));
 
   useEffect(() => {
     setPhase(hasUnmaskRevealed(product.id) ? 'unmasked' : 'found');
     setDimensionId(null);
+    setDiscoverMinDone(hasUnmaskRevealed(product.id));
+    setDiscoverIntelDone(hasUnmaskRevealed(product.id));
   }, [product.id]);
+
+  useEffect(() => {
+    if (hasUnmaskRevealed(product.id)) return;
+    setDiscoverMinDone(false);
+    setDiscoverIntelDone(false);
+    const t = setTimeout(() => setDiscoverMinDone(true), DISCOVER_MIN_MS);
+    return () => clearTimeout(t);
+  }, [product.id]);
+
+  useEffect(() => {
+    if (hasUnmaskRevealed(product.id)) return;
+    if (!intelLoading && (profile || product.heroImageUrl || product.name)) {
+      setDiscoverIntelDone(true);
+    }
+  }, [intelLoading, profile, product.heroImageUrl, product.name, product.id]);
+
+  const discovering = phase === 'found' && tab === 'overview' && !hasUnmaskRevealed(product.id) && (!discoverMinDone || !discoverIntelDone);
+
+  const bundle = useMemo(() => (profile ? deriveUnmaskBundle(profile) : null), [profile]);
+
+  const startUnmask = () => {
+    hapticTap();
+    if (investigationComplete(intelLoading, profile)) {
+      markUnmaskRevealed(product.id);
+      setPhase('unmasked');
+    } else setPhase('investigating');
+  };
+
+  const showIdentifyFooter = phase === 'found' && tab === 'overview' && !discovering;
+
+  useEffect(() => {
+    if (!onIdentifyFooter) return;
+    if (showIdentifyFooter) {
+      onIdentifyFooter(true, { onUnmask: startUnmask, onViewSpecs: () => onTabChange('specs') });
+    } else {
+      onIdentifyFooter(false, null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- parent setState callback; gate on layout mode only
+  }, [showIdentifyFooter, product.id, tab, phase]);
 
   useEffect(() => {
     if (phase !== 'investigating') return;
@@ -69,15 +129,6 @@ export function ProductUnmaskFlow({
       setPhase('unmasked');
     }
   }, [phase, intelLoading, profile, product.id]);
-
-  const bundle = useMemo(() => (profile ? deriveUnmaskBundle(profile) : null), [profile]);
-
-  const startUnmask = () => {
-    if (investigationComplete(intelLoading, profile)) {
-      markUnmaskRevealed(product.id);
-      setPhase('unmasked');
-    } else setPhase('investigating');
-  };
 
   if (phase === 'investigating') {
     if (intelError) {
@@ -168,20 +219,26 @@ export function ProductUnmaskFlow({
     );
   }
 
-  if (phase === 'found' || !profile || !bundle) {
+  if (phase === 'found' && tab === 'overview') {
+    if (discovering) {
+      return <ProductDiscoveringView product={product} profile={profile} />;
+    }
+    const urls = photoUrls.filter(Boolean);
     return (
-      <ProductFoundView
+      <ProductIdentifyView
         product={product}
         profile={profile}
-        onUnmask={startUnmask}
-        onCompare={onCompare}
-        onOpenPrices={onOpenPrices}
-        onExplore={(section) => {
-          if (section === 'videos') onTabChange('videos');
-          else if (section === 'evidence') onTabChange('evidence');
-          else onTabChange('overview');
-        }}
+        photos={urls}
+        onViewSpecs={() => onTabChange('specs')}
       />
+    );
+  }
+
+  if (!profile || !bundle) {
+    return (
+      <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+        <ActivityIndicator color={colors.hi} />
+      </View>
     );
   }
 
@@ -198,6 +255,75 @@ export function ProductUnmaskFlow({
         mode="overview"
       />
       <HighlightsTab bundle={bundle} onDimension={(id) => { onTabChange('evidence'); setDimensionId(id); }} />
+    </View>
+  );
+}
+
+/** Fixed bottom CTA for the identify screen (rendered outside the scroll view). */
+export function ProductIdentifyFloatingFooter({
+  visible,
+  onUnmask,
+  onViewSpecs,
+}: {
+  visible: boolean;
+  onUnmask: () => void;
+  onViewSpecs: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  if (!visible) return null;
+
+  return (
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        paddingHorizontal: 16,
+        paddingTop: 10,
+        paddingBottom: Math.max(insets.bottom, 10),
+        backgroundColor: 'rgba(249,246,240,0.96)',
+        borderTopWidth: 1,
+        borderTopColor: '#e8e4dc',
+        gap: 8,
+      }}
+    >
+      <Pressable onPress={onUnmask} accessibilityRole="button">
+        <LinearGradient
+          colors={[MAROON, '#4a0a12']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            paddingVertical: 16,
+            borderRadius: radii.button,
+          }}
+        >
+          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.white }}>Unmask this product</Text>
+          <ArrowRight size={18} color={colors.white} weight="bold" />
+        </LinearGradient>
+      </Pressable>
+      <Pressable
+        onPress={() => {
+          hapticTap();
+          onViewSpecs();
+        }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 12,
+          borderRadius: radii.button,
+          borderWidth: 1.5,
+          borderColor: MAROON,
+        }}
+      >
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: MAROON }}>View Specs</Text>
+      </Pressable>
     </View>
   );
 }

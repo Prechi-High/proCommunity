@@ -34,7 +34,7 @@ import {
 import { ProductImage, SearchBar, Shimmer } from '@/components/kit';
 import { PulseConversationCard } from '@/components/pulse/PulseConversationCard';
 import { brandAssets } from '@/constants/brand';
-import { SEARCH_CATEGORY_IMAGES, SEARCH_HOME_CATEGORIES, searchHomeHero } from '@/constants/searchHome';
+import { SEARCH_CATEGORY_IMAGE_URLS, SEARCH_HOME_CATEGORIES, searchHomeHero } from '@/constants/searchHome';
 import { colors, elevation, fonts, radii } from '@/constants/theme';
 import { fetchPulse, timeAgo } from '@/lib/community';
 import { hapticSelect, hapticTap } from '@/lib/haptics';
@@ -310,7 +310,7 @@ export function SearchHomeScreen() {
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.hi }}>See all ›</Text>
               </Pressable>
             </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: catGap }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: catGap }}>
               {SEARCH_HOME_CATEGORIES.map((cat) => {
                 const selected = selectedCategories.includes(cat.id);
                 return (
@@ -339,7 +339,7 @@ export function SearchHomeScreen() {
                       </View>
                     ) : null}
                     <Image
-                      source={SEARCH_CATEGORY_IMAGES[cat.id]}
+                      source={{ uri: SEARCH_CATEGORY_IMAGE_URLS[cat.id] }}
                       style={{ width: '100%', height: 52, borderRadius: 8, backgroundColor: colors.lac2 }}
                       resizeMode="cover"
                       accessibilityIgnoresInvertColors
@@ -384,8 +384,8 @@ export function SearchHomeScreen() {
               </ScrollView>
             ) : mixedTrending.length ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: trendGap, paddingRight: SCREEN_PAD_H }}>
-                {mixedTrending.map((t, i) => (
-                  <SearchTrendingCard key={t.id} item={t} rank={i + 1} onPress={() => openTrending(t)} width={trendingWidth} />
+                {mixedTrending.map((t) => (
+                  <SearchTrendingCard key={t.id} item={t} onPress={() => openTrending(t)} width={trendingWidth} />
                 ))}
               </ScrollView>
             ) : (
@@ -477,12 +477,10 @@ function StepCard({ n, title, body, extra, width }: { n: number; title: string; 
 
 function SearchTrendingCard({
   item,
-  rank,
   width,
   onPress,
 }: {
   item: TrendingProduct;
-  rank: number;
   width: number;
   onPress: () => void;
 }) {
@@ -492,9 +490,6 @@ function SearchTrendingCard({
     <Pressable onPress={() => { hapticTap(); onPress(); }} style={{ width, gap: 6 }}>
       <View>
         <ProductImage uri={item.image} category={item.category} size={imageSize} radius={12} style={{ width: imageSize, height: imageSize * 0.72 }} />
-        <View style={{ position: 'absolute', top: 6, left: 6, minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.white }}>{rank}</Text>
-        </View>
       </View>
       <Text numberOfLines={2} style={{ fontFamily: fonts.semibold, fontSize: 11.5, lineHeight: 14, color: colors.bone }}>{item.name}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
