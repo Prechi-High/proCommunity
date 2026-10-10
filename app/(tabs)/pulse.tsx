@@ -127,7 +127,7 @@ export default function PulseScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 34, letterSpacing: -1, lineHeight: 38, color: colors.bone }}>Pulse</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, color: colors.bone2 }}>Where people tell the truth about products.</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, color: colors.bone2 }}>Where people connect through real product experiences.</Text>
             </View>
             <BellButton />
           </View>

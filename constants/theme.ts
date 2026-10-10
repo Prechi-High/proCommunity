@@ -3,31 +3,36 @@ import { Platform, type ViewStyle } from 'react-native';
 import { BRAND_COPY } from './brand';
 
 /**
- * Unmask design tokens — ink, warm white, cobalt (see Unmask Brand Kit).
+ * Go-ahead mockup tokens — cream, ink, burgundy primary, gold accents.
  * Legacy names (`wine`, `lac`, `bone`, `hi`) keep existing screens swappable.
  */
 export const colors = {
-  wine: '#F6F4EF',
-  wineDeep: '#EDEAE4',
+  wine: '#FDFBF7',
+  wineDeep: '#F5F0E8',
   lac: '#FFFFFF',
-  lac2: '#F0EDE8',
+  lac2: '#F5F2ED',
   redact: '#161616',
   bone: '#161616',
   bone2: '#595959',
   bone3: '#8A8780',
-  line: '#DDDAD4',
+  line: '#E8E4DC',
   sage: '#236044',
   honey: '#7A4B00',
   coral: '#A52323',
-  hi: '#2457FF',
-  hiSoft: '#E9EEFF',
-  hiInk: '#1A3FCC',
+  brand: '#5C1620',
+  brandDeep: '#3D0F15',
+  gold: '#C9A227',
+  goldSoft: '#F5E9C8',
+  headerBg: '#5C1620',
+  hi: '#5C1620',
+  hiSoft: '#F3E8EA',
+  hiInk: '#3D0F15',
   stage: '#E8E5DF',
-  shell: '#F6F4EF',
+  shell: '#FDFBF7',
   ink: '#161616',
   inkSoft: '#595959',
-  rosewood: '#2457FF',
-  rosewoodSoft: '#E9EEFF',
+  rosewood: '#5C1620',
+  rosewoodSoft: '#F3E8EA',
   honeySoft: '#FFF6E8',
   honeyInk: '#7A4B00',
   honeyBadge: '#7A4B00',
@@ -38,27 +43,26 @@ export const colors = {
   white: '#FFFFFF',
   black: '#161616',
   webShell: '#E8E5DF',
-  mark: '#CFDCFF',
+  mark: '#F5E9C8',
   markInk: '#161616',
-  markDark: '#2457FF',
+  markDark: '#5C1620',
   markGood: '#D8EDE3',
   markGoodInk: '#236044',
   markBad: '#F5DEDE',
   markBadInk: '#A52323',
-  /** Unmask highlighter marker accent */
   marker: '#F2D25B',
   markerInk: '#161616',
   markerConcern: '#C45C4A',
 } as const;
 
 export const radii = {
-  card: 12,
-  button: 8,
+  card: 14,
+  button: 10,
   photo: 12,
   chip: 999,
   notice: 0,
   thumb: 12,
-  search: 12,
+  search: 14,
   ib: 12,
 } as const;
 
@@ -119,7 +123,7 @@ export const scrim = {
 } as const;
 
 export const scrimGradient = {
-  soft: ['rgba(246,244,239,0)', 'rgba(246,244,239,0.5)', 'rgba(246,244,239,0.96)'] as const,
+  soft: ['rgba(253,251,247,0)', 'rgba(253,251,247,0.5)', 'rgba(253,251,247,0.96)'] as const,
   strong: ['rgba(22,22,22,0)', 'rgba(22,22,22,0.28)', 'rgba(22,22,22,0.8)'] as const,
 } as const;
 
@@ -128,8 +132,8 @@ export const fonts = {
   medium: 'GeneralSans-Medium',
   semibold: 'GeneralSans-Semibold',
   bold: 'GeneralSans-Bold',
-  serif: 'GeneralSans-Semibold',
-  serifBold: 'GeneralSans-Bold',
+  serif: 'Boska-Medium',
+  serifBold: 'Boska-Bold',
 } as const;
 
 export const DISCLAIMER = BRAND_COPY.disclaimer;

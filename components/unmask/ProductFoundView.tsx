@@ -11,7 +11,8 @@ type Props = {
   profile: ProductProfile | null;
   onUnmask: () => void;
   onCompare: () => void;
-  onExplore: (section: 'scorecard' | 'reviews' | 'videos') => void;
+  onExplore: (section: 'overview' | 'evidence' | 'videos') => void;
+  onOpenPrices?: () => void;
 };
 
 function featureTiles(profile: ProductProfile | null) {
@@ -23,7 +24,7 @@ function featureTiles(profile: ProductProfile | null) {
   return praise.map((p) => ({ title: p.text.slice(0, 28), body: p.source ?? 'Owner reports' }));
 }
 
-export function ProductFoundView({ product, profile, onUnmask, onCompare, onExplore }: Props) {
+export function ProductFoundView({ product, profile, onUnmask, onCompare, onExplore, onOpenPrices }: Props) {
   const name = profile?.identity.name || product.name;
   const brand = profile?.identity.brand || product.brand;
   const variant = [profile?.identity.variant, profile?.identity.size].filter(Boolean).join(' · ');
@@ -41,7 +42,7 @@ export function ProductFoundView({ product, profile, onUnmask, onCompare, onExpl
       <View style={{ gap: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <View style={{ flex: 1, gap: 4 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 28, letterSpacing: -0.8, color: colors.bone }}>{name}</Text>
+            <Text style={{ fontFamily: fonts.serifBold, fontSize: 28, letterSpacing: -0.8, color: colors.bone }}>{name}</Text>
             {brand ? <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.bone2 }}>{brand}</Text> : null}
             {variant ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone3 }}>{variant}</Text> : null}
           </View>
@@ -79,7 +80,12 @@ export function ProductFoundView({ product, profile, onUnmask, onCompare, onExpl
       ) : null}
 
       <View style={{ gap: 10 }}>
-        <PrimaryButton label="Unmask this product" icon={MagnifyingGlass} tone="ink" onPress={onUnmask} />
+        <PrimaryButton label="Unmask this product →" icon={MagnifyingGlass} onPress={onUnmask} />
+        {onOpenPrices ? (
+          <Pressable onPress={onOpenPrices} style={{ alignItems: 'center', paddingVertical: 8 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.hi }}>Where to buy</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           onPress={onCompare}
           accessibilityRole="button"
@@ -106,8 +112,8 @@ export function ProductFoundView({ product, profile, onUnmask, onCompare, onExpl
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           {[
-            { id: 'scorecard' as const, label: 'Product scorecard', sub: 'Strengths & gaps', Icon: Sparkle },
-            { id: 'reviews' as const, label: 'Owner reviews', sub: 'Real experiences', Icon: Camera },
+            { id: 'overview' as const, label: 'Overview', sub: 'Score & verdict', Icon: Sparkle },
+            { id: 'evidence' as const, label: 'Evidence', sub: 'Real experiences', Icon: Camera },
             { id: 'videos' as const, label: 'Video evidence', sub: 'Tests & comparisons', Icon: DeviceMobile },
           ].map(({ id, label, sub, Icon }) => (
             <Pressable

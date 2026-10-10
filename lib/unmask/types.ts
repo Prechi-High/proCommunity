@@ -1,4 +1,4 @@
-export type UnmaskTab = 'scorecard' | 'highlights' | 'videos' | 'reviews' | 'ask';
+export type UnmaskTab = 'overview' | 'specs' | 'evidence' | 'videos' | 'ask';
 
 export type DimensionTone = 'positive' | 'mixed' | 'negative';
 

@@ -1,22 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
-import { PillTabs } from '@/components/community';
-import { OwnersPane } from '@/components/product/PeoplePanes';
+import { PrimaryButton } from '@/components/kit';
+
+import { SpecsPane } from '@/components/product/Panes';
 import { VideosPane } from '@/components/product/VideosPane';
 import { colors, fonts } from '@/constants/theme';
 import { deriveUnmaskBundle } from '@/lib/unmask/derive';
 import { investigationComplete } from '@/lib/unmask/investigationStages';
 import { hasUnmaskRevealed, markUnmaskRevealed } from '@/lib/unmask/revealSession';
 import type { UnmaskTab } from '@/lib/unmask/types';
+import type { Product, ProductProfile } from '@/lib/types';
 import type { JourneyClip } from '@/lib/videos';
-import type { Product } from '@/lib/types';
-import type { ProductProfile } from '@/lib/types';
 
 import { AskUnmaskTab } from './AskUnmaskTab';
 import { HighlightsTab } from './HighlightsTab';
 import { ProductFoundView } from './ProductFoundView';
-import { ReviewsTab } from './ReviewsTab';
 import { DimensionDetail, ScorecardTab } from './ScorecardTab';
 import { UnmaskingView } from './UnmaskingView';
 
@@ -31,18 +30,13 @@ type Props = {
   clipsLoading: boolean;
   clips: JourneyClip[];
   scanPhoto?: string | null;
+  tab: UnmaskTab;
+  onTabChange: (tab: UnmaskTab) => void;
   onCompare: () => void;
   onOpenSources: () => void;
   onAskCommunity: (question: string) => void;
+  onOpenPrices?: () => void;
 };
-
-const TABS: { id: UnmaskTab; label: string }[] = [
-  { id: 'scorecard', label: 'Scorecard' },
-  { id: 'highlights', label: 'Highlights' },
-  { id: 'videos', label: 'Videos' },
-  { id: 'reviews', label: 'Reviews' },
-  { id: 'ask', label: 'Ask' },
-];
 
 export function ProductUnmaskFlow({
   product,
@@ -53,18 +47,19 @@ export function ProductUnmaskFlow({
   clipsLoading,
   clips,
   scanPhoto,
+  tab,
+  onTabChange,
   onCompare,
   onOpenSources,
   onAskCommunity,
+  onOpenPrices,
 }: Props) {
   const [phase, setPhase] = useState<FlowPhase>(() => (hasUnmaskRevealed(product.id) ? 'unmasked' : 'found'));
-  const [tab, setTab] = useState<UnmaskTab>('scorecard');
   const [dimensionId, setDimensionId] = useState<string | null>(null);
 
   useEffect(() => {
     setPhase(hasUnmaskRevealed(product.id) ? 'unmasked' : 'found');
     setDimensionId(null);
-    setTab('scorecard');
   }, [product.id]);
 
   useEffect(() => {
@@ -78,27 +73,11 @@ export function ProductUnmaskFlow({
   const bundle = useMemo(() => (profile ? deriveUnmaskBundle(profile) : null), [profile]);
 
   const startUnmask = () => {
-    markUnmaskRevealed(product.id);
-    if (investigationComplete(intelLoading, profile)) setPhase('unmasked');
-    else setPhase('investigating');
+    if (investigationComplete(intelLoading, profile)) {
+      markUnmaskRevealed(product.id);
+      setPhase('unmasked');
+    } else setPhase('investigating');
   };
-
-  if (phase === 'found') {
-    return (
-      <ProductFoundView
-        product={product}
-        profile={profile}
-        onUnmask={startUnmask}
-        onCompare={onCompare}
-        onExplore={(section) => {
-          startUnmask();
-          if (section === 'videos') setTab('videos');
-          else if (section === 'reviews') setTab('reviews');
-          else setTab('scorecard');
-        }}
-      />
-    );
-  }
 
   if (phase === 'investigating') {
     if (intelError) {
@@ -124,60 +103,101 @@ export function ProductUnmaskFlow({
     );
   }
 
-  if (!profile || !bundle) {
+  if (phase === 'found' && tab !== 'overview' && tab !== 'specs') {
     return (
-      <View style={{ paddingVertical: 40 }}>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.bone2, textAlign: 'center' }}>
-          Still loading research…
+      <View style={{ gap: 16, paddingVertical: 24, alignItems: 'center' }}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.bone2, textAlign: 'center', lineHeight: 22 }}>
+          Unmask this product first to unlock {tab === 'ask' ? 'Ask' : tab.charAt(0).toUpperCase() + tab.slice(1)}.
         </Text>
+        <PrimaryButton label="Unmask this product →" onPress={startUnmask} style={{ alignSelf: 'stretch' }} />
       </View>
     );
   }
 
-  const pane = (() => {
-    if (dimensionId && tab === 'scorecard') {
+  if (tab === 'specs') {
+    if (!profile) {
       return (
-        <DimensionDetail profile={profile} bundle={bundle} dimensionId={dimensionId} onBack={() => setDimensionId(null)} />
+        <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+          <ActivityIndicator color={colors.hi} />
+        </View>
       );
     }
-    switch (tab) {
-      case 'scorecard':
-        return (
-          <ScorecardTab
-            profile={profile}
-            bundle={bundle}
-            onDimension={(id) => setDimensionId(id)}
-            onOpenSources={onOpenSources}
-          />
-        );
-      case 'highlights':
-        return <HighlightsTab bundle={bundle} onDimension={(id) => { setTab('scorecard'); setDimensionId(id); }} />;
-      case 'videos':
-        return (
-          <VideosPane
-            product={{ id: product.id, name: profile.identity.name || product.name, brand: product.brand, category: product.category }}
-            clips={clips}
-            loading={clipsLoading}
-          />
-        );
-      case 'reviews':
-        return profile.voices?.length ? <ReviewsTab profile={profile} /> : <OwnersPane profile={profile} />;
-      case 'ask':
-        return <AskUnmaskTab profile={profile} bundle={bundle} onAskCommunity={onAskCommunity} />;
-    }
-  })();
+    return <SpecsPane profile={profile} onAlternative={() => {}} />;
+  }
 
-  return (
-    <View style={{ gap: 12 }}>
-      <PillTabs
-        options={TABS.map((t) => ({ id: t.id, label: t.label }))}
-        value={tab}
-        onChange={(id) => {
-          setTab(id as UnmaskTab);
-          setDimensionId(null);
+  if (tab === 'videos') {
+    return (
+      <VideosPane
+        product={{ id: product.id, name: profile?.identity.name || product.name, brand: product.brand, category: product.category }}
+        clips={clips}
+        loading={clipsLoading}
+      />
+    );
+  }
+
+  if (tab === 'ask') {
+    if (!profile || !bundle) {
+      return (
+        <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+          <ActivityIndicator color={colors.hi} />
+        </View>
+      );
+    }
+    return <AskUnmaskTab profile={profile} bundle={bundle} onAskCommunity={onAskCommunity} />;
+  }
+
+  if (tab === 'evidence') {
+    if (!profile || !bundle) {
+      return (
+        <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+          <ActivityIndicator color={colors.hi} />
+        </View>
+      );
+    }
+    if (dimensionId) {
+      return <DimensionDetail profile={profile} bundle={bundle} dimensionId={dimensionId} onBack={() => setDimensionId(null)} />;
+    }
+    return (
+      <ScorecardTab
+        profile={profile}
+        bundle={bundle}
+        onDimension={(id) => setDimensionId(id)}
+        onOpenSources={onOpenSources}
+        mode="evidence"
+      />
+    );
+  }
+
+  if (phase === 'found' || !profile || !bundle) {
+    return (
+      <ProductFoundView
+        product={product}
+        profile={profile}
+        onUnmask={startUnmask}
+        onCompare={onCompare}
+        onOpenPrices={onOpenPrices}
+        onExplore={(section) => {
+          if (section === 'videos') onTabChange('videos');
+          else if (section === 'evidence') onTabChange('evidence');
+          else onTabChange('overview');
         }}
       />
-      <View style={{ paddingBottom: 8 }}>{pane}</View>
+    );
+  }
+
+  return (
+    <View style={{ gap: 16 }}>
+      <ScorecardTab
+        profile={profile}
+        bundle={bundle}
+        onDimension={(id) => {
+          onTabChange('evidence');
+          setDimensionId(id);
+        }}
+        onOpenSources={onOpenSources}
+        mode="overview"
+      />
+      <HighlightsTab bundle={bundle} onDimension={(id) => { onTabChange('evidence'); setDimensionId(id); }} />
     </View>
   );
 }

@@ -1,75 +1,40 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter, type Href } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { AvatarStack, SectionHead, ThreadCard, TrendingCard } from '@/components/community';
+import { Wordmark, BrandTagline } from '@/components/brand/Wordmark';
+import { SectionHead, ThreadCard, TrendingCard } from '@/components/community';
+import { Bell, CaretRight } from '@/components/icons';
 import { Screen } from '@/components/Screen';
-import { ArrowsLeftRight, Clock, Fire, Scan } from '@/components/icons';
-import { Logo } from '@/components/brand/Logo';
-import { Eyebrow, PrimaryButton, ProductImage, SearchBar, Shimmer, Tile } from '@/components/kit';
-import { BRAND_COPY } from '@/constants/brand';
-import { colors, fonts } from '@/constants/theme';
-import { fetchPulse, nicheLabel, nicheOf, timeAgo, type NicheId } from '@/lib/community';
-import { hapticSelect, hapticTap } from '@/lib/haptics';
-import { displayName, getKnownProduct, rememberProduct } from '@/lib/products';
+import { SearchBar, Shimmer } from '@/components/kit';
+import { colors, fonts, radii } from '@/constants/theme';
+import { fetchPulse, NICHES } from '@/lib/community';
+import { rememberProduct } from '@/lib/products';
 import { useAppStore } from '@/lib/store';
-import type { OwnershipNote, TrendingProduct } from '@/lib/types';
+import type { TrendingProduct } from '@/lib/types';
 import { useScan } from '@/lib/useScan';
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-
-const TRY = ['AirPods Pro 2', 'Anker 20W charger', 'Nike Pegasus 41', 'Ninja blender', 'PS5 controller', 'Kindle Paperwhite'];
-
-const SUBLINES = [
-  BRAND_COPY.positioning,
-  'Connect product facts, sources and real experience before you spend.',
-  'See what owners report — not just what the brand claims.',
-  'Evidence when we have it; honesty when we do not.',
-];
-
-const HINTS = [
-  BRAND_COPY.searchPrompt,
-  'Try “AirPods Pro 2”',
-  'Try “Ninja air fryer”',
-  'Try “Nike Pegasus 41”',
-  'Or unmask it with a photo →',
+const STEPS = [
+  { n: 1, title: 'Choose a category', body: 'Tech, beauty, home & more' },
+  { n: 2, title: 'Search or snap', body: 'Type a product or use your camera' },
+  { n: 3, title: 'Unmask the product', body: 'See scores, evidence & owner truth' },
 ];
 
 export default function HomeScreen() {
   const router = useRouter();
   const [query, setQuery] = useState('');
-  const [niche, setNiche] = useState<NicheId | 'all'>('all');
   const history = useAppStore((s) => s.searchHistory);
-  const recentIds = useAppStore((s) => s.recentProductIds);
-  const profile = useAppStore((s) => s.profile);
-  useAppStore((s) => s.knownProducts);
-  const addSearch = useAppStore((s) => s.addSearch);
   const scan = useScan();
-  const [hint, setHint] = useState(0);
-  useEffect(() => {
-    if (query) return;
-    const t = setInterval(() => setHint((h) => (h + 1) % HINTS.length), 3200);
-    return () => clearInterval(t);
-  }, [query]);
-
   const pulse = useQuery({ queryKey: ['pulse'], queryFn: () => fetchPulse(), staleTime: 60_000 });
   const trending = pulse.data?.trending ?? [];
-  const niches = useMemo(() => {
-    const seen = new Set<NicheId>();
-    trending.forEach((t) => seen.add(nicheOf(t.category)));
-    return [...seen];
-  }, [trending]);
-  const shown = niche === 'all' ? trending : trending.filter((t) => nicheOf(t.category) === niche);
-  const threads = (pulse.data?.threads ?? []).slice(0, 4);
-  const notes = (pulse.data?.notes ?? []).slice(0, 4);
-  const stats = pulse.data?.stats;
-  const faces = [...new Set(threads.map((t) => t.author_name))].map((name) => ({ name }));
+  const threads = (pulse.data?.threads ?? []).slice(0, 3);
+  const compares = (pulse.data?.threads ?? []).filter((t) => t.kind === 'compare').slice(0, 2);
 
   const go = (q: string) => {
     const trimmed = q.trim();
     if (!trimmed) return;
-    addSearch(trimmed);
+    useAppStore.getState().addSearch(trimmed);
     router.push({ pathname: '/results', params: { q: trimmed } } as Href);
   };
 
@@ -78,293 +43,151 @@ export default function HomeScreen() {
     router.push({ pathname: '/product/[id]', params: { id: t.id, q: t.name } } as Href);
   };
 
-  const recent = recentIds.map((id) => getKnownProduct(id)).filter(Boolean).slice(0, 8);
-  const chips = history.length ? history.slice(0, 6).map((h) => h.query) : TRY;
+  const searchCategory = (label: string) => go(label);
 
   return (
     <Screen>
-      <View style={{ paddingTop: 18, gap: 22 }}>
-        <View style={{ gap: 10 }}>
-          <Logo variant="fullTagline" height={56} />
-          <Eyebrow color={colors.hi}>{profile ? `Welcome back, ${profile.displayName.split(' ')[0]}` : BRAND_COPY.searchPrompt}</Eyebrow>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 34, letterSpacing: -1, lineHeight: 38, color: colors.bone }}>
-            See beyond the sales pitch.
-          </Text>
-          <AnimatedSubtext lines={SUBLINES} />
-        </View>
-
-        <View style={{ width: '100%', maxWidth: '100%', gap: 10 }}>
-          <SearchBar
-            value={query}
-            onChangeText={setQuery}
-            onSubmit={() => go(query)}
-            onScan={scan.openCamera}
-            busy={scan.busy}
-            placeholder={HINTS[hint]}
-            animateScan
-          />
-          <PrimaryButton label="Search" onPress={() => go(query)} disabled={!query.trim()} />
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Pressable
-              onPress={() => {
-                hapticTap();
-                scan.openCamera();
-              }}
-              style={{ flex: 1, minHeight: 44, borderRadius: 8, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.lac, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>Take photo</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                hapticTap();
-                scan.openUpload();
-              }}
-              style={{ flex: 1, minHeight: 44, borderRadius: 8, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.lac, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>Upload photo</Text>
-            </Pressable>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 32, gap: 28 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <View style={{ gap: 4 }}>
+            <Wordmark height={36} />
+            <BrandTagline />
           </View>
+          <Pressable
+            onPress={() => router.push('/notifications' as Href)}
+            hitSlop={12}
+            style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.lac, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Bell size={22} color={colors.bone} weight="bold" />
+            <View style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.hi }} />
+          </Pressable>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: -8 }}>
-          <AvatarStack people={faces.length >= 3 ? faces : [{ name: 'Ada N' }, { name: 'Kofi B' }, { name: 'Sam R' }, { name: 'Lina M' }]} size={24} max={4} ring={colors.wine} />
-          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 17, color: colors.bone2 }}>
-            {stats && (stats.questionsAsked || stats.productsResearched)
-              ? `${plural(stats.productsResearched, 'product')} researched · ${plural(stats.questionsAsked, 'question')} asked this week`
-              : 'Every answer here comes from people who used the product.'}
+        <View style={{ gap: 10 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, letterSpacing: 1.2, color: colors.hi, textTransform: 'uppercase' }}>
+            Research. Compare. Unmask.
+          </Text>
+          <Text style={{ fontFamily: fonts.serifBold, fontSize: 32, lineHeight: 36, letterSpacing: -0.8, color: colors.bone }}>
+            Unmask what you&apos;re about to buy.
+          </Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.bone2 }}>
+            Real product facts, real experiences, real people.
           </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Tile tone="ink" onPress={scan.start} style={{ flex: 1, padding: 16, gap: 12, minHeight: 132 }}>
-            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.hi, alignItems: 'center', justifyContent: 'center' }}>
-              <Scan size={22} color={colors.white} weight="bold" />
+        <SearchBar
+          value={query}
+          onChangeText={setQuery}
+          onSubmit={() => go(query)}
+          onScan={scan.start}
+          busy={scan.busy}
+          placeholder="Search products, brands or questions…"
+        />
+
+        <View style={{ borderRadius: radii.card, backgroundColor: colors.hiSoft, padding: 16, gap: 14 }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.hiInk }}>3 simple steps to unmask any product</Text>
+          {STEPS.map((s) => (
+            <View key={s.n} style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+              <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.hi, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.white }}>{s.n}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone }}>{s.title}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone2 }}>{s.body}</Text>
+              </View>
             </View>
-            <View style={{ gap: 2 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.white, letterSpacing: -0.3 }}>{BRAND_COPY.homeAction}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 16, color: 'rgba(255,255,255,0.66)' }}>
-                Seen it somewhere? Find out what it is.
-              </Text>
-            </View>
-          </Tile>
-          <Tile onPress={() => router.push('/compare' as Href)} style={{ flex: 1, padding: 16, gap: 12, minHeight: 132, backgroundColor: colors.hiSoft }}>
-            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.hi, alignItems: 'center', justifyContent: 'center' }}>
-              <ArrowsLeftRight size={22} color={colors.white} weight="bold" />
-            </View>
-            <View style={{ gap: 2 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.hiInk, letterSpacing: -0.3 }}>Compare two</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 16, color: colors.hiInk, opacity: 0.8 }}>
-                Torn between them? Ask owners of both.
-              </Text>
-            </View>
-          </Tile>
+          ))}
         </View>
 
         <View style={{ gap: 12 }}>
-          <View style={{ gap: 4 }}>
-            <SectionHead
-              title="Trending searches"
-              icon={<Fire size={20} color={colors.coral} weight="fill" />}
-              action="Explore"
-              onAction={() => router.push('/pulse' as Href)}
-            />
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 18, color: colors.bone2 }}>
-              What people on Unmask are searching for right now.
-            </Text>
+          <SectionHead title="Choose what you want to unmask" action="See all" onAction={() => router.push('/pulse' as Href)} />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {NICHES.slice(0, 8).map((n) => (
+              <Pressable
+                key={n.id}
+                onPress={() => searchCategory(n.label)}
+                style={{
+                  width: '47%',
+                  flexGrow: 1,
+                  backgroundColor: colors.lac,
+                  borderRadius: radii.card,
+                  padding: 14,
+                  gap: 6,
+                  borderWidth: 1,
+                  borderColor: colors.line,
+                }}
+              >
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.bone }}>{n.label}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone2 }} numberOfLines={2}>
+                  Explore {n.label.toLowerCase()} products
+                </Text>
+                <CaretRight size={16} color={colors.hi} weight="bold" />
+              </Pressable>
+            ))}
           </View>
-          {niches.length > 1 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-              {(['all', ...niches] as const).map((n) => {
-                const on = n === niche;
-                return (
-                  <Pressable
-                    key={n}
-                    onPress={() => {
-                      hapticSelect();
-                      setNiche(n);
-                    }}
-                    style={{ paddingHorizontal: 13, height: 32, borderRadius: 999, justifyContent: 'center', backgroundColor: on ? colors.black : colors.lac, borderWidth: on ? 0 : 1, borderColor: colors.line }}
-                  >
-                    <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: on ? colors.white : colors.bone }}>{n === 'all' ? 'All' : nicheLabel(n)}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          ) : null}
+        </View>
+
+        <View style={{ gap: 12 }}>
+          <SectionHead title="What people are unmasking" />
           {pulse.isLoading ? (
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <Shimmer height={190} width={148} radius={20} />
               <Shimmer height={190} width={148} radius={20} />
             </View>
-          ) : shown.length ? (
+          ) : trending.length ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 20 }}>
-              {shown.slice(0, 10).map((t, i) => (
+              {trending.slice(0, 8).map((t, i) => (
                 <TrendingCard key={t.id} item={t} rank={i + 1} onPress={() => openTrending(t)} />
               ))}
             </ScrollView>
           ) : (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>Search something — you’ll help set what people look for next.</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>Search something to get started.</Text>
           )}
         </View>
 
+        {compares.length ? (
+          <View style={{ gap: 12 }}>
+            <SectionHead title="Unmask side-by-side" />
+            {compares.map((t) => (
+              <Pressable
+                key={t.id}
+                onPress={() => router.push({ pathname: '/thread/[id]', params: { id: t.id } } as Href)}
+                style={{ backgroundColor: colors.lac, borderRadius: radii.card, padding: 14, borderWidth: 1, borderColor: colors.line }}
+              >
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>{t.title}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone2, marginTop: 4 }}>{t.reply_count} replies</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
         {threads.length ? (
           <View style={{ gap: 12 }}>
-            <SectionHead title="People are asking" action="See all" onAction={() => router.push('/pulse' as Href)} />
+            <SectionHead title="From Pulse" action="See all" onAction={() => router.push('/pulse' as Href)} />
             {threads.map((t) => (
               <ThreadCard key={t.id} thread={t} showProduct onPress={() => router.push({ pathname: '/thread/[id]', params: { id: t.id } } as Href)} />
             ))}
           </View>
         ) : null}
 
-        {notes.length ? (
-          <View style={{ gap: 12 }}>
-            <SectionHead title="Fresh from verified shelves" action="Pulse" onAction={() => router.push('/pulse' as Href)} />
-            {notes.map((n) => (
-              <OwnershipNotePreview
-                key={n.id}
-                note={n}
-                onPress={() => router.push({ pathname: '/product/[id]', params: { id: n.product_id, q: n.product_name } } as Href)}
-              />
-            ))}
-          </View>
-        ) : null}
-
-        <View style={{ gap: 10 }}>
-          <Eyebrow>{history.length ? 'Your recent searches' : 'Curious? Try'}</Eyebrow>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {chips.map((c) => (
-              <Pressable
-                key={c}
-                onPress={() => {
-                  hapticTap();
-                  go(c);
-                }}
-                style={({ pressed }) => ({
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  backgroundColor: colors.lac,
-                  borderRadius: 999,
-                  paddingHorizontal: 14,
-                  paddingVertical: 9,
-                  opacity: pressed ? 0.6 : 1,
-                })}
-              >
-                {history.length ? <Clock size={13} color={colors.bone3} weight="bold" /> : null}
-                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.bone }}>{c}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {recent.length ? (
-          <View style={{ gap: 10 }}>
-            <Eyebrow>Recently viewed</Eyebrow>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 20 }}>
-              {recent.map((p) => (
+        {history.length ? (
+          <View style={{ gap: 8 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.bone3, textTransform: 'uppercase' }}>Recent searches</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {history.slice(0, 6).map((h) => (
                 <Pressable
-                  key={p!.id}
-                  onPress={() => router.push({ pathname: '/product/[id]', params: { id: p!.id } } as Href)}
-                  style={{ width: 116, gap: 8 }}
+                  key={h.query}
+                  onPress={() => go(h.query)}
+                  style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.lac, borderWidth: 1, borderColor: colors.line }}
                 >
-                  <ProductImage uri={p!.heroImageUrl} category={p!.category} size={116} radius={18} />
-                  <Text numberOfLines={2} style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.bone, lineHeight: 17 }}>
-                    {displayName(p!)}
-                  </Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.bone }}>{h.query}</Text>
                 </Pressable>
               ))}
-            </ScrollView>
+            </View>
           </View>
         ) : null}
-      </View>
-
-      <ScanOverlay visible={scan.busy} preview={scan.preview} />
+      </ScrollView>
       {scan.sheet}
     </Screen>
-  );
-}
-
-function ScanOverlay({ visible, preview }: { visible: boolean; preview: string | null }) {
-  return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.88)', alignItems: 'center', justifyContent: 'center', padding: 32, gap: 26 }}>
-        {preview ? (
-          <Image source={{ uri: preview }} style={{ width: 220, height: 220, borderRadius: 28 }} resizeMode="cover" />
-        ) : null}
-        <View style={{ alignItems: 'center', gap: 10 }}>
-          <ActivityIndicator color={colors.white} />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.white, letterSpacing: -0.3 }}>Identifying product</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 20 }}>
-            Reading the label, logo and model — then we’ll find what owners say about it.
-          </Text>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-function AnimatedSubtext({ lines }: { lines: string[] }) {
-  const [index, setIndex] = useState(0);
-  const fade = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    const t = setInterval(() => {
-      Animated.sequence([
-        Animated.timing(fade, { toValue: 0, duration: 180, useNativeDriver: true }),
-        Animated.timing(fade, { toValue: 1, duration: 260, useNativeDriver: true }),
-      ]).start();
-      setIndex((i) => (i + 1) % lines.length);
-    }, 3600);
-    return () => clearInterval(t);
-  }, [fade, lines.length]);
-  return (
-    <Animated.Text style={{ opacity: fade, fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 21, color: colors.bone2 }}>
-      {lines[index]}
-    </Animated.Text>
-  );
-}
-
-function OwnershipNotePreview({ note, onPress }: { note: OwnershipNote; onPress: () => void }) {
-  const chips = [
-    note.used_duration ? `Used ${note.used_duration}` : '',
-    note.times_bought ? `${note.times_bought}x bought/used` : '',
-    note.time_to_problem ? `Problem after ${note.time_to_problem}` : '',
-    note.time_to_results ? `Results after ${note.time_to_results}` : '',
-  ].filter(Boolean);
-  return (
-    <Pressable
-      onPress={() => {
-        hapticTap();
-        onPress();
-      }}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        gap: 12,
-        backgroundColor: colors.lac,
-        borderRadius: 18,
-        padding: 12,
-        opacity: pressed ? 0.85 : 1,
-      })}
-    >
-      <ProductImage uri={note.product_image} category={note.category ?? ''} size={52} radius={13} />
-      <View style={{ flex: 1, gap: 5 }}>
-        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-          <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 12.5, color: colors.hiInk }}>
-            {note.author_name} added an Ownership Note
-          </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.bone3 }}>{timeAgo(note.created_at)}</Text>
-        </View>
-        <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.bone3 }}>{note.product_name}</Text>
-        <Text numberOfLines={2} style={{ fontFamily: fonts.bold, fontSize: 15, lineHeight: 19, color: colors.bone }}>{note.title}</Text>
-        {chips.length ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
-            {chips.slice(0, 2).map((c) => (
-              <View key={c} style={{ backgroundColor: colors.hiSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.hiInk }}>{c}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-      </View>
-    </Pressable>
   );
 }

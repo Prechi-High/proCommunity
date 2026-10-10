@@ -7,7 +7,6 @@ import { useEffect, type ReactNode } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { BrandIntroGate } from '@/components/brand/BrandIntroGate';
 import { WebShell } from '@/components/Screen';
 import { colors } from '@/constants/theme';
 import { startAuth } from '@/lib/auth';
@@ -52,6 +51,8 @@ function RootLayout() {
     'GeneralSans-Medium': require('../assets/fonts/GeneralSans-Medium.ttf'),
     'GeneralSans-Semibold': require('../assets/fonts/GeneralSans-Semibold.ttf'),
     'GeneralSans-Bold': require('../assets/fonts/GeneralSans-Bold.ttf'),
+    'Boska-Medium': require('../assets/fonts/Boska-Medium.ttf'),
+    'Boska-Bold': require('../assets/fonts/Boska-Bold.ttf'),
   });
   const setHydrated = useAppStore((state) => state.setHydrated);
   const persistHydrated = useAppStore((state) => state.hydrated);
@@ -79,7 +80,6 @@ function RootLayout() {
         <ObservabilityProvider>
           <WebShell>
             <AuthGate>
-              <BrandIntroGate>
               <View style={{ flex: 1 }}>
               <Stack
                 screenOptions={{
@@ -103,7 +103,6 @@ function RootLayout() {
                 <Stack.Screen name="admin/index" />
               </Stack>
               </View>
-              </BrandIntroGate>
             </AuthGate>
           </WebShell>
         </ObservabilityProvider>

@@ -3,15 +3,12 @@ import { useRouter, type Href } from 'expo-router';
 import { createElement, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { ResearchOverlay } from '@/components/brand/ResearchOverlay';
 import { FocusCorners } from '@/components/brand/FocusCorners';
 import { ArrowsLeftRight, Camera, CameraRotate, CaretRight, Check, UploadSimple, X } from '@/components/icons';
 import { PrimaryButton, ProductImage } from '@/components/kit';
 import { colors, fonts } from '@/constants/theme';
 
 import { hapticHeavy, hapticSelect, hapticSuccess, hapticTap } from './haptics';
-import { stageForPhotoIdentify } from './research/overlayStages';
-import { useResearchElapsed } from './research/useResearchElapsed';
 import { extractProductFromPhoto, visionErrorCopy, type DetectedProduct, type VisionAsset, type VisionResult } from './productVision';
 import { rememberProduct, slugify } from './products';
 import { useAppStore } from './store';
@@ -49,9 +46,6 @@ export function useScan() {
   const [webCamera, setWebCamera] = useState(false);
   const [multi, setMulti] = useState<MultiScan | null>(null);
   const [pendingReview, setPendingReview] = useState<VisionAsset | null>(null);
-  const identifyElapsed = useResearchElapsed(stage !== 'idle');
-  const identifyStage = stageForPhotoIdentify(identifyElapsed);
-
   const photoFor = (asset: VisionAsset, vision: VisionResult) =>
     vision.imageUrl || (asset.uri.startsWith('data:') && asset.uri.length > 400_000 ? '' : asset.uri);
 
@@ -202,7 +196,6 @@ export function useScan() {
       {pendingReview ? (
         <PhotoReviewModal asset={pendingReview} onBack={() => setPendingReview(null)} onRetake={() => setPendingReview(null)} onUse={() => void confirmReview()} />
       ) : null}
-      <ResearchOverlay visible={stage !== 'idle'} stage={identifyStage} photoUri={preview} onCancel={() => { setStage('idle'); setPreview(null); }} />
       {multi ? (
         <MultiPickSheet
           scan={multi}

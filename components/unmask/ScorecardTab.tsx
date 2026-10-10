@@ -15,30 +15,39 @@ type Props = {
   bundle: UnmaskBundle;
   onDimension: (id: string) => void;
   onOpenSources: () => void;
+  mode?: 'overview' | 'evidence';
 };
 
-export function ScorecardTab({ profile, bundle, onDimension, onOpenSources }: Props) {
+export function ScorecardTab({ profile, bundle, onDimension, onOpenSources, mode = 'overview' }: Props) {
   const strengths = bundle.dimensions.filter((d) => d.score !== null && d.score >= 75).slice(0, 3);
   const weaknesses = bundle.dimensions.filter((d) => d.score !== null && d.score < 65).slice(0, 3);
 
   return (
     <View style={{ gap: 24 }}>
-      <Tile style={{ gap: 16, padding: 18 }}>
-        <UnmaskedBadge />
-        <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
-          <ScoreRing score={bundle.overallScore} size={108} />
-          <View style={{ flex: 1, gap: 6 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 18, letterSpacing: -0.3, color: colors.bone }}>The verdict</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone2 }}>{bundle.verdictLine}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>
-              Based on {bundle.experienceCount || 'available'} owner experiences
-              {bundle.discussionCount ? ` · ${bundle.discussionCount} themes` : ''}
-            </Text>
+      {mode === 'overview' ? (
+        <Tile style={{ gap: 16, padding: 18 }}>
+          <UnmaskedBadge />
+          <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
+            <ScoreRing score={bundle.overallScore} size={108} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={{ fontFamily: fonts.serifBold, fontSize: 20, letterSpacing: -0.3, color: colors.bone }}>
+                {bundle.overallScore !== null ? `${bundle.overallScore} / 100` : 'Unmask score'}
+              </Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone2 }}>{bundle.verdictLine}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>
+                Based on {bundle.experienceCount || 'available'} owner experiences
+                {bundle.discussionCount ? ` · ${bundle.discussionCount} themes` : ''}
+              </Text>
+            </View>
           </View>
-        </View>
-      </Tile>
+        </Tile>
+      ) : (
+        <SectionTitle title="Evidence by area" subtitle="Tap a dimension to see sentiment and owner quotes" />
+      )}
 
-      <SectionTitle title="Product scorecard" subtitle="How owners say it performs in key areas" />
+      {mode === 'overview' ? (
+        <SectionTitle title="Score breakdown" subtitle="How owners say it performs in key areas" />
+      ) : null}
 
       <View style={{ gap: 10 }}>
         {bundle.dimensions.map((dim) => (

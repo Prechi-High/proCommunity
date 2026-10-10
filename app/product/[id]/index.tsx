@@ -1,50 +1,43 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PillTabs, useMemberGate } from '@/components/community';
-import { ArrowClockwise, ArrowLeft, ArrowsLeftRight, BookmarkSimple, CaretRight, ChatsCircle, Files, SealCheck, ShareNetwork } from '@/components/icons';
-import { useVerifyOwner } from '@/components/VerifyOwner';
-import { Eyebrow, PrimaryButton, ProductImage } from '@/components/kit';
+import { useMemberGate } from '@/components/community';
+import { ProductScreenChrome } from '@/components/shell/ProductScreenChrome';
+import { ProductSubTabs } from '@/components/shell/ProductSubTabs';
 import { ProductUnmaskFlow } from '@/components/unmask/ProductUnmaskFlow';
-import { InvestigatingState, openLink, PricesPane, SourcesSheet, SpecsPane } from '@/components/product/Panes';
-import { galleryFor, GalleryStrip, MatchesSheet, ScanBanner, VariantChips } from '@/components/product/Gallery';
+import { InvestigatingState, PricesPane, SourcesSheet } from '@/components/product/Panes';
+import { galleryFor, MatchesSheet, ScanBanner } from '@/components/product/Gallery';
 import { Lightbox } from '@/components/Lightbox';
 import { useOwnershipNote } from '@/components/OwnershipNote';
-import { DiscussPane } from '@/components/product/PeoplePanes';
-import { BRAND_SECTIONS } from '@/constants/brand';
+import { useVerifyOwner } from '@/components/VerifyOwner';
+import { SealCheck } from '@/components/icons';
 import { colors, fonts } from '@/constants/theme';
 import { routeId } from '@/lib/catalog';
-import { fetchRoom, fetchThreads, postThread, trackProduct } from '@/lib/community';
+import { fetchRoom, trackProduct } from '@/lib/community';
 import { useOwnsProduct } from '@/lib/owners';
 import { hapticSuccess, hapticTap } from '@/lib/haptics';
-import { displayName, formatPrice, getKnownProduct, investigateProduct, profileToProduct, rememberProduct, slugify } from '@/lib/products';
-import { research } from '@/lib/research';
+import { displayName, getKnownProduct, investigateProduct, profileToProduct, rememberProduct, slugify } from '@/lib/products';
 import { useAppStore } from '@/lib/store';
-import type { ThreadKind } from '@/lib/types';
+import type { UnmaskTab } from '@/lib/unmask/types';
 import { loadProductClips } from '@/lib/videos';
-
-type Tab = 'unmask' | 'discuss' | 'specs' | 'prices';
 
 export default function ProductScreen() {
   const router = useRouter();
-  const qc = useQueryClient();
   const params = useLocalSearchParams<{ id: string; q?: string; tab?: string }>();
   const id = routeId(params.id);
   const q = typeof params.q === 'string' ? params.q : undefined;
-  const [tab, setTab] = useState<Tab>(params.tab === 'discuss' ? 'discuss' : 'unmask');
-  const [communityDraft, setCommunityDraft] = useState('');
+  const [tab, setTab] = useState<UnmaskTab>('overview');
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [pricesOpen, setPricesOpen] = useState(false);
   const [viewing, setViewing] = useState<number | null>(null);
   const [matchesOpen, setMatchesOpen] = useState(false);
   const scan = useAppStore((s) => s.scans[id]);
-  const [draft, setDraft] = useState<{ kind: Exclude<ThreadKind, 'compare'>; title: string }>({ kind: 'question', title: '' });
   const favorites = useAppStore((s) => s.favorites);
   const toggleFavorite = useAppStore((s) => s.toggleFavorite);
   const addRecent = useAppStore((s) => s.addRecentProduct);
-  useAppStore((s) => s.knownProducts[id]);
   const known = getKnownProduct(id);
   const saved = favorites.some((f) => f.productId === id);
   const { requireMember, gate } = useMemberGate();
@@ -70,13 +63,6 @@ export default function ProductScreen() {
   const myId = useAppStore((s) => s.profile?.id);
   const room = useQuery({ queryKey: ['room', id], queryFn: () => fetchRoom(id), enabled: Boolean(id), staleTime: 60_000 });
 
-  const threads = useQuery({
-    queryKey: ['threads', id],
-    queryFn: () => fetchThreads(id),
-    enabled: Boolean(id),
-    staleTime: 30_000,
-  });
-
   const clips = useQuery({
     queryKey: ['clips', id],
     queryFn: () =>
@@ -96,272 +82,111 @@ export default function ProductScreen() {
     trackProduct(profileToProduct(profile, product), 'view');
   }, [profile, product]);
 
-  const fade = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    fade.setValue(0);
-    Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
-  }, [tab, profile, fade]);
-
   const image = product?.heroImageUrl || profile?.images[0] || null;
-  const lowest = profile?.offers.find((o) => o.price) ?? null;
   const brand = profile?.identity.brand || product?.brand || '';
   const category = profile?.identity.category || product?.category || '';
   const currentProduct = profile ? profileToProduct(profile, product) : { id, name, brand, category, heroImageUrl: image };
   const verify = useVerifyOwner({ onVerified: () => note.start(currentProduct) });
-  const threadList = threads.data ?? [];
   const photos = useMemo(() => galleryFor(profile, scan, image), [profile, scan, image]);
 
-  const post = useMutation({
-    mutationFn: () =>
-      postThread({
-        product: profile ? profileToProduct(profile, product) : { id, name, brand, category, heroImageUrl: image },
-        kind: draft.kind,
-        title: draft.title.trim(),
-      }),
-    onSuccess: (thread) => {
-      hapticSuccess();
-      setDraft({ kind: 'question', title: '' });
-      void qc.invalidateQueries({ queryKey: ['threads', id] });
-      void qc.invalidateQueries({ queryKey: ['pulse'] });
-      router.push({ pathname: '/thread/[id]', params: { id: thread.id } } as Href);
-    },
-  });
-
-  const makeCard = useMutation({
-    mutationFn: () => research.create({ productId: id, name: name || id, brand, category, image }),
-    onSuccess: ({ card }) => {
-      hapticSuccess();
-      void qc.invalidateQueries({ queryKey: ['research', 'list'] });
-      router.push({ pathname: '/research/[id]', params: { id: card.id } } as unknown as Href);
-    },
-  });
-
-  const openAlternative = (altName: string) => {
-    const altId = slugify(altName);
-    rememberProduct({ id: altId, name: altName, brand: '', category: category || 'Product' });
-    router.push({ pathname: '/product/[id]', params: { id: altId, q: altName } } as Href);
+  const onAskCommunity = (question: string) => {
+    requireMember(() => {
+      router.push({
+        pathname: '/product/[id]/ask-community',
+        params: { id, q: question },
+      } as unknown as Href);
+    });
   };
 
-  const go = (t: Tab) => {
+  const changeTab = (t: UnmaskTab) => {
     setTab(t);
     scroller.current?.scrollTo({ y: 0, animated: false });
   };
 
-  const tabs = [
-    { id: 'unmask' as const, label: 'Unmask' },
-    { id: 'discuss' as const, label: 'Community', count: threadList.length || undefined },
-    { id: 'specs' as const, label: 'Specs' },
-    { id: 'prices' as const, label: BRAND_SECTIONS.whereToBuy },
-  ];
-
-  const discussDraft = communityDraft ? { kind: 'question' as const, title: communityDraft } : draft;
-
-  const pane = useMemo(() => {
-    if (!profile && tab !== 'unmask') return null;
-    const currentProduct = profile
-      ? profileToProduct(profile, product)
-      : { id, name, brand, category, heroImageUrl: image };
-    switch (tab) {
-      case 'unmask':
-        return (
-          <ProductUnmaskFlow
-            product={currentProduct}
-            profile={profile}
-            intelLoading={intel.isLoading}
-            intelError={intel.isError}
-            onRetryIntel={() => void intel.refetch()}
-            clipsLoading={clips.isLoading}
-            clips={clips.data ?? []}
-            scanPhoto={scan?.photo}
-            onCompare={() => {
-              if (profile) trackProduct(profileToProduct(profile, product), 'compare');
-              router.push({ pathname: '/compare', params: { a: id } } as Href);
-            }}
-            onOpenSources={() => setSourcesOpen(true)}
-            onAskCommunity={(question) => {
-              setCommunityDraft(question);
-              setDraft({ kind: 'question', title: question });
-              setTab('discuss');
-            }}
-          />
-        );
-      case 'discuss':
-        if (!profile) return null;
-        return (
-          <DiscussPane
-            profile={profile}
-            productId={id}
-            threads={threadList}
-            loading={threads.isLoading}
-            draft={discussDraft}
-            onDraft={(d) => {
-              setDraft(d);
-              setCommunityDraft(d.title);
-            }}
-            posting={post.isPending}
-            onPost={() => requireMember(() => post.mutate())}
-            onOpenThread={(tid) => router.push({ pathname: '/thread/[id]', params: { id: tid } } as Href)}
-          />
-        );
-      case 'specs':
-        return profile ? <SpecsPane profile={profile} onAlternative={openAlternative} /> : null;
-      case 'prices':
-        return profile ? <PricesPane profile={profile} /> : null;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, profile, clips.data, clips.isLoading, threadList, threads.isLoading, draft, post.isPending, photos, scan, communityDraft, intel.isLoading]);
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.wine }} edges={['top', 'bottom']}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8, gap: 10 }}>
-        <RoundButton label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}>
-          <ArrowLeft size={18} color={colors.bone} weight="bold" />
-        </RoundButton>
-        <View style={{ flex: 1 }} />
-        <RoundButton
-          label="Save as Research Card"
-          onPress={() =>
-            requireMember(() => {
-              if (!makeCard.isPending) makeCard.mutate();
-            })
+    <View style={{ flex: 1, backgroundColor: colors.wine }}>
+      <ProductScreenChrome
+        onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+        saved={saved}
+        onSave={() => {
+          toggleFavorite(id);
+          if (!saved && profile) {
+            hapticSuccess();
+            trackProduct(profileToProduct(profile, product), 'save');
           }
-        >
-          <Files size={18} color={colors.bone} weight={makeCard.isPending ? 'fill' : 'bold'} />
-        </RoundButton>
-        <RoundButton
-          label="Share"
-          onPress={() => {
-            void Share.share({ message: `What owners really say about ${name} — on Unmask` });
-          }}
-        >
-          <ShareNetwork size={18} color={colors.bone} weight="bold" />
-        </RoundButton>
-        <RoundButton
-          label={saved ? 'Remove from saved' : 'Save'}
-          onPress={() => {
-            toggleFavorite(id);
-            if (!saved) {
-              hapticSuccess();
-              if (profile) trackProduct(profileToProduct(profile, product), 'save');
-            }
-          }}
-          active={saved}
-        >
-          <BookmarkSimple size={18} color={saved ? colors.white : colors.bone} weight={saved ? 'fill' : 'bold'} />
-        </RoundButton>
-      </View>
+        }}
+        onShare={() => void Share.share({ message: `What owners really say about ${name} — on Unmask` })}
+      >
+        <ProductSubTabs value={tab} onChange={changeTab} />
+      </ProductScreenChrome>
 
       <ScrollView
         ref={scroller}
         style={{ flex: 1 }}
-        stickyHeaderIndices={[0, 1]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: 32 }}
       >
-        <View style={{ flexDirection: 'row', gap: 16, paddingHorizontal: 16, paddingBottom: 10, alignItems: 'center', backgroundColor: colors.wine }}>
-          <Pressable
-            onPress={() => photos.length && setViewing(scan?.photo && photos.length > 1 ? 1 : 0)}
-            accessibilityLabel="View product photos"
-            disabled={!photos.length}
-          >
-            <ProductImage uri={image || photos[0]?.url} category={category} size={88} radius={20} style={{ borderWidth: 0 }} />
-            {photos.length > 1 ? (
-              <View style={{ position: 'absolute', right: 6, bottom: 6, backgroundColor: 'rgba(0,0,0,0.66)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.white }}>{photos.length}</Text>
-              </View>
-            ) : null}
-          </Pressable>
-          <View style={{ flex: 1, gap: 4 }}>
-            {brand ? <Eyebrow color={colors.hi}>{brand}</Eyebrow> : null}
-            <Text numberOfLines={3} style={{ fontFamily: fonts.bold, fontSize: 21, lineHeight: 25, letterSpacing: -0.5, color: colors.bone }}>
-              {name || 'Product'}
-            </Text>
-            {category ? (
-              <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone3 }}>
-                {category}
-                {profile?.identity.variant ? ` · ${profile.identity.variant}` : ''}
-              </Text>
-            ) : null}
-          </View>
-        </View>
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, gap: 12 }}>
+          {scan ? <ScanBanner scan={scan} onPhoto={() => setViewing(0)} onMatches={() => setMatchesOpen(true)} /> : null}
 
-        <View style={{ paddingTop: 4, paddingBottom: 12, backgroundColor: colors.wine }}>
-          <PillTabs options={tabs} value={tab} onChange={go} />
-        </View>
-
-        <View style={{ paddingHorizontal: 16, gap: 14 }}>
           <OwnershipStrip
             owned={Boolean(owned)}
             count={room.data?.verifiedOwners ?? 0}
-            noteCount={room.data?.ownershipNotes ?? 0}
             onVerify={() => verify.start(currentProduct)}
             onNote={() => note.start(currentProduct)}
             onMine={() => myId && router.push({ pathname: '/member/[id]', params: { id: myId } } as unknown as Href)}
           />
 
-          {scan ? <ScanBanner scan={scan} onPhoto={() => setViewing(0)} onMatches={() => setMatchesOpen(true)} /> : null}
-
-          {tab !== 'unmask' && intel.isLoading ? (
+          {intel.isLoading && !profile ? (
             <InvestigatingState />
-          ) : tab !== 'unmask' && (intel.isError || !profile) ? (
+          ) : intel.isError && !profile ? (
             <View style={{ alignItems: 'center', gap: 12, paddingTop: 40 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.bone }}>We couldn’t finish reading about this</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2, textAlign: 'center', lineHeight: 20 }}>
-                The connection dropped or sources were slow. Try again — nothing is lost.
+              <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.bone }}>We couldn&apos;t finish reading about this</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2, textAlign: 'center' }}>
+                Try again — nothing is lost.
               </Text>
-              <PrimaryButton label="Try again" icon={ArrowClockwise} onPress={() => void intel.refetch()} />
+              <Pressable onPress={() => void intel.refetch()}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.hi }}>Try again</Text>
+              </Pressable>
             </View>
           ) : (
-            <Animated.View style={{ opacity: fade }}>{pane}</Animated.View>
+            <ProductUnmaskFlow
+              product={currentProduct}
+              profile={profile}
+              intelLoading={intel.isLoading}
+              intelError={intel.isError}
+              onRetryIntel={() => void intel.refetch()}
+              clipsLoading={clips.isLoading}
+              clips={clips.data ?? []}
+              scanPhoto={scan?.photo}
+              tab={tab}
+              onTabChange={changeTab}
+              onCompare={() => {
+                if (profile) trackProduct(profileToProduct(profile, product), 'compare');
+                router.push({ pathname: '/compare', params: { a: id } } as Href);
+              }}
+              onOpenSources={() => setSourcesOpen(true)}
+              onAskCommunity={onAskCommunity}
+              onOpenPrices={() => setPricesOpen(true)}
+            />
           )}
         </View>
       </ScrollView>
 
-      {profile ? (
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 10,
-            paddingHorizontal: 16,
-            paddingTop: 10,
-            paddingBottom: 6,
-            borderTopWidth: 1,
-            borderTopColor: colors.line,
-            backgroundColor: colors.lac,
-          }}
-        >
-          <View style={{ flex: 1 }}>
-            <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>
-              {lowest ? `Lowest at ${lowest.seller}` : 'Price'}
-            </Text>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 18, letterSpacing: -0.4, color: colors.bone }}>
-              {lowest ? formatPrice(lowest.price) : '—'}
-            </Text>
-          </View>
-          <RoundButton label="Community" onPress={() => go('discuss')} size={46}>
-            <ChatsCircle size={20} color={colors.bone} weight="bold" />
-          </RoundButton>
-          <RoundButton
-            label="Compare"
-            onPress={() => {
-              trackProduct(profileToProduct(profile, product), 'compare');
-              router.push({ pathname: '/compare', params: { a: id } } as Href);
-            }}
-            size={46}
-          >
-            <ArrowsLeftRight size={20} color={colors.bone} weight="bold" />
-          </RoundButton>
-          <PrimaryButton
-            label={lowest ? 'View deal' : 'Prices'}
-            onPress={() => (lowest?.link ? void openLink(lowest.link) : go('prices'))}
-            style={{ minWidth: 112 }}
-          />
-        </View>
-      ) : null}
+      <SafeAreaView edges={['bottom']} style={{ backgroundColor: colors.lac }} />
 
       <SourcesSheet profile={profile} visible={sourcesOpen} onClose={() => setSourcesOpen(false)} />
+      <Modal visible={pricesOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setPricesOpen(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.wine }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', padding: 16 }}>
+            <Pressable onPress={() => setPricesOpen(false)}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.hi }}>Close</Text>
+            </Pressable>
+          </View>
+          {profile ? <PricesPane profile={profile} /> : <ActivityIndicator color={colors.hi} />}
+        </SafeAreaView>
+      </Modal>
       <Lightbox images={photos} index={viewing} onClose={() => setViewing(null)} />
       <MatchesSheet
         scan={scan}
@@ -378,35 +203,30 @@ export default function ProductScreen() {
       {gate}
       {verify.sheet}
       {note.sheet}
-    </SafeAreaView>
+    </View>
   );
 }
 
 function OwnershipStrip({
   owned,
   count,
-  noteCount,
   onVerify,
   onNote,
   onMine,
 }: {
   owned: boolean;
   count: number;
-  noteCount: number;
   onVerify: () => void;
   onNote: () => void;
   onMine: () => void;
 }) {
-  const others = owned ? count - 1 : count;
-  const crowd = others > 0 ? `${others} verified ${others === 1 ? 'owner' : 'owners'}${owned ? ' besides you' : ''}` : '';
   return (
     <Pressable
       onPress={() => {
         hapticTap();
         (owned ? onMine : onVerify)();
       }}
-      accessibilityRole="button"
-      style={({ pressed }) => ({
+      style={{
         flexDirection: 'row',
         alignItems: 'center',
         gap: 10,
@@ -414,67 +234,22 @@ function OwnershipStrip({
         paddingHorizontal: 12,
         borderRadius: 14,
         backgroundColor: owned ? colors.sageSoft : colors.hiSoft,
-        opacity: pressed ? 0.8 : 1,
-      })}
+      }}
     >
       <SealCheck size={20} color={owned ? colors.sage : colors.hi} weight={owned ? 'fill' : 'bold'} />
-      <View style={{ flex: 1, gap: 1 }}>
+      <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: owned ? colors.sageInk : colors.hiInk }}>
-          {owned ? 'You’re a verified owner' : 'Own this? Verify it with a photo'}
+          {owned ? 'Verified owner' : 'Own this? Verify with a photo'}
         </Text>
-        <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12.5, color: owned ? colors.sageInk : colors.hiInk, opacity: 0.8 }}>
-          {owned ? `${noteCount ? `${noteCount} Ownership Notes here · ` : ''}Add your experience to your shelf` : crowd ? `${crowd} answer here` : 'Your answers get a Verified owner mark'}
-        </Text>
+        {count > 0 ? (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone2 }}>{count} verified owners</Text>
+        ) : null}
       </View>
-      <CaretRight size={14} color={owned ? colors.sage : colors.hi} weight="bold" />
       {owned ? (
-        <Pressable
-          onPress={(e) => {
-            e.stopPropagation();
-            hapticTap();
-            onNote();
-          }}
-          style={{ height: 34, paddingHorizontal: 12, borderRadius: 17, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: colors.sageInk }}>Add note</Text>
+        <Pressable onPress={(e) => { e.stopPropagation(); onNote(); }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.hi }}>Add note</Text>
         </Pressable>
       ) : null}
-    </Pressable>
-  );
-}
-
-function RoundButton({
-  children,
-  onPress,
-  label,
-  active,
-  size = 38,
-}: {
-  children: React.ReactNode;
-  onPress: () => void;
-  label: string;
-  active?: boolean;
-  size?: number;
-}) {
-  return (
-    <Pressable
-      onPress={() => {
-        hapticTap();
-        onPress();
-      }}
-      accessibilityLabel={label}
-      hitSlop={8}
-      style={({ pressed }) => ({
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: active ? colors.hi : size > 40 ? colors.lac2 : colors.lac,
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: pressed ? 0.7 : 1,
-      })}
-    >
-      {children}
     </Pressable>
   );
 }

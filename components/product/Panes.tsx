@@ -1,13 +1,10 @@
 import * as WebBrowser from 'expo-web-browser';
-import { Linking, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { ResearchOverlay } from '@/components/brand/ResearchOverlay';
 import { ArrowSquareOut, ArrowsLeftRight, Globe, Storefront, X } from '@/components/icons';
 import { Eyebrow, Group, GroupRow, Pill, Stars, Tile } from '@/components/kit';
 import { colors, fonts } from '@/constants/theme';
 import { hapticTap } from '@/lib/haptics';
-import { stageForTextSearch } from '@/lib/research/overlayStages';
-import { useResearchElapsed } from '@/lib/research/useResearchElapsed';
 import { formatPrice, formatRange } from '@/lib/products';
 import type { ProductProfile } from '@/lib/types';
 
@@ -214,7 +211,10 @@ export function SourcesSheet({ profile, visible, onClose }: { profile: ProductPr
 // ---------------------------------------------------------------------------
 
 export function InvestigatingState() {
-  const elapsed = useResearchElapsed(true);
-  const stage = stageForTextSearch({ fetching: true, hasResults: false, elapsedMs: elapsed });
-  return <ResearchOverlay visible={true} mode="inline" stage={stage} />;
+  return (
+    <View style={{ paddingVertical: 48, alignItems: 'center', gap: 12 }}>
+      <ActivityIndicator color={colors.hi} size="large" />
+      <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>Loading product details…</Text>
+    </View>
+  );
 }
