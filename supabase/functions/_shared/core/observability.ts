@@ -76,6 +76,11 @@ export async function capture(event: string, distinctId: string | undefined, pro
   await fetcher(`${host}/capture/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ api_key: key, event, distinct_id: distinctId, properties: { ...(redact(properties) as object), channel: "whatsapp" } }),
+    body: JSON.stringify({
+      api_key: key,
+      event,
+      distinct_id: distinctId,
+      properties: { ...(redact(properties) as object), channel: String(properties.channel ?? "whatsapp") },
+    }),
   }).catch(() => undefined);
 }

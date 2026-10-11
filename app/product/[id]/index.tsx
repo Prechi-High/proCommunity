@@ -25,7 +25,9 @@ import { useOwnsProduct } from '@/lib/owners';
 import { hapticSuccess, hapticTap } from '@/lib/haptics';
 import { displayName, getKnownProduct, investigateProduct, profileToProduct, rememberProduct, slugify } from '@/lib/products';
 import { useAppStore } from '@/lib/store';
-import { navigationTabs } from '@/lib/unmask/presentation';
+import { InferredDomainNotice } from '@/components/unmask/InferredDomainNotice';
+import { getPresentation, navigationTabs } from '@/lib/unmask/presentation';
+import { trackOverviewViewed } from '@/lib/unmask/productAnalytics';
 import type { UnmaskTab } from '@/lib/unmask/types';
 import { loadProductClips } from '@/lib/videos';
 
@@ -95,6 +97,12 @@ export default function ProductScreen() {
   const currentProduct = profile ? profileToProduct(profile, product) : { id, name, brand, category, heroImageUrl: image };
   const verify = useVerifyOwner({ onVerified: () => note.start(currentProduct) });
   const photos = useMemo(() => galleryFor(profile, scan, image), [profile, scan, image]);
+  const presentation = useMemo(() => getPresentation(profile), [profile]);
+
+  useEffect(() => {
+    if (profile && tab === 'overview') trackOverviewViewed(profile, id);
+  }, [profile, tab, id]);
+
 
   const onAskCommunity = (question: string) => {
     requireMember(() => {
@@ -126,6 +134,17 @@ export default function ProductScreen() {
       >
         <ProductSubTabs value={tab} onChange={changeTab} navigation={navigationTabs(profile)} />
       </ProductScreenChrome>
+
+      {presentation?.domainNotice?.shouldShow && presentation.product.domain?.status === 'inferred' && presentation.product.domain.id ? (
+        <InferredDomainNotice
+          domainId={presentation.product.domain.id}
+          domainName={presentation.product.domain.name}
+          productId={id}
+          officialDomains={presentation.domainNotice.officialDomains}
+          canVote={presentation.domainNotice.canVote}
+          onContinue={() => undefined}
+        />
+      ) : null}
 
       <View style={{ flex: 1, position: 'relative' }}>
         <ScrollView

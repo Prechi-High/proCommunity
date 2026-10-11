@@ -36,6 +36,7 @@ import { PulseConversationCard } from '@/components/pulse/PulseConversationCard'
 import { brandAssets } from '@/constants/brand';
 import { SEARCH_CATEGORY_IMAGE_URLS, SEARCH_HOME_CATEGORIES, searchHomeHero } from '@/constants/searchHome';
 import { colors, elevation, fonts, radii } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { fetchPulse, timeAgo } from '@/lib/community';
 import { hapticSelect, hapticTap } from '@/lib/haptics';
 import { rememberProduct } from '@/lib/products';
@@ -162,6 +163,7 @@ export function SearchHomeScreen() {
   const go = (q: string) => {
     const trimmed = q.trim();
     if (!trimmed) return;
+    track('product_search_started', { query: trimmed });
     useAppStore.getState().addSearch(trimmed);
     const niche = selectedCategories.length ? selectedCategories.join(',') : undefined;
     router.push({

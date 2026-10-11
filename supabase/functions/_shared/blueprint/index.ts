@@ -1,15 +1,14 @@
+import { recordDomainDemand, resolveDomain, type DomainStore } from "../domain/index.ts";
+import { capture } from "../core/observability.ts";
 import { buildBlueprintRows, buildPresentationFromProfile } from "./build.ts";
 import { loadPresentationFromDb } from "./load.ts";
 import { persistBlueprint } from "./persist.ts";
 
 type Json = Record<string, unknown>;
 
-type Store = {
-  select(table: string, filter: string): Promise<Json | null>;
-  upsert(table: string, row: Json): Promise<void>;
+type Store = DomainStore & {
   insertMany(table: string, rows: Json[]): Promise<void>;
   remove(table: string, filter: string): Promise<void>;
-  rows(path: string): Promise<Json[]>;
 };
 
 function blueprintEnabled(): boolean {
@@ -37,14 +36,39 @@ export async function attachProductPresentation(
     }
   }
 
+  const identity = (profile.identity ?? {}) as Json;
+  const domainResolution = await resolveDomain(store, {
+    name: String(identity.name ?? ""),
+    brand: String(identity.brand ?? ""),
+    category: String(identity.category ?? ""),
+    subcategory: String(identity.subcategory ?? ""),
+  }, query);
+
+  if (store && domainResolution.matchedDomainId) {
+    void recordDomainDemand(store, domainResolution.matchedDomainId, "unmask", { productId }).catch(() => undefined);
+  }
+
+  void capture(
+    domainResolution.createdInferred ? "inferred_domain_created" : "domain_resolved",
+    productId,
+    {
+      domain: domainResolution.domain,
+      domain_status: domainResolution.domainStatus,
+      product_family: domainResolution.productFamily,
+      product_type: domainResolution.productType,
+      classification_confidence: domainResolution.classificationConfidence,
+      channel: "product",
+    },
+  );
+
   const built = buildBlueprintRows(productId, query, profile);
   const presentation = store
-    ? await persistBlueprint(store, productId, query, profile, built).catch(() =>
-      buildPresentationFromProfile(productId, query, profile, built.blueprintId, built.version),
+    ? await persistBlueprint(store, productId, query, profile, built, domainResolution).catch(() =>
+      buildPresentationFromProfile(productId, query, profile, built.blueprintId, built.version, domainResolution),
     )
-    : buildPresentationFromProfile(productId, query, profile, built.blueprintId, built.version);
+    : buildPresentationFromProfile(productId, query, profile, built.blueprintId, built.version, domainResolution);
 
-  return { ...profile, presentation };
+  return { ...profile, presentation, domainResolution };
 }
 
 export type { ProductPresentationContract } from "./types.ts";

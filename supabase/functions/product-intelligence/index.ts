@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { attachProductPresentation } from "../_shared/blueprint/index.ts";
+import { domainFlags, recordDomainDemand } from "../_shared/domain/index.ts";
 import { buildProductFindings } from "../_shared/claims/buildFindings.ts";
 import { userFromRequest } from "../_shared/core/auth.ts";
 import { flags, publicUrl } from "../_shared/core/env.ts";
@@ -1978,6 +1979,34 @@ async function runAdminDashboard(store: Db) {
       };
     });
 
+  const sinceDemand = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
+  const [demandRows, domainRows] = await Promise.all([
+    store.rows(`domain_demand_daily?select=domain_id,search_count,unmask_count,vote_count,distinct_products&metric_date=gte.${sinceDemand}&limit=500`).catch(() => [] as Json[]),
+    store.rows("domain_registry?select=id,canonical_name,status&limit=100").catch(() => [] as Json[]),
+  ]);
+  const domainNameById = new Map(domainRows.map((d) => [str(d.id, 40), { name: str(d.canonical_name, 80), status: str(d.status, 20) }]));
+  const domainDemandMap = new Map<string, { id: string; name: string; status: string; searchCount: number; unmaskCount: number; voteCount: number; distinctProducts: number }>();
+  for (const row of demandRows) {
+    const id = str(row.domain_id, 40);
+    if (!id) continue;
+    const meta = domainNameById.get(id);
+    const cur = domainDemandMap.get(id) ?? {
+      id,
+      name: meta?.name ?? id,
+      status: meta?.status ?? "inferred",
+      searchCount: 0,
+      unmaskCount: 0,
+      voteCount: 0,
+      distinctProducts: 0,
+    };
+    cur.searchCount += Number(row.search_count ?? 0);
+    cur.unmaskCount += Number(row.unmask_count ?? 0);
+    cur.voteCount += Number(row.vote_count ?? 0);
+    cur.distinctProducts += Number(row.distinct_products ?? 0);
+    domainDemandMap.set(id, cur);
+  }
+  const domainDemand = [...domainDemandMap.values()].sort((a, b) => b.unmaskCount - a.unmaskCount).slice(0, 12);
+
   return {
     stats: {
       members: profiles.length,
@@ -2044,6 +2073,7 @@ async function runAdminDashboard(store: Db) {
     })),
     since: since30,
     windowDays,
+    domainDemand,
   };
 }
 
@@ -2287,6 +2317,72 @@ Deno.serve(async (req) => {
 
     if (action === "pulse") {
       return json({ success: true, ...(await runPulse(store, str(body.category, 60))) });
+    }
+
+    if (action === "domain_notice") {
+      if (!domainFlags.inferredDomainNotice()) return json({ success: true, skipped: true });
+      const domainId = str(body.domainId, 40);
+      const op = str(body.op, 20);
+      const visitorKey = str(body.visitorKey, 80);
+      const user = await userFromRequest(req);
+      if (!domainId) return json({ error: "missing_domain" }, 400);
+      const filterUser = user?.id ? `user_id=eq.${encodeURIComponent(user.id)}` : `anonymous_id=eq.${encodeURIComponent(visitorKey)}`;
+      const existing = await store.rows(`user_domain_notice_state?domain_id=eq.${encodeURIComponent(domainId)}&${filterUser}&limit=1`);
+      const row = existing[0];
+      if (op === "status") {
+        return json({ success: true, dismissed: Boolean(row?.dismissed_at || row?.voted_at) });
+      }
+      if (op === "shown") {
+        if (row?.id) {
+          await store.patch("user_domain_notice_state", `id=eq.${encodeURIComponent(String(row.id))}`, {
+            last_shown_at: new Date().toISOString(),
+            show_count: Number(row.show_count ?? 1) + 1,
+          });
+        } else {
+          await store.insert("user_domain_notice_state", {
+            user_id: user?.id ?? null,
+            anonymous_id: user?.id ? null : visitorKey || null,
+            domain_id: domainId,
+          });
+        }
+        return json({ success: true });
+      }
+      if (op === "dismiss") {
+        if (row?.id) {
+          await store.patch("user_domain_notice_state", `id=eq.${encodeURIComponent(String(row.id))}`, { dismissed_at: new Date().toISOString() });
+        } else {
+          await store.insert("user_domain_notice_state", {
+            user_id: user?.id ?? null,
+            anonymous_id: user?.id ? null : visitorKey || null,
+            domain_id: domainId,
+            dismissed_at: new Date().toISOString(),
+          });
+        }
+        return json({ success: true });
+      }
+      return json({ error: "invalid_op" }, 400);
+    }
+
+    if (action === "domain_vote") {
+      if (!domainFlags.inferredDomainVoting()) return json({ error: "voting_disabled" }, 403);
+      const domainId = str(body.domainId, 40);
+      const productId = str(body.productId, 100);
+      const visitorKey = str(body.visitorKey, 80);
+      const user = await userFromRequest(req);
+      if (!domainId) return json({ error: "missing_domain" }, 400);
+      await store.insert("inferred_domain_votes", {
+        user_id: user?.id ?? null,
+        anonymous_id: user?.id ? null : visitorKey || null,
+        domain_id: domainId,
+        product_id: productId || null,
+      });
+      void recordDomainDemand(store, domainId, "vote").catch(() => undefined);
+      const filterUser = user?.id ? `user_id=eq.${encodeURIComponent(user.id)}` : `anonymous_id=eq.${encodeURIComponent(visitorKey)}`;
+      const existing = await store.rows(`user_domain_notice_state?domain_id=eq.${encodeURIComponent(domainId)}&${filterUser}&limit=1`);
+      if (existing[0]?.id) {
+        await store.patch("user_domain_notice_state", `id=eq.${encodeURIComponent(String(existing[0].id))}`, { voted_at: new Date().toISOString() });
+      }
+      return json({ success: true });
     }
 
     if (action === "admin_dashboard") {

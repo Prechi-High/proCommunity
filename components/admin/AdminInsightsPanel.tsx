@@ -48,6 +48,22 @@ export function AdminInsightsPanel({
         <StatCard label="Members signed in today" value={s.membersActiveToday ?? 0} />
       </View>
 
+      {insights.domainDemand?.length ? (
+        <>
+          <SectionHeader title="Domain demand (30d)" hint="Official vs emerging inferred domains." />
+          <View style={{ gap: 8 }}>
+            {insights.domainDemand.map((d) => (
+              <Card key={d.id} style={{ gap: 4, paddingVertical: 12 }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>{d.name}</Text>
+                <Caption>
+                  {d.status} · {d.unmaskCount} unmasks · {d.searchCount} searches · {d.voteCount} votes · {d.distinctProducts} products
+                </Caption>
+              </Card>
+            ))}
+          </View>
+        </>
+      ) : null}
+
       <SectionHeader title="Last 30 days" />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         <StatCard label="Total site visits" value={s.totalVisits30d ?? 0} sub={`${s.uniqueVisitors30d ?? 0} unique visitors`} />

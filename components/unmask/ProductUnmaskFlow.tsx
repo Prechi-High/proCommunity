@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { PrimaryButton } from '@/components/kit';
 import { DynamicFactPane } from '@/components/product/DynamicFactPane';
 import { SpecsPane } from '@/components/product/Panes';
 import { factSectionForTab, firstFactTabKey, isFactTab } from '@/lib/unmask/presentation';
+import { trackFactSectionViewed, trackUnmaskStarted } from '@/lib/unmask/productAnalytics';
 import { VideosPane } from '@/components/product/VideosPane';
 import { colors, fonts, radii } from '@/constants/theme';
 import { hapticTap } from '@/lib/haptics';
@@ -103,9 +104,17 @@ export function ProductUnmaskFlow({
   const discovering = phase === 'found' && tab === 'overview' && !hasUnmaskRevealed(product.id) && (!discoverMinDone || !discoverIntelDone);
 
   const bundle = useMemo(() => (profile ? deriveUnmaskBundle(profile) : null), [profile]);
+  const trackedFactTab = useRef<string | null>(null);
+  useEffect(() => {
+    if (!profile || !isFactTab(tab)) return;
+    if (trackedFactTab.current === tab) return;
+    trackedFactTab.current = tab;
+    trackFactSectionViewed(profile, product.id, tab);
+  }, [tab, profile, product.id]);
 
   const startUnmask = () => {
     hapticTap();
+    trackUnmaskStarted(profile, product.id);
     if (investigationComplete(intelLoading, profile)) {
       markUnmaskRevealed(product.id);
       setPhase('unmasked');

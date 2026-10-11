@@ -200,6 +200,15 @@ export interface AdminDashboard {
   recentThreads: Array<{ id: string; title: string; product_name: string; kind: string; author_name: string; created_at: string }>;
   recentQuestions: Array<{ question: string; product_name: string; created_at: string }>;
   windowDays: number;
+  domainDemand?: Array<{
+    id: string;
+    name: string;
+    status: string;
+    searchCount: number;
+    unmaskCount: number;
+    voteCount: number;
+    distinctProducts: number;
+  }>;
 }
 
 export async function fetchAdminDashboard(): Promise<AdminDashboard> {

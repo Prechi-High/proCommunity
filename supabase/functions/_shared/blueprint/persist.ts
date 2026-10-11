@@ -1,5 +1,6 @@
 import { ALGO_VERSION, buildPresentationFromProfile } from "./build.ts";
 import type { ProductPresentationContract } from "./types.ts";
+import type { DomainResolution } from "../domain/types.ts";
 import { buildBlueprintRows } from "./build.ts";
 
 type BuiltBlueprint = ReturnType<typeof buildBlueprintRows>;
@@ -18,6 +19,7 @@ export async function persistBlueprint(
   query: string,
   profile: Json,
   built: BuiltBlueprint,
+  domainResolution?: DomainResolution,
 ): Promise<ProductPresentationContract> {
   const { classification, factSections, dimensions, blueprintId, version } = built;
   const refreshAfter = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
@@ -26,14 +28,18 @@ export async function persistBlueprint(
     id: blueprintId,
     product_id: productId,
     category_id: classification.categoryId,
+    domain_id: domainResolution?.matchedDomainId || null,
+    domain_status: domainResolution?.domainStatus || null,
+    product_family: domainResolution?.productFamily || null,
     template_id: classification.templateId,
-    product_type: classification.productType,
-    product_subtype: classification.productSubtype,
+    product_type: domainResolution?.productType ?? classification.productType,
+    product_subtype: domainResolution?.productSubtype ?? classification.productSubtype,
+    domain_template_version: 1,
+    classification_confidence: domainResolution?.classificationConfidence ?? classification.classificationConfidence,
     primary_uses: classification.primaryUses,
     buyer_expectations: classification.buyerExpectations,
     risk_factors: classification.riskFactors,
-    classification_confidence: classification.classificationConfidence,
-    blueprint_confidence: classification.classificationConfidence,
+    blueprint_confidence: domainResolution?.classificationConfidence ?? classification.classificationConfidence,
     version,
     status: "active",
     generated_by_model: "blueprint-heuristic-v1",
@@ -44,7 +50,7 @@ export async function persistBlueprint(
   await store.remove("product_fact_sections", `blueprint_id=eq.${encodeURIComponent(blueprintId)}`);
   await store.remove("evaluation_dimensions", `blueprint_id=eq.${encodeURIComponent(blueprintId)}`);
 
-  const presentation = buildPresentationFromProfile(productId, query, profile, blueprintId, version);
+  const presentation = buildPresentationFromProfile(productId, query, profile, blueprintId, version, domainResolution);
 
   const navRows = presentation.navigation.map((n, i) => ({
     id: `${blueprintId}_nav_${n.key}`,

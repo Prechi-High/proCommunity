@@ -1,3 +1,4 @@
+import type { DomainResolution } from "../domain/types.ts";
 import { classifyProduct, resolveBlueprintSchema } from "./classify.ts";
 import type {
   PresentationDimension,
@@ -104,6 +105,7 @@ export function buildPresentationFromProfile(
   profile: Json,
   blueprintId: string,
   blueprintVersion: number,
+  domainResolution?: DomainResolution,
 ): ProductPresentationContract {
   const identity = (profile.identity ?? {}) as Json;
   const classification = classifyProduct(
@@ -144,15 +146,35 @@ export function buildPresentationFromProfile(
 
   const navigation = buildNavigation(factDefs);
 
+  const identityName = str(identity.name);
+  const domainStatus = domainResolution?.domainStatus ?? (classification.domain === "tech" || classification.domain === "beauty" || classification.domain === "home-appliances" ? "official" : "inferred");
+  const isInferred = domainStatus === "inferred";
+
   return {
     version: PRESENTATION_VERSION,
     blueprintId,
     blueprintVersion,
     product: {
       id: productId,
+      name: identityName,
       category: classification.domain,
-      productType: classification.productType,
-      productSubtype: classification.productSubtype,
+      domain: domainResolution
+        ? { id: domainResolution.matchedDomainId, name: domainResolution.domain, status: domainResolution.domainStatus }
+        : undefined,
+      productFamily: domainResolution?.productFamily ?? classification.productType,
+      productType: domainResolution?.productType ?? classification.productType,
+      productSubtype: domainResolution?.productSubtype ?? classification.productSubtype,
+    },
+    domainNotice: {
+      shouldShow: isInferred,
+      officialDomains: ["Tech", "Beauty", "Home Appliances"],
+      canVote: isInferred,
+    },
+    intelligenceMeta: {
+      blueprintVersion,
+      domainTemplateVersion: 1,
+      classificationConfidence: domainResolution?.classificationConfidence ?? classification.classificationConfidence,
+      cacheSource: "fresh",
     },
     navigation,
     overview: {

@@ -73,6 +73,18 @@ export function productAskKey(productId: string, questionHash: string): string {
   return `${CACHE_PREFIX}:product:${productId}:ask:${questionHash}`;
 }
 
+export function domainsRegistryKey(): string {
+  return `${CACHE_PREFIX}:domains:registry:v1`;
+}
+
+export function domainsAliasesKey(): string {
+  return `${CACHE_PREFIX}:domains:aliases:v1`;
+}
+
+export function domainTemplateKey(domainId: string, version: number): string {
+  return `${CACHE_PREFIX}:domain:${domainId}:template:${version}`;
+}
+
 export function productVideoKeyVariants(productId: string): string[] {
   const keys: string[] = [];
   for (const tag of CONTENT_TAG_KEYS) {

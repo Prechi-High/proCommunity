@@ -63,9 +63,27 @@ export type ProductPresentationContract = {
   blueprintVersion: number;
   product: {
     id: string;
-    category: IntelligenceDomain;
+    name?: string;
+    category: IntelligenceDomain | string;
+    domain?: {
+      id: string;
+      name: string;
+      status: "official" | "inferred" | "proposed";
+    };
+    productFamily?: string;
     productType: string;
     productSubtype: string | null;
+  };
+  domainNotice?: {
+    shouldShow: boolean;
+    officialDomains: string[];
+    canVote: boolean;
+  };
+  intelligenceMeta?: {
+    blueprintVersion: number;
+    domainTemplateVersion: number;
+    classificationConfidence: number;
+    cacheSource?: "redis" | "supabase" | "fresh";
   };
   navigation: PresentationNavItem[];
   overview: {
