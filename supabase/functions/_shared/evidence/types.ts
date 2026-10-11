@@ -16,6 +16,9 @@ export type RawEvidenceInput = {
   contextText?: string;
   createdAt?: string;
   experienceAffectsScoring?: boolean;
+  provenanceTier?: string;
+  provenanceWeight?: number;
+  rawMetadata?: Record<string, unknown>;
 };
 
 export type ProductMatchResult = {
@@ -49,6 +52,7 @@ export type NormalizedEvidenceRow = {
   sourceId?: string;
   conversationId?: string;
   parentId?: string;
+  provenanceWeight?: number;
   productMatch: ProductMatchResult;
   dimensionLinks: DimensionRelevanceResult[];
 };

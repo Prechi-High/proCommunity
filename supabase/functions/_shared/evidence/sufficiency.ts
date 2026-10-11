@@ -30,6 +30,7 @@ export type ScoringEvidenceItem = {
   relevanceConfidence: number;
   productMatchConfidence: number;
   affectsScore: boolean;
+  provenanceWeight?: number;
 };
 
 export function uniqueEvidenceSourceKey(item: ScoringEvidenceItem): string {

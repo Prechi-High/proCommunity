@@ -1,3 +1,4 @@
+import { resolveProvenanceFromRawEvidence } from "./sourceEvidenceQuality.ts";
 import type { RawEvidence } from "./providers/types.ts";
 
 function normUrl(url?: string): string {
@@ -15,14 +16,17 @@ function normText(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-/** Cross-provider deduplication before scoring. */
+/** Cross-provider deduplication before scoring (keeps higher-provenance copy). */
 export function dedupeRawEvidence(items: RawEvidence[]): RawEvidence[] {
+  const sorted = [...items].sort(
+    (a, b) => resolveProvenanceFromRawEvidence(b).weight - resolveProvenanceFromRawEvidence(a).weight,
+  );
   const out: RawEvidence[] = [];
   const seenUrl = new Set<string>();
   const seenId = new Set<string>();
   const seenText = new Set<string>();
 
-  for (const item of items) {
+  for (const item of sorted) {
     const idKey = `${item.provider}:${item.sourceId}`;
     if (seenId.has(idKey)) continue;
 

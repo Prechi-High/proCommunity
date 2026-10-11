@@ -1,18 +1,23 @@
 import type { ProviderId } from "./types.ts";
 
+function readEnv(name: string): string | undefined {
+  if (typeof Deno !== "undefined") return Deno.env.get(name);
+  return process.env[name];
+}
+
 function envBool(name: string, defaultValue: boolean): boolean {
-  const v = (Deno.env.get(name) ?? "").trim().toLowerCase();
+  const v = (readEnv(name) ?? "").trim().toLowerCase();
   if (!v) return defaultValue;
   return v === "1" || v === "true" || v === "yes";
 }
 
 function envInt(name: string, defaultValue: number): number {
-  const n = Number(Deno.env.get(name));
+  const n = Number(readEnv(name));
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : defaultValue;
 }
 
 export function secret(name: string): string {
-  return (Deno.env.get(name) ?? "").trim().replace(/^["']|["']$/g, "");
+  return (readEnv(name) ?? "").trim().replace(/^["']|["']$/g, "");
 }
 
 export const PROVIDER_TIMEOUT_MS = envInt("EVIDENCE_PROVIDER_TIMEOUT_MS", 8000);
@@ -37,7 +42,7 @@ export const PROVIDER_ENABLED: Record<ProviderId, boolean> = {
   web: envBool("EVIDENCE_WEB_ENABLED", true),
 };
 
-export const DISCOURSE_ALLOWLIST = (Deno.env.get("DISCOURSE_ALLOWLIST_DOMAINS") ?? "")
+export const DISCOURSE_ALLOWLIST = (readEnv("DISCOURSE_ALLOWLIST_DOMAINS") ?? "")
   .split(",")
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);

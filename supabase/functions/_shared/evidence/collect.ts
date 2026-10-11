@@ -1,3 +1,4 @@
+import { resolveSourceProvenance } from "./sourceEvidenceQuality.ts";
 import type { RawEvidenceInput } from "./types.ts";
 
 type Json = Record<string, unknown>;
@@ -7,10 +8,16 @@ export function collectRawEvidenceFromProfile(profile: Json): RawEvidenceInput[]
   const seen = new Set<string>();
 
   const push = (row: RawEvidenceInput) => {
-    const key = row.id || row.text.trim().toLowerCase().slice(0, 200);
+    const prov = resolveSourceProvenance(row);
+    const enriched: RawEvidenceInput = {
+      ...row,
+      provenanceTier: prov.tier,
+      provenanceWeight: prov.weight,
+    };
+    const key = enriched.id || enriched.text.trim().toLowerCase().slice(0, 200);
     if (!key || seen.has(key)) return;
     seen.add(key);
-    out.push(row);
+    out.push(enriched);
   };
 
   for (const row of (Array.isArray(profile.conversationEvidence) ? profile.conversationEvidence : []) as Json[]) {

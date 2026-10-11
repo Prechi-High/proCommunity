@@ -1,5 +1,10 @@
+function readEnv(name: string): string | undefined {
+  if (typeof Deno !== "undefined") return Deno.env.get(name);
+  return process.env[name];
+}
+
 function envSec(name: string, fallback: number): number {
-  const raw = Deno.env.get(name)?.trim();
+  const raw = readEnv(name)?.trim();
   if (!raw) return fallback;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
@@ -17,4 +22,5 @@ export const CACHE_TTL = {
   dimension: () => envSec("CACHE_TTL_DIMENSION_SEC", 60 * 60),
   evidence: () => envSec("CACHE_TTL_EVIDENCE_SEC", 30 * 60),
   ask: () => envSec("CACHE_TTL_ASK_SEC", 15 * 60),
+  providerEvidence: () => envSec("CACHE_TTL_PROVIDER_EVIDENCE_SEC", 6 * 60 * 60),
 } as const;

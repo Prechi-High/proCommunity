@@ -2,6 +2,7 @@ import type { BlueprintDimensionDef } from "../blueprint/types.ts";
 import { collectRawEvidenceFromProfile } from "./collect.ts";
 import { mapStatementToDimensions } from "./dimensionRelevance.ts";
 import { assessProductEvidenceMatch, type TargetProduct } from "./identityGate.ts";
+import { applyProvenanceToStrength, resolveProvenanceFromCollectRow } from "./sourceEvidenceQuality.ts";
 import {
   evaluateDimensionSufficiency,
   SUFFICIENCY_THRESHOLDS,
@@ -86,6 +87,8 @@ export function computeDimensionConfidence(
   const stanceClarity = total > 0 ? polar / total : 0;
   const mixedShare = total > 0 ? buckets.mix / total : 0;
   const sourceDiversity = n > 0 ? Math.min(1, uniqueSources / Math.min(n, 8)) : 0;
+  const avgProvenance =
+    scoringItems.reduce((a, i) => a + (i.provenanceWeight ?? 0.5), 0) / n;
 
   let confidence =
     0.12 +
@@ -94,8 +97,10 @@ export function computeDimensionConfidence(
     Math.min(uniqueSources, 5) * 0.035 +
     avgRelevance * 0.14 +
     avgProductMatch * 0.14 +
-    sourceDiversity * 0.1;
+    sourceDiversity * 0.1 +
+    avgProvenance * 0.1;
 
+  confidence *= 0.72 + avgProvenance * 0.28;
   confidence *= 0.5 + stanceClarity * 0.5;
   confidence -= mixedShare * 0.38;
 
@@ -130,7 +135,11 @@ export function buildDimensionExperiencePackage(input: {
     const match = assessProductEvidenceMatch(combined, target);
     const statement = match.isolatedStatement ?? r.text;
     const productAffectsScore = match.affectsScore && r.experienceAffectsScoring !== false;
-    const links = mapStatementToDimensions(statement, input.dimensions, productAffectsScore);
+    const provenance = resolveProvenanceFromCollectRow(r);
+    const links = mapStatementToDimensions(statement, input.dimensions, productAffectsScore).map((l) => ({
+      ...l,
+      strength: applyProvenanceToStrength(l.strength, provenance.weight),
+    }));
     if (match.level === "unrelated" && !links.length) continue;
 
     normalized.push({
@@ -145,6 +154,7 @@ export function buildDimensionExperiencePackage(input: {
       sourceId: r.sourceId ?? r.id,
       conversationId: r.conversationId,
       parentId: r.parentId,
+      provenanceWeight: r.provenanceWeight ?? provenance.weight,
       productMatch: match,
       dimensionLinks: links,
     });
@@ -168,6 +178,7 @@ export function buildDimensionExperiencePackage(input: {
             relevanceConfidence: l.relevanceConfidence,
             productMatchConfidence: row.productMatch.confidence,
             affectsScore: l.affectsScore && row.productMatch.affectsScore,
+            provenanceWeight: row.provenanceWeight ?? 0.5,
           })),
       )
       .filter((i) => i.relevanceConfidence >= 0.5);

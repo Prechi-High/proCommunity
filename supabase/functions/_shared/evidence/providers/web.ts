@@ -31,7 +31,7 @@ export const webEvidenceProvider: EvidenceProvider = {
           text,
           title: row.title,
           url: row.link,
-          rawMetadata: { discovery: true },
+          rawMetadata: { discovery: true, serper: true, provenanceTier: "serper_snippet" },
         });
         if (items.length >= cap) break;
       }
