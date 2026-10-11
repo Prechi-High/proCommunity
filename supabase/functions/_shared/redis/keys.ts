@@ -77,6 +77,29 @@ function hashQueryComponent(query: string): string {
   return `qh_${h.toString(36)}`;
 }
 
+export function youtubeSearchPageKey(productId: string, queryHash: string, pageToken: string): string {
+  const pt = pageToken || "first";
+  return `${CACHE_PREFIX}:yt:${productId}:search:${queryHash}:${pt}`;
+}
+
+export function youtubeCommentPageKey(
+  productId: string,
+  videoId: string,
+  order: string,
+  pageToken: string,
+): string {
+  const pt = pageToken || "first";
+  return `${CACHE_PREFIX}:yt:${productId}:threads:${videoId}:${order}:${pt}`;
+}
+
+export function youtubeRepliesKey(productId: string, parentCommentId: string): string {
+  return `${CACHE_PREFIX}:yt:${productId}:replies:${parentCommentId}`;
+}
+
+export function youtubeHarvestBundleKey(productId: string): string {
+  return `${CACHE_PREFIX}:evidence:${productId}:youtube:harvest_v2`;
+}
+
 export function evidenceProviderCacheKey(productId: string, provider: string, query: string): string {
   const normalized = query.toLowerCase().replace(/\s+/g, " ").trim();
   const queryPart =

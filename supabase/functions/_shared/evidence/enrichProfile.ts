@@ -1,6 +1,7 @@
 import { gatherConversationEvidence } from "./gatherConversationEvidence.ts";
 import { redisEvidenceProviderCache } from "./providerCacheStore.ts";
 import { inferDomainFromCategory, planEvidenceQueries } from "./queryPlanner.ts";
+import { YOUTUBE_LIMITS } from "./providers/youtube/limits.ts";
 import { presetsForDomain } from "../blueprint/presets.ts";
 import type { EvidenceSearchInput } from "./providers/types.ts";
 import type { IntelligenceDomain } from "../blueprint/types.ts";
@@ -11,7 +12,9 @@ export function buildEvidenceSearchInputFromProfile(productId: string, query: st
   const identity = (profile.identity ?? {}) as Record<string, string>;
   const category = String(identity.category ?? profile.category ?? "");
   const domain = inferDomainFromCategory(category) as IntelligenceDomain | "inferred";
-  const preset = domain !== "inferred" ? presetsForDomain(domain as IntelligenceDomain)[0] : undefined;
+  const presets = domain !== "inferred" ? presetsForDomain(domain as IntelligenceDomain) : [];
+  const preset =
+    presets.find((p) => p.match.test(identity.name || query) || p.match.test(category)) ?? presets[0];
 
   return {
     productId,
@@ -68,15 +71,20 @@ export async function enrichProfileWithConversationEvidence(
     experienceQuality: item.experienceQuality,
   }));
 
-  const voices = Array.isArray(profile.voices) ? [...(profile.voices as Json[])] : [];
-  const voiceIds = new Set(voices.map((v) => String(v.id)));
-
-  for (const item of gathered.items) {
-    if (!item.experienceQuality.affectsScoring) continue;
+  const existingVoices = Array.isArray(profile.voices) ? (profile.voices as Json[]) : [];
+  const llmCandidates = gathered.items
+    .filter((item) => item.experienceQuality.affectsScoring)
+    .sort((a, b) => (b.engagement?.likes ?? 0) - (a.engagement?.likes ?? 0));
+  const llmCap = YOUTUBE_LIMITS.maxLlmSample();
+  const llmVoiceIds = new Set(existingVoices.map((v) => String(v.id)));
+  const llmVoices = [...existingVoices];
+  let llmAdded = 0;
+  for (const item of llmCandidates) {
     const id = `${item.provider}-${item.sourceId}`;
-    if (voiceIds.has(id)) continue;
-    voiceIds.add(id);
-    voices.push({
+    if (llmVoiceIds.has(id)) continue;
+    if (llmAdded >= llmCap) break;
+    llmVoiceIds.add(id);
+    llmVoices.push({
       id,
       platform: item.platform,
       author: item.author ?? "Owner",
@@ -92,8 +100,9 @@ export async function enrichProfileWithConversationEvidence(
       conversationId: item.conversationId,
       parentId: item.parentId,
       contextText: item.contextText,
+      llmSample: true,
     });
-    if (voices.length >= 40) break;
+    llmAdded += 1;
   }
 
   const counts: Record<string, number> = {};
@@ -103,11 +112,12 @@ export async function enrichProfileWithConversationEvidence(
 
   return {
     ...profile,
-    voices,
+    voices: llmVoices,
     conversationEvidence,
     evidenceProviderDiagnostics: gathered.diagnostics,
     evidencePlatformCounts: counts,
     evidenceQueries: gathered.queries,
+    youtubeAcquisitionDiagnostics: gathered.youtubeAcquisition,
   };
 }
 
@@ -166,5 +176,5 @@ export async function gatherOwnerCommentsForInvestigate(
     forceRefresh,
   });
   const yt = items.filter((i) => i.provider === "youtube" && i.experienceQuality.affectsScoring);
-  return youtubeItemsToOwnerComments(yt).slice(0, 24);
+  return youtubeItemsToOwnerComments(yt).slice(0, YOUTUBE_LIMITS.maxLlmSample());
 }

@@ -23,7 +23,8 @@ export function secret(name: string): string {
 export const PROVIDER_TIMEOUT_MS = envInt("EVIDENCE_PROVIDER_TIMEOUT_MS", 8000);
 
 export const PROVIDER_CAPS: Record<ProviderId, number> = {
-  youtube: envInt("MAX_YOUTUBE_EVIDENCE", 40),
+  /** YouTube uses MAX_YOUTUBE_RAW_COMMENTS in harvest; kept for non-YouTube provider cap parity. */
+  youtube: envInt("MAX_YOUTUBE_RAW_COMMENTS", 3000),
   reddit: envInt("MAX_REDDIT_EVIDENCE", 35),
   x: envInt("MAX_X_EVIDENCE", 25),
   discourse: envInt("MAX_FORUM_EVIDENCE", 25),
@@ -32,15 +33,31 @@ export const PROVIDER_CAPS: Record<ProviderId, number> = {
   web: envInt("MAX_WEB_EVIDENCE", 20),
 };
 
-export const PROVIDER_ENABLED: Record<ProviderId, boolean> = {
-  youtube: envBool("EVIDENCE_YOUTUBE_ENABLED", true),
-  reddit: envBool("EVIDENCE_REDDIT_ENABLED", false),
-  x: envBool("EVIDENCE_X_ENABLED", false),
-  discourse: envBool("EVIDENCE_DISCOURSE_ENABLED", false),
-  github: envBool("EVIDENCE_GITHUB_ENABLED", false),
-  hackernews: envBool("EVIDENCE_HN_ENABLED", false),
-  web: envBool("EVIDENCE_WEB_ENABLED", true),
-};
+function buildProviderEnabled(): Record<ProviderId, boolean> {
+  if (envBool("EVIDENCE_AUDIT_YOUTUBE_ONLY", false)) {
+    return {
+      youtube: true,
+      reddit: false,
+      x: false,
+      discourse: false,
+      github: false,
+      hackernews: false,
+      web: false,
+    };
+  }
+  return {
+    youtube: envBool("EVIDENCE_YOUTUBE_ENABLED", true),
+    reddit: envBool("EVIDENCE_REDDIT_ENABLED", false),
+    x: envBool("EVIDENCE_X_ENABLED", false),
+    discourse: envBool("EVIDENCE_DISCOURSE_ENABLED", false),
+    github: envBool("EVIDENCE_GITHUB_ENABLED", false),
+    hackernews: envBool("EVIDENCE_HN_ENABLED", false),
+    web: envBool("EVIDENCE_WEB_ENABLED", true),
+  };
+}
+
+/** Toggle single-provider audits via `EVIDENCE_AUDIT_YOUTUBE_ONLY=1` (YouTube on, all other evidence providers off). */
+export const PROVIDER_ENABLED: Record<ProviderId, boolean> = buildProviderEnabled();
 
 export const DISCOURSE_ALLOWLIST = (readEnv("DISCOURSE_ALLOWLIST_DOMAINS") ?? "")
   .split(",")

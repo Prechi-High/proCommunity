@@ -56,6 +56,11 @@ export type EvidenceSearchInput = {
   primaryUses?: string[];
   maxItems?: number;
   country?: string;
+  forceRefresh?: boolean;
+  cacheStore?: {
+    getJson<T>(key: string): Promise<{ ok: boolean; value: T | null }>;
+    setJson(key: string, value: unknown, ttlSec: number): Promise<unknown>;
+  };
 };
 
 export type ProviderSearchResult = {
@@ -64,6 +69,7 @@ export type ProviderSearchResult = {
   items: RawEvidence[];
   error?: string;
   requestsUsed?: number;
+  acquisition?: Record<string, unknown>;
 };
 
 export interface EvidenceProvider {
@@ -75,5 +81,5 @@ export interface EvidenceProvider {
 
 export type ProviderDiagnostics = Record<
   ProviderId,
-  { status: string; items: number; error?: string }
+  { status: string; items: number; error?: string; acquisition?: Record<string, unknown> }
 >;

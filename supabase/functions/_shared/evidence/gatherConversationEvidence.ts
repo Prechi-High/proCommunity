@@ -1,7 +1,7 @@
 import { dedupeRawEvidence } from "./dedupeEvidence.ts";
 import { assessExperienceQuality } from "./experienceQuality.ts";
 import { planEvidenceQueries } from "./queryPlanner.ts";
-import { evidenceProviderCacheKey } from "../redis/keys.ts";
+import { evidenceProviderCacheKey, youtubeHarvestBundleKey } from "../redis/keys.ts";
 import { CACHE_TTL } from "../redis/ttl.ts";
 import {
   ALL_EVIDENCE_PROVIDERS,
@@ -19,6 +19,7 @@ export type GatheredConversationEvidence = {
   diagnostics: ProviderDiagnostics;
   queries: string[];
   cacheStats?: Partial<Record<ProviderId, "hit" | "miss" | "bypass">>;
+  youtubeAcquisition?: Record<string, unknown>;
 };
 
 export type EvidenceProviderCacheStore = {
@@ -47,22 +48,44 @@ export async function loadProviderEvidenceWithCache(
   input: EvidenceSearchInput,
   queries: string[],
   options?: GatherCacheOptions,
-): Promise<{ items: RawEvidence[]; cacheHit: boolean; status: "ok" | "disabled" | "skipped" | "error"; error?: string }> {
-  const queryKey = queries[0] ?? input.productName;
-  const ck = providerCacheKey(input.productId, provider.id, queryKey);
+): Promise<{
+  items: RawEvidence[];
+  cacheHit: boolean;
+  status: "ok" | "disabled" | "skipped" | "error";
+  error?: string;
+  acquisition?: Record<string, unknown>;
+}> {
+  const queryKey = provider.id === "youtube" ? "harvest_v2" : (queries[0] ?? input.productName);
+  const ck =
+    provider.id === "youtube"
+      ? youtubeHarvestBundleKey(input.productId)
+      : providerCacheKey(input.productId, provider.id, queryKey);
   const ttl = providerEvidenceCacheTtlSec();
 
   const shouldReadCache = Boolean(options?.useCache && options.cache && !options?.forceRefresh);
   if (shouldReadCache && options?.cache) {
-    const hit = await options.cache.getJson<RawEvidence[]>(ck);
+    const hit = await options.cache.getJson<RawEvidence[] | { items: RawEvidence[]; acquisition?: Record<string, unknown> }>(
+      ck,
+    );
     if (hit.ok && hit.value != null) {
-      return { items: hit.value, cacheHit: true, status: "ok" };
+      const bundled = Array.isArray(hit.value) ? { items: hit.value } : hit.value;
+      return {
+        items: bundled.items,
+        cacheHit: true,
+        status: "ok",
+        acquisition: bundled.acquisition,
+      };
     }
   }
 
   let result;
   try {
-    result = await provider.searchProductEvidence({ ...input, evidenceTopics: queries });
+    result = await provider.searchProductEvidence({
+      ...input,
+      evidenceTopics: queries,
+      forceRefresh: options?.forceRefresh,
+      cacheStore: options?.cache,
+    });
   } catch (e) {
     return { items: [], cacheHit: false, status: "error", error: String(e) };
   }
@@ -75,10 +98,19 @@ export async function loadProviderEvidenceWithCache(
   }
 
   if (options?.cache && result.status === "ok" && result.items.length > 0) {
-    await options.cache.setJson(ck, result.items, ttl);
+    const payload =
+      provider.id === "youtube"
+        ? { items: result.items, acquisition: result.acquisition }
+        : result.items;
+    await options.cache.setJson(ck, payload, ttl);
   }
 
-  return { items: result.items, cacheHit: false, status: "ok" };
+  return {
+    items: result.items,
+    cacheHit: false,
+    status: "ok",
+    acquisition: result.acquisition,
+  };
 }
 
 export async function gatherConversationEvidence(
@@ -120,6 +152,7 @@ export async function gatherConversationEvidence(
         status: loaded.status === "ok" ? "ok" : loaded.status,
         items: loaded.items.length,
         error: loaded.error,
+        acquisition: loaded.acquisition,
       };
       if (loaded.items.length) collected.push(...loaded.items);
     } catch (e) {
@@ -136,5 +169,11 @@ export async function gatherConversationEvidence(
     experienceQuality: assessExperienceQuality(item.text, item.platform),
   }));
 
-  return { items, diagnostics, queries, cacheStats };
+  return {
+    items,
+    diagnostics,
+    queries,
+    cacheStats,
+    youtubeAcquisition: diagnostics.youtube?.acquisition,
+  };
 }
