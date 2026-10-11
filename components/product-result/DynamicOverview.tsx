@@ -11,18 +11,46 @@ type Props = {
   onDimension: (filterKey: string) => void;
 };
 
+function overallHeadline(overall: ProductUIContractV1['overview']['overall']) {
+  const display = overall?.score_display ?? (overall?.score != null ? 'numeric' : 'unavailable');
+  if (display === 'numeric' && overall?.score != null) return `${overall.score} / 100`;
+  if (display === 'limited') return 'Limited evidence';
+  return 'Unmask score';
+}
+
 export function DynamicOverview({ contract, onDimension }: Props) {
   const { overview } = contract;
   const dims = [...overview.dimensions].sort((a, b) => a.display_order - b.display_order);
+  const overallDisplay = overview.overall?.score_display ?? (overview.overall?.score != null ? 'numeric' : 'unavailable');
+  const showOverallRing = overallDisplay === 'numeric' && overview.overall?.score != null;
 
   return (
     <View style={{ gap: 20 }}>
       <Tile style={{ gap: 16, padding: 18 }}>
         <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
-          <ScoreRing score={overview.overall?.score ?? null} size={108} />
+          {showOverallRing ? (
+            <ScoreRing score={overview.overall?.score ?? null} size={108} />
+          ) : (
+            <View
+              style={{
+                width: 108,
+                height: 108,
+                borderRadius: 54,
+                borderWidth: 2,
+                borderColor: colors.line,
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingHorizontal: 8,
+              }}
+            >
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.bone2, textAlign: 'center' }}>
+                {overallDisplay === 'limited' ? 'Limited evidence' : 'No score yet'}
+              </Text>
+            </View>
+          )}
           <View style={{ flex: 1, gap: 6 }}>
             <Text style={{ fontFamily: fonts.serifBold, fontSize: 20, color: colors.bone }}>
-              {overview.overall?.score != null ? `${overview.overall.score} / 100` : 'Unmask score'}
+              {overallHeadline(overview.overall)}
             </Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone2 }}>
               {overview.overall?.verdict ?? 'Owner-backed scores for what matters on this product.'}
@@ -32,10 +60,18 @@ export function DynamicOverview({ contract, onDimension }: Props) {
       </Tile>
 
       <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.bone }}>Score breakdown</Text>
+      {!dims.length ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone2 }}>
+          Dimension scores are not available yet. Pull to refresh after investigation finishes, or redeploy product-intelligence with LLM + blueprint enabled.
+        </Text>
+      ) : null}
       <View style={{ gap: 10 }}>
         {dims.map((dim) => {
-          const tone = dim.score == null ? 'mixed' : dim.score >= 75 ? 'positive' : dim.score >= 55 ? 'mixed' : 'negative';
+          const scoreDisplay = dim.score_display ?? (dim.score != null ? 'numeric' : 'limited');
+          const showNumeric = scoreDisplay === 'numeric' && dim.score != null;
+          const tone = !showNumeric ? 'mixed' : dim.score! >= 75 ? 'positive' : dim.score! >= 55 ? 'mixed' : 'negative';
           const tc = toneColors(tone);
+          const validated = dim.validated_report_count;
           return (
             <Pressable
               key={dim.id}
@@ -54,17 +90,33 @@ export function DynamicOverview({ contract, onDimension }: Props) {
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>{dim.label}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone2 }} numberOfLines={2}>
-                  {dim.finding ?? (dim.score == null ? 'Limited evidence so far' : '')}
+                  {dim.finding ??
+                    (scoreDisplay === 'limited'
+                      ? validated != null
+                        ? `Based on ${validated} validated report${validated === 1 ? '' : 's'}`
+                        : 'Limited evidence'
+                      : scoreDisplay === 'unavailable'
+                        ? 'Not enough validated reports yet'
+                        : '')}
                 </Text>
-                {dim.confidence_label ? (
+                {showNumeric && dim.confidence_label ? (
                   <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.bone3 }}>
                     {dim.confidence_label} confidence
-                    {dim.evidence_count != null ? ` · ${dim.evidence_count} reports` : ''}
+                    {validated != null ? ` · ${validated} validated reports` : ''}
+                  </Text>
+                ) : scoreDisplay === 'limited' && validated != null ? (
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.bone3 }}>
+                    {validated <= 2 ? 'Early signal' : 'Limited evidence'} · {validated} validated report
+                    {validated === 1 ? '' : 's'}
                   </Text>
                 ) : null}
               </View>
-              {dim.score != null ? (
+              {showNumeric ? (
                 <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: tc.fg }}>{dim.score}</Text>
+              ) : scoreDisplay === 'limited' ? (
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.bone2, maxWidth: 72, textAlign: 'right' }}>
+                  Limited evidence
+                </Text>
               ) : null}
               <CaretRight size={18} color={colors.bone3} weight="bold" />
             </Pressable>

@@ -1,0 +1,27 @@
+---
+description: Supabase CLI auth via .env.local SUPABASE_ACCESS_TOKEN
+alwaysApply: true
+---
+
+# Supabase access (this repo)
+
+- **Never** commit or print `SUPABASE_ACCESS_TOKEN` or service role keys.
+- **Always** load Supabase CLI credentials from **`.env.local`** (fallback `.env`) via `scripts/load-env-file.mjs` or `scripts/supabase-cli.mjs`.
+- **Do not** rely on `npx supabase login` session alone if `.env.local` has `SUPABASE_ACCESS_TOKEN` — prefer the wrapper so deploys work in CI/agent shells.
+- **Default project ref**: `aqdptcuwpneuyzjavjak` (`supabase/config.toml`). Pass `--project-ref` explicitly when targeting another project.
+
+## Commands
+
+```bash
+# Deploy product-intelligence (preferred)
+node scripts/deploy-product-intelligence.mjs
+
+# Any Supabase CLI command
+node scripts/supabase-cli.mjs functions deploy product-intelligence --use-api
+node scripts/supabase-cli.mjs secrets set GEMINI_API_KEY=... --use-api
+node scripts/supabase-cli.mjs db push
+```
+
+## MCP
+
+If Supabase MCP returns Unauthorized, use the CLI wrapper above; MCP may be linked to a different project than this app.

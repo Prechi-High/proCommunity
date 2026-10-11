@@ -2,7 +2,7 @@ import type { ClaimComparison } from '@/lib/claims/types';
 import type { ProductProfile } from '@/lib/types';
 
 import { dynamicProductUiEnabled } from '@/lib/product-result/flags';
-import { getUIContract } from '@/lib/product-result/contract';
+import { getUIContract, type ScoreDisplay } from '@/lib/product-result/contract';
 
 import { getPresentation } from './presentation';
 import type {
@@ -69,11 +69,33 @@ function dimensionFromClaim(seed: typeof DIMENSION_SEEDS[0], claim: ClaimCompari
   };
 }
 
-function overallFromProfile(profile: ProductProfile, dimensions: UnmaskDimension[]): number | null {
+function overallFromLegacyProfile(profile: ProductProfile, dimensions: UnmaskDimension[]): number | null {
   if (profile.score !== null && profile.score !== undefined) return Math.round(profile.score);
   const scored = dimensions.map((d) => d.score).filter((s): s is number => s !== null);
   if (!scored.length) return null;
   return Math.round(scored.reduce((a, b) => a + b, 0) / scored.length);
+}
+
+function resolveDynamicOverall(profile: ProductProfile): { score: number | null; display: ScoreDisplay } {
+  const contract = getUIContract(profile);
+  const pres = getPresentation(profile);
+  let display: ScoreDisplay =
+    contract?.overview.overall?.score_display ??
+    pres?.overview?.scoreDisplay ??
+    'unavailable';
+  if (display === 'numeric') {
+    const raw = contract?.overview.overall?.score ?? pres?.overview?.score ?? null;
+    if (raw == null) return { score: null, display: 'limited' };
+    return { score: Math.round(raw), display: 'numeric' };
+  }
+  if (
+    display === 'unavailable' &&
+    (contract?.overview.dimensions.some((d) => d.score_display === 'limited') ||
+      pres?.overview?.dimensions?.some((d) => d.limitedEvidence))
+  ) {
+    display = 'limited';
+  }
+  return { score: null, display };
 }
 
 function buildHighlights(dimensions: UnmaskDimension[], claims: ClaimComparison[]): UnmaskHighlight[] {
@@ -252,10 +274,11 @@ export function deriveUnmaskBundle(profile: ProductProfile): UnmaskBundle {
 
   const contract = getUIContract(profile);
   const pres = getPresentation(profile);
-  const overallScore =
-    contract?.overview.overall?.score ??
-    pres?.overview?.score ??
-    overallFromProfile(profile, dimensions);
+  const dynamicOverall = dynamic ? resolveDynamicOverall(profile) : null;
+  const overallScore = dynamic
+    ? dynamicOverall!.score
+    : contract?.overview.overall?.score ?? pres?.overview?.score ?? overallFromLegacyProfile(profile, dimensions);
+  const overallScoreDisplay = dynamic ? dynamicOverall!.display : overallScore != null ? 'numeric' : 'unavailable';
   const verdictLine =
     contract?.overview.overall?.verdict ||
     pres?.overview?.verdict ||
@@ -266,6 +289,7 @@ export function deriveUnmaskBundle(profile: ProductProfile): UnmaskBundle {
 
   return {
     overallScore,
+    overallScoreDisplay,
     verdictLine,
     experienceCount: experienceCount || 0,
     videoCount,

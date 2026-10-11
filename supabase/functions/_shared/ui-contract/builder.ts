@@ -55,7 +55,9 @@ export function buildProductUIContractV1(productId: string, profile: Json, prese
     id: d.dimensionId ?? `dim_${d.key}`,
     key: d.key,
     label: d.label,
-    score: d.score ?? undefined,
+    score: d.scoreDisplay === "numeric" && d.score != null ? d.score : undefined,
+    score_display: d.scoreDisplay,
+    validated_report_count: d.validatedReportCount,
     confidence: d.confidence,
     confidence_label: confidenceLabel(d.confidence),
     finding: d.finding,
@@ -188,7 +190,11 @@ export function buildProductUIContractV1(productId: string, profile: Json, prese
     navigation: sortedNav,
     overview: {
       overall: {
-        score: presentation.overview.score ?? undefined,
+        score:
+          presentation.overview.scoreDisplay === "numeric" && presentation.overview.score != null
+            ? presentation.overview.score
+            : undefined,
+        score_display: presentation.overview.scoreDisplay,
         verdict: presentation.overview.verdict,
       },
       dimensions,

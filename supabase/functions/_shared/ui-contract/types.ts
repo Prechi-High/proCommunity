@@ -11,12 +11,16 @@ export type RendererType =
   | "text_blocks"
   | "key_value_list";
 
+export type ScoreDisplay = "numeric" | "limited" | "unavailable";
+
 export type EvaluationDimensionUI = {
   id: string;
   key: string;
   label: string;
   description?: string;
   score?: number;
+  score_display?: ScoreDisplay;
+  validated_report_count?: number;
   confidence?: number;
   confidence_label?: "low" | "medium" | "high";
   finding?: string;
@@ -73,7 +77,12 @@ export type ProductUIContractV1 = {
     enabled: boolean;
   }>;
   overview: {
-    overall?: { score?: number; confidence?: number; verdict?: string };
+    overall?: {
+      score?: number;
+      score_display?: ScoreDisplay;
+      confidence?: number;
+      verdict?: string;
+    };
     dimensions: EvaluationDimensionUI[];
     biggest_strength?: FindingUI;
     biggest_weakness?: FindingUI;

@@ -37,6 +37,7 @@ export type ProductPresentation = {
   navigation: PresentationNavItem[];
   overview: {
     score: number | null;
+    scoreDisplay?: 'numeric' | 'limited' | 'unavailable';
     verdict: string;
     dimensions: Array<{
       key: string;

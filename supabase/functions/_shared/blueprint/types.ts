@@ -33,12 +33,16 @@ export type PresentationNavItem = {
   renderer: string;
 };
 
+export type ScoreDisplay = "numeric" | "limited" | "unavailable";
+
 export type PresentationDimension = {
   key: string;
   label: string;
   score: number | null;
+  scoreDisplay: ScoreDisplay;
   confidence: number;
   evidenceCount: number;
+  validatedReportCount?: number;
   limitedEvidence?: boolean;
   finding?: string;
   dimensionId?: string;
@@ -92,6 +96,7 @@ export type ProductPresentationContract = {
   navigation: PresentationNavItem[];
   overview: {
     score: number | null;
+    scoreDisplay: ScoreDisplay;
     verdict: string;
     dimensions: PresentationDimension[];
   };

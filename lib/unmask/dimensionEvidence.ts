@@ -17,11 +17,14 @@ export type DimensionExperienceRoot = {
   byKey: Record<string, DimensionExperienceBundle>;
 };
 
+export type ScoreDisplay = 'numeric' | 'limited' | 'unavailable';
+
 export type DimensionExperienceBundle = {
   dimensionId: string;
   dimensionKey: string;
   label: string;
   score: number | null;
+  scoreDisplay?: ScoreDisplay;
   confidence: number;
   finding: string;
   positiveCount: number;
@@ -29,6 +32,8 @@ export type DimensionExperienceBundle = {
   negativeCount: number;
   excludedCount: number;
   evidenceCount: number;
+  validatedReportCount?: number;
+  uniqueSourceCount?: number;
   items: DimensionEvidenceItem[];
 };
 

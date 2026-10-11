@@ -41,6 +41,10 @@ export async function persistDimensionEvidence(
       product_match_confidence: row.productMatch.confidence,
       source_reliability: row.productMatch.affectsScore ? 0.7 : 0.35,
       content_hash: row.evidenceId,
+      provider: (row as { provider?: string }).provider ?? row.platform,
+      source_id: (row as { sourceId?: string }).sourceId ?? row.evidenceId,
+      conversation_id: (row as { conversationId?: string }).conversationId ?? null,
+      parent_id: (row as { parentId?: string }).parentId ?? null,
     });
 
     for (const link of row.dimensionLinks) {

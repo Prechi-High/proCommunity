@@ -7,20 +7,46 @@ export function collectRawEvidenceFromProfile(profile: Json): RawEvidenceInput[]
   const seen = new Set<string>();
 
   const push = (row: RawEvidenceInput) => {
-    const key = row.text.trim().toLowerCase().slice(0, 200);
+    const key = row.id || row.text.trim().toLowerCase().slice(0, 200);
     if (!key || seen.has(key)) return;
     seen.add(key);
     out.push(row);
   };
 
-  for (const v of (Array.isArray(profile.voices) ? profile.voices : []) as Json[]) {
+  for (const row of (Array.isArray(profile.conversationEvidence) ? profile.conversationEvidence : []) as Json[]) {
+    const eq = row.experienceQuality as { affectsScoring?: boolean } | undefined;
     push({
-      id: String(v.id ?? `voice_${out.length}`),
+      id: String(row.id ?? `${row.provider}:${row.sourceId}`),
+      text: String(row.text ?? ""),
+      platform: String(row.platform ?? row.provider ?? "conversation"),
+      author: String(row.author ?? ""),
+      url: String(row.url ?? ""),
+      sourceTitle: String(row.title ?? ""),
+      provider: String(row.provider ?? ""),
+      sourceId: String(row.sourceId ?? ""),
+      conversationId: row.conversationId ? String(row.conversationId) : undefined,
+      parentId: row.parentId ? String(row.parentId) : undefined,
+      contextText: row.contextText ? String(row.contextText) : undefined,
+      createdAt: row.createdAt ? String(row.createdAt) : undefined,
+      experienceAffectsScoring: eq?.affectsScoring ?? true,
+    });
+  }
+
+  for (const v of (Array.isArray(profile.voices) ? profile.voices : []) as Json[]) {
+    const vid = String(v.id ?? `voice_${out.length}`);
+    if (seen.has(vid)) continue;
+    push({
+      id: vid,
       text: String(v.text ?? ""),
       platform: String(v.platform ?? "owner"),
       author: String(v.author ?? ""),
       url: String(v.url ?? ""),
       sourceTitle: String(v.where ?? ""),
+      provider: v.provider ? String(v.provider) : undefined,
+      conversationId: v.conversationId ? String(v.conversationId) : undefined,
+      parentId: v.parentId ? String(v.parentId) : undefined,
+      contextText: v.contextText ? String(v.contextText) : undefined,
+      experienceAffectsScoring: true,
     });
   }
 

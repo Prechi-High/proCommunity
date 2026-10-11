@@ -1,5 +1,5 @@
 import { Text, View, type ViewStyle } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, G } from 'react-native-svg';
 
 import { CheckCircle, ShieldCheck } from '@/components/icons';
 import { colors, fonts, radii } from '@/constants/theme';
@@ -29,18 +29,18 @@ export function ScoreRing({ score, size = 96 }: { score: number | null; size?: n
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size}>
         <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.line} strokeWidth={stroke} fill="none" />
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          stroke={color}
-          strokeWidth={stroke}
-          fill="none"
-          strokeDasharray={`${c * pct} ${c}`}
-          strokeLinecap="round"
-          rotation={-90}
-          origin={`${size / 2}, ${size / 2}`}
-        />
+        <G rotation={-90} originX={size / 2} originY={size / 2}>
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            stroke={color}
+            strokeWidth={stroke}
+            fill="none"
+            strokeDasharray={`${c * pct} ${c}`}
+            strokeLinecap="round"
+          />
+        </G>
       </Svg>
       <View style={{ position: 'absolute', alignItems: 'center' }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: size > 80 ? 26 : 22, color: colors.bone }}>{score ?? '—'}</Text>

@@ -61,8 +61,11 @@ export type AskResult =
   | { kind: 'answer'; answer: AskAnswer }
   | { kind: 'insufficient'; hint: string; suggestions: AskSuggestion[] };
 
+export type OverallScoreDisplay = 'numeric' | 'limited' | 'unavailable';
+
 export type UnmaskBundle = {
   overallScore: number | null;
+  overallScoreDisplay?: OverallScoreDisplay;
   verdictLine: string;
   experienceCount: number;
   videoCount: number;

@@ -1,6 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { answerFromStoredEvidence } from "../_shared/ask/storedEvidence.ts";
 import { attachProductPresentation } from "../_shared/blueprint/index.ts";
+import {
+  enrichProfileWithConversationEvidence,
+  gatherOwnerCommentsForInvestigate,
+} from "../_shared/evidence/enrichProfile.ts";
 import { domainFlags, recordDomainDemand } from "../_shared/domain/index.ts";
 import { buildProductFindings } from "../_shared/claims/buildFindings.ts";
 import { userFromRequest } from "../_shared/core/auth.ts";
@@ -728,7 +732,7 @@ async function runInvestigate(input: { query: string; productId?: string; force?
     serper<{ organic?: SerperOrganic[] }>("search", { q: `${q} customer reviews "I bought" OR "I've been using" OR "after months"`, num: 8 }),
     shopping(q, input.country),
     serper<{ images?: SerperImage[] }>("images", { q: `${q}`, num: 20 }),
-    youtubeComments(q).catch(() => [] as OwnerComment[]),
+    gatherOwnerCommentsForInvestigate(id, q).catch(() => [] as OwnerComment[]),
   ]);
 
   const seen = new Set<string>();
@@ -1090,6 +1094,13 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
   };
 
   let outProfile = profile as Json;
+  if (llm.data) {
+    try {
+      outProfile = await enrichProfileWithConversationEvidence(id, q, outProfile);
+    } catch {
+      /* provider layer is best-effort */
+    }
+  }
   if (store && llm.data) {
     await store.upsert("product_intel", {
       id,

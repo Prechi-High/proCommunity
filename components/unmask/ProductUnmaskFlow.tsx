@@ -303,7 +303,10 @@ export function ProductUnmaskFlow({
     );
   }
 
-  if (uiContract) {
+  const contractDims = uiContract?.overview.dimensions?.length ?? 0;
+  const useDynamicOverview = uiContract && contractDims > 0;
+
+  if (useDynamicOverview) {
     return (
       <View style={{ gap: 16 }}>
         <DynamicOverview

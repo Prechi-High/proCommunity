@@ -69,6 +69,11 @@ export function productEvidenceKey(productId: string, dimensionKey: string): str
   return `${CACHE_PREFIX}:product:${productId}:evidence:${dimensionKey}`;
 }
 
+export function evidenceProviderCacheKey(productId: string, provider: string, query: string): string {
+  const q = query.toLowerCase().replace(/\s+/g, "_").slice(0, 80);
+  return `${CACHE_PREFIX}:evidence:${productId}:${provider}:${q}`;
+}
+
 export function productAskKey(productId: string, questionHash: string): string {
   return `${CACHE_PREFIX}:product:${productId}:ask:${questionHash}`;
 }

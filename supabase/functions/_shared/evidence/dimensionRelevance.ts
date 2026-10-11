@@ -3,6 +3,15 @@ import type { DimensionRelevanceResult, EvidenceStance } from "./types.ts";
 
 type DimCtx = { key: string; label: string; keywords: string[] };
 
+const PURITY_SIGNALS =
+  /\b(pure|purity|unrefined|refined|cold[- ]?pressed|expeller|virgin|extra[- ]?virgin|adulterat|contamin|certif|usda\s+organic|organic\s+standard|hexane|bleach|deodoriz|additive|processing quality|unprocessed)\b/i;
+
+const VALUE_SIGNALS =
+  /\b(best value|good value|great value|worth the (money|price)|bang for|affordable|cheap|price|cost|value for money)\b/i;
+
+const VERSATILITY_SIGNALS =
+  /\b(versatile|versatility|multi[- ]?use|many uses|works wonders for cooking|for cooking|great for cooking|hair|skin care|beauty routine)\b/i;
+
 const LEXICON: Record<string, RegExp[]> = {
   hydration: [
     /\b(hydrat|moistur|dry skin|dehydrat|quench|plump)\b/i,
@@ -24,7 +33,34 @@ const LEXICON: Record<string, RegExp[]> = {
   noise: [/\b(noise|loud|quiet|vibrat)\b/i],
   handling: [/\b(handle|steer|corner|agile)\b/i],
   braking: [/\b(brak|stop|disc)\b/i],
+  purity_standard: [PURITY_SIGNALS],
+  purity: [PURITY_SIGNALS],
+  certification: [PURITY_SIGNALS],
+  processing_quality: [/\b(cold[- ]?pressed|unrefined|refined|expeller|hexane|bleach|deodoriz|processed)\b/i],
+  value: [VALUE_SIGNALS],
+  value_for_money: [VALUE_SIGNALS],
+  versatility: [VERSATILITY_SIGNALS],
 };
+
+function isPurityDimension(dim: DimCtx): boolean {
+  const hay = `${dim.key} ${dim.label}`.toLowerCase();
+  return /purity|certification|adulter|organic.?standard/.test(hay);
+}
+
+function isValueDimension(dim: DimCtx): boolean {
+  const hay = `${dim.key} ${dim.label}`.toLowerCase();
+  return /\bvalue\b|worth|price|cost/.test(hay);
+}
+
+function isVersatilityDimension(dim: DimCtx): boolean {
+  const hay = `${dim.key} ${dim.label}`.toLowerCase();
+  return /versatil|multi.?use/.test(hay);
+}
+
+function isProcessingDimension(dim: DimCtx): boolean {
+  const hay = `${dim.key} ${dim.label}`.toLowerCase();
+  return /process|refin|pressed/.test(hay);
+}
 
 function stanceFromText(text: string): EvidenceStance {
   const pos = /\b(love|great|excellent|amazing|recommend|perfect|best|quick|fast|smooth)\b/i.test(text);
@@ -52,6 +88,38 @@ function semanticSupportsDimension(statement: string, dim: DimCtx): { ok: boolea
     return { ok: false, confidence: 0.15, reason: "absorption_not_hydration" };
   }
 
+  if (isPurityDimension(dim)) {
+    if (VALUE_SIGNALS.test(statement) && !PURITY_SIGNALS.test(statement)) {
+      return { ok: false, confidence: 0.1, reason: "value_not_purity" };
+    }
+    if (VERSATILITY_SIGNALS.test(statement) && !PURITY_SIGNALS.test(statement)) {
+      return { ok: false, confidence: 0.1, reason: "versatility_not_purity" };
+    }
+    if (/\b(cooking|recipe|fry|sauté|bake)\b/i.test(statement) && !PURITY_SIGNALS.test(statement)) {
+      return { ok: false, confidence: 0.1, reason: "use_case_not_purity" };
+    }
+    if (PURITY_SIGNALS.test(statement) || lexiconHit(dim.key, statement)) {
+      return { ok: true, confidence: 0.86, reason: "purity_signal" };
+    }
+    const kwOrganic = dim.keywords.some((k) => k.length > 2 && text.includes(k.toLowerCase()));
+    if (kwOrganic && !PURITY_SIGNALS.test(statement)) {
+      return { ok: false, confidence: 0.12, reason: "keyword_without_purity_semantics" };
+    }
+    return { ok: false, confidence: 0.08, reason: "no_purity_signal" };
+  }
+
+  if (isValueDimension(dim) && VALUE_SIGNALS.test(statement)) {
+    return { ok: true, confidence: 0.84, reason: "value_signal" };
+  }
+
+  if (isVersatilityDimension(dim) && VERSATILITY_SIGNALS.test(statement)) {
+    return { ok: true, confidence: 0.82, reason: "versatility_signal" };
+  }
+
+  if (isProcessingDimension(dim) && (LEXICON.processing_quality?.some((re) => re.test(statement)) || lexiconHit(dim.key, statement))) {
+    return { ok: true, confidence: 0.83, reason: "processing_signal" };
+  }
+
   if (lexiconHit(dim.key, statement)) {
     return { ok: true, confidence: 0.82, reason: "lexicon" };
   }
@@ -74,10 +142,12 @@ export function mapStatementToDimensions(
 ): DimensionRelevanceResult[] {
   if (!productAffectsScore) return [];
 
-  const candidates = dimensions.filter((d) =>
-    d.keywords.some((k) => k.length > 2 && statement.toLowerCase().includes(k.toLowerCase())),
-  );
-  const pool = candidates.length ? candidates : dimensions;
+  const candidates = dimensions.filter((d) => {
+    const sem = semanticSupportsDimension(statement, { key: d.key, label: d.label, keywords: d.keywords });
+    if (sem.ok && sem.confidence >= RELEVANCE_THRESHOLD) return true;
+    return d.keywords.some((k) => k.length > 2 && statement.toLowerCase().includes(k.toLowerCase()));
+  });
+  const pool = candidates.length ? candidates : [];
 
   const out: DimensionRelevanceResult[] = [];
   for (const d of pool) {

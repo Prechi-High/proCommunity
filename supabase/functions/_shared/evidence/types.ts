@@ -9,6 +9,13 @@ export type RawEvidenceInput = {
   author?: string;
   url?: string;
   sourceTitle?: string;
+  provider?: string;
+  sourceId?: string;
+  conversationId?: string;
+  parentId?: string;
+  contextText?: string;
+  createdAt?: string;
+  experienceAffectsScoring?: boolean;
 };
 
 export type ProductMatchResult = {
@@ -38,15 +45,22 @@ export type NormalizedEvidenceRow = {
   author: string;
   url: string;
   sourceTitle: string;
+  provider?: string;
+  sourceId?: string;
+  conversationId?: string;
+  parentId?: string;
   productMatch: ProductMatchResult;
   dimensionLinks: DimensionRelevanceResult[];
 };
+
+export type ScoreDisplay = "numeric" | "limited" | "unavailable";
 
 export type DimensionScoreBundle = {
   dimensionId: string;
   dimensionKey: string;
   label: string;
   score: number | null;
+  scoreDisplay: ScoreDisplay;
   confidence: number;
   finding: string;
   positiveCount: number;
@@ -54,10 +68,13 @@ export type DimensionScoreBundle = {
   negativeCount: number;
   excludedCount: number;
   evidenceCount: number;
+  validatedReportCount: number;
+  uniqueSourceCount: number;
   items: Array<{
     evidenceId: string;
     statement: string;
     platform: string;
+    author?: string;
     url: string;
     stance: EvidenceStance;
     strength: number;

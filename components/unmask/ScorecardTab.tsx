@@ -22,6 +22,10 @@ type Props = {
 export function ScorecardTab({ profile, bundle, onDimension, onOpenSources, mode = 'overview' }: Props) {
   const strengths = bundle.dimensions.filter((d) => d.score !== null && d.score >= 75).slice(0, 3);
   const weaknesses = bundle.dimensions.filter((d) => d.score !== null && d.score < 65).slice(0, 3);
+  const overallDisplay = bundle.overallScoreDisplay ?? (bundle.overallScore != null ? 'numeric' : 'unavailable');
+  const showOverallRing = overallDisplay === 'numeric' && bundle.overallScore != null;
+  const overallTitle =
+    showOverallRing ? `${bundle.overallScore} / 100` : overallDisplay === 'limited' ? 'Limited evidence' : 'Unmask score';
 
   return (
     <View style={{ gap: 24 }}>
@@ -29,10 +33,29 @@ export function ScorecardTab({ profile, bundle, onDimension, onOpenSources, mode
         <Tile style={{ gap: 16, padding: 18 }}>
           <UnmaskedBadge />
           <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
-            <ScoreRing score={bundle.overallScore} size={108} />
+            {showOverallRing ? (
+              <ScoreRing score={bundle.overallScore} size={108} />
+            ) : (
+              <View
+                style={{
+                  width: 108,
+                  height: 108,
+                  borderRadius: 54,
+                  borderWidth: 2,
+                  borderColor: colors.line,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingHorizontal: 8,
+                }}
+              >
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.bone2, textAlign: 'center' }}>
+                  {overallDisplay === 'limited' ? 'Limited evidence' : 'No score yet'}
+                </Text>
+              </View>
+            )}
             <View style={{ flex: 1, gap: 6 }}>
               <Text style={{ fontFamily: fonts.serifBold, fontSize: 20, letterSpacing: -0.3, color: colors.bone }}>
-                {bundle.overallScore !== null ? `${bundle.overallScore} / 100` : 'Unmask score'}
+                {overallTitle}
               </Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone2 }}>{bundle.verdictLine}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>
@@ -140,14 +163,33 @@ export function DimensionDetail({
 
   if (!dim && !experience) return null;
 
+  const contractDim = profile.uiContract?.overview.dimensions.find((d) => d.key === dimKey);
   const label = experience?.label ?? dim?.label ?? dimKey;
-  const score = experience?.score ?? dim?.score ?? null;
+  const items = experience?.items ?? [];
+  const scoreDisplay =
+    contractDim?.score_display ??
+    (experience as { scoreDisplay?: 'numeric' | 'limited' | 'unavailable' } | null)?.scoreDisplay ??
+    (experience?.score != null || dim?.score != null ? 'numeric' : 'limited');
+  const score =
+    scoreDisplay === 'numeric' ? (experience?.score ?? dim?.score ?? null) : null;
+  const validatedCount =
+    contractDim?.validated_report_count ??
+    (experience as { validatedReportCount?: number } | null)?.validatedReportCount ??
+    items.filter((e) => e.affectsScore).length;
   const finding = experience?.finding ?? dim?.takeaway ?? '';
   const confidence = experience?.confidence;
-  const items = experience?.items ?? [];
   const pos = experience?.positiveCount ?? 0;
   const mix = experience?.mixedCount ?? 0;
   const neg = experience?.negativeCount ?? 0;
+
+  const limitedLabel =
+    validatedCount <= 2 && validatedCount > 0
+      ? 'Early signal'
+      : scoreDisplay === 'limited'
+        ? 'Limited evidence'
+        : scoreDisplay === 'unavailable'
+          ? 'Not enough evidence'
+          : null;
 
   return (
     <View style={{ gap: 20 }}>
@@ -156,11 +198,38 @@ export function DimensionDetail({
       </Pressable>
       <SectionTitle title={label} subtitle="Evidence mapped to this experience area" />
       <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-        <ScoreRing score={score} size={96} />
+        {scoreDisplay === 'numeric' && score != null ? (
+          <ScoreRing score={score} size={96} />
+        ) : (
+          <View
+            style={{
+              width: 96,
+              height: 96,
+              borderRadius: 48,
+              borderWidth: 2,
+              borderColor: colors.line,
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 8,
+            }}
+          >
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.bone2, textAlign: 'center' }}>
+              {limitedLabel ?? 'Limited evidence'}
+            </Text>
+          </View>
+        )}
         <View style={{ flex: 1, gap: 6, borderRadius: radii.card, backgroundColor: colors.wineDeep, padding: 12 }}>
           <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone }}>Reasoning summary</Text>
+          {limitedLabel ? (
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.bone }}>{limitedLabel}</Text>
+          ) : null}
+          {validatedCount > 0 && scoreDisplay !== 'numeric' ? (
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.bone2 }}>
+              Based on {validatedCount} validated report{validatedCount === 1 ? '' : 's'}
+            </Text>
+          ) : null}
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.bone2 }}>{finding}</Text>
-          {confidence != null ? (
+          {scoreDisplay === 'numeric' && confidence != null ? (
             <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.bone3 }}>
               Confidence {Math.round(confidence * 100)}% · {pos} positive · {mix} mixed · {neg} negative
             </Text>
