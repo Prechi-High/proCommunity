@@ -52,8 +52,11 @@ export async function callIntel<T>(body: Record<string, unknown>, timeoutMs = 45
       body: JSON.stringify({ country: COUNTRY, ...body }),
       signal: controller.signal,
     });
-    const json = (await res.json().catch(() => null)) as (T & { error?: string }) | null;
-    if (!res.ok || !json) throw new Error(json?.error ?? `product_intelligence_http_${res.status}`);
+    const json = (await res.json().catch(() => null)) as (T & { error?: string; message?: string }) | null;
+    if (!res.ok || !json) {
+      const detail = json?.message ?? json?.error ?? `product_intelligence_http_${res.status}`;
+      throw new Error(detail);
+    }
     return json;
   } finally {
     clearTimeout(timer);
@@ -190,12 +193,15 @@ export async function investigateProduct(input: {
 }): Promise<ProductProfile> {
   const known = getKnownProduct(input.id);
   const query = input.query?.trim() || (known ? displayName(known) : input.id.replace(/-/g, ' '));
-  const res = await callIntel<{ profile?: ProductProfile }>({
-    action: 'investigate',
-    productId: input.id,
-    query,
-    force: input.force === true,
-  });
+  const res = await callIntel<{ profile?: ProductProfile }>(
+    {
+      action: 'investigate',
+      productId: input.id,
+      query,
+      force: input.force === true,
+    },
+    120_000,
+  );
   if (!res.profile) throw new Error('empty_profile');
   const profile = res.profile;
   await hydrateProductFindings(profile);

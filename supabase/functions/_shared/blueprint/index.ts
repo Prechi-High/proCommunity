@@ -34,8 +34,35 @@ export async function attachProductPresentation(
 ): Promise<Json> {
   if (!blueprintEnabled()) return profile;
 
+  try {
+    return await attachProductPresentationInner(store, productId, query, profile, opts);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("attach_product_presentation_failed", productId, msg);
+    return { ...profile, blueprintAttachError: msg };
+  }
+}
+
+async function attachProductPresentationInner(
+  store: Store | null,
+  productId: string,
+  query: string,
+  profile: Json,
+  opts?: { force?: boolean },
+): Promise<Json> {
   const existing = profile.presentation as Json | undefined;
-  if (!opts?.force && existing?.version) return profile;
+  if (!opts?.force && existing?.version) {
+    const pres = existing as import("./types.ts").ProductPresentationContract;
+    const out: Json = { ...profile };
+    if (dynamicProductUiEnabled() && !out.uiContract) {
+      try {
+        out.uiContract = buildProductUIContractV1(productId, out, pres);
+      } catch {
+        /* keep presentation */
+      }
+    }
+    return out;
+  }
 
   if (!opts?.force) {
     const redis = await readBlueprintCache(productId);
