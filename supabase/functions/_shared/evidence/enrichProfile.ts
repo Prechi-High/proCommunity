@@ -1,4 +1,5 @@
-import { gatherConversationEvidence, redisEvidenceProviderCache } from "./gatherConversationEvidence.ts";
+import { gatherConversationEvidence } from "./gatherConversationEvidence.ts";
+import { redisEvidenceProviderCache } from "./providerCacheStore.ts";
 import { inferDomainFromCategory, planEvidenceQueries } from "./queryPlanner.ts";
 import { presetsForDomain } from "../blueprint/presets.ts";
 import type { EvidenceSearchInput } from "./providers/types.ts";
@@ -41,11 +42,13 @@ export async function enrichProfileWithConversationEvidence(
   productId: string,
   query: string,
   profile: Json,
+  options?: { forceRefresh?: boolean },
 ): Promise<Json> {
   const input = buildEvidenceSearchInputFromProfile(productId, query, profile);
   const gathered = await gatherConversationEvidence(input, {
     useCache: true,
     cache: redisEvidenceProviderCache,
+    forceRefresh: options?.forceRefresh === true,
   });
 
   const conversationEvidence = gathered.items.map((item) => ({
@@ -135,7 +138,11 @@ export function youtubeItemsToOwnerComments(
     }));
 }
 
-export async function gatherOwnerCommentsForInvestigate(productId: string, query: string): Promise<
+export async function gatherOwnerCommentsForInvestigate(
+  productId: string,
+  query: string,
+  forceRefresh = false,
+): Promise<
   Array<{
     id: string;
     author: string;
@@ -156,6 +163,7 @@ export async function gatherOwnerCommentsForInvestigate(productId: string, query
   const { items } = await gatherConversationEvidence(input, {
     useCache: true,
     cache: redisEvidenceProviderCache,
+    forceRefresh,
   });
   const yt = items.filter((i) => i.provider === "youtube" && i.experienceQuality.affectsScoring);
   return youtubeItemsToOwnerComments(yt).slice(0, 24);

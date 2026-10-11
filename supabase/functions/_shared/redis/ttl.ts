@@ -22,5 +22,8 @@ export const CACHE_TTL = {
   dimension: () => envSec("CACHE_TTL_DIMENSION_SEC", 60 * 60),
   evidence: () => envSec("CACHE_TTL_EVIDENCE_SEC", 30 * 60),
   ask: () => envSec("CACHE_TTL_ASK_SEC", 15 * 60),
-  providerEvidence: () => envSec("CACHE_TTL_PROVIDER_EVIDENCE_SEC", 6 * 60 * 60),
+  /** Default 21600s (6h) for conversation provider payloads. */
+  providerEvidence: () => envSec("CACHE_TTL_PROVIDER_EVIDENCE_SEC", 21600),
 } as const;
+
+export const DEFAULT_PROVIDER_EVIDENCE_TTL_SEC = 21600;

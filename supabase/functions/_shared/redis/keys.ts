@@ -69,9 +69,21 @@ export function productEvidenceKey(productId: string, dimensionKey: string): str
   return `${CACHE_PREFIX}:product:${productId}:evidence:${dimensionKey}`;
 }
 
+const MAX_QUERY_KEY_LEN = 80;
+
+function hashQueryComponent(query: string): string {
+  let h = 0;
+  for (let i = 0; i < query.length; i++) h = (h * 31 + query.charCodeAt(i)) >>> 0;
+  return `qh_${h.toString(36)}`;
+}
+
 export function evidenceProviderCacheKey(productId: string, provider: string, query: string): string {
-  const q = query.toLowerCase().replace(/\s+/g, "_").slice(0, 80);
-  return `${CACHE_PREFIX}:evidence:${productId}:${provider}:${q}`;
+  const normalized = query.toLowerCase().replace(/\s+/g, " ").trim();
+  const queryPart =
+    normalized.length > MAX_QUERY_KEY_LEN
+      ? hashQueryComponent(normalized)
+      : normalized.replace(/\s+/g, "_").slice(0, MAX_QUERY_KEY_LEN);
+  return `${CACHE_PREFIX}:evidence:${productId}:${provider}:${queryPart}`;
 }
 
 export function productAskKey(productId: string, questionHash: string): string {

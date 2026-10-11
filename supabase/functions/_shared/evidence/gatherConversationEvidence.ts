@@ -2,7 +2,6 @@ import { dedupeRawEvidence } from "./dedupeEvidence.ts";
 import { assessExperienceQuality } from "./experienceQuality.ts";
 import { planEvidenceQueries } from "./queryPlanner.ts";
 import { evidenceProviderCacheKey } from "../redis/keys.ts";
-import { redisService } from "../redis/service.ts";
 import { CACHE_TTL } from "../redis/ttl.ts";
 import {
   ALL_EVIDENCE_PROVIDERS,
@@ -19,7 +18,7 @@ export type GatheredConversationEvidence = {
   items: Array<RawEvidence & { experienceQuality: ReturnType<typeof assessExperienceQuality> }>;
   diagnostics: ProviderDiagnostics;
   queries: string[];
-  cacheStats?: Partial<Record<ProviderId, "hit" | "miss">>;
+  cacheStats?: Partial<Record<ProviderId, "hit" | "miss" | "bypass">>;
 };
 
 export type EvidenceProviderCacheStore = {
@@ -27,32 +26,47 @@ export type EvidenceProviderCacheStore = {
   setJson(key: string, value: unknown, ttlSec: number): Promise<unknown>;
 };
 
-export const redisEvidenceProviderCache: EvidenceProviderCacheStore = {
-  getJson: (key) => redisService.getJson(key),
-  setJson: (key, value, ttlSec) => redisService.setJson(key, value, ttlSec),
+export type GatherCacheOptions = {
+  cache?: EvidenceProviderCacheStore;
+  /** When true, read through Upstash before calling providers. */
+  useCache?: boolean;
+  /** Investigation force — skip Redis GET, fetch fresh, overwrite cache on success. */
+  forceRefresh?: boolean;
 };
 
 export function providerCacheKey(productId: string, providerId: ProviderId, query: string): string {
   return evidenceProviderCacheKey(productId, providerId, query);
 }
 
+export function providerEvidenceCacheTtlSec(): number {
+  return CACHE_TTL.providerEvidence();
+}
+
 export async function loadProviderEvidenceWithCache(
   provider: EvidenceProvider,
   input: EvidenceSearchInput,
   queries: string[],
-  options?: { cache?: EvidenceProviderCacheStore; useCache?: boolean },
+  options?: GatherCacheOptions,
 ): Promise<{ items: RawEvidence[]; cacheHit: boolean; status: "ok" | "disabled" | "skipped" | "error"; error?: string }> {
   const queryKey = queries[0] ?? input.productName;
   const ck = providerCacheKey(input.productId, provider.id, queryKey);
+  const ttl = providerEvidenceCacheTtlSec();
 
-  if (options?.useCache && options.cache) {
+  const shouldReadCache = Boolean(options?.useCache && options.cache && !options?.forceRefresh);
+  if (shouldReadCache && options?.cache) {
     const hit = await options.cache.getJson<RawEvidence[]>(ck);
     if (hit.ok && hit.value != null) {
       return { items: hit.value, cacheHit: true, status: "ok" };
     }
   }
 
-  const result = await provider.searchProductEvidence({ ...input, evidenceTopics: queries });
+  let result;
+  try {
+    result = await provider.searchProductEvidence({ ...input, evidenceTopics: queries });
+  } catch (e) {
+    return { items: [], cacheHit: false, status: "error", error: String(e) };
+  }
+
   if (result.status === "disabled" || result.status === "skipped") {
     return { items: [], cacheHit: false, status: result.status };
   }
@@ -60,8 +74,8 @@ export async function loadProviderEvidenceWithCache(
     return { items: [], cacheHit: false, status: "error", error: result.error };
   }
 
-  if (options?.cache && result.items.length) {
-    await options.cache.setJson(ck, result.items, CACHE_TTL.providerEvidence());
+  if (options?.cache && result.status === "ok" && result.items.length > 0) {
+    await options.cache.setJson(ck, result.items, ttl);
   }
 
   return { items: result.items, cacheHit: false, status: "ok" };
@@ -69,7 +83,7 @@ export async function loadProviderEvidenceWithCache(
 
 export async function gatherConversationEvidence(
   input: EvidenceSearchInput,
-  options?: { cache?: EvidenceProviderCacheStore; useCache?: boolean },
+  options?: GatherCacheOptions,
 ): Promise<GatheredConversationEvidence> {
   const order = providerRouteOrder(input.domain);
   const planned = planEvidenceQueries(input);
@@ -85,11 +99,15 @@ export async function gatherConversationEvidence(
     web: { status: "disabled", items: 0 },
   };
 
-  const cacheStats: Partial<Record<ProviderId, "hit" | "miss">> = {};
+  const cacheStats: Partial<Record<ProviderId, "hit" | "miss" | "bypass">> = {};
   const providerMap = new Map(ALL_EVIDENCE_PROVIDERS.map((p) => [p.id, p]));
   const collected: RawEvidence[] = [];
 
   const runProvider = async (providerId: ProviderId) => {
+    if (!PROVIDER_ENABLED[providerId]) {
+      diagnostics[providerId] = { status: "disabled", items: 0 };
+      return;
+    }
     const provider = providerMap.get(providerId);
     if (!provider) {
       diagnostics[providerId] = { status: "disabled", items: 0 };
@@ -97,7 +115,7 @@ export async function gatherConversationEvidence(
     }
     try {
       const loaded = await loadProviderEvidenceWithCache(provider, input, queries, options);
-      cacheStats[providerId] = loaded.cacheHit ? "hit" : "miss";
+      cacheStats[providerId] = options?.forceRefresh ? "bypass" : loaded.cacheHit ? "hit" : "miss";
       diagnostics[providerId] = {
         status: loaded.status === "ok" ? "ok" : loaded.status,
         items: loaded.items.length,

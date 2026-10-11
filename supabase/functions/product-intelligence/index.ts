@@ -732,7 +732,7 @@ async function runInvestigate(input: { query: string; productId?: string; force?
     serper<{ organic?: SerperOrganic[] }>("search", { q: `${q} customer reviews "I bought" OR "I've been using" OR "after months"`, num: 8 }),
     shopping(q, input.country),
     serper<{ images?: SerperImage[] }>("images", { q: `${q}`, num: 20 }),
-    gatherOwnerCommentsForInvestigate(id, q).catch(() => [] as OwnerComment[]),
+    gatherOwnerCommentsForInvestigate(id, q, input.force === true).catch(() => [] as OwnerComment[]),
   ]);
 
   const seen = new Set<string>();
@@ -1096,7 +1096,9 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
   let outProfile = profile as Json;
   if (llm.data) {
     try {
-      outProfile = await enrichProfileWithConversationEvidence(id, q, outProfile);
+      outProfile = await enrichProfileWithConversationEvidence(id, q, outProfile, {
+        forceRefresh: input.force === true,
+      });
     } catch {
       /* provider layer is best-effort */
     }
