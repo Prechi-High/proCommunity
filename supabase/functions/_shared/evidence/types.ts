@@ -1,4 +1,10 @@
-export type ProductMatchLevel = "exact" | "probable" | "contextual" | "unrelated";
+export type ProductMatchLevel =
+  | "exact"
+  | "variant_related"
+  | "comparison_context"
+  | "contextual"
+  | "probable"
+  | "unrelated";
 
 export type EvidenceStance = "positive" | "mixed" | "negative" | "neutral";
 
@@ -14,6 +20,7 @@ export type RawEvidenceInput = {
   conversationId?: string;
   parentId?: string;
   contextText?: string;
+  parentAuthor?: string;
   createdAt?: string;
   experienceAffectsScoring?: boolean;
   provenanceTier?: string;
@@ -38,6 +45,7 @@ export type DimensionRelevanceResult = {
   strength: number;
   affectsScore: boolean;
   reason: string;
+  extractedStatement?: string;
 };
 
 export type NormalizedEvidenceRow = {
@@ -52,6 +60,9 @@ export type NormalizedEvidenceRow = {
   sourceId?: string;
   conversationId?: string;
   parentId?: string;
+  parentAuthor?: string;
+  contextText?: string;
+  createdAt?: string;
   provenanceWeight?: number;
   productMatch: ProductMatchResult;
   dimensionLinks: DimensionRelevanceResult[];
@@ -74,18 +85,46 @@ export type DimensionScoreBundle = {
   evidenceCount: number;
   validatedReportCount: number;
   uniqueSourceCount: number;
-  items: Array<{
-    evidenceId: string;
-    statement: string;
-    platform: string;
-    author?: string;
-    url: string;
-    stance: EvidenceStance;
-    strength: number;
-    relevanceConfidence: number;
-    productMatchConfidence: number;
-    affectsScore: boolean;
-  }>;
+  uniqueVideoCount?: number;
+  uniqueAuthorCount?: number;
+  sufficiencyGate?: {
+    sufficientForNumericScore: boolean;
+    failedConditions: string[];
+    displayReason: string;
+    avgRelevance: number;
+    avgProductMatch: number;
+    evidenceCount?: number;
+    uniqueAuthors?: number;
+    uniqueSources?: number;
+    uniqueConversations?: number;
+    uniqueVideos?: number;
+    agreement?: number;
+  };
+  items: Array<DimensionEvidenceDisplayItem>;
+};
+
+export type DimensionEvidenceDisplayItem = {
+  evidenceId: string;
+  statement: string;
+  fullText?: string;
+  platform: string;
+  author?: string;
+  url: string;
+  stance: EvidenceStance;
+  strength: number;
+  relevanceConfidence: number;
+  productMatchConfidence: number;
+  productMatchLevel?: ProductMatchLevel;
+  affectsScore: boolean;
+  parentId?: string;
+  parentText?: string;
+  parentAuthor?: string;
+  isReply?: boolean;
+  conversationId?: string;
+  videoTitle?: string;
+  sourceContext?: string;
+  createdAt?: string;
+  provider?: string;
 };
 
 export type DimensionExperiencePackage = {

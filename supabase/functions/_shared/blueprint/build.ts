@@ -1,5 +1,7 @@
 import type { DomainResolution } from "../domain/types.ts";
-import { buildDimensionExperiencePackage, DIMENSION_EVIDENCE_ALGO } from "../evidence/pipeline.ts";
+import { buildDimensionExperiencePackage } from "../evidence/pipeline.ts";
+import { currentEvidenceFingerprint } from "../evidence/versions.ts";
+import { conversationEvidenceCount, evidenceCorpusFingerprint } from "./presentationEvidenceSync.ts";
 import { evaluateOverallScoreEligibility, type ScoreDisplay } from "../evidence/sufficiency.ts";
 import { validateDimensionSemantics, inferDomainFromProductType } from "../evidence/validateDimensions.ts";
 import type {
@@ -202,6 +204,10 @@ export function buildPresentationFromProfile(
       domainTemplateVersion: 1,
       classificationConfidence: domainResolution?.classificationConfidence ?? classification.classificationConfidence,
       cacheSource: schema.cacheSource ?? "fresh",
+      conversationEvidenceCount: conversationEvidenceCount(profile),
+      evidenceCorpusFingerprint: evidenceCorpusFingerprint(profile),
+      blueprintVersion: blueprintVersion,
+      ...currentEvidenceFingerprint(),
     },
     navigation,
     overview: {
@@ -216,7 +222,7 @@ export function buildPresentationFromProfile(
       byKey: dimExperience.byKey,
       normalizedRows: dimExperience.normalizedRows,
     },
-    dimensionEvidenceAlgorithm: DIMENSION_EVIDENCE_ALGO,
+    dimensionEvidenceAlgorithm: currentEvidenceFingerprint().dimensionEvidenceAlgorithm,
   };
 }
 

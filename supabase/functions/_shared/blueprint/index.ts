@@ -6,6 +6,7 @@ import { readBlueprintCache, writeBlueprintCache } from "./cache.ts";
 import { getOrBuildBlueprintPackage } from "./getOrBuild.ts";
 import { loadPresentationFromDb } from "./load.ts";
 import { persistBlueprint } from "./persist.ts";
+import { presentationMatchesConversationEvidence } from "./presentationEvidenceSync.ts";
 
 type Json = Record<string, unknown>;
 
@@ -59,6 +60,9 @@ async function attachProductPresentationInner(
   const existing = profile.presentation as Json | undefined;
   if (!opts?.force && existing?.version) {
     const pres = existing as import("./types.ts").ProductPresentationContract;
+    if (!presentationMatchesConversationEvidence(profile, pres)) {
+      /* fall through — recompute dimension experience from current conversationEvidence */
+    } else {
     const out: Json = { ...profile };
     if (dynamicProductUiEnabled() && !out.uiContract) {
       try {
@@ -68,12 +72,16 @@ async function attachProductPresentationInner(
       }
     }
     return out;
+    }
   }
 
   if (!opts?.force) {
     const redis = await readBlueprintCache(productId);
     if (redis.hit) {
       const pres = redis.payload.presentation;
+      if (!presentationMatchesConversationEvidence(profile, pres)) {
+        /* stale — rebuild below */
+      } else {
       pres.intelligenceMeta = { ...pres.intelligenceMeta!, cacheSource: "redis" };
       const cached: Json = { ...profile, presentation: pres };
       if (redis.payload.uiContract) cached.uiContract = redis.payload.uiContract;
@@ -86,12 +94,13 @@ async function attachProductPresentationInner(
       }
       cached.dimensionExperience = clientDimensionExperience(pres);
       return cached;
+      }
     }
   }
 
   if (store && !opts?.force) {
     const loaded = await loadPresentationFromDb(store, productId).catch(() => null);
-    if (loaded) {
+    if (loaded && presentationMatchesConversationEvidence(profile, loaded)) {
       loaded.intelligenceMeta = { ...loaded.intelligenceMeta!, cacheSource: "supabase" };
       const cached: Json = { ...profile, presentation: loaded };
       if (dynamicProductUiEnabled()) {

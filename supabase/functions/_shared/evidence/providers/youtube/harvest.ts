@@ -1,23 +1,28 @@
 import { assessExperienceQuality } from "../../experienceQuality.ts";
 import { assessProductEvidenceMatch } from "../../identityGate.ts";
 import { mapStatementToDimensions } from "../../dimensionRelevance.ts";
-import {
-  planDimensionTargetedQueries,
-  planEvidenceQueries,
-  selectYoutubeSearchQueries,
-  type PlannedQuery,
-} from "../../queryPlanner.ts";
+import { planDimensionTargetedQueries, planEvidenceQueries } from "../../queryPlanner.ts";
 import { PROVIDER_TIMEOUT_MS, secret } from "../config.ts";
 import type { EvidenceSearchInput, RawEvidence } from "../types.ts";
 import type { EvidenceProviderCacheStore } from "../../gatherConversationEvidence.ts";
 import { cachedJson, cacheFromStore, youtubeCommentPageKey, youtubeRepliesKey, youtubeSearchPageKey } from "./cache.ts";
 import { emptyDimensionStats, type YoutubeAcquisitionDiagnostics } from "./diagnostics.ts";
-import { YOUTUBE_LIMITS, YOUTUBE_QUOTA } from "./limits.ts";
+import { YOUTUBE_LIMITS } from "./limits.ts";
+import {
+  enrichDiscoveredVideos,
+  fetchBatchVideoStats,
+  fetchVideosMetadataBatched,
+} from "./metadata.ts";
+import { emptyQuotaLedger, ledgerTotalUnits, YOUTUBE_QUOTA_COST, type YoutubeQuotaLedger } from "./quota.ts";
+import {
+  buildBundledYoutubeSearchPlans,
+  buildSeparateYoutubeSearchPlans,
+  type SearchExecutionPlan,
+} from "./searchBundle.ts";
 import {
   commentPagesForVideo,
   queryHash,
   rankVideos,
-  scoreVideo,
   type DiscoveredVideo,
 } from "./rank.ts";
 
@@ -39,38 +44,72 @@ async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
   ]);
 }
 
-type Budget = {
-  quotaUnits: number;
-  requests: number;
-  stopped: string[];
-};
-
-function budgetOk(b: Budget, limits: ReturnType<typeof readLimits>): boolean {
-  if (b.quotaUnits >= limits.maxQuotaUnits) {
-    b.stopped.push("quota_budget");
-    return false;
-  }
-  if (b.requests >= limits.maxRequests) {
-    b.stopped.push("request_budget");
-    return false;
-  }
-  return true;
-}
+type Limits = ReturnType<typeof readLimits>;
 
 function readLimits() {
   return {
     maxSearchQueries: YOUTUBE_LIMITS.maxSearchQueries(),
+    maxBundledSearchQueries: YOUTUBE_LIMITS.maxBundledSearchQueries(),
+    useBundledSearch: YOUTUBE_LIMITS.useBundledSearch(),
+    useBatchGetStats: YOUTUBE_LIMITS.useBatchGetStats(),
+    videosListIdsPerRequest: YOUTUBE_LIMITS.videosListIdsPerRequest(),
     maxSearchPages: YOUTUBE_LIMITS.maxSearchPagesPerQuery(),
     maxVideos: YOUTUBE_LIMITS.maxVideos(),
     maxCommentPages: YOUTUBE_LIMITS.maxCommentPagesPerVideo(),
     maxRaw: YOUTUBE_LIMITS.maxRawComments(),
     maxReplyThreads: YOUTUBE_LIMITS.maxReplyThreads(),
     maxRepliesPerThread: YOUTUBE_LIMITS.maxRepliesPerThread(),
-    maxQuotaUnits: YOUTUBE_LIMITS.maxQuotaUnitsPerProduct(),
+    maxSearchCalls: YOUTUBE_LIMITS.maxSearchCallsPerProduct(),
+    maxGeneralQuota: YOUTUBE_LIMITS.maxGeneralQuotaPerProduct(),
     maxRequests: YOUTUBE_LIMITS.maxRequestsPerProduct(),
     marginalMin: YOUTUBE_LIMITS.marginalValidGainMin(),
     searchPageSize: YOUTUBE_LIMITS.searchPageSize(),
     commentPageSize: YOUTUBE_LIMITS.commentPageSize(),
+  };
+}
+
+function budgetOk(ledger: YoutubeQuotaLedger, limits: Limits, stopped: string[]): boolean {
+  if (ledger.searchQueriesBucket >= limits.maxSearchCalls) {
+    stopped.push("search_bucket_budget");
+    return false;
+  }
+  if (ledger.generalQuotaUnits >= limits.maxGeneralQuota) {
+    stopped.push("general_quota_budget");
+    return false;
+  }
+  if (ledger.totalRequests >= limits.maxRequests) {
+    stopped.push("request_budget");
+    return false;
+  }
+  return true;
+}
+
+function emptyDiagnostics(dimensions: EvidenceSearchInput["dimensions"]): YoutubeAcquisitionDiagnostics {
+  return {
+    queriesPlanned: 0,
+    queriesExecuted: [],
+    searchRequests: 0,
+    videosDiscovered: 0,
+    uniqueVideos: 0,
+    videosHarvested: 0,
+    commentPagesFetched: 0,
+    replyRequests: 0,
+    rawCommentsRetrieved: 0,
+    providerNormalizedItems: 0,
+    experienceQualityAccepted: 0,
+    identityAccepted: 0,
+    dimensionMapped: 0,
+    finalScoreEvidence: 0,
+    quotaUnitsEstimated: 0,
+    quotaSearchBucket: 0,
+    quotaGeneralUnits: 0,
+    quotaBatchStatsBucket: 0,
+    metadataRequests: 0,
+    batchStatsRequests: 0,
+    searchMode: "bundled",
+    requestsUsed: 0,
+    stoppedBecause: [],
+    dimensionStats: emptyDimensionStats(dimensions ?? []),
   };
 }
 
@@ -106,12 +145,10 @@ function normalizeRow(
   };
 }
 
-type SearchItem = {
-  id?: { videoId?: string };
-  snippet?: { title?: string; description?: string };
+type SearchRes = {
+  items?: Array<{ id?: { videoId?: string }; snippet?: { title?: string; description?: string } }>;
+  nextPageToken?: string;
 };
-
-type SearchRes = { items?: SearchItem[]; nextPageToken?: string };
 
 type ThreadItem = {
   id?: string;
@@ -145,20 +182,8 @@ type ThreadItem = {
 
 type ThreadRes = { items?: ThreadItem[]; nextPageToken?: string };
 
-type ReplyRes = {
-  items?: Array<{
-    id?: string;
-    snippet?: {
-      authorDisplayName?: string;
-      textOriginal?: string;
-      textDisplay?: string;
-      likeCount?: number;
-      publishedAt?: string;
-      parentId?: string;
-    };
-  }>;
-  nextPageToken?: string;
-};
+type ReplyComment = NonNullable<NonNullable<ThreadItem["replies"]>["comments"]>[number];
+type ReplyRes = { items?: ReplyComment[]; nextPageToken?: string };
 
 function countValidEvidence(
   items: RawEvidence[],
@@ -218,9 +243,7 @@ function updateDimensionDiagnostics(
     const text = item.text;
     for (const d of dims) {
       const kwHit = d.keywords.some((k) => k.length > 2 && text.toLowerCase().includes(k.toLowerCase()));
-      if (kwHit) {
-        stats[d.key].rawCandidates += 1;
-      }
+      if (kwHit) stats[d.key].rawCandidates += 1;
     }
     if (!eq.affectsScoring) continue;
     const match = assessProductEvidenceMatch(text, target);
@@ -260,73 +283,67 @@ function updateDimensionDiagnostics(
   }
 }
 
-export async function harvestYoutubeEvidence(input: EvidenceSearchInput & {
-  forceRefresh?: boolean;
-  cacheStore?: EvidenceProviderCacheStore;
-}): Promise<{ items: RawEvidence[]; diagnostics: YoutubeAcquisitionDiagnostics }> {
-  const key = secret("YOUTUBE_DATA_API_KEY");
-  if (!key) {
-    return {
-      items: [],
-      diagnostics: {
-        queriesPlanned: 0,
-        queriesExecuted: [],
-        searchRequests: 0,
-        videosDiscovered: 0,
-        uniqueVideos: 0,
-        videosHarvested: 0,
-        commentPagesFetched: 0,
-        replyRequests: 0,
-        rawCommentsRetrieved: 0,
-        providerNormalizedItems: 0,
-        experienceQualityAccepted: 0,
-        identityAccepted: 0,
-        dimensionMapped: 0,
-        finalScoreEvidence: 0,
-        quotaUnitsEstimated: 0,
-        requestsUsed: 0,
-        stoppedBecause: ["missing_api_key"],
-        dimensionStats: emptyDimensionStats(input.dimensions ?? []),
-      },
-    };
+function resolveSearchMode(
+  input: EvidenceSearchInput & { youtubeSearchMode?: "bundled" | "separate" },
+  limits: Limits,
+): "bundled" | "separate" {
+  if (input.youtubeSearchMode === "bundled" || input.youtubeSearchMode === "separate") {
+    return input.youtubeSearchMode;
   }
+  return limits.useBundledSearch ? "bundled" : "separate";
+}
+
+export async function harvestYoutubeEvidence(
+  input: EvidenceSearchInput & {
+    forceRefresh?: boolean;
+    cacheStore?: EvidenceProviderCacheStore;
+    youtubeSearchMode?: "bundled" | "separate";
+  },
+): Promise<{ items: RawEvidence[]; diagnostics: YoutubeAcquisitionDiagnostics }> {
+  const apiKey = secret("YOUTUBE_DATA_API_KEY");
+  if (!apiKey) {
+    const d = emptyDiagnostics(input.dimensions);
+    d.stoppedBecause = ["missing_api_key"];
+    return { items: [], diagnostics: d };
+  }
+
   const limits = readLimits();
-  const budget: Budget = { quotaUnits: 0, requests: 0, stopped: [] };
+  const ledger = emptyQuotaLedger();
+  const stopped: string[] = [];
   const cache = cacheFromStore(input.cacheStore);
   const forceRefresh = input.forceRefresh === true;
+  const searchMode = resolveSearchMode(input, limits);
 
   const planned = planEvidenceQueries(input);
-  let queriesToRun = selectYoutubeSearchQueries(planned, limits.maxSearchQueries);
-  const executedQueries: string[] = [];
+  const initialPlans: SearchExecutionPlan[] =
+    searchMode === "bundled"
+      ? buildBundledYoutubeSearchPlans(input, planned, limits.maxBundledSearchQueries)
+      : buildSeparateYoutubeSearchPlans(planned, limits.maxSearchQueries);
 
+  const executedQueries: string[] = [];
   const videoMap = new Map<string, DiscoveredVideo>();
   let searchRequests = 0;
 
-  const runSearchBatch = async (batch: PlannedQuery[]) => {
-    for (const pq of batch) {
-      if (!budgetOk(budget, limits)) break;
+  const runSearchPlans = async (plans: SearchExecutionPlan[]) => {
+    for (const plan of plans) {
+      if (!budgetOk(ledger, limits, stopped)) break;
       if (videoMap.size >= limits.maxVideos) break;
-      executedQueries.push(pq.query);
+      executedQueries.push(plan.query);
       let pageToken = "";
       for (let page = 0; page < limits.maxSearchPages; page++) {
-        if (!budgetOk(budget, limits)) break;
-        const qHash = queryHash(pq.query);
+        if (!budgetOk(ledger, limits, stopped)) break;
+        const qHash = queryHash(plan.query);
         const cacheKey = youtubeSearchPageKey(input.productId, qHash, pageToken);
-        const res = await cachedJson(
-          cache,
-          cacheKey,
-          forceRefresh,
-          async () => {
-            budget.requests += 1;
-            budget.quotaUnits += YOUTUBE_QUOTA.searchList;
-            searchRequests += 1;
-            const url =
-              `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${limits.searchPageSize}` +
-              `&relevanceLanguage=en&q=${encodeURIComponent(pq.query)}&key=${key}` +
-              (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
-            return withTimeout(fetch(url).then((r) => (r.ok ? (r.json() as Promise<SearchRes>) : null)), PROVIDER_TIMEOUT_MS);
-          },
-        );
+        const res = await cachedJson(cache, cacheKey, forceRefresh, async () => {
+          ledger.totalRequests += 1;
+          ledger.searchQueriesBucket += YOUTUBE_QUOTA_COST.searchList;
+          searchRequests += 1;
+          const url =
+            `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${limits.searchPageSize}` +
+            `&relevanceLanguage=en&q=${encodeURIComponent(plan.query)}&key=${apiKey}` +
+            (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
+          return withTimeout(fetch(url).then((r) => (r.ok ? (r.json() as Promise<SearchRes>) : null)), PROVIDER_TIMEOUT_MS);
+        });
         if (!res?.items?.length) break;
         for (const it of res.items) {
           const id = it.id?.videoId ?? "";
@@ -334,14 +351,15 @@ export async function harvestYoutubeEvidence(input: EvidenceSearchInput & {
           const title = decodeHtml(it.snippet?.title ?? "");
           const description = decodeHtml(it.snippet?.description ?? "");
           const existing = videoMap.get(id);
-          const topics = existing ? [...new Set([...existing.matchedQueryTopics, pq.topic])] : [pq.topic];
-          const scored = scoreVideo({ id, title, description }, topics, input);
+          const topics = existing
+            ? [...new Set([...existing.matchedQueryTopics, ...plan.topics])]
+            : [...plan.topics];
           videoMap.set(id, {
             id,
             title,
             description,
             matchedQueryTopics: topics,
-            videoRelevanceScore: Math.max(existing?.videoRelevanceScore ?? 0, scored),
+            videoRelevanceScore: existing?.videoRelevanceScore ?? 0.25,
           });
           if (videoMap.size >= limits.maxVideos) break;
         }
@@ -351,7 +369,18 @@ export async function harvestYoutubeEvidence(input: EvidenceSearchInput & {
     }
   };
 
-  await runSearchBatch(queriesToRun);
+  await runSearchPlans(initialPlans);
+
+  const ids = [...videoMap.keys()];
+  if (ids.length) {
+    if (limits.useBatchGetStats) {
+      await fetchBatchVideoStats(apiKey, ids, limits.videosListIdsPerRequest, ledger);
+    }
+    const meta = await fetchVideosMetadataBatched(apiKey, ids, limits.videosListIdsPerRequest, ledger);
+    const enriched = enrichDiscoveredVideos(videoMap, meta, input);
+    videoMap.clear();
+    for (const v of enriched) videoMap.set(v.id, v);
+  }
 
   const items: RawEvidence[] = [];
   const seenComment = new Set<string>();
@@ -364,12 +393,13 @@ export async function harvestYoutubeEvidence(input: EvidenceSearchInput & {
 
   const harvestComments = async (videos: DiscoveredVideo[], onlyNew = false) => {
     for (let vi = 0; vi < videos.length; vi++) {
-      if (!budgetOk(budget, limits)) break;
+      if (!budgetOk(ledger, limits, stopped)) break;
       if (items.length >= limits.maxRaw) {
-        budget.stopped.push("max_raw_comments");
+        stopped.push("max_raw_comments");
         break;
       }
       const v = videos[vi];
+      if (v.commentsDisabled) continue;
       if (onlyNew && harvestedVideoIds.has(v.id)) continue;
       harvestedVideoIds.add(v.id);
       videosHarvested += 1;
@@ -379,23 +409,18 @@ export async function harvestYoutubeEvidence(input: EvidenceSearchInput & {
         if (order === "time" && vi >= 8) continue;
         let pageToken = "";
         for (let p = 0; p < pages; p++) {
-          if (!budgetOk(budget, limits)) break;
+          if (!budgetOk(ledger, limits, stopped)) break;
           if (items.length >= limits.maxRaw) break;
           const cacheKey = youtubeCommentPageKey(input.productId, v.id, order, pageToken);
-          const res = await cachedJson(
-            cache,
-            cacheKey,
-            forceRefresh,
-            async () => {
-              budget.requests += 1;
-              budget.quotaUnits += YOUTUBE_QUOTA.commentThreadsList;
-              const url =
-                `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet,replies&videoId=${v.id}` +
-                `&maxResults=${limits.commentPageSize}&order=${order}&textFormat=plainText&key=${key}` +
-                (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
-              return withTimeout(fetch(url).then((r) => (r.ok ? (r.json() as Promise<ThreadRes>) : null)), PROVIDER_TIMEOUT_MS);
-            },
-          );
+          const res = await cachedJson(cache, cacheKey, forceRefresh, async () => {
+            ledger.totalRequests += 1;
+            ledger.generalQuotaUnits += YOUTUBE_QUOTA_COST.commentThreadsList;
+            const url =
+              `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet,replies&videoId=${v.id}` +
+              `&maxResults=${limits.commentPageSize}&order=${order}&textFormat=plainText&key=${apiKey}` +
+              (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
+            return withTimeout(fetch(url).then((r) => (r.ok ? (r.json() as Promise<ThreadRes>) : null)), PROVIDER_TIMEOUT_MS);
+          });
           if (!res?.items) break;
           commentPages += 1;
 
@@ -437,53 +462,57 @@ export async function harvestYoutubeEvidence(input: EvidenceSearchInput & {
                 Number(rs.likeCount ?? 0),
                 rs.parentId ?? top.id,
                 topText.slice(0, 200),
-                { videoRelevanceScore: v.videoRelevanceScore },
               );
               if (row) items.push(row);
             }
 
             const totalReplies = it.snippet?.totalReplyCount ?? 0;
             const inlineCount = it.replies?.comments?.length ?? 0;
-            const highlyRelevant = v.videoRelevanceScore >= 0.55;
+            const threadValuable = v.videoRelevanceScore >= 0.55 || totalReplies >= 5;
             if (
-              highlyRelevant &&
+              threadValuable &&
               totalReplies > inlineCount &&
               replyThreads < limits.maxReplyThreads &&
-              budgetOk(budget, limits)
+              budgetOk(ledger, limits, stopped)
             ) {
               replyThreads += 1;
-              const repKey = youtubeRepliesKey(input.productId, top.id);
-              const repRes = await cachedJson(
-                cache,
-                repKey,
-                forceRefresh,
-                async () => {
-                  budget.requests += 1;
-                  budget.quotaUnits += YOUTUBE_QUOTA.commentsList;
+              let replyPageToken = "";
+              let fetchedReplies = inlineCount;
+              while (fetchedReplies < totalReplies && fetchedReplies < limits.maxRepliesPerThread) {
+                const repKey = `${youtubeRepliesKey(input.productId, top.id)}:${replyPageToken || "first"}`;
+                const repRes = await cachedJson(cache, repKey, forceRefresh, async () => {
+                  ledger.totalRequests += 1;
+                  ledger.generalQuotaUnits += YOUTUBE_QUOTA_COST.commentsList;
                   replyRequests += 1;
                   const url =
                     `https://www.googleapis.com/youtube/v3/comments?part=snippet&parentId=${top.id}` +
-                    `&maxResults=${limits.maxRepliesPerThread}&textFormat=plainText&key=${key}`;
+                    `&maxResults=${limits.commentPageSize}&textFormat=plainText&key=${apiKey}` +
+                    (replyPageToken ? `&pageToken=${encodeURIComponent(replyPageToken)}` : "");
                   return withTimeout(fetch(url).then((r) => (r.ok ? (r.json() as Promise<ReplyRes>) : null)), PROVIDER_TIMEOUT_MS);
-                },
-              );
-              for (const rc of repRes?.items ?? []) {
-                const rs = rc.snippet;
-                if (!rc.id || !rs || seenComment.has(rc.id)) continue;
-                seenComment.add(rc.id);
-                rawComments += 1;
-                const row = normalizeRow(
-                  rc.id,
-                  String(rs.textOriginal ?? rs.textDisplay ?? ""),
-                  String(rs.authorDisplayName ?? ""),
-                  v.id,
-                  v.title,
-                  String(rs.publishedAt ?? ""),
-                  Number(rs.likeCount ?? 0),
-                  rs.parentId ?? top.id,
-                  topText.slice(0, 200),
-                );
-                if (row) items.push(row);
+                });
+                if (!repRes?.items?.length) break;
+                for (const rc of repRes.items) {
+                  const rs = rc.snippet;
+                  if (!rc.id || !rs || seenComment.has(rc.id)) continue;
+                  seenComment.add(rc.id);
+                  rawComments += 1;
+                  fetchedReplies += 1;
+                  const row = normalizeRow(
+                    rc.id,
+                    String(rs.textOriginal ?? rs.textDisplay ?? ""),
+                    String(rs.authorDisplayName ?? ""),
+                    v.id,
+                    v.title,
+                    String(rs.publishedAt ?? ""),
+                    Number(rs.likeCount ?? 0),
+                    rs.parentId ?? top.id,
+                    topText.slice(0, 200),
+                  );
+                  if (row) items.push(row);
+                  if (fetchedReplies >= limits.maxRepliesPerThread) break;
+                }
+                replyPageToken = repRes.nextPageToken ?? "";
+                if (!replyPageToken) break;
               }
             }
             if (items.length >= limits.maxRaw) break;
@@ -498,30 +527,37 @@ export async function harvestYoutubeEvidence(input: EvidenceSearchInput & {
   let ranked = rankVideos([...videoMap.values()]);
   await harvestComments(ranked);
 
-  // Tier C: weak dimensions
   const weakThreshold = 12;
   for (let round = 0; round < 2; round++) {
-    if (!budgetOk(budget, limits)) break;
+    if (!budgetOk(ledger, limits, stopped)) break;
     const { perDim, valid } = countValidEvidence(items, input);
     const weak = (input.dimensions ?? [])
       .filter((d) => (perDim[d.key] ?? 0) < weakThreshold)
       .map((d) => d.key);
     if (!weak.length) break;
     const targeted = planDimensionTargetedQueries(input, weak.slice(0, 4));
-    const newQueries = targeted.filter((t) => !executedQueries.includes(t.query));
-    if (!newQueries.length) break;
-    await runSearchBatch(newQueries);
+    const targetedPlans: SearchExecutionPlan[] = targeted
+      .filter((t) => !executedQueries.includes(t.query))
+      .map((t) => ({ query: t.query, topics: [t.topic], kind: "targeted" as const }));
+    if (!targetedPlans.length) break;
+    await runSearchPlans(targetedPlans);
+    const ids2 = [...videoMap.keys()];
+    if (ids2.length) {
+      const meta = await fetchVideosMetadataBatched(apiKey, ids2, limits.videosListIdsPerRequest, ledger);
+      const enriched = enrichDiscoveredVideos(videoMap, meta, input);
+      videoMap.clear();
+      for (const v of enriched) videoMap.set(v.id, v);
+    }
     ranked = rankVideos([...videoMap.values()]);
     await harvestComments(ranked.slice(0, 20), true);
     const nextValid = countValidEvidence(items, input).valid;
-    const gain = nextValid - valid;
-    if (gain < limits.marginalMin) {
-      budget.stopped.push("marginal_gain_low");
+    if (nextValid - valid < limits.marginalMin) {
+      stopped.push("marginal_gain_low");
       break;
     }
   }
 
-  if (items.length >= limits.maxRaw) budget.stopped.push("max_raw_comments");
+  if (items.length >= limits.maxRaw) stopped.push("max_raw_comments");
 
   const counts = countValidEvidence(items, input);
   const dimStats = emptyDimensionStats(input.dimensions ?? []);
@@ -542,12 +578,17 @@ export async function harvestYoutubeEvidence(input: EvidenceSearchInput & {
     identityAccepted: counts.idOk,
     dimensionMapped: counts.dimOk,
     finalScoreEvidence: counts.valid,
-    quotaUnitsEstimated: budget.quotaUnits,
-    requestsUsed: budget.requests,
-    stoppedBecause: [...new Set(budget.stopped)],
+    quotaUnitsEstimated: ledgerTotalUnits(ledger),
+    quotaSearchBucket: ledger.searchQueriesBucket,
+    quotaGeneralUnits: ledger.generalQuotaUnits,
+    quotaBatchStatsBucket: ledger.batchStatsBucket,
+    metadataRequests: ledger.metadataListRequests,
+    batchStatsRequests: ledger.batchStatsRequests,
+    searchMode,
+    requestsUsed: ledger.totalRequests,
+    stoppedBecause: [...new Set(stopped)],
     dimensionStats: dimStats,
   };
 
-  const capped = items.slice(0, limits.maxRaw);
-  return { items: capped, diagnostics };
+  return { items: items.slice(0, limits.maxRaw), diagnostics };
 }

@@ -7,6 +7,9 @@ export type DiscoveredVideo = {
   description: string;
   matchedQueryTopics: string[];
   videoRelevanceScore: number;
+  viewCount?: number;
+  commentCount?: number;
+  commentsDisabled?: boolean;
 };
 
 const REVIEW_SIGNALS = /\b(review|honest|after \d+|months? later|long term|wear test|battery test|problems|issues|vs\.?|comparison)\b/i;

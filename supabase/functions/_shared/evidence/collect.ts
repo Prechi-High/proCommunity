@@ -33,6 +33,7 @@ export function collectRawEvidenceFromProfile(profile: Json): RawEvidenceInput[]
       sourceId: String(row.sourceId ?? ""),
       conversationId: row.conversationId ? String(row.conversationId) : undefined,
       parentId: row.parentId ? String(row.parentId) : undefined,
+      parentAuthor: row.parentAuthor ? String(row.parentAuthor) : undefined,
       contextText: row.contextText ? String(row.contextText) : undefined,
       createdAt: row.createdAt ? String(row.createdAt) : undefined,
       experienceAffectsScoring: eq?.affectsScoring ?? true,

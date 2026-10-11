@@ -15,7 +15,14 @@ export type YoutubeAcquisitionDiagnostics = {
   identityAccepted: number;
   dimensionMapped: number;
   finalScoreEvidence: number;
+  /** @deprecated Use quotaGeneralUnits + quotaSearchBucket */
   quotaUnitsEstimated: number;
+  quotaSearchBucket: number;
+  quotaGeneralUnits: number;
+  quotaBatchStatsBucket: number;
+  metadataRequests: number;
+  batchStatsRequests: number;
+  searchMode: "bundled" | "separate";
   requestsUsed: number;
   stoppedBecause: string[];
   dimensionStats: Record<

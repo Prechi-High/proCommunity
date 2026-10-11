@@ -1,10 +1,12 @@
-import { Pressable, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Linking, Pressable, Text, View } from 'react-native';
 
 import { CaretRight } from '@/components/icons';
 import { Tile } from '@/components/kit';
 import { colors, fonts, radii } from '@/constants/theme';
 import { dynamicProductUiEnabled } from '@/lib/product-result/flags';
-import { getDimensionExperience, resolveDimensionKey } from '@/lib/unmask/dimensionEvidence';
+import { getDimensionExperience, resolveDimensionKey, type DimensionEvidenceItem } from '@/lib/unmask/dimensionEvidence';
+import { formatEvidenceProvenance } from '@/lib/unmask/evidenceProvenance';
 import type { UnmaskBundle, UnmaskDimension } from '@/lib/unmask/types';
 import type { ProductProfile } from '@/lib/types';
 
@@ -145,6 +147,63 @@ function DimensionRow({ dim, onPress }: { dim: UnmaskDimension; onPress: () => v
   );
 }
 
+function formatValidatedCountLabel(
+  count: number,
+  experience: ReturnType<typeof getDimensionExperience>,
+): string {
+  const videos = experience?.uniqueVideoCount;
+  const authors = experience?.uniqueAuthorCount;
+  if (videos != null && videos > 0) {
+    return `${count} validated dimension link${count === 1 ? '' : 's'} across ${videos} video${videos === 1 ? '' : 's'}`;
+  }
+  if (authors != null && authors > 1) {
+    return `${count} validated dimension link${count === 1 ? '' : 's'} from ${authors} owners`;
+  }
+  return `${count} validated score link${count === 1 ? '' : 's'} (not unique comments)`;
+}
+
+function EvidenceQuoteCard({ item }: { item: DimensionEvidenceItem }) {
+  const [showFull, setShowFull] = useState(false);
+  const provenance = formatEvidenceProvenance(item);
+  const full = item.fullText && item.fullText.length > item.statement.length + 20 ? item.fullText : null;
+
+  return (
+    <Tile style={{ gap: 8 }}>
+      {item.isReply && item.parentText ? (
+        <View style={{ gap: 4, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: colors.line }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.bone3 }}>Question / parent</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.bone2 }}>{item.parentText}</Text>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.bone3, marginTop: 4 }}>Reply</Text>
+        </View>
+      ) : (
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.bone3 }}>Owner comment</Text>
+      )}
+      <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone }}>{item.statement}</Text>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.bone3 }}>
+        {provenance}
+        {item.stance ? ` · ${item.stance}` : ''}
+        {item.strength ? ` · strength ${Math.round(item.strength * 100)}%` : ''}
+        {!item.affectsScore ? ' · contextual (not scored)' : ''}
+      </Text>
+      {full ? (
+        <Pressable onPress={() => setShowFull((v) => !v)} accessibilityRole="button">
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.hi }}>
+            {showFull ? 'Hide full comment' : 'View full comment'}
+          </Text>
+        </Pressable>
+      ) : null}
+      {showFull && full ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.bone2 }}>{full}</Text>
+      ) : null}
+      {item.url ? (
+        <Pressable onPress={() => Linking.openURL(item.url)} accessibilityRole="link">
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.hi }}>View on YouTube</Text>
+        </Pressable>
+      ) : null}
+    </Tile>
+  );
+}
+
 export function DimensionDetail({
   profile,
   bundle,
@@ -225,7 +284,12 @@ export function DimensionDetail({
           ) : null}
           {validatedCount > 0 && scoreDisplay !== 'numeric' ? (
             <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.bone2 }}>
-              Based on {validatedCount} validated report{validatedCount === 1 ? '' : 's'}
+              {formatValidatedCountLabel(validatedCount, experience)}
+            </Text>
+          ) : null}
+          {experience?.sufficiencyGate?.displayReason && scoreDisplay !== 'numeric' ? (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.bone3 }}>
+              {experience.sufficiencyGate.displayReason}
             </Text>
           ) : null}
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.bone2 }}>{finding}</Text>
@@ -240,18 +304,7 @@ export function DimensionDetail({
         <View style={{ gap: 10 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.bone }}>Supporting evidence</Text>
           {items.map((e) => (
-            <Tile key={e.evidenceId} style={{ gap: 6 }}>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone }}>{e.statement}</Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.bone3 }}>
-                {e.platform}
-                {e.stance ? ` · ${e.stance}` : ''}
-                {e.strength ? ` · strength ${Math.round(e.strength * 100)}%` : ''}
-                {!e.affectsScore ? ' · contextual (not scored)' : ''}
-              </Text>
-              {e.url ? (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.hi }} numberOfLines={1}>{e.url}</Text>
-              ) : null}
-            </Tile>
+            <EvidenceQuoteCard key={e.evidenceId} item={e} />
           ))}
         </View>
       ) : score != null ? (

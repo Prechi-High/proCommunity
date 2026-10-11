@@ -1,17 +1,21 @@
-import type { BlueprintDimensionDef } from "../blueprint/types.ts";
+import type { BlueprintDimensionDef, ProductClassification } from "../blueprint/types.ts";
 import { collectRawEvidenceFromProfile } from "./collect.ts";
-import { mapStatementToDimensions } from "./dimensionRelevance.ts";
-import { assessProductEvidenceMatch, type TargetProduct } from "./identityGate.ts";
+import { extractDimensionStatement, mapTextToDimensions } from "./relevance/mapDimensions.ts";
+import { buildEvidenceSourceContext } from "./identity/sourceContext.ts";
+import { parseTargetProduct } from "./identity/productTokens.ts";
+import { resolveEvidenceIdentity } from "./identity/resolver.ts";
+import type { TargetProduct } from "./identityGate.ts";
 import { applyProvenanceToStrength, resolveProvenanceFromCollectRow } from "./sourceEvidenceQuality.ts";
 import {
-  evaluateDimensionSufficiency,
+  evaluateDimensionSufficiencyWithDiagnostics,
   SUFFICIENCY_THRESHOLDS,
   type ScoreDisplay,
   type ScoringEvidenceItem,
 } from "./sufficiency.ts";
+import { DIMENSION_EVIDENCE_ALGO, currentEvidenceFingerprint } from "./versions.ts";
 import type { DimensionExperiencePackage, DimensionScoreBundle, NormalizedEvidenceRow } from "./types.ts";
 
-export const DIMENSION_EVIDENCE_ALGO = "dim-evidence-v1";
+export { DIMENSION_EVIDENCE_ALGO, currentEvidenceFingerprint } from "./versions.ts";
 export { evaluateDimensionSufficiency, SUFFICIENCY_THRESHOLDS } from "./sufficiency.ts";
 
 function hashId(productId: string, text: string): string {
@@ -37,7 +41,7 @@ function buildFinding(
     const prefix =
       validatedCount <= 2
         ? `Early signal — based on ${validatedCount} validated owner report${validatedCount === 1 ? "" : "s"}.`
-        : `Limited evidence — based on ${validatedCount} validated reports.`;
+        : `Limited evidence — based on ${validatedCount} validated dimension links.`;
     return prefix;
   }
   const parts: string[] = [];
@@ -50,7 +54,7 @@ function buildFinding(
 
 type StanceBuckets = { pos: number; neg: number; mix: number };
 
-function stanceBuckets(scoringItems: ScoringEvidenceItem & { stance: string; strength: number }[]): StanceBuckets {
+function stanceBuckets(scoringItems: Array<ScoringEvidenceItem & { stance: string; strength: number }>): StanceBuckets {
   let pos = 0;
   let neg = 0;
   let mix = 0;
@@ -87,8 +91,7 @@ export function computeDimensionConfidence(
   const stanceClarity = total > 0 ? polar / total : 0;
   const mixedShare = total > 0 ? buckets.mix / total : 0;
   const sourceDiversity = n > 0 ? Math.min(1, uniqueSources / Math.min(n, 8)) : 0;
-  const avgProvenance =
-    scoringItems.reduce((a, i) => a + (i.provenanceWeight ?? 0.5), 0) / n;
+  const avgProvenance = scoringItems.reduce((a, i) => a + (i.provenanceWeight ?? 0.5), 0) / n;
 
   let confidence =
     0.12 +
@@ -111,12 +114,20 @@ export function computeDimensionConfidence(
   return confidence;
 }
 
+function agreementFromItems(scoringItems: Array<{ stance: string }>): number {
+  const pos = scoringItems.filter((i) => i.stance === "positive").length;
+  const neg = scoringItems.filter((i) => i.stance === "negative").length;
+  const polar = pos + neg;
+  return polar ? Math.abs(pos - neg) / polar : 0;
+}
+
 export function buildDimensionExperiencePackage(input: {
   productId: string;
   blueprintId: string;
   query: string;
   profile: Record<string, unknown>;
   dimensions: BlueprintDimensionDef[];
+  classification?: ProductClassification;
 }): { package: DimensionExperiencePackage; rows: NormalizedEvidenceRow[] } {
   const identity = (input.profile.identity ?? {}) as Record<string, string>;
   const target: TargetProduct = {
@@ -125,27 +136,39 @@ export function buildDimensionExperiencePackage(input: {
     model: identity.model ?? "",
     query: input.query,
   };
+  const classification =
+    input.classification ??
+    (input.profile.presentation as { product?: ProductClassification } | undefined)?.product as ProductClassification | undefined;
 
+  const parsed = parseTargetProduct(target);
   const raw = collectRawEvidenceFromProfile(input.profile);
   const normalized: NormalizedEvidenceRow[] = [];
 
   for (const r of raw) {
     if (r.experienceAffectsScoring === false) continue;
-    const combined = [r.contextText, r.text].filter(Boolean).join(" ").trim();
-    const match = assessProductEvidenceMatch(combined, target);
-    const statement = match.isolatedStatement ?? r.text;
+    const sourceContext = buildEvidenceSourceContext(r, parsed, input.query);
+    const match = resolveEvidenceIdentity({
+      commentText: r.text,
+      target,
+      context: sourceContext,
+      aliases: [input.query, identity.name ?? ""].filter(Boolean),
+    });
     const productAffectsScore = match.affectsScore && r.experienceAffectsScoring !== false;
     const provenance = resolveProvenanceFromCollectRow(r);
-    const links = mapStatementToDimensions(statement, input.dimensions, productAffectsScore).map((l) => ({
+    const links = mapTextToDimensions(r.text, input.dimensions, productAffectsScore, {
+      classification,
+      sourceContext,
+    }).map((l) => ({
       ...l,
       strength: applyProvenanceToStrength(l.strength, provenance.weight),
     }));
     if (match.level === "unrelated" && !links.length) continue;
 
+    const rawText = r.text;
     normalized.push({
-      evidenceId: hashId(input.productId, statement),
-      text: r.text,
-      extractedStatement: statement,
+      evidenceId: hashId(input.productId, `${rawText}:${r.id}`),
+      text: rawText,
+      extractedStatement: match.isolatedStatement ?? rawText,
       platform: r.platform,
       author: r.author ?? "",
       url: r.url ?? "",
@@ -154,6 +177,9 @@ export function buildDimensionExperiencePackage(input: {
       sourceId: r.sourceId ?? r.id,
       conversationId: r.conversationId,
       parentId: r.parentId,
+      parentAuthor: r.parentAuthor,
+      contextText: r.contextText,
+      createdAt: r.createdAt,
       provenanceWeight: r.provenanceWeight ?? provenance.weight,
       productMatch: match,
       dimensionLinks: links,
@@ -163,23 +189,53 @@ export function buildDimensionExperiencePackage(input: {
   const byKey: Record<string, DimensionScoreBundle> = {};
   for (const d of input.dimensions) {
     const dimensionId = `${input.blueprintId}_dim_${d.key}`;
+    const mappingCtx = { classification, sourceContext: undefined };
     const items = normalized
       .flatMap((row) =>
         row.dimensionLinks
           .filter((l) => l.dimensionKey === d.key)
-          .map((l) => ({
-            evidenceId: row.evidenceId,
-            statement: row.extractedStatement,
-            platform: row.platform,
-            author: row.author ?? "",
-            url: row.url,
-            stance: l.stance,
-            strength: l.strength,
-            relevanceConfidence: l.relevanceConfidence,
-            productMatchConfidence: row.productMatch.confidence,
-            affectsScore: l.affectsScore && row.productMatch.affectsScore,
-            provenanceWeight: row.provenanceWeight ?? 0.5,
-          })),
+          .map((l) => {
+            const statement =
+              l.extractedStatement ??
+              extractDimensionStatement(row.text, d, {
+                ...mappingCtx,
+                sourceContext: buildEvidenceSourceContext(
+                  {
+                    id: row.evidenceId,
+                    text: row.text,
+                    platform: row.platform,
+                    sourceTitle: row.sourceTitle,
+                    contextText: row.contextText,
+                  },
+                  parsed,
+                  input.query,
+                ),
+              });
+            return {
+              evidenceId: `${row.evidenceId}:${d.key}`,
+              statement,
+              fullText: row.text,
+              platform: row.platform,
+              author: row.author ?? "",
+              url: row.url,
+              stance: l.stance,
+              strength: l.strength,
+              relevanceConfidence: l.relevanceConfidence,
+              productMatchConfidence: row.productMatch.confidence,
+              productMatchLevel: row.productMatch.level,
+              affectsScore: l.affectsScore && row.productMatch.affectsScore,
+              provenanceWeight: row.provenanceWeight ?? 0.5,
+              parentId: row.parentId,
+              parentText: row.parentId ? row.contextText : undefined,
+              parentAuthor: row.parentId ? row.parentAuthor : undefined,
+              isReply: Boolean(row.parentId),
+              conversationId: row.conversationId,
+              videoTitle: row.sourceTitle,
+              sourceContext: row.sourceTitle,
+              createdAt: row.createdAt,
+              provider: row.provider,
+            };
+          }),
       )
       .filter((i) => i.relevanceConfidence >= 0.5);
 
@@ -187,7 +243,7 @@ export function buildDimensionExperiencePackage(input: {
       ScoringEvidenceItem & { stance: string; strength: number; statement: string }
     >;
 
-    const sufficiency = evaluateDimensionSufficiency(scoringItems);
+    const sufficiency = evaluateDimensionSufficiencyWithDiagnostics(scoringItems);
     const buckets = stanceBuckets(scoringItems);
     const rawScore = computeNumericScore(buckets);
     const confidence = computeDimensionConfidence(
@@ -231,14 +287,31 @@ export function buildDimensionExperiencePackage(input: {
       evidenceCount: items.length,
       validatedReportCount: sufficiency.validatedReportCount,
       uniqueSourceCount: sufficiency.uniqueSources,
+      uniqueVideoCount: sufficiency.uniqueVideos,
+      uniqueAuthorCount: sufficiency.uniqueAuthors,
+      sufficiencyGate: {
+        sufficientForNumericScore: sufficiency.sufficientForNumericScore,
+        failedConditions: sufficiency.failedConditions,
+        displayReason: sufficiency.displayReason,
+        avgRelevance: sufficiency.avgRelevance,
+        avgProductMatch: sufficiency.avgProductMatch,
+        evidenceCount: sufficiency.validatedReportCount,
+        uniqueAuthors: sufficiency.uniqueAuthors,
+        uniqueSources: sufficiency.uniqueSources,
+        uniqueConversations: sufficiency.uniqueConversations,
+        uniqueVideos: sufficiency.uniqueVideos,
+        agreement: agreementFromItems(scoringItems),
+      },
       items,
     };
   }
 
-  const package_: DimensionExperiencePackage = {
-    algorithmVersion: DIMENSION_EVIDENCE_ALGO,
-    byKey,
-    normalizedRows: normalized,
+  return {
+    package: {
+      algorithmVersion: DIMENSION_EVIDENCE_ALGO,
+      byKey,
+      normalizedRows: normalized,
+    },
+    rows: normalized,
   };
-  return { package: package_, rows: normalized };
 }

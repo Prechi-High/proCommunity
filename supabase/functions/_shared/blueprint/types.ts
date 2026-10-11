@@ -6,6 +6,11 @@ export type BlueprintDimensionDef = {
   importance: number;
   keywords: string[];
   whyItMatters?: string;
+  description?: string;
+  positiveSignals?: string[];
+  negativeSignals?: string[];
+  relatedConcepts?: string[];
+  excludedConcepts?: string[];
 };
 
 export type BlueprintFactSectionDef = {
@@ -92,6 +97,15 @@ export type ProductPresentationContract = {
     domainTemplateVersion: number;
     classificationConfidence: number;
     cacheSource?: "redis" | "supabase" | "fresh";
+    /** Rows in profile.conversationEvidence when presentation was built. */
+    conversationEvidenceCount?: number;
+    evidenceCorpusFingerprint?: string;
+    blueprintVersion?: number;
+    dimensionEvidenceAlgorithm?: string;
+    evidenceIdentityVersion?: string;
+    evidenceRelevanceVersion?: string;
+    evidenceExtractionVersion?: string;
+    dimensionScoringVersion?: string;
   };
   navigation: PresentationNavItem[];
   overview: {

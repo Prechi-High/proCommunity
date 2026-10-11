@@ -3,13 +3,25 @@ import type { ProductProfile } from '@/lib/types';
 export type DimensionEvidenceItem = {
   evidenceId: string;
   statement: string;
+  fullText?: string;
   platform: string;
   url: string;
   stance: 'positive' | 'mixed' | 'negative' | 'neutral';
   strength: number;
   relevanceConfidence: number;
   productMatchConfidence: number;
+  productMatchLevel?: string;
   affectsScore: boolean;
+  author?: string;
+  parentId?: string;
+  parentText?: string;
+  parentAuthor?: string;
+  isReply?: boolean;
+  conversationId?: string;
+  videoTitle?: string;
+  sourceContext?: string;
+  createdAt?: string;
+  provider?: string;
 };
 
 export type DimensionExperienceRoot = {
@@ -34,6 +46,15 @@ export type DimensionExperienceBundle = {
   evidenceCount: number;
   validatedReportCount?: number;
   uniqueSourceCount?: number;
+  uniqueVideoCount?: number;
+  uniqueAuthorCount?: number;
+  sufficiencyGate?: {
+    sufficientForNumericScore: boolean;
+    failedConditions: string[];
+    displayReason: string;
+    avgRelevance: number;
+    avgProductMatch: number;
+  };
   items: DimensionEvidenceItem[];
 };
 
