@@ -14,10 +14,19 @@ export const YOUTUBE_LIMITS = {
   maxSearchQueries: () => envInt("MAX_YOUTUBE_SEARCH_QUERIES", 12),
   /** Bundled OR mode: max total search.list calls (anchors + OR bundles). */
   maxBundledSearchQueries: () => envInt("MAX_YOUTUBE_BUNDLED_SEARCH_QUERIES", 5),
-  useBundledSearch: () => {
-    const v = (readEnv("YOUTUBE_SEARCH_MODE") ?? "bundled").trim().toLowerCase();
-    return v !== "separate" && v !== "legacy";
+  /** separate | bundled | hybrid (default hybrid). YOUTUBE_SEARCH_MODE kept for legacy. */
+  youtubeQueryMode: (): "separate" | "bundled" | "hybrid" => {
+    const raw = (readEnv("YOUTUBE_QUERY_MODE") ?? readEnv("YOUTUBE_SEARCH_MODE") ?? "hybrid").trim().toLowerCase();
+    if (raw === "separate" || raw === "legacy") return "separate";
+    if (raw === "bundled") return "bundled";
+    return "hybrid";
   },
+  useBundledSearch: () => {
+    const raw = (readEnv("YOUTUBE_QUERY_MODE") ?? readEnv("YOUTUBE_SEARCH_MODE") ?? "hybrid").trim().toLowerCase();
+    return raw !== "separate" && raw !== "legacy";
+  },
+  /** Valid product-evidence count per dimension below this triggers hybrid focused fallback. */
+  hybridCoverageThreshold: () => envInt("YOUTUBE_HYBRID_COVERAGE_THRESHOLD", 12),
   useBatchGetStats: () => (readEnv("YOUTUBE_USE_BATCH_GET_STATS") ?? "").trim() === "1",
   videosListIdsPerRequest: () => envInt("YOUTUBE_VIDEOS_LIST_IDS_PER_REQUEST", 50),
   maxSearchCallsPerProduct: () => envInt("YOUTUBE_MAX_SEARCH_CALLS_PER_PRODUCT", 15),

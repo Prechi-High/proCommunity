@@ -3,8 +3,16 @@ import { answerFromStoredEvidence } from "../_shared/ask/storedEvidence.ts";
 import { attachProductPresentation } from "../_shared/blueprint/index.ts";
 import {
   enrichProfileWithConversationEvidence,
-  gatherOwnerCommentsForInvestigate,
 } from "../_shared/evidence/enrichProfile.ts";
+import { runInBackground } from "../_shared/investigation/background.ts";
+import {
+  acquireUnmaskJob,
+  progressForState,
+  readUnmaskJob,
+  writeUnmaskJob,
+} from "../_shared/investigation/jobStore.ts";
+import { resolveProductPreview } from "../_shared/investigation/preview.ts";
+import type { UnmaskJobTimings } from "../_shared/investigation/types.ts";
 import { domainFlags, recordDomainDemand } from "../_shared/domain/index.ts";
 import { buildProductFindings } from "../_shared/claims/buildFindings.ts";
 import { userFromRequest } from "../_shared/core/auth.ts";
@@ -16,6 +24,9 @@ import { flags, publicUrl } from "../_shared/core/env.ts";
  * actions
  *   search       { query, country? }                 → ranked product candidates (identity + image + price)
  *   investigate  { query, productId?, name?, brand?, force? } → full intelligence profile
+ *   preview      { query, productId? }               → fast identity + images (no evidence harvest)
+ *   start_unmask { query, productId?, force? }       → background job; deduped per product
+ *   unmask_status { productId }                      → job progress + section availability
  *   get          { productId }                       → cached profile only
  *
  * Evidence comes from Serper (web, reviews, Reddit, shopping, images). An LLM organises the
@@ -712,28 +723,74 @@ Return JSON: {"items":[{"i":0,"name":"","brand":"","category":"","dup_of":null,"
 // ---------------------------------------------------------------------------
 // investigate
 
-async function runInvestigate(input: { query: string; productId?: string; force?: boolean; country: string }) {
+async function runInvestigate(input: {
+  query: string;
+  productId?: string;
+  force?: boolean;
+  country: string;
+  /** When set, publishes incremental job progress (Redis + unmask_jobs). */
+  jobProductId?: string;
+}) {
   const store = db();
   const id = input.productId || slugify(input.query);
+  const jobId = input.jobProductId ?? id;
+  const jobTimings: UnmaskJobTimings = {};
+  const jobStarted = Date.now();
+
+  const touchJob = async (
+    state: import("../_shared/investigation/types.ts").UnmaskJobState,
+    completed: string[],
+    active: string[],
+    extra?: { timings?: UnmaskJobTimings; sections?: Record<string, "ready" | "researching" | "pending">; parallelStages?: string[] },
+  ) => {
+    if (!input.jobProductId || !store) return;
+    await writeUnmaskJob(
+      jobId,
+      {
+        progress: {
+          ...progressForState(state, completed, active),
+          sections: extra?.sections,
+          parallelStages: extra?.parallelStages,
+        },
+        timings: { ...jobTimings, ...extra?.timings },
+      },
+      store,
+    );
+  };
+
   if (store && !input.force) {
     const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`);
     const payload = hit?.payload as Json | undefined;
     if (hit && payload?.version === PROFILE_VERSION && +new Date(String(hit.refresh_after)) > Date.now()) {
       const enriched = await attachProductPresentation(store, id, String(hit.query ?? input.query), payload, {});
+      if (input.jobProductId) {
+        jobTimings.totalReadyMs = Date.now() - jobStarted;
+        await touchJob("ready", ["cache"], [], {
+          timings: jobTimings,
+          sections: { details: "ready", evidence: "ready", videos: "ready", scores: "ready" },
+        });
+      }
       return { cached: true, profile: enriched };
     }
   }
 
   const q = input.query;
-  const [overview, reviews, reddit, owners, shop, imgs, comments] = await Promise.all([
+  await touchJob("researching", [], ["web", "images", "shopping"], {
+    parallelStages: ["web", "images", "shopping"],
+    sections: { details: "researching", evidence: "pending", videos: "pending", scores: "pending" },
+  });
+  const webStart = Date.now();
+  const [overview, reviews, reddit, owners, shop, imgs] = await Promise.all([
     serper<{ organic?: SerperOrganic[]; knowledgeGraph?: Json }>("search", { q: `${q} specifications features`, num: 8 }),
     serper<{ organic?: SerperOrganic[] }>("search", { q: `${q} review pros cons problems`, num: 8 }),
     serper<{ organic?: SerperOrganic[] }>("search", { q: `${q} reddit owners experience`, num: 8 }),
     serper<{ organic?: SerperOrganic[] }>("search", { q: `${q} customer reviews "I bought" OR "I've been using" OR "after months"`, num: 8 }),
     shopping(q, input.country),
     serper<{ images?: SerperImage[] }>("images", { q: `${q}`, num: 20 }),
-    gatherOwnerCommentsForInvestigate(id, q, input.force === true).catch(() => [] as OwnerComment[]),
   ]);
+  jobTimings.webMs = Date.now() - webStart;
+  jobTimings.imageMs = jobTimings.webMs;
+  const comments: OwnerComment[] = [];
 
   const seen = new Set<string>();
   const sources: Array<{ n: number; title: string; url: string; domain: string; snippet: string; kind: string }> = [];
@@ -808,7 +865,11 @@ Return JSON:
 Limits: specs ≤ 8, praise ≤ 5, complaints ≤ 5, best_for ≤ 4, not_for ≤ 3, uses ≤ 4, alternatives ≤ 3, voices ≤ 10, reveals ≤ 5, variants ≤ 8, brand_claims ≤ 4, owner_claims ≤ 8, owner_discoveries ≤ 6.
 owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 3–8 themes mined from reviews, comments, Reddit, forums (NOT from empty brand pages). Each theme MUST cite refs (C/S numbers) that support it. summary is your synthesis of what owners say, not official marketing. brand_claims only when real manufacturer/store copy exists in evidence; otherwise leave brand_claims empty. owner_discoveries are one-off observations that do not fit a main theme.`;
 
-  const llm = evidence.length || comments.length ? await callLlm(prompt, 3400, 32000) : { data: null, model: null, errors: ["no_evidence"] };
+  await touchJob("mapping", ["web", "images", "shopping"], ["llm", "identity"], {
+    timings: jobTimings,
+    sections: { details: "researching", evidence: "pending", videos: "pending", scores: "pending" },
+  });
+  const llm = evidence.length ? await callLlm(prompt, 3400, 32000) : { data: null, model: null, errors: ["no_evidence"] };
   const d = (llm.data ?? {}) as Json;
   const identityRaw = (d.identity ?? {}) as Json;
 
@@ -1096,9 +1157,22 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
   let outProfile = profile as Json;
   if (llm.data) {
     try {
+      await touchJob("researching", ["web", "images", "shopping", "llm"], ["youtube", "reddit", "evidence"], {
+        timings: jobTimings,
+        parallelStages: ["youtube", "reddit"],
+        sections: { details: "ready", evidence: "researching", videos: "researching", scores: "pending" },
+      });
+      const enrichStart = Date.now();
       outProfile = await enrichProfileWithConversationEvidence(id, q, outProfile, {
         forceRefresh: input.force === true,
       });
+      jobTimings.evidenceMappingMs = Date.now() - enrichStart;
+      const ytDiag = outProfile.youtubeAcquisitionDiagnostics as Json | undefined;
+      if (ytDiag && typeof ytDiag === "object") {
+        jobTimings.youtubeMs = jobTimings.evidenceMappingMs;
+      }
+      const counts = outProfile.evidencePlatformCounts as Record<string, number> | undefined;
+      if (counts?.reddit) jobTimings.redditMs = jobTimings.evidenceMappingMs;
     } catch {
       /* provider layer is best-effort */
     }
@@ -1116,7 +1190,14 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
       verified_at: profile.verifiedAt,
       refresh_after: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     });
+    await touchJob("scoring", ["web", "images", "shopping", "llm", "evidence"], ["blueprint", "scoring"], {
+      timings: jobTimings,
+      sections: { details: "ready", evidence: "ready", videos: "ready", scores: "researching" },
+    });
+    const blueprintStart = Date.now();
     outProfile = await attachProductPresentation(store, id, q, outProfile, { force: input.force });
+    jobTimings.blueprintMs = Date.now() - blueprintStart;
+    jobTimings.scoringMs = jobTimings.blueprintMs;
     if (outProfile.presentation) {
       await store.upsert("product_intel", {
         id,
@@ -1134,7 +1215,35 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
   } else if (store) {
     outProfile = await attachProductPresentation(store, id, q, outProfile, { force: input.force });
   }
+  if (input.jobProductId) {
+    jobTimings.totalReadyMs = Date.now() - jobStarted;
+    await touchJob("ready", ["web", "images", "shopping", "llm", "evidence", "blueprint", "scoring"], [], {
+      timings: jobTimings,
+      sections: { details: "ready", evidence: "ready", videos: "ready", scores: "ready" },
+    });
+  }
   return { cached: false, profile: outProfile, errors: llm.errors };
+}
+
+async function runUnmaskJob(input: { query: string; productId: string; force?: boolean; country: string }) {
+  const store = db();
+  await writeUnmaskJob(
+    input.productId,
+    { progress: { ...progressForState("identified", ["preview"], ["research"]), startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() } },
+    store,
+  );
+  try {
+    await runInvestigate({ ...input, jobProductId: input.productId });
+  } catch (err) {
+    await writeUnmaskJob(
+      input.productId,
+      {
+        progress: progressForState("failed", [], []),
+        error: err instanceof Error ? err.message : String(err),
+      },
+      store,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2312,6 +2421,87 @@ Deno.serve(async (req) => {
         path: str(body.path, 200) || null,
       });
       return json({ success: true });
+    }
+
+    if (action === "preview") {
+      const productId = str(body.productId, 100) || undefined;
+      const name = str(body.name, 140);
+      const brand = str(body.brand, 80);
+      const q = query || [brand, name].filter(Boolean).join(" ");
+      if (!q) return json({ error: "missing_query" }, 400);
+      const id = productId || slugify(q);
+      const store = db();
+      if (store && !body.force) {
+        const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`);
+        const payload = hit?.payload as Json | undefined;
+        if (payload?.identity) {
+          const identity = payload.identity as Json;
+          return json({
+            success: true,
+            cached: true,
+            preview: {
+              id,
+              query: String(hit?.query ?? q),
+              identity,
+              domain: payload.presentation ? (payload.presentation as Json).product?.domain : undefined,
+              summary: str(payload.summary, 300),
+              heroImageUrl: (hit?.hero_image_url as string) ?? (Array.isArray(payload.images) ? payload.images[0] : null),
+              images: Array.isArray(payload.images) ? payload.images : [],
+              specs: payload.specs,
+            },
+            timingMs: 0,
+          });
+        }
+      }
+      const { preview, cached, timingMs } = await resolveProductPreview(
+        {
+          serperSearch: (sq) => serper("search", { q: sq, num: 8 }),
+          serperImages: (sq) => serper("images", { q: sq, num: 20 }),
+          slugify,
+          str,
+        },
+        { query: q, productId: id, country },
+      );
+      return json({ success: true, cached, preview, timingMs });
+    }
+
+    if (action === "start_unmask") {
+      const productId = str(body.productId, 100) || undefined;
+      const name = str(body.name, 140);
+      const brand = str(body.brand, 80);
+      const q = query || [brand, name].filter(Boolean).join(" ");
+      if (!q) return json({ error: "missing_query" }, 400);
+      const id = productId || slugify(q);
+      const store = db();
+      const mode = await acquireUnmaskJob(id, store, { force: body.force === true });
+      const existing = await readUnmaskJob(id, store);
+      if (mode === "attach" && existing?.progress.state === "ready") {
+        const hit = store ? await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`) : null;
+        const payload = hit?.payload as Json | undefined;
+        if (payload) {
+          const enriched = store
+            ? await attachProductPresentation(store, id, String(hit?.query ?? q), payload, {})
+            : payload;
+          return json({ success: true, attached: true, job: existing, profile: enriched });
+        }
+      }
+      if (mode === "attach" && existing) {
+        return json({ success: true, attached: true, job: existing });
+      }
+      runInBackground(
+        runUnmaskJob({ query: q, productId: id, force: body.force === true, country }),
+      );
+      const job = await readUnmaskJob(id, store);
+      return json({ success: true, started: true, job });
+    }
+
+    if (action === "unmask_status") {
+      const productId = str(body.productId, 100);
+      if (!productId) return json({ error: "missing_product" }, 400);
+      const store = db();
+      const job = await readUnmaskJob(productId, store);
+      if (!job) return json({ success: true, job: null });
+      return json({ success: true, job });
     }
 
     if (action === "investigate") {

@@ -71,5 +71,8 @@ export function investigationSteps(input: {
 }
 
 export function investigationComplete(loading: boolean, profile: ProductProfile | null): boolean {
-  return !loading && Boolean(profile?.findings);
+  if (loading || !profile) return false;
+  if (profile.findings) return true;
+  const pres = profile.presentation as { dimensionExperience?: unknown } | undefined;
+  return Boolean(pres?.dimensionExperience);
 }

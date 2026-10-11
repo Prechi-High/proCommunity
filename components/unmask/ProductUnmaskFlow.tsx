@@ -18,6 +18,7 @@ import { trackFactSectionViewed, trackUnmaskStarted } from '@/lib/unmask/product
 import { VideosPane } from '@/components/product/VideosPane';
 import { colors, fonts, radii } from '@/constants/theme';
 import { hapticTap } from '@/lib/haptics';
+import { startProductUnmask } from '@/lib/products';
 import { deriveUnmaskBundle } from '@/lib/unmask/derive';
 import { investigationComplete } from '@/lib/unmask/investigationStages';
 import { hasUnmaskRevealed, markUnmaskRevealed } from '@/lib/unmask/revealSession';
@@ -124,7 +125,10 @@ export function ProductUnmaskFlow({
     if (investigationComplete(intelLoading, profile)) {
       markUnmaskRevealed(product.id);
       setPhase('unmasked');
-    } else setPhase('investigating');
+    } else {
+      void startProductUnmask({ id: product.id, query: product.name }).catch(() => undefined);
+      setPhase('investigating');
+    }
   };
 
   const showIdentifyFooter = phase === 'found' && tab === 'overview' && !discovering;

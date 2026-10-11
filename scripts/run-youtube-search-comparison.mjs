@@ -35,15 +35,27 @@ const baseInput = {
   forceRefresh: true,
 };
 
+function dimensionCoverageSummary(d) {
+  const stats = d.dimensionStats ?? {};
+  return Object.fromEntries(
+    Object.entries(stats).map(([key, s]) => [key, { accepted: s.accepted, uniqueVideos: s.uniqueVideos }]),
+  );
+}
+
 async function run(mode) {
   const t0 = Date.now();
+  const prev = process.env.YOUTUBE_QUERY_MODE;
+  process.env.YOUTUBE_QUERY_MODE = mode;
   const { items, diagnostics: d } = await harvestYoutubeEvidence({ ...baseInput, youtubeSearchMode: mode });
+  if (prev === undefined) delete process.env.YOUTUBE_QUERY_MODE;
+  else process.env.YOUTUBE_QUERY_MODE = prev;
   return {
     mode,
     runtimeMs: Date.now() - t0,
     searchCalls: d.searchRequests,
     queriesExecuted: d.queriesExecuted?.length ?? 0,
     uniqueVideos: d.uniqueVideos,
+    videosDiscovered: d.videosDiscovered,
     metadataRequests: d.metadataRequests,
     commentPages: d.commentPagesFetched,
     replyRequests: d.replyRequests,
@@ -54,17 +66,21 @@ async function run(mode) {
     providerItems: d.providerNormalizedItems,
     validScoreEvidence: d.finalScoreEvidence,
     validPerRequest: d.finalScoreEvidence / Math.max(1, d.requestsUsed),
+    dimensionCoverage: d.dimensionCoverage,
+    hybridFallbackQueries: d.hybridFallbackQueries,
+    dimensionStats: dimensionCoverageSummary(d),
   };
 }
 
 const separate = await run("separate");
 const bundled = await run("bundled");
+const hybrid = await run("hybrid");
 
 console.log(
   JSON.stringify(
     {
       product: query,
-      comparison: { separate, bundled },
+      comparison: { separate, bundled, hybrid },
       notes: [
         "search.list costs 1 unit in Search Queries bucket (not 100 general units)",
         "commentThreads.list and videos.list cost 1 general unit per call",

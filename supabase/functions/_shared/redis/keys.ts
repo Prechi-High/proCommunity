@@ -113,6 +113,15 @@ export function productAskKey(productId: string, questionHash: string): string {
   return `${CACHE_PREFIX}:product:${productId}:ask:${questionHash}`;
 }
 
+/** Hot progress + dedupe for in-flight product investigations. */
+export function unmaskJobKey(productId: string): string {
+  return `unmask:job:${productId}`;
+}
+
+export function productPreviewKey(productId: string): string {
+  return `${CACHE_PREFIX}:product:${productId}:preview_v1`;
+}
+
 export function domainsRegistryKey(): string {
   return `${CACHE_PREFIX}:domains:registry:v1`;
 }

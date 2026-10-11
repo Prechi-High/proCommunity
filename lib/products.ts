@@ -133,7 +133,7 @@ export async function searchCatalog(query: string): Promise<Product[]> {
   return (await searchProducts(query)).products;
 }
 
-async function hydrateProductFindings(profile: ProductProfile): Promise<void> {
+export async function hydrateProductFindings(profile: ProductProfile): Promise<void> {
   const { buildProductFindings } = await import('./claims/buildFindings');
   const { findingsNeedRefresh, isGenericStoredClaim } = await import('./claims/markPhrase');
   if (profile.findings && !findingsNeedRefresh(profile.findings)) return;
@@ -184,6 +184,147 @@ export function profileToProduct(profile: ProductProfile, base?: Product): Produ
     rating: profile.rating ?? base?.rating ?? null,
     ratingCount: profile.ratingCount ?? base?.ratingCount ?? null,
   };
+}
+
+export type ProductPreviewResponse = {
+  id: string;
+  query: string;
+  identity: ProductProfile['identity'];
+  domain?: string;
+  summary?: string;
+  heroImageUrl: string | null;
+  images: string[];
+  gallery?: Array<{ url: string; title?: string }>;
+  specs?: Array<{ label: string; value: string }>;
+};
+
+export type UnmaskJobProgress = {
+  state: string;
+  progressPercent: number;
+  completedStages: string[];
+  activeStages: string[];
+  sections?: Partial<Record<'details' | 'evidence' | 'videos' | 'scores', 'ready' | 'researching' | 'pending'>>;
+  parallelStages?: string[];
+  startedAt: string;
+  updatedAt: string;
+};
+
+export function previewToProfile(preview: ProductPreviewResponse): ProductProfile {
+  const id = preview.identity;
+  return {
+    id: preview.id,
+    query: preview.query,
+    identity: {
+      name: id.name,
+      brand: id.brand ?? '',
+      manufacturer: id.manufacturer ?? '',
+      model: id.model ?? '',
+      category: id.category ?? 'Product',
+      subcategory: id.subcategory ?? '',
+      variant: id.variant ?? '',
+      size: id.size ?? '',
+    },
+    summary: preview.summary ?? '',
+    verdict: '',
+    consensus: '',
+    consensusMark: '',
+    voices: [],
+    reveals: [],
+    people: { voices: 0, commenters: 0, ratings: 0, discussions: 0 },
+    specs: (preview.specs ?? []).map((s) => ({ label: s.label, value: s.value, source: null })),
+    praise: [],
+    complaints: [],
+    bestFor: [],
+    notFor: [],
+    uses: [],
+    howToUse: '',
+    compatibility: '',
+    alternatives: [],
+    offers: [],
+    priceRange: null,
+    rating: null,
+    ratingCount: null,
+    score: null,
+    confidence: 0,
+    band: 'Uncertain',
+    images: preview.images,
+    gallery: (preview.gallery ?? preview.images.map((url) => ({ url }))).map((g) => ({
+      url: g.url,
+      title: g.title ?? '',
+      source: '',
+    })),
+    variants: [],
+    sources: [],
+    verifiedAt: new Date().toISOString(),
+    identityConfidence: preview.identity.model ? 0.65 : 0.45,
+  };
+}
+
+export async function resolveProductPreview(input: {
+  id: string;
+  query?: string;
+  name?: string;
+  brand?: string;
+}): Promise<{ preview: ProductPreviewResponse; cached: boolean; timingMs: number }> {
+  const known = getKnownProduct(input.id);
+  const query = input.query?.trim() || (known ? displayName(known) : input.id.replace(/-/g, ' '));
+  const res = await callIntel<{
+    preview?: ProductPreviewResponse;
+    cached?: boolean;
+    timingMs?: number;
+  }>(
+    {
+      action: 'preview',
+      productId: input.id,
+      query,
+      name: input.name ?? known?.name,
+      brand: input.brand ?? known?.brand,
+    },
+    20_000,
+  );
+  if (!res.preview) throw new Error('empty_preview');
+  const preview = res.preview;
+  rememberProduct(
+    profileToProduct(previewToProfile(preview), {
+      id: input.id,
+      name: preview.identity.name,
+      brand: preview.identity.brand,
+      category: preview.identity.category,
+      heroImageUrl: preview.heroImageUrl,
+    }),
+  );
+  return { preview, cached: res.cached === true, timingMs: res.timingMs ?? 0 };
+}
+
+export async function startProductUnmask(input: {
+  id: string;
+  query?: string;
+  force?: boolean;
+}): Promise<{ attached?: boolean; started?: boolean; job: { progress: UnmaskJobProgress } | null; profile?: ProductProfile }> {
+  const known = getKnownProduct(input.id);
+  const query = input.query?.trim() || (known ? displayName(known) : input.id.replace(/-/g, ' '));
+  const res = await callIntel<{
+    attached?: boolean;
+    started?: boolean;
+    job?: { progress: UnmaskJobProgress };
+    profile?: ProductProfile;
+  }>(
+    { action: 'start_unmask', productId: input.id, query, force: input.force === true },
+    25_000,
+  );
+  if (res.profile) {
+    await hydrateProductFindings(res.profile);
+    rememberProduct(profileToProduct(res.profile, known));
+  }
+  return { attached: res.attached, started: res.started, job: res.job ?? null, profile: res.profile };
+}
+
+export async function getUnmaskJobStatus(productId: string): Promise<UnmaskJobProgress | null> {
+  const res = await callIntel<{ job?: { progress: UnmaskJobProgress } | null }>(
+    { action: 'unmask_status', productId },
+    12_000,
+  );
+  return res.job?.progress ?? null;
 }
 
 export async function investigateProduct(input: {

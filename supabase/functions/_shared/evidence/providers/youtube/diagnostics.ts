@@ -22,7 +22,10 @@ export type YoutubeAcquisitionDiagnostics = {
   quotaBatchStatsBucket: number;
   metadataRequests: number;
   batchStatsRequests: number;
-  searchMode: "bundled" | "separate";
+  searchMode: "bundled" | "separate" | "hybrid";
+  /** Per-dimension valid evidence after stage-1 harvest (hybrid coverage analysis). */
+  dimensionCoverage?: Record<string, number>;
+  hybridFallbackQueries?: string[];
   requestsUsed: number;
   stoppedBecause: string[];
   dimensionStats: Record<

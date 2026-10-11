@@ -283,21 +283,25 @@ function updateDimensionDiagnostics(
   }
 }
 
-function resolveSearchMode(
-  input: EvidenceSearchInput & { youtubeSearchMode?: "bundled" | "separate" },
+function resolveQueryMode(
+  input: EvidenceSearchInput & { youtubeSearchMode?: "bundled" | "separate" | "hybrid" },
   limits: Limits,
-): "bundled" | "separate" {
-  if (input.youtubeSearchMode === "bundled" || input.youtubeSearchMode === "separate") {
+): "bundled" | "separate" | "hybrid" {
+  if (
+    input.youtubeSearchMode === "bundled" ||
+    input.youtubeSearchMode === "separate" ||
+    input.youtubeSearchMode === "hybrid"
+  ) {
     return input.youtubeSearchMode;
   }
-  return limits.useBundledSearch ? "bundled" : "separate";
+  return YOUTUBE_LIMITS.youtubeQueryMode();
 }
 
 export async function harvestYoutubeEvidence(
   input: EvidenceSearchInput & {
     forceRefresh?: boolean;
     cacheStore?: EvidenceProviderCacheStore;
-    youtubeSearchMode?: "bundled" | "separate";
+    youtubeSearchMode?: "bundled" | "separate" | "hybrid";
   },
 ): Promise<{ items: RawEvidence[]; diagnostics: YoutubeAcquisitionDiagnostics }> {
   const apiKey = secret("YOUTUBE_DATA_API_KEY");
@@ -312,13 +316,13 @@ export async function harvestYoutubeEvidence(
   const stopped: string[] = [];
   const cache = cacheFromStore(input.cacheStore);
   const forceRefresh = input.forceRefresh === true;
-  const searchMode = resolveSearchMode(input, limits);
+  const queryMode = resolveQueryMode(input, limits);
 
   const planned = planEvidenceQueries(input);
   const initialPlans: SearchExecutionPlan[] =
-    searchMode === "bundled"
-      ? buildBundledYoutubeSearchPlans(input, planned, limits.maxBundledSearchQueries)
-      : buildSeparateYoutubeSearchPlans(planned, limits.maxSearchQueries);
+    queryMode === "separate"
+      ? buildSeparateYoutubeSearchPlans(planned, limits.maxSearchQueries)
+      : buildBundledYoutubeSearchPlans(input, planned, limits.maxBundledSearchQueries);
 
   const executedQueries: string[] = [];
   const videoMap = new Map<string, DiscoveredVideo>();
@@ -527,8 +531,12 @@ export async function harvestYoutubeEvidence(
   let ranked = rankVideos([...videoMap.values()]);
   await harvestComments(ranked);
 
-  const weakThreshold = 12;
-  for (let round = 0; round < 2; round++) {
+  const weakThreshold = YOUTUBE_LIMITS.hybridCoverageThreshold();
+  const allowFocusedFallback = queryMode === "hybrid" || queryMode === "separate";
+  const hybridFallbackQueries: string[] = [];
+  const stage1Coverage = countValidEvidence(items, input).perDim;
+
+  for (let round = 0; allowFocusedFallback && round < 2; round++) {
     if (!budgetOk(ledger, limits, stopped)) break;
     const { perDim, valid } = countValidEvidence(items, input);
     const weak = (input.dimensions ?? [])
@@ -540,6 +548,7 @@ export async function harvestYoutubeEvidence(
       .filter((t) => !executedQueries.includes(t.query))
       .map((t) => ({ query: t.query, topics: [t.topic], kind: "targeted" as const }));
     if (!targetedPlans.length) break;
+    for (const p of targetedPlans) hybridFallbackQueries.push(p.query);
     await runSearchPlans(targetedPlans);
     const ids2 = [...videoMap.keys()];
     if (ids2.length) {
@@ -584,7 +593,9 @@ export async function harvestYoutubeEvidence(
     quotaBatchStatsBucket: ledger.batchStatsBucket,
     metadataRequests: ledger.metadataListRequests,
     batchStatsRequests: ledger.batchStatsRequests,
-    searchMode,
+    searchMode: queryMode,
+    dimensionCoverage: stage1Coverage,
+    hybridFallbackQueries: hybridFallbackQueries.length ? hybridFallbackQueries : undefined,
     requestsUsed: ledger.totalRequests,
     stoppedBecause: [...new Set(stopped)],
     dimensionStats: dimStats,

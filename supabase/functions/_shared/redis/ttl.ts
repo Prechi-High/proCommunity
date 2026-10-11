@@ -24,6 +24,8 @@ export const CACHE_TTL = {
   ask: () => envSec("CACHE_TTL_ASK_SEC", 15 * 60),
   /** Default 21600s (6h) for conversation provider payloads. */
   providerEvidence: () => envSec("CACHE_TTL_PROVIDER_EVIDENCE_SEC", 21600),
+  unmaskJob: () => envSec("CACHE_TTL_UNMASK_JOB_SEC", 2 * 60 * 60),
+  productPreview: () => envSec("CACHE_TTL_PRODUCT_PREVIEW_SEC", 60 * 60),
 } as const;
 
 export const DEFAULT_PROVIDER_EVIDENCE_TTL_SEC = 21600;

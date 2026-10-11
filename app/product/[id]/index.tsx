@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Share, Text, View } from 'react-native';
@@ -23,16 +23,29 @@ import { routeId } from '@/lib/catalog';
 import { fetchRoom, trackProduct } from '@/lib/community';
 import { useOwnsProduct } from '@/lib/owners';
 import { hapticSuccess, hapticTap } from '@/lib/haptics';
-import { displayName, getKnownProduct, investigateProduct, profileToProduct, rememberProduct, slugify } from '@/lib/products';
+import {
+  displayName,
+  getKnownProduct,
+  getUnmaskJobStatus,
+  previewToProfile,
+  profileToProduct,
+  resolveProductPreview,
+  startProductUnmask,
+  rememberProduct,
+  slugify,
+  callIntel,
+} from '@/lib/products';
 import { useAppStore } from '@/lib/store';
 import { InferredDomainNotice } from '@/components/unmask/InferredDomainNotice';
 import { getPresentation, navigationTabs } from '@/lib/unmask/presentation';
+import type { ProductProfile } from '@/lib/types';
 import { trackOverviewViewed } from '@/lib/unmask/productAnalytics';
 import type { UnmaskTab } from '@/lib/unmask/types';
 import { loadProductClips } from '@/lib/videos';
 
 export default function ProductScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useLocalSearchParams<{ id: string; q?: string; tab?: string }>();
   const id = routeId(params.id);
   const q = typeof params.q === 'string' ? params.q : undefined;
@@ -56,14 +69,63 @@ export default function ProductScreen() {
     if (id) addRecent(id);
   }, [id, addRecent]);
 
-  const intel = useQuery({
-    queryKey: ['intel', id],
-    queryFn: () => investigateProduct({ id, query: q }),
+  const previewQuery = useQuery({
+    queryKey: ['preview', id, q],
+    queryFn: () => resolveProductPreview({ id, query: q }),
     enabled: Boolean(id),
     staleTime: 30 * 60_000,
     retry: 1,
   });
-  const profile = intel.data ?? null;
+
+  const unmaskStarted = useRef(false);
+  useEffect(() => {
+    unmaskStarted.current = false;
+  }, [id]);
+
+  useEffect(() => {
+    if (!id || !previewQuery.data || unmaskStarted.current) return;
+    unmaskStarted.current = true;
+    void startProductUnmask({ id, query: q })
+      .then((started) => {
+        if (started.profile) {
+          queryClient.setQueryData(['intel', id], started.profile);
+        }
+        void queryClient.invalidateQueries({ queryKey: ['unmaskJob', id] });
+      })
+      .catch(() => undefined);
+  }, [id, q, previewQuery.data, queryClient]);
+
+  const jobQuery = useQuery({
+    queryKey: ['unmaskJob', id],
+    queryFn: () => getUnmaskJobStatus(id),
+    enabled: Boolean(id) && Boolean(previewQuery.data),
+    refetchInterval: (query) => {
+      const state = query.state.data?.state;
+      return state === 'ready' || state === 'failed' ? false : 2500;
+    },
+  });
+
+  const intel = useQuery({
+    queryKey: ['intel', id],
+    queryFn: async () => {
+      const res = await callIntel<{ profile?: ProductProfile | null }>({ action: 'get', productId: id }, 20_000);
+      if (!res.profile) throw new Error('profile_not_ready');
+      const { hydrateProductFindings } = await import('@/lib/products');
+      await hydrateProductFindings(res.profile);
+      rememberProduct(profileToProduct(res.profile, getKnownProduct(id)));
+      return res.profile;
+    },
+    enabled: Boolean(id) && jobQuery.data?.state === 'ready',
+    staleTime: 30 * 60_000,
+    retry: (count, err) => count < 10 && err instanceof Error && err.message === 'profile_not_ready',
+    retryDelay: 2000,
+  });
+
+  const previewProfile = previewQuery.data ? previewToProfile(previewQuery.data.preview) : null;
+  const profile = intel.data ?? previewProfile;
+  const intelLoading =
+    previewQuery.isLoading ||
+    (jobQuery.data?.state !== 'ready' && jobQuery.data?.state !== 'failed' && !intel.data);
   const product = getKnownProduct(id) ?? known;
   const name = profile?.identity.name || (product ? displayName(product) : q ?? '');
 
@@ -169,13 +231,20 @@ export default function ProductScreen() {
               />
             ) : null}
 
-            {intel.isError && !profile && !intel.isLoading ? (
+            {(intel.isError || previewQuery.isError) && !profile && !intelLoading ? (
               <View style={{ alignItems: 'center', gap: 12, paddingTop: 40 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.bone }}>We couldn&apos;t finish reading about this</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2, textAlign: 'center' }}>
                   Try again — nothing is lost.
                 </Text>
-                <Pressable onPress={() => void intel.refetch()}>
+                <Pressable
+                  onPress={() => {
+                    unmaskStarted.current = false;
+                    void previewQuery.refetch();
+                    void jobQuery.refetch();
+                    void intel.refetch();
+                  }}
+                >
                   <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.hi }}>Try again</Text>
                 </Pressable>
               </View>
@@ -184,8 +253,13 @@ export default function ProductScreen() {
                 product={currentProduct}
                 profile={profile}
                 intelLoading={intel.isLoading}
-                intelError={intel.isError}
-                onRetryIntel={() => void intel.refetch()}
+                intelError={intel.isError || previewQuery.isError}
+                onRetryIntel={() => {
+                  unmaskStarted.current = false;
+                  void previewQuery.refetch();
+                  void jobQuery.refetch();
+                  void intel.refetch();
+                }}
                 clipsLoading={clips.isLoading}
                 clips={clips.data ?? []}
                 scanPhoto={scan?.photo}

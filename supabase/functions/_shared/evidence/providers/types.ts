@@ -58,7 +58,7 @@ export type EvidenceSearchInput = {
   country?: string;
   forceRefresh?: boolean;
   /** `bundled` = OR-grouped search; `separate` = one search.list per planned query. */
-  youtubeSearchMode?: "bundled" | "separate";
+  youtubeSearchMode?: "bundled" | "separate" | "hybrid";
   cacheStore?: {
     getJson<T>(key: string): Promise<{ ok: boolean; value: T | null }>;
     setJson(key: string, value: unknown, ttlSec: number): Promise<unknown>;
