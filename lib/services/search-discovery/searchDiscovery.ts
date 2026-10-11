@@ -3,7 +3,7 @@
  * Uses Serper to discover product intelligence from the web
  */
 
-import { SerperProvider } from '../providers/serper';
+import { SerperProvider } from '../../providers/serper';
 
 interface SearchQuery {
   q: string;

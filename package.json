@@ -13,6 +13,7 @@
     "test:dynamic-ui": "tsx --test lib/product-result/__tests__/dynamic-ui.test.ts supabase/functions/_shared/blueprint/__tests__/*.test.ts supabase/functions/_shared/evidence/__tests__/*.test.ts supabase/functions/_shared/domain/__tests__/*.test.ts",
     "test:evidence-providers": "tsx --test supabase/functions/_shared/evidence/__tests__/conversationEvidence.test.ts",
     "test:whatsapp": "tsx --test supabase/functions/_shared/**/__tests__/*.test.ts",
+    "typecheck": "tsc --noEmit",
     "whatsapp:keys": "node scripts/whatsapp-flow-keys.mjs"
   },
   "dependencies": {

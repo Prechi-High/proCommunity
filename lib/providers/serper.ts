@@ -215,7 +215,7 @@ export class SerperProvider {
     query: string,
     options: { minWidth?: number; minHeight?: number; limit?: number } = {}
   ): Promise<SerperImageResult[]> {
-    const allImages = await this.images(query, options);
+    const allImages = await this.images(query, { num: options.limit ?? 20 });
     
     return allImages
       .filter((img) => {

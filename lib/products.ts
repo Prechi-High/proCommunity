@@ -288,7 +288,7 @@ export function previewToProfile(preview: ProductPreviewResponse): ProductProfil
     confidence: 0,
     band: 'Uncertain',
     images: preview.images,
-    gallery: (preview.gallery ?? preview.images.map((url) => ({ url }))).map((g) => ({
+    gallery: (preview.gallery ?? preview.images.map((url) => ({ url, title: '' }))).map((g) => ({
       url: g.url,
       title: g.title ?? '',
       source: '',
@@ -401,7 +401,7 @@ async function resolveProductPreviewInner(input: {
   return result;
 }
 
-export async function resolveProductPreview(input: {
+export function resolveProductPreview(input: {
   id: string;
   query?: string;
   name?: string;
@@ -410,18 +410,29 @@ export async function resolveProductPreview(input: {
   const hit = previewSnapshot.get(input.id);
   if (hit) {
     agentLog('products.ts:preview', 'resolveProductPreview_snapshot', { productId: input.id }, 'H4', 'post-fix');
-    return hit;
+    return Promise.resolve(hit);
   }
   const existing = previewInflight.get(input.id);
   if (existing) {
     agentLog('products.ts:preview', 'resolveProductPreview_inflight_reuse', { productId: input.id }, 'H4', 'post-fix');
     return existing;
   }
-  const inflight = resolveProductPreviewInner(input).finally(() => {
-    previewInflight.delete(input.id);
+
+  let resolve!: (value: PreviewResult) => void;
+  let reject!: (reason?: unknown) => void;
+  const flight = new Promise<PreviewResult>((res, rej) => {
+    resolve = res;
+    reject = rej;
   });
-  previewInflight.set(input.id, inflight);
-  return inflight;
+  previewInflight.set(input.id, flight);
+
+  void resolveProductPreviewInner(input)
+    .then(resolve, reject)
+    .finally(() => {
+      previewInflight.delete(input.id);
+    });
+
+  return flight;
 }
 
 async function startProductUnmaskInner(input: {
@@ -458,7 +469,7 @@ async function startProductUnmaskInner(input: {
   return { attached: res.attached, started: res.started, job: res.job ?? null, profile: res.profile };
 }
 
-export async function startProductUnmask(input: {
+export function startProductUnmask(input: {
   id: string;
   query?: string;
   force?: boolean;
@@ -468,11 +479,22 @@ export async function startProductUnmask(input: {
     agentLog('products.ts:unmask', 'startProductUnmask_inflight_reuse', { productId: input.id }, 'H1', 'post-fix');
     return existing;
   }
-  const inflight = startProductUnmaskInner(input).finally(() => {
-    unmaskInflight.delete(input.id);
+
+  let resolve!: (value: UnmaskStartResult) => void;
+  let reject!: (reason?: unknown) => void;
+  const flight = new Promise<UnmaskStartResult>((res, rej) => {
+    resolve = res;
+    reject = rej;
   });
-  unmaskInflight.set(input.id, inflight);
-  return inflight;
+  unmaskInflight.set(input.id, flight);
+
+  void startProductUnmaskInner(input)
+    .then(resolve, reject)
+    .finally(() => {
+      unmaskInflight.delete(input.id);
+    });
+
+  return flight;
 }
 
 export async function getUnmaskJobStatus(productId: string): Promise<UnmaskJobProgress | null> {

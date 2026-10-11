@@ -206,7 +206,7 @@ export function buildProductFindings(input: {
       manufacturerRelation: 'No relevant statement found in reviewed brand material.',
       buyingImplication: String(d.buying_implication || 'Weigh this against your own use case.'),
       sourceIds: [],
-      modelMatch: match.canScoreClaims ? 'exact' : 'similar',
+      modelMatch: (match.canScoreClaims ? 'exact' : 'similar') as OwnerDiscovery['modelMatch'],
       isMajorDiscovery: isMajor,
     };
     })

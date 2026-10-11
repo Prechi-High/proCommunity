@@ -3,7 +3,7 @@
  * Identifies products from text or images
  */
 
-import { SerperProvider } from '../providers/serper';
+import { SerperProvider } from '../../providers/serper';
 
 interface ProductCandidate {
   id: string;
@@ -17,7 +17,7 @@ interface ProductCandidate {
 interface IdentificationResult {
   product: ProductCandidate;
   confidence: number;
-  method: 'text' | 'image' | 'ocr';
+  method: 'text' | 'image' | 'ocr' | 'cached';
   candidates: ProductCandidate[];
 }
 

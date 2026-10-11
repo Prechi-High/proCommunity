@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -32,6 +32,7 @@ import {
   profileToProduct,
   kickProductOpenPipeline,
   resolveProductPreview,
+  startProductUnmask,
   rememberProduct,
   slugify,
   callIntel,
@@ -51,6 +52,14 @@ import { investigationComplete } from '@/lib/unmask/investigationStages';
 import { trackOverviewViewed } from '@/lib/unmask/productAnalytics';
 import type { UnmaskTab } from '@/lib/unmask/types';
 import { loadProductClips } from '@/lib/videos';
+
+const ACTIVE_UNMASK_JOB_STATES = new Set([
+  'queued',
+  'identified',
+  'researching',
+  'mapping',
+  'scoring',
+]);
 
 export default function ProductScreen() {
   const router = useRouter();
@@ -73,10 +82,15 @@ export default function ProductScreen() {
   const saved = favorites.some((f) => f.productId === id);
   const { requireMember, gate } = useMemberGate();
   const scroller = useRef<ScrollView>(null);
+  const unmaskStarted = useRef(false);
 
   useEffect(() => {
     if (id) addRecent(id);
   }, [id, addRecent]);
+
+  useEffect(() => {
+    unmaskStarted.current = false;
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -88,7 +102,7 @@ export default function ProductScreen() {
   }, [id, q, known?.name, known?.brand]);
 
   const previewQuery = useQuery({
-    queryKey: ['preview', id, q],
+    queryKey: ['preview', id],
     initialData: () => getCachedPreviewResult(id),
     queryFn: async () => {
       if (!hasProductOpenTiming(id, 'preview_request_started')) {
@@ -102,7 +116,8 @@ export default function ProductScreen() {
     },
     enabled: Boolean(id),
     staleTime: 30 * 60_000,
-    retry: 1,
+    retry: false,
+    refetchOnMount: false,
   });
 
   const jobQuery = useQuery({
@@ -128,6 +143,29 @@ export default function ProductScreen() {
     }
   }, [id, jobQuery.data?.state]);
 
+  useEffect(() => {
+    if (!id) return;
+    if (previewQuery.isLoading || !previewQuery.data) return;
+    if (jobQuery.isLoading) return;
+    const state = jobQuery.data?.state;
+    if (state === 'ready' || state === 'failed') return;
+    if (state && ACTIVE_UNMASK_JOB_STATES.has(state)) return;
+    if (unmaskStarted.current) return;
+    unmaskStarted.current = true;
+    void startProductUnmask({ id, query: q ?? (known ? displayName(known) : undefined) }).catch(() => {
+      unmaskStarted.current = false;
+    });
+  }, [
+    id,
+    q,
+    known?.name,
+    known?.brand,
+    previewQuery.isLoading,
+    previewQuery.data,
+    jobQuery.isLoading,
+    jobQuery.data?.state,
+  ]);
+
   const intel = useQuery({
     queryKey: ['intel', id],
     queryFn: async () => {
@@ -147,9 +185,18 @@ export default function ProductScreen() {
   const previewProfile = previewQuery.data ? previewToProfile(previewQuery.data.preview) : null;
   const profile = intel.data ?? previewProfile;
   const intelReady = Boolean(intel.data && investigationComplete(false, intel.data));
+  const jobState = jobQuery.data?.state;
   const intelLoading =
     !intelReady &&
-    (previewQuery.isLoading || (jobQuery.data?.state !== 'ready' && jobQuery.data?.state !== 'failed'));
+    (previewQuery.isLoading || (jobState != null && ACTIVE_UNMASK_JOB_STATES.has(jobState)));
+
+  const retryIntel = useCallback(() => {
+    unmaskStarted.current = false;
+    void previewQuery.refetch();
+    void jobQuery.refetch();
+    void intel.refetch();
+  }, [previewQuery, jobQuery, intel]);
+
   const product = getKnownProduct(id) ?? known;
   const name = profile?.identity.name || (product ? displayName(product) : q ?? '');
 
@@ -271,14 +318,7 @@ export default function ProductScreen() {
                 <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2, textAlign: 'center' }}>
                   Try again — nothing is lost.
                 </Text>
-                <Pressable
-                  onPress={() => {
-                    unmaskStarted.current = false;
-                    void previewQuery.refetch();
-                    void jobQuery.refetch();
-                    void intel.refetch();
-                  }}
-                >
+                <Pressable onPress={retryIntel}>
                   <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.hi }}>Try again</Text>
                 </Pressable>
               </View>
@@ -293,12 +333,7 @@ export default function ProductScreen() {
                 intelLoading={intelLoading}
                 intelError={intel.isError || previewQuery.isError}
                 onUnmaskPressed={() => markProductOpenTiming(id, 'user_pressed_unmask')}
-                onRetryIntel={() => {
-                  unmaskStarted.current = false;
-                  void previewQuery.refetch();
-                  void jobQuery.refetch();
-                  void intel.refetch();
-                }}
+                onRetryIntel={retryIntel}
                 clipsLoading={clips.isLoading}
                 clips={clips.data ?? []}
                 scanPhoto={scan?.photo}

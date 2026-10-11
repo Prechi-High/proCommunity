@@ -4,7 +4,7 @@
  * using OpenRouter and Gemini APIs.
  */
 
-type LLMProvider = 'openrouter' | 'gemini' | 'nvidia';
+export type LLMProvider = 'openrouter' | 'gemini' | 'nvidia' | 'fallback';
 
 interface LLMOptions {
   temperature?: number;
@@ -12,7 +12,7 @@ interface LLMOptions {
   responseFormat?: 'text' | 'json';
 }
 
-interface ExtractionField {
+export interface ExtractionField {
   key: string;
   label: string;
   description: string;
@@ -340,8 +340,8 @@ Schema: ${JSON.stringify(schema)}`,
 
     // For numbers, check for similar patterns
     const numberRegex = /\d+/g;
-    const sourceNumbers = source.match(numberRegex) || [];
-    const valueNumbers = value.match(numberRegex) || [];
+    const sourceNumbers: string[] = source.match(numberRegex) ?? [];
+    const valueNumbers: string[] = value.match(numberRegex) ?? [];
 
     if (valueNumbers.length > 0 && valueNumbers.some((n) => sourceNumbers.includes(n))) return true;
 

@@ -3,7 +3,7 @@
  * Retrieves and processes evidence from various sources
  */
 
-import { SerperProvider } from '../providers/serper';
+import { SerperProvider } from '../../providers/serper';
 
 interface Evidence {
   id: string;
@@ -19,7 +19,7 @@ interface Evidence {
 interface EvidenceSource {
   domain: string;
   reliability: number;
-  type: 'manufacturer' | 'retailer' | 'review' | 'forum' | 'social' | 'official';
+  type: 'manufacturer' | 'retailer' | 'review' | 'forum' | 'social' | 'official' | 'video';
 }
 
 export class EvidenceEngine {

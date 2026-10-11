@@ -53,6 +53,7 @@ export function AskUnmaskTab({ profile, bundle, onAskCommunity, uiContract, sect
               buckets: [],
               findings: api.reused ? ['Answered from stored product intelligence.'] : [],
               evidence: api.evidence.map((e) => ({ summary: e.summary, origin: e.origin })),
+              claimId: api.dimensionKey ? `ask:${api.dimensionKey}` : `ask:${profile.id}`,
             },
           });
           return;

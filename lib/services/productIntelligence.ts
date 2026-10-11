@@ -7,6 +7,7 @@ import { CategoryClassificationService } from './category-classification/categor
 import { EvidenceEngine } from './evidence-engine/evidenceEngine';
 import { ExtractionField, LLMExtractionService } from './llmExtraction';
 import { ProductIdentificationService } from './product-identification/productIdentification';
+import { SerperProvider } from '../providers/serper';
 import { SearchDiscoveryService } from './search-discovery/searchDiscovery';
 import { VerificationService } from './verification/verification';
 
@@ -147,8 +148,9 @@ export class ProductIntelligenceService {
   private async getProductImages(productName: string, brand: string): Promise<string[]> {
     try {
       const searchQuery = `${brand} ${productName} product image`;
-      const results = await this.discovery.serper.images(searchQuery);
-      return results.slice(0, 10).map((r) => r.imageUrl);
+      const serper = new SerperProvider();
+      const results = await serper.findProductImages(searchQuery, { limit: 10 });
+      return results.map((r) => r.imageUrl);
     } catch {
       return [];
     }
