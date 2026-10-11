@@ -412,13 +412,15 @@ export async function resolveProductPreview(input: {
     agentLog('products.ts:preview', 'resolveProductPreview_snapshot', { productId: input.id }, 'H4', 'post-fix');
     return hit;
   }
-  let inflight = previewInflight.get(input.id);
-  if (!inflight) {
-    inflight = resolveProductPreviewInner(input).finally(() => {
-      previewInflight.delete(input.id);
-    });
-    previewInflight.set(input.id, inflight);
+  const existing = previewInflight.get(input.id);
+  if (existing) {
+    agentLog('products.ts:preview', 'resolveProductPreview_inflight_reuse', { productId: input.id }, 'H4', 'post-fix');
+    return existing;
   }
+  const inflight = resolveProductPreviewInner(input).finally(() => {
+    previewInflight.delete(input.id);
+  });
+  previewInflight.set(input.id, inflight);
   return inflight;
 }
 
@@ -461,13 +463,15 @@ export async function startProductUnmask(input: {
   query?: string;
   force?: boolean;
 }): Promise<UnmaskStartResult> {
-  let inflight = unmaskInflight.get(input.id);
-  if (!inflight) {
-    inflight = startProductUnmaskInner(input).finally(() => {
-      unmaskInflight.delete(input.id);
-    });
-    unmaskInflight.set(input.id, inflight);
+  const existing = unmaskInflight.get(input.id);
+  if (existing) {
+    agentLog('products.ts:unmask', 'startProductUnmask_inflight_reuse', { productId: input.id }, 'H1', 'post-fix');
+    return existing;
   }
+  const inflight = startProductUnmaskInner(input).finally(() => {
+    unmaskInflight.delete(input.id);
+  });
+  unmaskInflight.set(input.id, inflight);
   return inflight;
 }
 
