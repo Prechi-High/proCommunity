@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
 import { ChatTeardropText, MagnifyingGlass, PaperPlaneRight, PencilSimple } from '@/components/icons';
 import { PrimaryButton, Tile } from '@/components/kit';
 import { colors, fonts, radii } from '@/constants/theme';
+import { dynamicProductUiEnabled } from '@/lib/product-result/flags';
+import type { ProductUIContractV1 } from '@/lib/product-result/contract';
+import { askUnmaskFromEdge } from '@/lib/services/ask/askUnmask';
 import { investigateQuestion } from '@/lib/unmask/askMatch';
 import type { AskResult, UnmaskBundle } from '@/lib/unmask/types';
 import type { ProductProfile } from '@/lib/types';
@@ -14,15 +17,52 @@ type Props = {
   profile: ProductProfile;
   bundle: UnmaskBundle;
   onAskCommunity: (question: string) => void;
+  uiContract?: ProductUIContractV1 | null;
+  sectionKey?: string;
+  dimensionKey?: string | null;
 };
 
-export function AskUnmaskTab({ profile, bundle, onAskCommunity }: Props) {
+export function AskUnmaskTab({ profile, bundle, onAskCommunity, uiContract, sectionKey, dimensionKey }: Props) {
   const [draft, setDraft] = useState('');
   const [result, setResult] = useState<AskResult | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const submit = () => {
     const q = draft.trim();
     if (!q) return;
+    void runAsk(q);
+  };
+
+  const runAsk = async (q: string) => {
+    if (dynamicProductUiEnabled() && uiContract) {
+      setLoading(true);
+      try {
+        const api = await askUnmaskFromEdge({
+          productId: profile.id,
+          question: q,
+          sectionKey,
+          dimensionKey: dimensionKey ?? undefined,
+          uiContract,
+        });
+        if (api.kind === 'answer') {
+          setResult({
+            kind: 'answer',
+            answer: {
+              question: api.question,
+              shortAnswer: api.shortAnswer,
+              buckets: [],
+              findings: api.reused ? ['Answered from stored product intelligence.'] : [],
+              evidence: api.evidence.map((e) => ({ summary: e.summary, origin: e.origin })),
+            },
+          });
+          return;
+        }
+      } catch {
+        /* fall through to local matcher */
+      } finally {
+        setLoading(false);
+      }
+    }
     setResult(investigateQuestion(profile, q));
   };
 
@@ -104,6 +144,14 @@ export function AskUnmaskTab({ profile, bundle, onAskCommunity }: Props) {
             setResult(investigateQuestion(profile, q));
           }}
         />
+      </View>
+    );
+  }
+
+  if (loading) {
+    return (
+      <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+        <ActivityIndicator color={colors.hi} />
       </View>
     );
   }

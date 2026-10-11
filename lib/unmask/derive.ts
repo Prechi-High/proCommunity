@@ -115,11 +115,19 @@ function buildHighlights(dimensions: UnmaskDimension[], claims: ClaimComparison[
   return out;
 }
 
-function buildClusters(claims: ClaimComparison[]): EvidenceCluster[] {
-  return claims
+function buildClusters(claims: ClaimComparison[], dimensions: UnmaskDimension[]): EvidenceCluster[] {
+  const keyed = claims
     .filter((c) => c.evidence.some((e) => e.eligible))
-    .slice(0, 6)
     .map((c) => {
+      const hay = `${c.topic} ${c.criterion}`.toLowerCase();
+      const dim = dimensions.find(
+        (d) => hay.includes(d.id.replace(/_/g, ' ')) || hay.includes(d.label.toLowerCase()),
+      );
+      return { c, dim };
+    });
+  return keyed
+    .slice(0, 8)
+    .map(({ c, dim }) => {
       const eligible = c.evidence.filter((e) => e.eligible);
       const support = eligible.filter((e) => e.classification === 'support');
       const against = eligible.filter((e) => e.classification === 'contradict');
@@ -129,8 +137,8 @@ function buildClusters(claims: ClaimComparison[]): EvidenceCluster[] {
         .slice(0, 2)
         .map((e) => ({ text: e.summary, origin: e.origin || 'Owner report' }));
       return {
-        id: `cluster-${c.id}`,
-        title: c.topic,
+        id: `cluster-${dim?.id ?? c.id}`,
+        title: dim?.label ?? c.topic,
         summary: c.buyingImplication || c.findingLabel,
         ownerCount: c.eligibleOwnerCount || eligible.length,
         tone,
@@ -247,10 +255,16 @@ export function deriveUnmaskBundle(profile: ProductProfile): UnmaskBundle {
     discussionCount,
     dimensions,
     highlights: buildHighlights(dimensions, claims),
-    clusters: buildClusters(claims),
+    clusters: buildClusters(claims, dimensions),
     disagreements: buildDisagreements(claims),
     uncovered: profile.findings?.discoveries ?? [],
-    suggestions: DEFAULT_SUGGESTIONS,
+    suggestions: dynamic && dimensions.length
+      ? dimensions.slice(0, 6).map((d) => ({
+          id: `dim-${d.id}`,
+          question: `How is ${d.label.toLowerCase()}?`,
+          keywords: [d.id, ...d.label.toLowerCase().split(/\s+/)],
+        }))
+      : DEFAULT_SUGGESTIONS,
   };
 }
 

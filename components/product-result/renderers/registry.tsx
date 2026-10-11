@@ -2,8 +2,10 @@ import type { ComponentType } from 'react';
 
 import type { ProductSectionUI, RendererType } from '@/lib/product-result/contract';
 
+import { EvidenceListSection } from './EvidenceListSection';
 import { IngredientListSection } from './IngredientListSection';
 import { KeyValueListSection } from './KeyValueListSection';
+import { VideoGroupsSection } from './VideoGroupsSection';
 
 export const rendererRegistry: Partial<Record<RendererType, ComponentType<{ section: ProductSectionUI }>>> = {
   key_value_list: KeyValueListSection,
@@ -12,3 +14,5 @@ export const rendererRegistry: Partial<Record<RendererType, ComponentType<{ sect
   ingredient_list: IngredientListSection,
   material_list: KeyValueListSection,
 };
+
+export { EvidenceListSection, VideoGroupsSection };

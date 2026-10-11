@@ -8,6 +8,7 @@ import { PrimaryButton } from '@/components/kit';
 
 import { DynamicOverview } from '@/components/product-result/DynamicOverview';
 import { contractSectionForTab, RenderContractSection } from '@/components/product-result/renderContractSection';
+import { EvidenceListSection, VideoGroupsSection } from '@/components/product-result/renderers/registry';
 import { getUIContract } from '@/lib/product-result/contract';
 import { dynamicProductUiEnabled } from '@/lib/product-result/flags';
 import { DynamicFactPane } from '@/components/product/DynamicFactPane';
@@ -204,6 +205,17 @@ export function ProductUnmaskFlow({
   }
 
   if (tab === 'videos') {
+    const videoSection = uiContract?.sections.find((s) => s.key === 'videos' && s.enabled);
+    if (videoSection) {
+      return (
+        <VideoGroupsSection
+          section={videoSection}
+          product={product}
+          clips={clips}
+          loading={clipsLoading}
+        />
+      );
+    }
     return (
       <VideosPane
         product={{ id: product.id, name: profile?.identity.name || product.name, brand: product.brand, category: product.category }}
@@ -221,7 +233,16 @@ export function ProductUnmaskFlow({
         </View>
       );
     }
-    return <AskUnmaskTab profile={profile} bundle={bundle} onAskCommunity={onAskCommunity} />;
+    return (
+      <AskUnmaskTab
+        profile={profile}
+        bundle={bundle}
+        onAskCommunity={onAskCommunity}
+        sectionKey={tab}
+        dimensionKey={dimensionId}
+        uiContract={uiContract}
+      />
+    );
   }
 
   if (tab === 'evidence') {
@@ -234,6 +255,19 @@ export function ProductUnmaskFlow({
     }
     if (dimensionId) {
       return <DimensionDetail profile={profile} bundle={bundle} dimensionId={dimensionId} onBack={() => setDimensionId(null)} />;
+    }
+    const evidenceSection = uiContract?.sections.find((s) => s.key === 'evidence' && s.enabled);
+    if (evidenceSection) {
+      return (
+        <EvidenceListSection
+          section={evidenceSection}
+          profile={profile}
+          bundle={bundle}
+          filterDimensionKey={dimensionId}
+          onDimension={(id) => setDimensionId(id)}
+          onOpenSources={onOpenSources}
+        />
+      );
     }
     return (
       <ScorecardTab

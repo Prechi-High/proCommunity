@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { answerFromStoredEvidence } from "../_shared/ask/storedEvidence.ts";
 import { attachProductPresentation } from "../_shared/blueprint/index.ts";
 import { domainFlags, recordDomainDemand } from "../_shared/domain/index.ts";
 import { buildProductFindings } from "../_shared/claims/buildFindings.ts";
@@ -2282,12 +2283,33 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (action === "ask_unmask") {
+      const productId = str(body.productId, 100);
+      const question = str(body.question, 400);
+      if (!productId || question.length < 3) return json({ error: "missing_question" }, 400);
+      const row = await store.select("product_intel", `id=eq.${encodeURIComponent(productId)}`);
+      const profile = (row?.payload ?? {}) as Json;
+      const askContext = (body.askContext ?? body.ask_context) as Json | undefined;
+      const stored = await answerFromStoredEvidence({ productId, question, profile, askContext });
+      if (stored.kind === "answer") {
+        return json({ success: true, ...stored });
+      }
+      return json({ success: false, ...stored });
+    }
+
     if (action === "ask") {
       const productId = str(body.productId, 100);
       const question = str(body.question, 400);
       if (!productId || question.length < 3) return json({ error: "missing_question" }, 400);
+      const row = await store.select("product_intel", `id=eq.${encodeURIComponent(productId)}`);
+      const profile = (row?.payload ?? {}) as Json;
+      const askContext = (body.askContext ?? body.ask_context) as Json | undefined;
+      const stored = await answerFromStoredEvidence({ productId, question, profile, askContext });
+      if (stored.kind === "answer") {
+        return json({ success: true, source: "stored_evidence", ...stored });
+      }
       const out = await runAsk(store, { productId, question, compareId: str(body.compareId, 100) || undefined, compareIds: strList(body.compareIds, 2, 100) });
-      return json({ success: !("error" in out), ...out });
+      return json({ success: !("error" in out), source: "community_llm", ...out });
     }
 
     if (["threads", "thread", "post", "reply", "ownership_note", "helpful"].includes(action)) {

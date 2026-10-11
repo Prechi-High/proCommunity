@@ -76,6 +76,8 @@ export type ProductUIContractV1 = {
   ask_context?: {
     product_id: string;
     blueprint_id: string;
+    section_key?: string;
+    dimension_key?: string;
     available_fact_keys: string[];
     available_dimension_keys: string[];
   };

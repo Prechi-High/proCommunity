@@ -1,47 +1,22 @@
 import type { DomainResolution } from "../domain/types.ts";
-import { classifyProduct, resolveBlueprintSchema } from "./classify.ts";
+import { assessDimensionsFromOwnerEvidence } from "./scoreDimensions.ts";
 import type {
-  PresentationDimension,
   PresentationFactField,
   PresentationFactSection,
   PresentationNavItem,
   ProductPresentationContract,
   BlueprintDimensionDef,
+  BlueprintFactSectionDef,
+  ProductClassification,
 } from "./types.ts";
 
 type Json = Record<string, unknown>;
 type SpecRow = { label?: string; value?: string };
-type ClaimRow = { id?: string; topic?: string; brandStatement?: string; criterion?: string; score?: number | null; eligibleOwnerCount?: number; findingLabel?: string; buyingImplication?: string };
-
-const ALGO_VERSION = "blueprint-v1";
+const ALGO_VERSION = "blueprint-v2";
 const PRESENTATION_VERSION = 1;
 
 function str(v: unknown, max = 400): string {
   return typeof v === "string" ? v.trim().slice(0, max) : "";
-}
-
-function matchClaimScore(claims: ClaimRow[], keywords: string[]): { score: number | null; confidence: number; finding: string; evidenceCount: number } {
-  let best: ClaimRow | null = null;
-  let bestHits = 0;
-  for (const c of claims) {
-    const hay = `${c.topic ?? ""} ${c.brandStatement ?? ""} ${c.criterion ?? ""}`.toLowerCase();
-    const hits = keywords.filter((k) => hay.includes(k)).length;
-    if (hits > bestHits) {
-      bestHits = hits;
-      best = c;
-    }
-  }
-  if (!best || best.score === null || best.score === undefined) {
-    return { score: null, confidence: 0.2, finding: "Limited owner evidence so far.", evidenceCount: 0 };
-  }
-  const count = best.eligibleOwnerCount ?? 0;
-  const confidence = Math.min(0.95, 0.35 + Math.min(count, 40) * 0.015 + (bestHits > 0 ? 0.15 : 0));
-  return {
-    score: Math.round(Number(best.score) * 10),
-    confidence,
-    finding: str(best.buyingImplication || best.findingLabel || "Owners report mixed experiences."),
-    evidenceCount: count,
-  };
 }
 
 function mapSpecsToFields(specs: SpecRow[], fieldKeys: string[]): PresentationFactField[] {
@@ -83,22 +58,6 @@ function buildNavigation(factSections: { key: string; label: string; renderer: s
   return nav;
 }
 
-function scoreDimensions(dimensions: BlueprintDimensionDef[], claims: ClaimRow[]): PresentationDimension[] {
-  return dimensions.map((d) => {
-    const { score, confidence, finding, evidenceCount } = matchClaimScore(claims, d.keywords);
-    const limitedEvidence = evidenceCount < 5 || confidence < 0.45;
-    return {
-      key: d.key,
-      label: d.label,
-      score: limitedEvidence && score !== null && confidence < 0.45 ? null : score,
-      confidence,
-      evidenceCount,
-      limitedEvidence,
-      finding,
-    };
-  });
-}
-
 export function buildPresentationFromProfile(
   productId: string,
   query: string,
@@ -106,21 +65,19 @@ export function buildPresentationFromProfile(
   blueprintId: string,
   blueprintVersion: number,
   domainResolution?: DomainResolution,
+  schema?: {
+    classification: ProductClassification;
+    factSections: BlueprintFactSectionDef[];
+    dimensions: BlueprintDimensionDef[];
+    cacheSource?: "redis" | "supabase" | "fresh";
+  },
 ): ProductPresentationContract {
   const identity = (profile.identity ?? {}) as Json;
-  const classification = classifyProduct(
-    {
-      name: str(identity.name),
-      brand: str(identity.brand),
-      category: str(identity.category),
-      subcategory: str(identity.subcategory),
-    },
-    query,
-  );
-  const { factSections: factDefs, dimensions: dimDefs } = resolveBlueprintSchema(classification, identity, query);
+  if (!schema) throw new Error("blueprint_schema_required");
+  const classification = schema.classification;
+  const factDefs = schema.factSections;
+  const dimDefs = schema.dimensions;
   const specs = (Array.isArray(profile.specs) ? profile.specs : []) as SpecRow[];
-  const findings = profile.findings as Json | undefined;
-  const claims = (Array.isArray(findings?.claims) ? findings!.claims : []) as ClaimRow[];
 
   const factSections: PresentationFactSection[] = factDefs.map((f) => ({
     key: f.key,
@@ -129,7 +86,7 @@ export function buildPresentationFromProfile(
     fields: mapSpecsToFields(specs, f.fieldKeys),
   }));
 
-  const overviewDims = scoreDimensions(dimDefs, claims);
+  const overviewDims = assessDimensionsFromOwnerEvidence(dimDefs, profile);
   const scored = overviewDims.map((d) => d.score).filter((s): s is number => s !== null);
   const profileScore = profile.score !== null && profile.score !== undefined ? Number(profile.score) : null;
   const overviewScore = profileScore !== null && !Number.isNaN(profileScore)
@@ -174,7 +131,7 @@ export function buildPresentationFromProfile(
       blueprintVersion,
       domainTemplateVersion: 1,
       classificationConfidence: domainResolution?.classificationConfidence ?? classification.classificationConfidence,
-      cacheSource: "fresh",
+      cacheSource: schema.cacheSource ?? "fresh",
     },
     navigation,
     overview: {
@@ -186,31 +143,14 @@ export function buildPresentationFromProfile(
   };
 }
 
-export function buildBlueprintRows(
-  productId: string,
-  query: string,
-  profile: Json,
-): {
-  classification: ReturnType<typeof classifyProduct>;
-  factSections: ReturnType<typeof resolveBlueprintSchema>["factSections"];
-  dimensions: ReturnType<typeof resolveBlueprintSchema>["dimensions"];
+export type BuiltBlueprintPackage = {
+  classification: ProductClassification;
+  factSections: BlueprintFactSectionDef[];
+  dimensions: BlueprintDimensionDef[];
   blueprintId: string;
   version: number;
-} {
-  const identity = (profile.identity ?? {}) as Json;
-  const classification = classifyProduct(
-    {
-      name: str(identity.name),
-      brand: str(identity.brand),
-      category: str(identity.category),
-      subcategory: str(identity.subcategory),
-    },
-    query,
-  );
-  const schema = resolveBlueprintSchema(classification, identity, query);
-  const version = 1;
-  const blueprintId = `bp_${productId}_v${version}`;
-  return { classification, factSections: schema.factSections, dimensions: schema.dimensions, blueprintId, version };
-}
+  generatedByModel: string;
+  llmJson?: Record<string, unknown>;
+};
 
 export { ALGO_VERSION };

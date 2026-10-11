@@ -1,9 +1,8 @@
-import { ALGO_VERSION, buildPresentationFromProfile } from "./build.ts";
+import { ALGO_VERSION, buildPresentationFromProfile, type BuiltBlueprintPackage } from "./build.ts";
 import type { ProductPresentationContract } from "./types.ts";
 import type { DomainResolution } from "../domain/types.ts";
-import { buildBlueprintRows } from "./build.ts";
 
-type BuiltBlueprint = ReturnType<typeof buildBlueprintRows>;
+type BuiltBlueprint = BuiltBlueprintPackage;
 
 type Json = Record<string, unknown>;
 
@@ -42,7 +41,7 @@ export async function persistBlueprint(
     blueprint_confidence: domainResolution?.classificationConfidence ?? classification.classificationConfidence,
     version,
     status: "active",
-    generated_by_model: "blueprint-heuristic-v1",
+    generated_by_model: built.generatedByModel ?? "blueprint-llm-v2",
     refresh_after: refreshAfter,
   });
 
@@ -50,7 +49,12 @@ export async function persistBlueprint(
   await store.remove("product_fact_sections", `blueprint_id=eq.${encodeURIComponent(blueprintId)}`);
   await store.remove("evaluation_dimensions", `blueprint_id=eq.${encodeURIComponent(blueprintId)}`);
 
-  const presentation = buildPresentationFromProfile(productId, query, profile, blueprintId, version, domainResolution);
+  const presentation = buildPresentationFromProfile(productId, query, profile, blueprintId, version, domainResolution, {
+    classification,
+    factSections,
+    dimensions,
+    cacheSource: "fresh",
+  });
 
   const navRows = presentation.navigation.map((n, i) => ({
     id: `${blueprintId}_nav_${n.key}`,
@@ -95,9 +99,6 @@ export async function persistBlueprint(
       });
     });
   }
-
-  const findings = profile.findings as Json | undefined;
-  const claims = (Array.isArray(findings?.claims) ? findings!.claims : []) as Json[];
 
   for (let i = 0; i < dimensions.length; i++) {
     const d = dimensions[i];

@@ -1,5 +1,5 @@
-import { validateBlueprintDimensions } from "./validate.ts";
-import { blockedDimensionKeys, domainDefaults, presetsForDomain, type TypePreset } from "./presets.ts";
+import { blockedDimensionKeys, validateBlueprintDimensions } from "./validate.ts";
+import { domainDefaults, presetsForDomain, type TypePreset } from "./presets.ts";
 import type { BlueprintDimensionDef, BlueprintFactSectionDef, IntelligenceDomain, ProductClassification } from "./types.ts";
 
 type Identity = {

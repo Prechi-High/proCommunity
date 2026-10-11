@@ -101,6 +101,11 @@ export function buildProductUIContractV1(productId: string, profile: Json, prese
     { key: "videos", title: "Videos", renderer: "video_groups" },
     { key: "ask", title: "Ask", renderer: "text_blocks" },
   ];
+  const videoGroups = (presentation.overview.dimensions ?? []).map((d) => ({
+    key: d.key,
+    label: d.label,
+    filter_key: d.key,
+  }));
   for (const c of coreSections) {
     sections.push({
       id: `sec_${c.key}`,
@@ -109,7 +114,11 @@ export function buildProductUIContractV1(productId: string, profile: Json, prese
       renderer: c.renderer,
       display_order: order++,
       enabled: true,
-      data: { lazy: true },
+      data: c.key === "videos"
+        ? { groups: videoGroups }
+        : c.key === "evidence"
+          ? { dimension_filters: videoGroups.map((g) => ({ key: g.key, label: g.label })) }
+          : { lazy: true },
     });
   }
 

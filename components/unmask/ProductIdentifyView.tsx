@@ -1,7 +1,9 @@
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { Camera, CaretRight, CheckCircle, DeviceMobile, Lightning, Package, ShieldCheck } from '@/components/icons';
+import { CaretRight, CheckCircle, Package, ShieldCheck } from '@/components/icons';
+import { getUIContract } from '@/lib/product-result/contract';
+import { getPresentation } from '@/lib/unmask/presentation';
 import { ProductImage } from '@/components/kit';
 import { colors, fonts, radii } from '@/constants/theme';
 import { hapticTap } from '@/lib/haptics';
@@ -17,15 +19,7 @@ type Props = {
   onViewSpecs: () => void;
 };
 
-function pickSpec(profile: ProductProfile | null, keys: string[]): string | null {
-  for (const s of profile?.specs ?? []) {
-    const k = s.label.toLowerCase();
-    if (keys.some((x) => k.includes(x))) return s.value;
-  }
-  return null;
-}
-
-export function ProductIdentifyView({ product, profile, photos, onViewSpecs }: Props) {
+export function ProductIdentifyView({ product, profile, photos }: Props) {
   const name = profile?.identity.name || product.name;
   const brand = profile?.identity.brand || product.brand || '';
   const summary = profile?.summary || product.description || '';
@@ -38,10 +32,7 @@ export function ProductIdentifyView({ product, profile, photos, onViewSpecs }: P
   const thumbs = photos.length > 0 ? photos : hero ? [hero] : [];
   const extra = Math.max(0, thumbs.length - 5);
 
-  const storage = pickSpec(profile, ['storage', 'memory', 'capacity']) || '—';
-  const display = pickSpec(profile, ['display', 'screen']) || '—';
-  const camera = pickSpec(profile, ['camera', 'megapixel']) || '—';
-  const battery = pickSpec(profile, ['battery', 'playback']) || '—';
+  const previewFields = useIdentifyPreviewFields(profile);
 
   const categoryLabel = profile?.identity.category || product.category || 'Product';
   const sub = profile?.identity.subcategory;
@@ -151,12 +142,13 @@ export function ProductIdentifyView({ product, profile, photos, onViewSpecs }: P
           ))}
         </View>
 
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          <SpecCell icon={Package} label="Storage" value={storage} />
-          <SpecCell icon={DeviceMobile} label="Display" value={display} />
-          <SpecCell icon={Camera} label="Main Camera" value={camera} />
-          <SpecCell icon={Lightning} label="Battery Life" value={battery} />
-        </View>
+        {previewFields.length ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {previewFields.map((f) => (
+              <SpecCell key={f.key} label={f.label} value={f.value} />
+            ))}
+          </View>
+        ) : null}
 
         <View style={{ flexDirection: 'row', gap: 10, backgroundColor: '#fff3e0', padding: 12, borderRadius: radii.card, alignItems: 'flex-start' }}>
           <ShieldCheck size={22} color="#e65100" weight="fill" />
@@ -169,7 +161,27 @@ export function ProductIdentifyView({ product, profile, photos, onViewSpecs }: P
   );
 }
 
-function SpecCell({ icon: Icon, label, value }: { icon: typeof DeviceMobile; label: string; value: string }) {
+function useIdentifyPreviewFields(profile: ProductProfile | null): { key: string; label: string; value: string }[] {
+  const contract = getUIContract(profile);
+  const pres = getPresentation(profile);
+  const fromContract = contract?.sections
+    .filter((s) => s.enabled && !['evidence', 'videos', 'ask', 'overview'].includes(s.key))
+    .flatMap((s) => {
+      const fields = ((s.data as { fields?: { key: string; label: string; value: string }[] })?.fields ?? []).filter((f) => f.value);
+      return fields;
+    });
+  if (fromContract?.length) return fromContract.slice(0, 4);
+
+  const fact = pres?.factSections?.[0];
+  if (fact?.fields?.length) {
+    return fact.fields.filter((f) => f.value).slice(0, 4).map((f) => ({ key: f.key, label: f.label, value: f.value }));
+  }
+
+  const specs = (profile?.specs ?? []).filter((s) => s.value).slice(0, 4);
+  return specs.map((s, i) => ({ key: `spec_${i}`, label: s.label, value: s.value }));
+}
+
+function SpecCell({ label, value }: { label: string; value: string }) {
   return (
     <View
       style={{
@@ -182,7 +194,7 @@ function SpecCell({ icon: Icon, label, value }: { icon: typeof DeviceMobile; lab
         gap: 6,
       }}
     >
-      <Icon size={18} color={MAROON} weight="duotone" />
+      <Package size={18} color={MAROON} weight="duotone" />
       <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</Text>
       <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: '#1a1a1a' }} numberOfLines={2}>{value}</Text>
     </View>
