@@ -178,6 +178,15 @@ export function ProductIdentifyView({ product, profile, preview, jobProgress, in
           </View>
         ) : null}
 
+        {!intelReady && preview?.rawListingTitle && preview.rawListingTitle !== name ? (
+          <View style={{ gap: 2 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+              Listing title
+            </Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: '#666', lineHeight: 17 }}>{preview.rawListingTitle}</Text>
+          </View>
+        ) : null}
+
         {!intelReady && jobProgress ? (
           <View style={{ gap: 4, paddingTop: 4 }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: '#666' }}>

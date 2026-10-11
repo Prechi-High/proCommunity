@@ -25,12 +25,13 @@ import { useOwnsProduct } from '@/lib/owners';
 import { hapticSuccess, hapticTap } from '@/lib/haptics';
 import {
   displayName,
+  getCachedPreviewResult,
   getKnownProduct,
   getUnmaskJobStatus,
   previewToProfile,
   profileToProduct,
+  kickProductOpenPipeline,
   resolveProductPreview,
-  startProductUnmask,
   rememberProduct,
   slugify,
   callIntel,
@@ -39,7 +40,13 @@ import { useAppStore } from '@/lib/store';
 import { InferredDomainNotice } from '@/components/unmask/InferredDomainNotice';
 import { getPresentation, navigationTabs } from '@/lib/unmask/presentation';
 import type { ProductProfile } from '@/lib/types';
-import { flushProductOpenTimings, markProductOpenTiming, resetProductOpenTimings } from '@/lib/unmask/openTimings';
+import {
+  flushProductOpenTimings,
+  hasProductOpenTiming,
+  markJobMilestoneTimings,
+  markProductOpenTiming,
+} from '@/lib/unmask/openTimings';
+import { agentLog } from '@/lib/debug/agentLog';
 import { investigationComplete } from '@/lib/unmask/investigationStages';
 import { trackOverviewViewed } from '@/lib/unmask/productAnalytics';
 import type { UnmaskTab } from '@/lib/unmask/types';
@@ -73,41 +80,30 @@ export default function ProductScreen() {
 
   useEffect(() => {
     if (!id) return;
-    resetProductOpenTimings(id);
-    markProductOpenTiming(id, 'selection');
-  }, [id]);
+    if (!hasProductOpenTiming(id, 'selection')) {
+      markProductOpenTiming(id, 'selection');
+      agentLog('product/index.tsx', 'selection_on_screen_mount', { productId: id }, 'H1');
+      kickProductOpenPipeline({ id, query: q, name: known?.name, brand: known?.brand });
+    }
+  }, [id, q, known?.name, known?.brand]);
 
   const previewQuery = useQuery({
     queryKey: ['preview', id, q],
+    initialData: () => getCachedPreviewResult(id),
     queryFn: async () => {
-      markProductOpenTiming(id, 'preview_request_started');
+      if (!hasProductOpenTiming(id, 'preview_request_started')) {
+        markProductOpenTiming(id, 'preview_request_started');
+      }
       const out = await resolveProductPreview({ id, query: q, name: known?.name, brand: known?.brand });
-      markProductOpenTiming(id, 'preview_ready');
+      if (!hasProductOpenTiming(id, 'preview_ready')) {
+        markProductOpenTiming(id, 'preview_ready');
+      }
       return out;
     },
     enabled: Boolean(id),
     staleTime: 30 * 60_000,
     retry: 1,
   });
-
-  const unmaskStarted = useRef(false);
-  useEffect(() => {
-    unmaskStarted.current = false;
-  }, [id]);
-
-  useEffect(() => {
-    if (!id || unmaskStarted.current) return;
-    unmaskStarted.current = true;
-    markProductOpenTiming(id, 'unmask_job_started');
-    void startProductUnmask({ id, query: q })
-      .then((started) => {
-        if (started.profile) {
-          queryClient.setQueryData(['intel', id], started.profile);
-        }
-        void queryClient.invalidateQueries({ queryKey: ['unmaskJob', id] });
-      })
-      .catch(() => undefined);
-  }, [id, q, queryClient]);
 
   const jobQuery = useQuery({
     queryKey: ['unmaskJob', id],
@@ -118,6 +114,12 @@ export default function ProductScreen() {
       return state === 'ready' || state === 'failed' ? false : 2500;
     },
   });
+
+  useEffect(() => {
+    if (jobQuery.data?.milestones) {
+      markJobMilestoneTimings(id, jobQuery.data.milestones);
+    }
+  }, [id, jobQuery.data?.milestones]);
 
   useEffect(() => {
     if (jobQuery.data?.state === 'ready') {

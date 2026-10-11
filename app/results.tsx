@@ -9,7 +9,9 @@ import { Eyebrow, FeatureCard, Group, PrimaryButton, ProductRow, SearchBar, Shim
 import { BRAND_COPY } from '@/constants/brand';
 import { colors, fonts } from '@/constants/theme';
 import { hapticSelect } from '@/lib/haptics';
-import { displayName, rememberProduct, searchProducts, slugify } from '@/lib/products';
+import { displayName, kickProductOpenPipeline, rememberProduct, searchProducts, slugify } from '@/lib/products';
+import { markProductOpenTiming } from '@/lib/unmask/openTimings';
+import { agentLog } from '@/lib/debug/agentLog';
 import { useAppStore } from '@/lib/store';
 import { nextResearchRequestId } from '@/lib/research/requestScope';
 import { useScan } from '@/lib/useScan';
@@ -50,12 +52,24 @@ export default function ResultsScreen() {
 
   const open = (p: Product) => {
     rememberProduct(p);
+    markProductOpenTiming(p.id, 'selection');
+    agentLog('results.tsx:open', 'search_result_selected', { productId: p.id, q: displayName(p) }, 'H1');
+    kickProductOpenPipeline({
+      id: p.id,
+      query: displayName(p),
+      name: p.name,
+      brand: p.brand,
+      category: p.category,
+      heroImageUrl: p.heroImageUrl,
+    });
     router.push({ pathname: '/product/[id]', params: { id: p.id, q: displayName(p) } } as Href);
   };
 
   const investigateQuery = () => {
     const id = slugify(query);
     rememberProduct({ id, name: query, brand: '', category: 'Product' });
+    markProductOpenTiming(id, 'selection');
+    kickProductOpenPipeline({ id, query, name: query });
     router.push({ pathname: '/product/[id]', params: { id, q: query } } as Href);
   };
 

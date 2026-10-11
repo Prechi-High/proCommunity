@@ -1,5 +1,7 @@
+import { agentLog } from '@/lib/debug/agentLog';
 import { canonicalFromListing } from './products/canonicalDisplay';
 import { accessToken } from './auth';
+import { hasProductOpenTiming, markProductOpenTiming } from '@/lib/unmask/openTimings';
 import { useAppStore } from './store';
 import { supabaseAnonKey, supabaseUrl } from './supabase';
 import type { Product, ProductProfile } from './types';
@@ -65,6 +67,21 @@ export async function callIntel<T>(body: Record<string, unknown>, timeoutMs = 45
 }
 
 const registry = new Map<string, Product>();
+
+type PreviewResult = { preview: ProductPreviewResponse; cached: boolean; timingMs: number };
+const previewInflight = new Map<string, Promise<PreviewResult>>();
+const previewSnapshot = new Map<string, PreviewResult>();
+type UnmaskStartResult = {
+  attached?: boolean;
+  started?: boolean;
+  job: { progress: UnmaskJobProgress } | null;
+  profile?: ProductProfile;
+};
+const unmaskInflight = new Map<string, Promise<UnmaskStartResult>>();
+
+export function getCachedPreviewResult(productId: string): PreviewResult | undefined {
+  return previewSnapshot.get(productId);
+}
 
 export function rememberProduct(product: Product): void {
   const prev = registry.get(product.id);
@@ -283,19 +300,69 @@ export function previewToProfile(preview: ProductPreviewResponse): ProductProfil
   };
 }
 
-export async function resolveProductPreview(input: {
+/** Fire preview + background Unmask in parallel (e.g. on search result tap). */
+export function kickProductOpenPipeline(input: {
   id: string;
   query?: string;
   name?: string;
   brand?: string;
-}): Promise<{ preview: ProductPreviewResponse; cached: boolean; timingMs: number }> {
+  category?: string;
+  heroImageUrl?: string | null;
+}): void {
+  const known = getKnownProduct(input.id);
+  const query = input.query?.trim() || (known ? displayName(known) : input.id.replace(/-/g, ' '));
+  if (!hasProductOpenTiming(input.id, 'selection')) {
+    markProductOpenTiming(input.id, 'selection');
+  }
+  agentLog('products.ts:kick', 'kickProductOpenPipeline', { productId: input.id, query }, 'H1');
+  void Promise.allSettled([
+    resolveProductPreview({
+      id: input.id,
+      query,
+      name: input.name ?? known?.name,
+      brand: input.brand ?? known?.brand,
+    }).then((r) => {
+      if (!hasProductOpenTiming(input.id, 'preview_ready')) {
+        markProductOpenTiming(input.id, 'preview_ready');
+      }
+      agentLog(
+        'products.ts:kick',
+        'preview_settled',
+        { productId: input.id, cached: r.cached, previewSource: r.preview.previewSource, timingMs: r.timingMs },
+        'H4',
+      );
+      return r;
+    }),
+    startProductUnmask({ id: input.id, query }).then((r) => {
+      agentLog(
+        'products.ts:kick',
+        'unmask_settled',
+        { productId: input.id, attached: r.attached, started: r.started, state: r.job?.progress?.state },
+        'H1',
+      );
+      return r;
+    }),
+  ]);
+}
+
+async function resolveProductPreviewInner(input: {
+  id: string;
+  query?: string;
+  name?: string;
+  brand?: string;
+}): Promise<PreviewResult> {
+  if (!hasProductOpenTiming(input.id, 'preview_request_started')) {
+    markProductOpenTiming(input.id, 'preview_request_started');
+  }
   const known = getKnownProduct(input.id);
   const listingTitle = input.name ?? known?.name ?? '';
   const query = input.query?.trim() || (known ? displayName(known) : input.id.replace(/-/g, ' '));
+  agentLog('products.ts:preview', 'resolveProductPreview_start', { productId: input.id, query }, 'H4');
   const res = await callIntel<{
     preview?: ProductPreviewResponse;
     cached?: boolean;
     timingMs?: number;
+    previewSource?: string;
   }>(
     {
       action: 'preview',
@@ -320,14 +387,49 @@ export async function resolveProductPreview(input: {
       heroImageUrl: preview.heroImageUrl,
     }),
   );
-  return { preview, cached: res.cached === true, timingMs: res.timingMs ?? 0 };
+  const result = { preview, cached: res.cached === true, timingMs: res.timingMs ?? 0 };
+  previewSnapshot.set(input.id, result);
+  if (!hasProductOpenTiming(input.id, 'preview_ready')) {
+    markProductOpenTiming(input.id, 'preview_ready');
+  }
+  agentLog(
+    'products.ts:preview',
+    'resolveProductPreview_done',
+    { productId: input.id, cached: result.cached, previewSource: res.previewSource ?? preview.previewSource },
+    'H4',
+  );
+  return result;
 }
 
-export async function startProductUnmask(input: {
+export async function resolveProductPreview(input: {
+  id: string;
+  query?: string;
+  name?: string;
+  brand?: string;
+}): Promise<PreviewResult> {
+  const hit = previewSnapshot.get(input.id);
+  if (hit) {
+    agentLog('products.ts:preview', 'resolveProductPreview_snapshot', { productId: input.id }, 'H4', 'post-fix');
+    return hit;
+  }
+  let inflight = previewInflight.get(input.id);
+  if (!inflight) {
+    inflight = resolveProductPreviewInner(input).finally(() => {
+      previewInflight.delete(input.id);
+    });
+    previewInflight.set(input.id, inflight);
+  }
+  return inflight;
+}
+
+async function startProductUnmaskInner(input: {
   id: string;
   query?: string;
   force?: boolean;
-}): Promise<{ attached?: boolean; started?: boolean; job: { progress: UnmaskJobProgress } | null; profile?: ProductProfile }> {
+}): Promise<UnmaskStartResult> {
+  if (!hasProductOpenTiming(input.id, 'unmask_job_started')) {
+    markProductOpenTiming(input.id, 'unmask_job_started');
+  }
   const known = getKnownProduct(input.id);
   const query = input.query?.trim() || (known ? displayName(known) : input.id.replace(/-/g, ' '));
   const res = await callIntel<{
@@ -352,6 +454,21 @@ export async function startProductUnmask(input: {
     rememberProduct(profileToProduct(res.profile, known));
   }
   return { attached: res.attached, started: res.started, job: res.job ?? null, profile: res.profile };
+}
+
+export async function startProductUnmask(input: {
+  id: string;
+  query?: string;
+  force?: boolean;
+}): Promise<UnmaskStartResult> {
+  let inflight = unmaskInflight.get(input.id);
+  if (!inflight) {
+    inflight = startProductUnmaskInner(input).finally(() => {
+      unmaskInflight.delete(input.id);
+    });
+    unmaskInflight.set(input.id, inflight);
+  }
+  return inflight;
 }
 
 export async function getUnmaskJobStatus(productId: string): Promise<UnmaskJobProgress | null> {
