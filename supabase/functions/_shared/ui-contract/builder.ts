@@ -52,7 +52,7 @@ export function buildProductUIContractV1(productId: string, profile: Json, prese
   };
 
   const dimensions: EvaluationDimensionUI[] = (presentation.overview.dimensions ?? []).map((d, i) => ({
-    id: `dim_${d.key}`,
+    id: d.dimensionId ?? `dim_${d.key}`,
     key: d.key,
     label: d.label,
     score: d.score ?? undefined,
@@ -62,6 +62,12 @@ export function buildProductUIContractV1(productId: string, profile: Json, prese
     evidence_count: d.evidenceCount,
     display_order: i,
     evidence_filter_key: d.key,
+    dimension_id: d.dimensionId ?? `dim_${d.key}`,
+    evidence_summary: {
+      positive: d.positiveCount ?? 0,
+      mixed: d.mixedCount ?? 0,
+      negative: d.negativeCount ?? 0,
+    },
   }));
 
   const discoveriesRaw = (profile.findings as Json | undefined)?.discoveries as Json[] | undefined;
@@ -101,10 +107,26 @@ export function buildProductUIContractV1(productId: string, profile: Json, prese
     { key: "videos", title: "Videos", renderer: "video_groups" },
     { key: "ask", title: "Ask", renderer: "text_blocks" },
   ];
+  const videoTopicTags = (key: string, label: string): string[] => {
+    const base = [key.replace(/_/g, " "), label.toLowerCase()];
+    const extra: Record<string, string[]> = {
+      coverage: ["wear test", "coverage"],
+      oxidation: ["oxidation", "shade"],
+      wear_longevity: ["wear test", "longevity"],
+      camera_quality: ["camera", "photo", "video test"],
+      battery_endurance: ["battery", "battery life"],
+      cooking_consistency: ["cooking", "air fryer"],
+      ease_of_cleaning: ["cleaning", "clean"],
+      hydration: ["hydration", "moisture"],
+      absorption: ["absorption", "absorb", "greasy"],
+    };
+    return Array.from(new Set([...base, ...(extra[key] ?? [])]));
+  };
   const videoGroups = (presentation.overview.dimensions ?? []).map((d) => ({
     key: d.key,
     label: d.label,
     filter_key: d.key,
+    topic_tags: videoTopicTags(d.key, d.label),
   }));
   for (const c of coreSections) {
     sections.push({

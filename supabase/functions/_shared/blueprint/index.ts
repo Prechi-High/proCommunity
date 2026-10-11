@@ -24,6 +24,12 @@ function dynamicProductUiEnabled(): boolean {
   return v === "1" || v === "true" || v === "on" || v === "yes";
 }
 
+function clientDimensionExperience(pres: import("./types.ts").ProductPresentationContract | undefined): Json | undefined {
+  const de = pres?.dimensionExperience;
+  if (!de) return undefined;
+  return { algorithmVersion: de.algorithmVersion, byKey: de.byKey };
+}
+
 /** Redis → Supabase → LLM generate (spec §8.1). */
 export async function attachProductPresentation(
   store: Store | null,
@@ -78,6 +84,7 @@ async function attachProductPresentationInner(
           /* presentation only */
         }
       }
+      cached.dimensionExperience = clientDimensionExperience(pres);
       return cached;
     }
   }
@@ -95,6 +102,7 @@ async function attachProductPresentationInner(
         }
       }
       await writeBlueprintCache(productId, loaded, cached.uiContract as Json | undefined);
+      cached.dimensionExperience = clientDimensionExperience(loaded);
       return cached;
     }
   }
@@ -141,7 +149,13 @@ async function attachProductPresentationInner(
       cacheSource: "fresh",
     });
 
-  const out: Json = { ...profile, presentation, domainResolution, blueprintLlm: built.llmJson ?? null };
+  const out: Json = {
+    ...profile,
+    presentation,
+    dimensionExperience: clientDimensionExperience(presentation as import("./types.ts").ProductPresentationContract),
+    domainResolution,
+    blueprintLlm: built.llmJson ?? null,
+  };
   if (dynamicProductUiEnabled() && presentation && typeof presentation === "object") {
     try {
       out.uiContract = buildProductUIContractV1(productId, out, presentation as import("./types.ts").ProductPresentationContract);

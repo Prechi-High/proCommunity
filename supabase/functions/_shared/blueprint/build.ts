@@ -1,5 +1,6 @@
 import type { DomainResolution } from "../domain/types.ts";
-import { assessDimensionsFromOwnerEvidence } from "./scoreDimensions.ts";
+import { buildDimensionExperiencePackage, DIMENSION_EVIDENCE_ALGO } from "../evidence/pipeline.ts";
+import { validateDimensionSemantics, inferDomainFromProductType } from "../evidence/validateDimensions.ts";
 import type {
   PresentationFactField,
   PresentationFactSection,
@@ -86,7 +87,43 @@ export function buildPresentationFromProfile(
     fields: mapSpecsToFields(specs, f.fieldKeys),
   }));
 
-  const overviewDims = assessDimensionsFromOwnerEvidence(dimDefs, profile);
+  const semanticDomain = inferDomainFromProductType(
+    domainResolution?.productType ?? classification.productType,
+    domainResolution?.domain,
+  );
+  const sem = validateDimensionSemantics(
+    semanticDomain,
+    domainResolution?.productType ?? classification.productType,
+    dimDefs.map((d) => ({ key: d.key, label: d.label })),
+  );
+  const filteredDimDefs = sem.rejected.length
+    ? dimDefs.filter((d) => !sem.rejected.includes(d.key))
+    : dimDefs;
+
+  const { package: dimExperience } = buildDimensionExperiencePackage({
+    productId,
+    blueprintId,
+    query,
+    profile,
+    dimensions: filteredDimDefs,
+  });
+
+  const overviewDims = filteredDimDefs.map((d) => {
+    const b = dimExperience.byKey[d.key];
+    return {
+      key: d.key,
+      label: d.label,
+      score: b?.score ?? null,
+      confidence: b?.confidence ?? 0.15,
+      evidenceCount: b?.evidenceCount ?? 0,
+      limitedEvidence: (b?.evidenceCount ?? 0) < 2 && (b?.score == null),
+      finding: b?.finding ?? "Not enough validated owner reports yet for a clear read.",
+      dimensionId: b?.dimensionId ?? `${blueprintId}_dim_${d.key}`,
+      positiveCount: b?.positiveCount ?? 0,
+      mixedCount: b?.mixedCount ?? 0,
+      negativeCount: b?.negativeCount ?? 0,
+    };
+  });
   const scored = overviewDims.map((d) => d.score).filter((s): s is number => s !== null);
   const profileScore = profile.score !== null && profile.score !== undefined ? Number(profile.score) : null;
   const overviewScore = profileScore !== null && !Number.isNaN(profileScore)
@@ -140,6 +177,12 @@ export function buildPresentationFromProfile(
       dimensions: overviewDims,
     },
     factSections,
+    dimensionExperience: {
+      algorithmVersion: dimExperience.algorithmVersion,
+      byKey: dimExperience.byKey,
+      normalizedRows: dimExperience.normalizedRows,
+    },
+    dimensionEvidenceAlgorithm: DIMENSION_EVIDENCE_ALGO,
   };
 }
 

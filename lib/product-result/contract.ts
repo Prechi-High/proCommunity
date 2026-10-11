@@ -26,6 +26,8 @@ export type EvaluationDimensionUI = {
   evidence_count?: number;
   display_order: number;
   evidence_filter_key?: string;
+  dimension_id?: string;
+  evidence_summary?: { positive: number; mixed: number; negative: number };
 };
 
 export type ProductSectionUI = {

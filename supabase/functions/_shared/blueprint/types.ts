@@ -41,6 +41,10 @@ export type PresentationDimension = {
   evidenceCount: number;
   limitedEvidence?: boolean;
   finding?: string;
+  dimensionId?: string;
+  positiveCount?: number;
+  mixedCount?: number;
+  negativeCount?: number;
 };
 
 export type PresentationFactField = {
@@ -92,4 +96,6 @@ export type ProductPresentationContract = {
     dimensions: PresentationDimension[];
   };
   factSections: PresentationFactSection[];
+  dimensionExperience?: import("../evidence/types.ts").DimensionExperiencePackage;
+  dimensionEvidenceAlgorithm?: string;
 };

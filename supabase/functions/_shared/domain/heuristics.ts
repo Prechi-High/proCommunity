@@ -50,7 +50,7 @@ export function heuristicResolve(identity: Identity, query: string, registryBySl
     };
   }
   if (/\b(beauty|cosmetic|skincare|makeup)\b/i.test(hay)) {
-    return mkOfficial(OFFICIAL_BEAUTY, "Beauty", "tech", identity, 0.7);
+    return mkOfficial(OFFICIAL_BEAUTY, "Beauty", "beauty", identity, 0.7);
   }
   if (/\b(appliance|kitchen|home)\b/i.test(hay)) {
     return mkOfficial(OFFICIAL_HOME, "Home Appliances", "home-appliances", identity, 0.65);

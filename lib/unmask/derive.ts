@@ -115,6 +115,23 @@ function buildHighlights(dimensions: UnmaskDimension[], claims: ClaimComparison[
   return out;
 }
 
+function buildClustersFromDimensionExperience(profile: ProductProfile): EvidenceCluster[] {
+  const byKey = profile.dimensionExperience?.byKey;
+  if (!byKey) return [];
+  return Object.values(byKey)
+    .filter((b) => b.items.length > 0)
+    .slice(0, 8)
+    .map((b) => ({
+      id: `cluster-${b.dimensionKey}`,
+      title: b.label,
+      summary: b.finding,
+      ownerCount: b.evidenceCount,
+      tone: toneFromScore(b.score),
+      quotes: b.items.slice(0, 2).map((e) => ({ text: e.statement, origin: e.platform })),
+      claimId: '',
+    }));
+}
+
 function buildClusters(claims: ClaimComparison[], dimensions: UnmaskDimension[]): EvidenceCluster[] {
   const keyed = claims
     .filter((c) => c.evidence.some((e) => e.eligible))
@@ -255,7 +272,11 @@ export function deriveUnmaskBundle(profile: ProductProfile): UnmaskBundle {
     discussionCount,
     dimensions,
     highlights: buildHighlights(dimensions, claims),
-    clusters: buildClusters(claims, dimensions),
+    clusters: dynamic && profile.dimensionExperience
+      ? buildClustersFromDimensionExperience(profile)
+      : dynamic && dimensions.length
+        ? []
+        : buildClusters(claims, dimensions),
     disagreements: buildDisagreements(claims),
     uncovered: profile.findings?.discoveries ?? [],
     suggestions: dynamic && dimensions.length

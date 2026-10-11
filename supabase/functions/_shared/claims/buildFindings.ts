@@ -189,11 +189,16 @@ export function buildProductFindings(input: {
     });
   });
 
-  const discoveries: OwnerDiscovery[] = (input.discoveriesRaw.length ? input.discoveriesRaw : synthesizeDiscoveries(input.reveals))
-    .slice(0, 8)
-    .map((d, i) => ({
+  const discoveryCandidates = (input.discoveriesRaw.length ? input.discoveriesRaw : synthesizeDiscoveries(input.reveals)).slice(0, 12);
+  const discoveries: OwnerDiscovery[] = discoveryCandidates
+    .map((d, i) => {
+      const refCount = Array.isArray(d.refs) ? d.refs.length : 1;
+      const isMajor = refCount >= 2;
+      return {
       id: `disc_${i}`,
-      topic: String(d.topic || 'Owner observation').slice(0, 80),
+      topic: isMajor
+        ? String(d.topic || 'Owner observation').slice(0, 80)
+        : `Mentioned by ${refCount} owner${refCount === 1 ? '' : 's'}`,
       observationType: (['benefit', 'concern', 'usage'].includes(String(d.observation_type))
         ? d.observation_type
         : 'usage') as OwnerDiscovery['observationType'],
@@ -208,7 +213,12 @@ export function buildProductFindings(input: {
       buyingImplication: String(d.buying_implication || 'Weigh this against your own use case.'),
       sourceIds: [],
       modelMatch: match.canScoreClaims ? 'exact' : 'similar',
-    }));
+      isMajorDiscovery: isMajor,
+    };
+    })
+    .filter((d) => d.isMajorDiscovery)
+    .slice(0, 8)
+    .map(({ isMajorDiscovery: _, ...rest }) => rest);
 
   const keyFindings: KeyFinding[] = [];
   if (input.reveals[0]) {

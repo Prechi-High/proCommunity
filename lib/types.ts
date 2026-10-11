@@ -134,6 +134,11 @@ export interface ProductProfile {
   presentation?: import('./unmask/presentation').ProductPresentation;
   /** Versioned render contract (tabs, sections, dimensions). Preferred when dynamic UI is on. */
   uiContract?: import('./product-result/contract').ProductUIContractV1;
+  /** Validated dimension experience scores + evidence (dynamic intelligence). */
+  dimensionExperience?: {
+    algorithmVersion: string;
+    byKey: Record<string, import('./unmask/dimensionEvidence').DimensionExperienceBundle>;
+  };
 }
 
 export interface GalleryImage {

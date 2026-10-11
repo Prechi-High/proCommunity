@@ -1,4 +1,6 @@
 import { ALGO_VERSION, buildPresentationFromProfile, type BuiltBlueprintPackage } from "./build.ts";
+import { persistDimensionEvidence } from "../evidence/persist.ts";
+import { cacheInvalidation } from "../redis/invalidate.ts";
 import type { ProductPresentationContract } from "./types.ts";
 import type { DomainResolution } from "../domain/types.ts";
 
@@ -55,6 +57,9 @@ export async function persistBlueprint(
     dimensions,
     cacheSource: "fresh",
   });
+
+  const dimPkg = presentation.dimensionExperience;
+  const evRows = dimPkg?.normalizedRows ?? [];
 
   const navRows = presentation.navigation.map((n, i) => ({
     id: `${blueprintId}_nav_${n.key}`,
@@ -114,13 +119,18 @@ export async function persistBlueprint(
       origin: "blueprint",
     });
     const pres = presentation.overview.dimensions.find((x) => x.key === d.key);
+    const bundle = dimPkg?.byKey[d.key];
     assessRows.push({
       id: `${dimId}_assess_${Date.now()}`,
       dimension_id: dimId,
       score: pres?.score ?? null,
       confidence_score: pres?.confidence ?? 0,
       finding: pres?.finding ?? null,
-      evidence_count: pres?.evidenceCount ?? 0,
+      positive_count: bundle?.positiveCount ?? 0,
+      mixed_count: bundle?.mixedCount ?? 0,
+      negative_count: bundle?.negativeCount ?? 0,
+      excluded_count: bundle?.excludedCount ?? 0,
+      evidence_count: bundle?.evidenceCount ?? 0,
       algorithm_version: ALGO_VERSION,
     });
   }
@@ -129,6 +139,11 @@ export async function persistBlueprint(
   await store.insertMany("product_fact_fields", factFieldRows);
   await store.insertMany("evaluation_dimensions", dimRows);
   await store.insertMany("dimension_assessments", assessRows);
+
+  if (dimPkg) {
+    await persistDimensionEvidence(store, productId, blueprintId, dimensions.map((d) => d.key), dimPkg, evRows);
+  }
+  await cacheInvalidation.invalidateBlueprint(productId, dimensions.map((d) => d.key), factSections.map((f) => f.key));
 
   await store.upsert("product_intel", {
     id: productId,

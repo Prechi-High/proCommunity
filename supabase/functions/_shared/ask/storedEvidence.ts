@@ -23,6 +23,20 @@ type EvidenceHit = { summary: string; origin: string; dimensionKey?: string };
 
 function collectEvidence(profile: Json, dimensionKeys: string[]): EvidenceHit[] {
   const hits: EvidenceHit[] = [];
+  const dimExp = profile.dimensionExperience as Json | undefined;
+  const byKey = (dimExp?.byKey ?? {}) as Record<string, Json>;
+  for (const key of dimensionKeys) {
+    const bundle = byKey[key];
+    const items = (Array.isArray(bundle?.items) ? bundle!.items : []) as Json[];
+    for (const item of items) {
+      if (item.affectsScore === false) continue;
+      hits.push({
+        summary: str(item.statement ?? item.summary, 360),
+        origin: str(item.platform, 80) || "Owner report",
+        dimensionKey: key,
+      });
+    }
+  }
   const findings = profile.findings as Json | undefined;
   const claims = (Array.isArray(findings?.claims) ? findings!.claims : []) as Json[];
   for (const claim of claims) {

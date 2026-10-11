@@ -7,7 +7,7 @@ import type { ProductSectionUI } from '@/lib/product-result/contract';
 import type { Product } from '@/lib/types';
 import type { JourneyClip } from '@/lib/videos';
 
-type Group = { key: string; label: string; filter_key?: string };
+type Group = { key: string; label: string; filter_key?: string; topic_tags?: string[] };
 
 export function VideoGroupsSection({
   section,
@@ -27,7 +27,12 @@ export function VideoGroupsSection({
     if (!groups.length || active === 'all') return clips;
     const g = groups.find((x) => x.key === active);
     if (!g) return clips;
-    const terms = [g.label, g.key.replace(/_/g, ' '), ...(g.filter_key ? [g.filter_key.replace(/_/g, ' ')] : [])].map((t) => t.toLowerCase());
+    const terms = [
+      g.label,
+      g.key.replace(/_/g, ' '),
+      ...(g.filter_key ? [g.filter_key.replace(/_/g, ' ')] : []),
+      ...(g.topic_tags ?? []),
+    ].map((t) => t.toLowerCase());
     return clips.filter((c) => {
       const hay = `${c.title ?? ''} ${c.author ?? ''} ${(c.contentTags ?? []).join(' ')}`.toLowerCase();
       return terms.some((t) => t.length > 2 && hay.includes(t));

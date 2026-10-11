@@ -1,4 +1,4 @@
-import { productBlueprintKey } from "../redis/keys.ts";
+import { productBlueprintKey, productDimensionKey, productEvidenceKey, productOverviewKey } from "../redis/keys.ts";
 import { redisService } from "../redis/service.ts";
 import { CACHE_TTL } from "../redis/ttl.ts";
 import type { ProductPresentationContract } from "./types.ts";
@@ -35,4 +35,19 @@ export async function writeBlueprintCache(
     { presentation, uiContract, cachedAt: new Date().toISOString() },
     CACHE_TTL.blueprint(),
   );
+
+  const overview = {
+    score: presentation.overview?.score ?? null,
+    dimensions: presentation.overview?.dimensions ?? [],
+    algorithm: presentation.dimensionEvidenceAlgorithm ?? null,
+  };
+  await redisService.setJson(productOverviewKey(productId), overview, CACHE_TTL.overview());
+
+  const dimExp = presentation.dimensionExperience;
+  if (dimExp?.byKey) {
+    for (const [dimKey, bundle] of Object.entries(dimExp.byKey)) {
+      await redisService.setJson(productDimensionKey(productId, dimKey), bundle, CACHE_TTL.dimension());
+      await redisService.setJson(productEvidenceKey(productId, dimKey), bundle.items ?? [], CACHE_TTL.evidence());
+    }
+  }
 }

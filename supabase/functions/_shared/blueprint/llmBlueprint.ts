@@ -1,6 +1,7 @@
 import { callLlmJson } from "../core/llmChat.ts";
 import type { DomainResolution } from "../domain/types.ts";
 import { validateBlueprintDimensions } from "./validate.ts";
+import { inferDomainFromProductType, validateDimensionSemantics } from "../evidence/validateDimensions.ts";
 import type {
   BlueprintDimensionDef,
   BlueprintFactSectionDef,
@@ -55,6 +56,8 @@ function normalizeDomain(raw: string, domainResolution?: DomainResolution): Inte
   if (resolved.includes("beauty")) return "beauty";
   if (resolved.includes("home") || resolved.includes("appliance")) return "home-appliances";
   if (resolved.includes("tech")) return "tech";
+  if (resolved.includes("sport") || resolved.includes("outdoor") || resolved.includes("cycl")) return "tech";
+  if (resolved.includes("auto")) return "tech";
   return "tech";
 }
 
@@ -81,6 +84,8 @@ function mapDimensions(
   primary: LlmBlueprintJson["dimensions"],
   secondary: LlmBlueprintJson["secondary_dimensions"],
   domain: IntelligenceDomain,
+  productType: string,
+  domainName?: string,
 ): BlueprintDimensionDef[] {
   const all = [...(primary ?? []), ...(secondary ?? [])].slice(0, 12);
   let dims: BlueprintDimensionDef[] = all.map((d) => ({
@@ -93,6 +98,12 @@ function mapDimensions(
   dims = dims.filter((d) => d.key && d.label);
   const validation = validateBlueprintDimensions(domain, dims.map((d) => d.key));
   if (!validation.ok) dims = dims.filter((d) => !validation.rejected.includes(d.key));
+  const sem = validateDimensionSemantics(
+    inferDomainFromProductType(productType, domainName),
+    productType,
+    dims.map((d) => ({ key: d.key, label: d.label })),
+  );
+  if (!sem.ok) dims = dims.filter((d) => !sem.rejected.includes(d.key));
   const primaryOnly = dims.slice(0, 7);
   return primaryOnly.length >= 4 ? primaryOnly : dims.slice(0, Math.max(4, primaryOnly.length));
 }
@@ -181,7 +192,13 @@ ${identityBlock}`;
     if (!parsed) continue;
     const classification = classificationFromLlm(parsed, input.domainResolution);
     const factSections = mapFactSections(parsed);
-    const dimensions = mapDimensions(parsed.dimensions, parsed.secondary_dimensions, classification.domain);
+    const dimensions = mapDimensions(
+      parsed.dimensions,
+      parsed.secondary_dimensions,
+      classification.domain,
+      classification.productType,
+      input.domainResolution?.domain,
+    );
     if (dimensions.length >= 4 && factSections.length >= 1) {
       return { json: parsed, model: llm.model, classification, factSections, dimensions };
     }

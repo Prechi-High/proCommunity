@@ -3,7 +3,8 @@ import { Pressable, Text, View } from 'react-native';
 import { CaretRight } from '@/components/icons';
 import { Tile } from '@/components/kit';
 import { colors, fonts, radii } from '@/constants/theme';
-import { claimForDimension } from '@/lib/unmask/derive';
+import { dynamicProductUiEnabled } from '@/lib/product-result/flags';
+import { getDimensionExperience, resolveDimensionKey } from '@/lib/unmask/dimensionEvidence';
 import type { UnmaskBundle, UnmaskDimension } from '@/lib/unmask/types';
 import type { ProductProfile } from '@/lib/types';
 
@@ -132,34 +133,62 @@ export function DimensionDetail({
   dimensionId: string;
   onBack: () => void;
 }) {
-  const dim = bundle.dimensions.find((d) => d.id === dimensionId);
-  if (!dim) return null;
-  const claim = claimForDimension(profile, dim);
-  const eligible = claim?.evidence.filter((e) => e.eligible) ?? [];
+  const dimKey = resolveDimensionKey(profile, dimensionId);
+  const dim = bundle.dimensions.find((d) => d.id === dimKey || d.id === dimensionId);
+  const dynamic = dynamicProductUiEnabled();
+  const experience = dynamic ? getDimensionExperience(profile, dimKey) : null;
+
+  if (!dim && !experience) return null;
+
+  const label = experience?.label ?? dim?.label ?? dimKey;
+  const score = experience?.score ?? dim?.score ?? null;
+  const finding = experience?.finding ?? dim?.takeaway ?? '';
+  const confidence = experience?.confidence;
+  const items = experience?.items ?? [];
+  const pos = experience?.positiveCount ?? 0;
+  const mix = experience?.mixedCount ?? 0;
+  const neg = experience?.negativeCount ?? 0;
 
   return (
     <View style={{ gap: 20 }}>
       <Pressable onPress={onBack} accessibilityRole="button">
         <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.hi }}>← Back to scorecard</Text>
       </Pressable>
-      <SectionTitle title={dim.label} subtitle="Deep dive into real owner experiences" />
+      <SectionTitle title={label} subtitle="Evidence mapped to this experience area" />
       <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-        <ScoreRing score={dim.score} size={96} />
+        <ScoreRing score={score} size={96} />
         <View style={{ flex: 1, gap: 6, borderRadius: radii.card, backgroundColor: colors.wineDeep, padding: 12 }}>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone }}>What owners report</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.bone2 }}>{dim.takeaway}</Text>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.bone }}>Reasoning summary</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.bone2 }}>{finding}</Text>
+          {confidence != null ? (
+            <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.bone3 }}>
+              Confidence {Math.round(confidence * 100)}% · {pos} positive · {mix} mixed · {neg} negative
+            </Text>
+          ) : null}
         </View>
       </View>
-      {eligible.length ? (
+      {items.length ? (
         <View style={{ gap: 10 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.bone }}>Key findings</Text>
-          {eligible.slice(0, 5).map((e) => (
-            <Tile key={e.id} style={{ gap: 4 }}>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone }}>{e.summary}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.bone3 }}>{e.origin}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.bone }}>Supporting evidence</Text>
+          {items.map((e) => (
+            <Tile key={e.evidenceId} style={{ gap: 6 }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone }}>{e.statement}</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.bone3 }}>
+                {e.platform}
+                {e.stance ? ` · ${e.stance}` : ''}
+                {e.strength ? ` · strength ${Math.round(e.strength * 100)}%` : ''}
+                {!e.affectsScore ? ' · contextual (not scored)' : ''}
+              </Text>
+              {e.url ? (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.hi }} numberOfLines={1}>{e.url}</Text>
+              ) : null}
             </Tile>
           ))}
         </View>
+      ) : score != null ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.bone2 }}>
+          No validated evidence rows are attached yet. Re-investigate with force refresh after deploying dimension evidence.
+        </Text>
       ) : null}
     </View>
   );
