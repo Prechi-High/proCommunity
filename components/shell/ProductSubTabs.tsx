@@ -2,30 +2,39 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { colors, fonts } from '@/constants/theme';
 import { hapticSelect } from '@/lib/haptics';
+import type { PresentationNavItem } from '@/lib/unmask/presentation';
 import type { UnmaskTab } from '@/lib/unmask/types';
 
-const LABELS: Record<UnmaskTab, string> = {
-  overview: 'Overview',
-  specs: 'Specs',
-  evidence: 'Evidence',
-  videos: 'Videos',
-  ask: 'Ask',
-};
+const FALLBACK: PresentationNavItem[] = [
+  { key: 'overview', label: 'Overview', renderer: 'overview' },
+  { key: 'specs', label: 'Specs', renderer: 'fact_groups' },
+  { key: 'evidence', label: 'Evidence', renderer: 'evidence' },
+  { key: 'videos', label: 'Videos', renderer: 'video_evidence' },
+  { key: 'ask', label: 'Ask', renderer: 'ask' },
+];
 
-const ORDER: UnmaskTab[] = ['overview', 'specs', 'evidence', 'videos', 'ask'];
+export function ProductSubTabs({
+  value,
+  onChange,
+  navigation,
+}: {
+  value: UnmaskTab;
+  onChange: (t: UnmaskTab) => void;
+  navigation?: PresentationNavItem[] | null;
+}) {
+  const items = navigation?.length ? navigation : FALLBACK;
 
-export function ProductSubTabs({ value, onChange }: { value: UnmaskTab; onChange: (t: UnmaskTab) => void }) {
   return (
     <View style={{ backgroundColor: colors.headerBg, paddingBottom: 4 }}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 4 }}>
-        {ORDER.map((id) => {
-          const active = value === id;
+        {items.map((item) => {
+          const active = value === item.key;
           return (
             <Pressable
-              key={id}
+              key={item.key}
               onPress={() => {
                 hapticSelect();
-                onChange(id);
+                onChange(item.key as UnmaskTab);
               }}
               style={{ paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center' }}
             >
@@ -36,7 +45,7 @@ export function ProductSubTabs({ value, onChange }: { value: UnmaskTab; onChange
                   color: active ? colors.gold : 'rgba(255,255,255,0.72)',
                 }}
               >
-                {LABELS[id]}
+                {item.label}
               </Text>
               {active ? (
                 <View style={{ marginTop: 6, height: 3, width: '100%', minWidth: 32, borderRadius: 2, backgroundColor: colors.gold }} />

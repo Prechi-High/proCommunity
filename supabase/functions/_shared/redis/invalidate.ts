@@ -1,5 +1,10 @@
 import {
+  productBlueprintKey,
+  productDimensionKey,
+  productEvidenceKey,
+  productFactSectionKey,
   productKey,
+  productOverviewKey,
   productVideoKeyVariants,
   taxonomyKey,
   videoCommentKeyVariants,
@@ -33,5 +38,17 @@ export const cacheInvalidation = {
   async invalidateTaxonomy(category: string): Promise<void> {
     if (!category) return;
     await redisService.delete(taxonomyKey(category));
+  },
+
+  async invalidateBlueprint(productId: string, dimensionKeys?: string[], factSectionKeys?: string[]): Promise<void> {
+    if (!productId) return;
+    const keys = [productBlueprintKey(productId), productOverviewKey(productId)];
+    for (const k of dimensionKeys ?? []) {
+      keys.push(productDimensionKey(productId, k), productEvidenceKey(productId, k));
+    }
+    for (const s of factSectionKeys ?? []) {
+      keys.push(productFactSectionKey(productId, s));
+    }
+    await delMany(keys);
   },
 };

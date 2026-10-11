@@ -130,6 +130,8 @@ export interface ProductProfile {
   /** Claim agreement scores & owner discoveries (policy v1). */
   findings?: import('./claims/types').ProductFindings;
   identityConfidence?: number;
+  /** Backend presentation contract (dynamic navigation, facts, dimensions). */
+  presentation?: import('./unmask/presentation').ProductPresentation;
 }
 
 export interface GalleryImage {

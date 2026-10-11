@@ -49,6 +49,30 @@ export function taxonomyKey(category: string): string {
   return `${CACHE_PREFIX}:taxonomy:${category}`;
 }
 
+export function productBlueprintKey(productId: string): string {
+  return `${CACHE_PREFIX}:product:${productId}:blueprint`;
+}
+
+export function productOverviewKey(productId: string): string {
+  return `${CACHE_PREFIX}:product:${productId}:overview`;
+}
+
+export function productFactSectionKey(productId: string, sectionKey: string): string {
+  return `${CACHE_PREFIX}:product:${productId}:facts:${sectionKey}`;
+}
+
+export function productDimensionKey(productId: string, dimensionKey: string): string {
+  return `${CACHE_PREFIX}:product:${productId}:dimension:${dimensionKey}`;
+}
+
+export function productEvidenceKey(productId: string, dimensionKey: string): string {
+  return `${CACHE_PREFIX}:product:${productId}:evidence:${dimensionKey}`;
+}
+
+export function productAskKey(productId: string, questionHash: string): string {
+  return `${CACHE_PREFIX}:product:${productId}:ask:${questionHash}`;
+}
+
 export function productVideoKeyVariants(productId: string): string[] {
   const keys: string[] = [];
   for (const tag of CONTENT_TAG_KEYS) {

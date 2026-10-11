@@ -25,6 +25,7 @@ import { useOwnsProduct } from '@/lib/owners';
 import { hapticSuccess, hapticTap } from '@/lib/haptics';
 import { displayName, getKnownProduct, investigateProduct, profileToProduct, rememberProduct, slugify } from '@/lib/products';
 import { useAppStore } from '@/lib/store';
+import { navigationTabs } from '@/lib/unmask/presentation';
 import type { UnmaskTab } from '@/lib/unmask/types';
 import { loadProductClips } from '@/lib/videos';
 
@@ -123,7 +124,7 @@ export default function ProductScreen() {
         }}
         onShare={() => void Share.share({ message: `What owners really say about ${name} — on Unmask` })}
       >
-        <ProductSubTabs value={tab} onChange={changeTab} />
+        <ProductSubTabs value={tab} onChange={changeTab} navigation={navigationTabs(profile)} />
       </ProductScreenChrome>
 
       <View style={{ flex: 1, position: 'relative' }}>

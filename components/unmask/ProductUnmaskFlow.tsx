@@ -6,7 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowRight } from '@/components/icons';
 import { PrimaryButton } from '@/components/kit';
 
+import { DynamicFactPane } from '@/components/product/DynamicFactPane';
 import { SpecsPane } from '@/components/product/Panes';
+import { factSectionForTab, firstFactTabKey, isFactTab } from '@/lib/unmask/presentation';
 import { VideosPane } from '@/components/product/VideosPane';
 import { colors, fonts, radii } from '@/constants/theme';
 import { hapticTap } from '@/lib/haptics';
@@ -115,7 +117,7 @@ export function ProductUnmaskFlow({
   useEffect(() => {
     if (!onIdentifyFooter) return;
     if (showIdentifyFooter) {
-      onIdentifyFooter(true, { onUnmask: startUnmask, onViewSpecs: () => onTabChange('specs') });
+      onIdentifyFooter(true, { onUnmask: startUnmask, onViewSpecs: () => onTabChange(firstFactTabKey(profile)) });
     } else {
       onIdentifyFooter(false, null);
     }
@@ -154,7 +156,8 @@ export function ProductUnmaskFlow({
     );
   }
 
-  if (phase === 'found' && tab !== 'overview' && tab !== 'specs') {
+  const factTabUnlocked = tab === 'specs' || isFactTab(tab);
+  if (phase === 'found' && tab !== 'overview' && !factTabUnlocked) {
     return (
       <View style={{ gap: 16, paddingVertical: 24, alignItems: 'center' }}>
         <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.bone2, textAlign: 'center', lineHeight: 22 }}>
@@ -165,7 +168,7 @@ export function ProductUnmaskFlow({
     );
   }
 
-  if (tab === 'specs') {
+  if (tab === 'specs' || isFactTab(tab)) {
     if (!profile) {
       return (
         <View style={{ paddingVertical: 32, alignItems: 'center' }}>
@@ -173,7 +176,14 @@ export function ProductUnmaskFlow({
         </View>
       );
     }
-    return <SpecsPane profile={profile} onAlternative={() => {}} />;
+    const section = factSectionForTab(profile, tab);
+    if (section?.fields.length) {
+      return <DynamicFactPane section={section} fallbackTitle={section.title} />;
+    }
+    if (tab === 'specs' || tab === 'product_details' || tab === 'details') {
+      return <SpecsPane profile={profile} onAlternative={() => {}} />;
+    }
+    return <DynamicFactPane section={section} />;
   }
 
   if (tab === 'videos') {

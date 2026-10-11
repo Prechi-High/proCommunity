@@ -1,4 +1,5 @@
-export type UnmaskTab = 'overview' | 'specs' | 'evidence' | 'videos' | 'ask';
+/** Core tabs + dynamic factual tabs from blueprint navigation (e.g. ingredients, product_details). */
+export type UnmaskTab = 'overview' | 'specs' | 'evidence' | 'videos' | 'ask' | (string & {});
 
 export type DimensionTone = 'positive' | 'mixed' | 'negative';
 

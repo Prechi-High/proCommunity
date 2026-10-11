@@ -1,6 +1,7 @@
 import type { ClaimComparison } from '@/lib/claims/types';
 import type { ProductProfile } from '@/lib/types';
 
+import { getPresentation } from './presentation';
 import type {
   DisagreementCard,
   EvidenceCluster,
@@ -178,16 +179,35 @@ const DEFAULT_SUGGESTIONS: AskSuggestion[] = [
   { id: 'creators', question: 'Is it good for content creators?', keywords: ['video', 'creator', 'vlog', 'content'] },
 ];
 
+function dimensionsFromPresentation(profile: ProductProfile): UnmaskDimension[] | null {
+  const pres = getPresentation(profile);
+  if (!pres?.overview?.dimensions?.length) return null;
+  return pres.overview.dimensions.map((d) => ({
+    id: d.key,
+    label: d.label,
+    subtitle: d.limitedEvidence ? 'Limited evidence' : `${Math.round(d.confidence * 100)}% confidence`,
+    score: d.score,
+    tone: toneFromScore(d.score),
+    takeaway: d.finding ?? (d.limitedEvidence ? 'Not enough owner reports yet for a clear read.' : 'Based on owner-backed evidence.'),
+  }));
+}
+
 export function deriveUnmaskBundle(profile: ProductProfile): UnmaskBundle {
   const claims = profile.findings?.claims ?? [];
-  const dimensions = DIMENSION_SEEDS.map((seed) => dimensionFromClaim(seed, matchClaim(claims, seed.keywords)));
+  const fromBlueprint = dimensionsFromPresentation(profile);
+  const dimensions =
+    fromBlueprint ??
+    DIMENSION_SEEDS.map((seed) => dimensionFromClaim(seed, matchClaim(claims, seed.keywords)));
   const experienceCount =
     profile.people?.ratings ?? profile.ratingCount ?? profile.voices?.length ?? claims.reduce((n, c) => n + c.eligibleOwnerCount, 0);
   const discussionCount = profile.people?.discussions ?? claims.length;
   const videoCount = profile.people?.commenters ?? 0;
 
-  const overallScore = overallFromProfile(profile, dimensions);
+  const pres = getPresentation(profile);
+  const overallScore =
+    pres?.overview?.score ?? overallFromProfile(profile, dimensions);
   const verdictLine =
+    pres?.overview?.verdict ||
     profile.consensus?.replace(/<[^>]+>/g, '') ||
     profile.verdict ||
     profile.summary ||

@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { attachProductPresentation } from "../_shared/blueprint/index.ts";
 import { buildProductFindings } from "../_shared/claims/buildFindings.ts";
 import { userFromRequest } from "../_shared/core/auth.ts";
 import { flags, publicUrl } from "../_shared/core/env.ts";
@@ -651,7 +652,8 @@ async function runInvestigate(input: { query: string; productId?: string; force?
     const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`);
     const payload = hit?.payload as Json | undefined;
     if (hit && payload?.version === PROFILE_VERSION && +new Date(String(hit.refresh_after)) > Date.now()) {
-      return { cached: true, profile: payload };
+      const enriched = await attachProductPresentation(store, id, String(hit.query ?? input.query), payload, {});
+      return { cached: true, profile: enriched };
     }
   }
 
@@ -1024,6 +1026,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     findings,
   };
 
+  let outProfile = profile as Json;
   if (store && llm.data) {
     await store.upsert("product_intel", {
       id,
@@ -1037,8 +1040,25 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
       verified_at: profile.verifiedAt,
       refresh_after: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     });
+    outProfile = await attachProductPresentation(store, id, q, outProfile, { force: input.force });
+    if (outProfile.presentation) {
+      await store.upsert("product_intel", {
+        id,
+        query: q,
+        name: identity.name,
+        brand: identity.brand || null,
+        category: identity.category,
+        hero_image_url: images[0] ?? null,
+        payload: outProfile,
+        confidence,
+        verified_at: profile.verifiedAt,
+        refresh_after: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+    }
+  } else if (store) {
+    outProfile = await attachProductPresentation(store, id, q, outProfile, { force: input.force });
   }
-  return { cached: false, profile, errors: llm.errors };
+  return { cached: false, profile: outProfile, errors: llm.errors };
 }
 
 // ---------------------------------------------------------------------------
