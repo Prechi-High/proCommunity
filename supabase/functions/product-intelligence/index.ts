@@ -389,10 +389,66 @@ async function callGemini(gKey: string, prompt: string, maxTokens: number, deadl
   return null;
 }
 
+function nvidiaModels(): string[] {
+  return Array.from(
+    new Set(
+      [secret("NVIDIA_TEXT_MODEL"), secret("NVIDIA_MODEL"), "meta/llama-3.3-70b-instruct", "meta/llama-3.1-8b-instruct"].filter(
+        Boolean,
+      ),
+    ),
+  );
+}
+
+async function callNvidia(
+  nvKey: string,
+  prompt: string,
+  maxTokens: number,
+  deadline: number,
+  errors: string[],
+): Promise<LlmResult | null> {
+  for (const model of nvidiaModels()) {
+    const left = deadline - Date.now();
+    if (left < 2500) break;
+    const res = await withTimeout(
+      fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${nvKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.2,
+          max_tokens: maxTokens,
+          messages: [
+            { role: "system", content: "You are a precise product analyst. Reply with one valid JSON object only." },
+            { role: "user", content: prompt },
+          ],
+        }),
+      }),
+      left,
+    );
+    if (!res) {
+      errors.push(`nvidia/${model}:timeout`);
+      continue;
+    }
+    if (!res.ok) {
+      errors.push(`nvidia/${model}:http_${res.status}`);
+      continue;
+    }
+    const body = (await res.json().catch(() => null)) as { choices?: Array<{ message?: { content?: string } }> } | null;
+    const data = parseJsonLoose(body?.choices?.[0]?.message?.content ?? "");
+    if (data) return { data, model: `nvidia/${model}`, errors };
+    errors.push(`nvidia/${model}:unparseable`);
+  }
+  return null;
+}
+
 async function callLlm(prompt: string, maxTokens: number, timeoutMs: number): Promise<LlmResult> {
   const errors: string[] = [];
   const orKey = secret("OPENROUTER_API_KEY");
   const gKey = secret("GEMINI_API_KEY") || secret("GOOGLE_API_KEY");
+  const nvKey = secret("NVIDIA_API_KEY") || secret("NGC_API_KEY");
   const deadline = Date.now() + timeoutMs;
 
   if (gKey) {
@@ -445,6 +501,11 @@ async function callLlm(prompt: string, maxTokens: number, timeoutMs: number): Pr
       if (data) return { data, model, errors };
       errors.push(`${model}:unparseable`);
     }
+  }
+
+  if (nvKey) {
+    const out = await callNvidia(nvKey, prompt, maxTokens, deadline, errors);
+    if (out) return out;
   }
 
   return { data: null, model: null, errors };
@@ -2182,9 +2243,10 @@ Deno.serve(async (req) => {
       gemini: gemini ?? "no_key",
       openrouter: openrouter ?? "no_key",
       youtube: Boolean(secret("YOUTUBE_DATA_API_KEY")),
-      nvidia: Boolean(secret("NVIDIA_API_KEY")),
+      nvidia: Boolean(secret("NVIDIA_API_KEY") || secret("NGC_API_KEY")),
       geminiModel: secret("GEMINI_MODEL") || null,
       openrouterModel: secret("OPENROUTER_TEXT_MODEL") || null,
+      nvidiaModel: secret("NVIDIA_TEXT_MODEL") || secret("NVIDIA_MODEL") || null,
       probes: gKey && Array.isArray(body.probe)
         ? await Promise.all(
             (body.probe as unknown[]).slice(0, 6).map(async (m) => {
@@ -2253,7 +2315,11 @@ Deno.serve(async (req) => {
       const store = db();
       if (!productId || !store) return json({ error: "missing_product" }, 400);
       const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(productId)}`);
-      return json({ success: Boolean(hit), profile: hit?.payload ?? null });
+      const payload = hit?.payload as Json | undefined;
+      if (!payload) return json({ success: false, profile: null });
+      const q = str(hit?.query ?? payload.query, 200) || productId.replace(/-/g, " ");
+      const enriched = await attachProductPresentation(store, productId, q, payload, {});
+      return json({ success: true, profile: enriched });
     }
 
     if (action === "compare_aspects" || action === "compare_focus") {

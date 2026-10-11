@@ -7,14 +7,17 @@ function secret(name: string): string {
 }
 
 export function parseJsonLoose(text: string): Json | null {
-  const t = text.trim();
-  const start = t.indexOf("{");
-  const end = t.lastIndexOf("}");
-  if (start < 0 || end <= start) return null;
+  const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
   try {
-    return JSON.parse(t.slice(start, end + 1)) as Json;
+    return JSON.parse(cleaned) as Json;
   } catch {
-    return null;
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[0]) as Json;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -28,6 +31,33 @@ async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
   return out as T | null;
 }
 
+const RETIRED_GEMINI = /^gemini-(1\.|2\.0|2\.5)/;
+
+function geminiModels(): string[] {
+  const pref = secret("GEMINI_MODEL");
+  return Array.from(
+    new Set(
+      [
+        pref && !RETIRED_GEMINI.test(pref) ? pref : "",
+        "gemini-3.8-flash",
+        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash-lite",
+        "gemini-flash-latest",
+      ].filter(Boolean),
+    ),
+  );
+}
+
+function nvidiaModels(): string[] {
+  return Array.from(
+    new Set(
+      [secret("NVIDIA_TEXT_MODEL"), secret("NVIDIA_MODEL"), "meta/llama-3.3-70b-instruct", "meta/llama-3.1-8b-instruct"].filter(
+        Boolean,
+      ),
+    ),
+  );
+}
+
 async function callGemini(
   apiKey: string,
   prompt: string,
@@ -35,42 +65,95 @@ async function callGemini(
   deadline: number,
   errors: string[],
 ): Promise<LlmResult | null> {
-  const model = secret("GEMINI_MODEL") || "gemini-2.0-flash";
-  const left = deadline - Date.now();
-  if (left < 2500) return null;
-  const res = await withTimeout(
-    fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
+  for (const model of geminiModels()) {
+    const left = deadline - Date.now();
+    if (left < 2500) break;
+    const res = await withTimeout(
+      fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: maxTokens },
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: maxTokens * 2 + 4096,
+            responseMimeType: "application/json",
+          },
         }),
-      },
-    ),
-    left,
-  );
-  if (!res?.ok) {
-    errors.push(`${model}:http_${res?.status ?? "timeout"}`);
-    return null;
+      }),
+      left,
+    );
+    if (!res) {
+      errors.push(`${model}:timeout`);
+      continue;
+    }
+    if (!res.ok) {
+      errors.push(`${model}:http_${res.status}`);
+      continue;
+    }
+    const body = (await res.json().catch(() => null)) as {
+      candidates?: Array<{ finishReason?: string; content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>;
+    } | null;
+    const candidate = body?.candidates?.[0];
+    const text = candidate?.content?.parts?.filter((p) => !p.thought).map((p) => p.text ?? "").join("") ?? "";
+    const data = parseJsonLoose(text);
+    if (data) return { data, model, errors };
+    errors.push(`${model}:unparseable:${candidate?.finishReason ?? "none"}`);
   }
-  const body = (await res.json().catch(() => null)) as {
-    candidates?: Array<{ finishReason?: string; content?: { parts?: Array<{ text?: string }> } }>;
-  } | null;
-  const text = body?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-  const data = parseJsonLoose(text);
-  if (data) return { data, model, errors };
-  errors.push(`${model}:unparseable`);
   return null;
 }
 
-/** Shared JSON-only LLM call for edge intelligence modules. */
+async function callNvidia(
+  apiKey: string,
+  prompt: string,
+  maxTokens: number,
+  deadline: number,
+  errors: string[],
+): Promise<LlmResult | null> {
+  for (const model of nvidiaModels()) {
+    const left = deadline - Date.now();
+    if (left < 2500) break;
+    const res = await withTimeout(
+      fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.2,
+          max_tokens: maxTokens,
+          messages: [
+            { role: "system", content: "Reply with one valid JSON object only. No markdown." },
+            { role: "user", content: prompt },
+          ],
+        }),
+      }),
+      left,
+    );
+    if (!res) {
+      errors.push(`nvidia/${model}:timeout`);
+      continue;
+    }
+    if (!res.ok) {
+      errors.push(`nvidia/${model}:http_${res.status}`);
+      continue;
+    }
+    const body = (await res.json().catch(() => null)) as { choices?: Array<{ message?: { content?: string } }> } | null;
+    const data = parseJsonLoose(body?.choices?.[0]?.message?.content ?? "");
+    if (data) return { data, model: `nvidia/${model}`, errors };
+    errors.push(`nvidia/${model}:unparseable`);
+  }
+  return null;
+}
+
+/** Shared JSON-only LLM call for edge intelligence modules. Gemini → OpenRouter → NVIDIA NIM. */
 export async function callLlmJson(prompt: string, maxTokens: number, timeoutMs: number): Promise<LlmResult> {
   const errors: string[] = [];
   const orKey = secret("OPENROUTER_API_KEY");
   const gKey = secret("GEMINI_API_KEY") || secret("GOOGLE_API_KEY");
+  const nvKey = secret("NVIDIA_API_KEY") || secret("NGC_API_KEY");
   const deadline = Date.now() + timeoutMs;
 
   if (gKey) {
@@ -104,7 +187,11 @@ export async function callLlmJson(prompt: string, maxTokens: number, timeoutMs: 
         }),
         left,
       );
-      if (!res?.ok) {
+      if (!res) {
+        errors.push(`${model}:timeout`);
+        continue;
+      }
+      if (!res.ok) {
         errors.push(`${model}:http_${res?.status ?? "timeout"}`);
         continue;
       }
@@ -113,6 +200,11 @@ export async function callLlmJson(prompt: string, maxTokens: number, timeoutMs: 
       if (data) return { data, model, errors };
       errors.push(`${model}:unparseable`);
     }
+  }
+
+  if (nvKey) {
+    const out = await callNvidia(nvKey, prompt, maxTokens, deadline, errors);
+    if (out?.data) return out;
   }
 
   return { data: null, model: null, errors };
