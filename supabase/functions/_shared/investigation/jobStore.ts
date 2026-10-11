@@ -54,6 +54,7 @@ export async function writeUnmaskJob(
   const progress: UnmaskJobProgress = {
     ...prev.progress,
     ...patch.progress,
+    milestones: { ...prev.progress.milestones, ...patch.progress?.milestones },
     updatedAt: new Date().toISOString(),
   };
   const record: UnmaskJobRecord = {

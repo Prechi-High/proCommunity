@@ -741,7 +741,12 @@ async function runInvestigate(input: {
     state: import("../_shared/investigation/types.ts").UnmaskJobState,
     completed: string[],
     active: string[],
-    extra?: { timings?: UnmaskJobTimings; sections?: Record<string, "ready" | "researching" | "pending">; parallelStages?: string[] },
+    extra?: {
+      timings?: UnmaskJobTimings;
+      sections?: Record<string, "ready" | "researching" | "pending">;
+      parallelStages?: string[];
+      milestones?: import("../_shared/investigation/types.ts").UnmaskJobMilestones;
+    },
   ) => {
     if (!input.jobProductId || !store) return;
     await writeUnmaskJob(
@@ -751,6 +756,7 @@ async function runInvestigate(input: {
           ...progressForState(state, completed, active),
           sections: extra?.sections,
           parallelStages: extra?.parallelStages,
+          milestones: extra?.milestones,
         },
         timings: { ...jobTimings, ...extra?.timings },
       },
@@ -1157,10 +1163,16 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
   let outProfile = profile as Json;
   if (llm.data) {
     try {
+      const ytStarted = new Date().toISOString();
       await touchJob("researching", ["web", "images", "shopping", "llm"], ["youtube", "reddit", "evidence"], {
         timings: jobTimings,
         parallelStages: ["youtube", "reddit"],
         sections: { details: "ready", evidence: "researching", videos: "researching", scores: "pending" },
+        milestones: {
+          identified: true,
+          youtubeStartedAt: ytStarted,
+          evidenceMappingStartedAt: ytStarted,
+        },
       });
       const enrichStart = Date.now();
       outProfile = await enrichProfileWithConversationEvidence(id, q, outProfile, {
@@ -1173,6 +1185,17 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
       }
       const counts = outProfile.evidencePlatformCounts as Record<string, number> | undefined;
       if (counts?.reddit) jobTimings.redditMs = jobTimings.evidenceMappingMs;
+      await touchJob("researching", ["web", "images", "shopping", "llm"], ["evidence"], {
+        milestones: {
+          identified: true,
+          videosFound: Number(ytDiag?.uniqueVideos ?? ytDiag?.videosDiscovered ?? 0) || undefined,
+          rawComments: Number(ytDiag?.rawCommentsRetrieved ?? 0) || undefined,
+          validEvidence: Number(ytDiag?.finalScoreEvidence ?? 0) || undefined,
+          youtubeComplete: true,
+          evidenceMappingComplete: true,
+        },
+        sections: { details: "ready", evidence: "ready", videos: "ready", scores: "pending" },
+      });
     } catch {
       /* provider layer is best-effort */
     }
@@ -1193,6 +1216,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     await touchJob("scoring", ["web", "images", "shopping", "llm", "evidence"], ["blueprint", "scoring"], {
       timings: jobTimings,
       sections: { details: "ready", evidence: "ready", videos: "ready", scores: "researching" },
+      milestones: { blueprintStartedAt: new Date().toISOString() },
     });
     const blueprintStart = Date.now();
     outProfile = await attachProductPresentation(store, id, q, outProfile, { force: input.force });
@@ -1220,6 +1244,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     await touchJob("ready", ["web", "images", "shopping", "llm", "evidence", "blueprint", "scoring"], [], {
       timings: jobTimings,
       sections: { details: "ready", evidence: "ready", videos: "ready", scores: "ready" },
+      milestones: { scorecardComplete: true },
     });
   }
   return { cached: false, profile: outProfile, errors: llm.errors };
@@ -1229,7 +1254,14 @@ async function runUnmaskJob(input: { query: string; productId: string; force?: b
   const store = db();
   await writeUnmaskJob(
     input.productId,
-    { progress: { ...progressForState("identified", ["preview"], ["research"]), startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() } },
+    {
+      progress: {
+        ...progressForState("queued", [], ["web", "images", "shopping", "youtube"]),
+        milestones: { identified: true },
+        startedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    },
     store,
   );
   try {
@@ -2431,38 +2463,25 @@ Deno.serve(async (req) => {
       if (!q) return json({ error: "missing_query" }, 400);
       const id = productId || slugify(q);
       const store = db();
-      if (store && !body.force) {
-        const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`);
-        const payload = hit?.payload as Json | undefined;
-        if (payload?.identity) {
-          const identity = payload.identity as Json;
-          return json({
-            success: true,
-            cached: true,
-            preview: {
-              id,
-              query: String(hit?.query ?? q),
-              identity,
-              domain: payload.presentation ? (payload.presentation as Json).product?.domain : undefined,
-              summary: str(payload.summary, 300),
-              heroImageUrl: (hit?.hero_image_url as string) ?? (Array.isArray(payload.images) ? payload.images[0] : null),
-              images: Array.isArray(payload.images) ? payload.images : [],
-              specs: payload.specs,
-            },
-            timingMs: 0,
-          });
-        }
-      }
-      const { preview, cached, timingMs } = await resolveProductPreview(
+      const candidate = {
+        name: name || str(body.listingTitle, 200),
+        brand,
+        category: str(body.category, 60),
+        image: (body.heroImageUrl ?? body.image ?? null) as string | null,
+      };
+      const { preview, cached, timingMs, previewSource } = await resolveProductPreview(
         {
           serperSearch: (sq) => serper("search", { q: sq, num: 8 }),
           serperImages: (sq) => serper("images", { q: sq, num: 20 }),
           slugify,
           str,
+          loadIntel: store
+            ? async (pid) => store.select("product_intel", `id=eq.${encodeURIComponent(pid)}`)
+            : undefined,
         },
-        { query: q, productId: id, country },
+        { query: q, productId: id, country, candidate: body.force ? undefined : candidate },
       );
-      return json({ success: true, cached, preview, timingMs });
+      return json({ success: true, cached, preview, timingMs, previewSource });
     }
 
     if (action === "start_unmask") {

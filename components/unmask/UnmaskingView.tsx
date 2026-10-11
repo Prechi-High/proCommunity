@@ -4,7 +4,8 @@ import { UnmaskingLoader } from '@/components/brand/UnmaskingLoader';
 import { ChatTeardropText, MagnifyingGlass, Play, Scales, Sparkle, UsersThree } from '@/components/icons';
 import { ProductImage } from '@/components/kit';
 import { colors, fonts, radii } from '@/constants/theme';
-import { investigationSteps } from '@/lib/unmask/investigationStages';
+import { jobProgressSteps } from '@/lib/unmask/jobProgressSteps';
+import type { UnmaskJobProgress } from '@/lib/products';
 import type { Product, ProductProfile } from '@/lib/types';
 
 const STEP_ICONS: Record<string, typeof Play> = {
@@ -19,14 +20,15 @@ type Props = {
   product: Product;
   profile: ProductProfile | null;
   loading: boolean;
+  jobProgress?: UnmaskJobProgress | null;
   clipsLoading: boolean;
   clipsCount: number;
   photoUri?: string | null;
 };
 
-export function UnmaskingView({ product, profile, loading, clipsLoading, clipsCount, photoUri }: Props) {
+export function UnmaskingView({ product, profile, loading, jobProgress, clipsLoading, clipsCount, photoUri }: Props) {
   const name = profile?.identity.name || product.name;
-  const steps = investigationSteps({ loading, profile, clipsLoading, clipsCount });
+  const steps = jobProgressSteps(jobProgress);
 
   return (
     <View style={{ gap: 20, paddingTop: 8, paddingBottom: 24, backgroundColor: colors.brandDeep, borderRadius: radii.card, padding: 16 }}>
@@ -76,7 +78,10 @@ export function UnmaskingView({ product, profile, loading, clipsLoading, clipsCo
               >
                 <Icon size={18} color={done ? colors.gold : colors.white} weight="bold" />
               </View>
-              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.white }}>{step.title}</Text>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.white }}>{step.title}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>{step.detail}</Text>
+              </View>
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: done ? colors.gold : active ? colors.gold : 'rgba(255,255,255,0.35)' }}>
                 {done ? '✓' : active ? '◐' : '○'}
               </Text>

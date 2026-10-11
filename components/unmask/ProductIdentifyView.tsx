@@ -7,6 +7,8 @@ import { getPresentation } from '@/lib/unmask/presentation';
 import { ProductImage } from '@/components/kit';
 import { colors, fonts, radii } from '@/constants/theme';
 import { hapticTap } from '@/lib/haptics';
+import type { ProductPreviewResponse, UnmaskJobProgress } from '@/lib/products';
+import { identificationBadgeLabel } from '@/lib/products/canonicalDisplay';
 import type { Product, ProductProfile } from '@/lib/types';
 
 const CREAM = '#F9F6F0';
@@ -15,18 +17,25 @@ const MAROON = '#6B0F1A';
 type Props = {
   product: Product;
   profile: ProductProfile | null;
+  preview?: ProductPreviewResponse | null;
+  jobProgress?: UnmaskJobProgress | null;
+  intelReady?: boolean;
   photos: string[];
   onViewSpecs: () => void;
 };
 
-export function ProductIdentifyView({ product, profile, photos }: Props) {
-  const name = profile?.identity.name || product.name;
-  const brand = profile?.identity.brand || product.brand || '';
-  const summary = profile?.summary || product.description || '';
-  const rating = profile?.rating ?? product.rating ?? null;
-  const ratingCount = profile?.ratingCount ?? 0;
+export function ProductIdentifyView({ product, profile, preview, jobProgress, intelReady = false, photos, onViewSpecs }: Props) {
+  const name = preview?.canonicalDisplayName || profile?.identity.name || product.name;
+  const variantLine = preview?.variantDisplay || profile?.identity.variant || '';
+  const brand = profile?.identity.brand || preview?.identity.brand || product.brand || '';
+  const summary = intelReady ? profile?.summary || product.description || '' : preview?.summary || '';
+  const rating = intelReady ? profile?.rating ?? product.rating ?? null : null;
+  const ratingCount = intelReady ? profile?.ratingCount ?? 0 : 0;
   const buyAgain =
     rating != null ? Math.min(96, Math.max(72, Math.round((rating / 5) * 100 - 2))) : null;
+  const idState = preview?.identificationState ?? 'identified';
+  const badgeLabel = identificationBadgeLabel(idState);
+  const showVerifiedStyle = idState === 'user_verified' || idState === 'externally_verified';
 
   const hero = photos[0] || product.heroImageUrl;
   const thumbs = photos.length > 0 ? photos : hero ? [hero] : [];
@@ -103,6 +112,9 @@ export function ProductIdentifyView({ product, profile, photos }: Props) {
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
           <View style={{ flex: 1, gap: 4 }}>
             <Text style={{ fontFamily: fonts.serifBold, fontSize: 26, color: '#1a1a1a', letterSpacing: -0.5 }}>{name}</Text>
+            {variantLine ? (
+              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: '#555' }}>{variantLine}</Text>
+            ) : null}
             {brand ? (
               <Pressable onPress={() => hapticTap()} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#1a1a1a' }}>{brand}</Text>
@@ -110,10 +122,26 @@ export function ProductIdentifyView({ product, profile, photos }: Props) {
               </Pressable>
             ) : null}
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#e8f5e9', paddingHorizontal: 8, paddingVertical: 6, borderRadius: radii.chip }}>
-            <CheckCircle size={14} color="#2e7d32" weight="fill" />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#2e7d32' }}>Verified product</Text>
-          </View>
+          {badgeLabel && idState !== 'identified' ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                backgroundColor: showVerifiedStyle ? '#e8f5e9' : '#ebe7df',
+                paddingHorizontal: 8,
+                paddingVertical: 6,
+                borderRadius: radii.chip,
+              }}
+            >
+              <CheckCircle size={14} color={showVerifiedStyle ? '#2e7d32' : '#555'} weight="fill" />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: showVerifiedStyle ? '#2e7d32' : '#555' }}>{badgeLabel}</Text>
+            </View>
+          ) : badgeLabel ? (
+            <View style={{ paddingHorizontal: 8, paddingVertical: 6, borderRadius: radii.chip, backgroundColor: '#ebe7df' }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: '#555' }}>{badgeLabel}</Text>
+            </View>
+          ) : null}
         </View>
 
         {rating != null ? (
@@ -147,6 +175,22 @@ export function ProductIdentifyView({ product, profile, photos }: Props) {
             {previewFields.map((f) => (
               <SpecCell key={f.key} label={f.label} value={f.value} />
             ))}
+          </View>
+        ) : null}
+
+        {!intelReady && jobProgress ? (
+          <View style={{ gap: 4, paddingTop: 4 }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: '#666' }}>
+              Research in background · {jobProgress.progressPercent}%
+            </Text>
+            {jobProgress.milestones?.videosFound ? (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: '#888' }}>
+                {jobProgress.milestones.videosFound} videos ·{' '}
+                {(jobProgress.milestones.rawComments ?? 0).toLocaleString()} comments collected
+              </Text>
+            ) : (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: '#888' }}>Gathering owner experiences…</Text>
+            )}
           </View>
         ) : null}
 

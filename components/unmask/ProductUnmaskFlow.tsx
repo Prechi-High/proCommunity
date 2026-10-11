@@ -23,6 +23,7 @@ import { deriveUnmaskBundle } from '@/lib/unmask/derive';
 import { investigationComplete } from '@/lib/unmask/investigationStages';
 import { hasUnmaskRevealed, markUnmaskRevealed } from '@/lib/unmask/revealSession';
 import type { UnmaskTab } from '@/lib/unmask/types';
+import type { ProductPreviewResponse, UnmaskJobProgress } from '@/lib/products';
 import type { Product, ProductProfile } from '@/lib/types';
 import type { JourneyClip } from '@/lib/videos';
 
@@ -34,8 +35,6 @@ import { DimensionDetail, ScorecardTab } from './ScorecardTab';
 import { UnmaskingView } from './UnmaskingView';
 
 const MAROON = '#6B0F1A';
-const DISCOVER_MIN_MS = 2800;
-
 type FlowPhase = 'found' | 'investigating' | 'unmasked';
 
 export type IdentifyFooterActions = {
@@ -46,8 +45,13 @@ export type IdentifyFooterActions = {
 type Props = {
   product: Product;
   profile: ProductProfile | null;
+  preview?: ProductPreviewResponse | null;
+  intelReady?: boolean;
+  jobProgress?: UnmaskJobProgress | null;
+  previewLoading?: boolean;
   intelLoading: boolean;
   intelError?: boolean;
+  onUnmaskPressed?: () => void;
   onRetryIntel?: () => void;
   clipsLoading: boolean;
   clips: JourneyClip[];
@@ -65,8 +69,13 @@ type Props = {
 export function ProductUnmaskFlow({
   product,
   profile,
+  preview,
+  intelReady = false,
+  jobProgress,
+  previewLoading = false,
   intelLoading,
   intelError,
+  onUnmaskPressed,
   onRetryIntel,
   clipsLoading,
   clips,
@@ -82,32 +91,13 @@ export function ProductUnmaskFlow({
 }: Props) {
   const [phase, setPhase] = useState<FlowPhase>(() => (hasUnmaskRevealed(product.id) ? 'unmasked' : 'found'));
   const [dimensionId, setDimensionId] = useState<string | null>(null);
-  const [discoverMinDone, setDiscoverMinDone] = useState(() => hasUnmaskRevealed(product.id));
-  const [discoverIntelDone, setDiscoverIntelDone] = useState(() => hasUnmaskRevealed(product.id));
-
   useEffect(() => {
     setPhase(hasUnmaskRevealed(product.id) ? 'unmasked' : 'found');
     setDimensionId(null);
-    setDiscoverMinDone(hasUnmaskRevealed(product.id));
-    setDiscoverIntelDone(hasUnmaskRevealed(product.id));
   }, [product.id]);
 
-  useEffect(() => {
-    if (hasUnmaskRevealed(product.id)) return;
-    setDiscoverMinDone(false);
-    setDiscoverIntelDone(false);
-    const t = setTimeout(() => setDiscoverMinDone(true), DISCOVER_MIN_MS);
-    return () => clearTimeout(t);
-  }, [product.id]);
-
-  useEffect(() => {
-    if (hasUnmaskRevealed(product.id)) return;
-    if (!intelLoading && (profile || product.heroImageUrl || product.name)) {
-      setDiscoverIntelDone(true);
-    }
-  }, [intelLoading, profile, product.heroImageUrl, product.name, product.id]);
-
-  const discovering = phase === 'found' && tab === 'overview' && !hasUnmaskRevealed(product.id) && (!discoverMinDone || !discoverIntelDone);
+  const discovering =
+    phase === 'found' && tab === 'overview' && !hasUnmaskRevealed(product.id) && previewLoading && !preview;
 
   const bundle = useMemo(() => (profile ? deriveUnmaskBundle(profile) : null), [profile]);
   const uiContract = profile && dynamicProductUiEnabled() ? getUIContract(profile) : null;
@@ -121,8 +111,9 @@ export function ProductUnmaskFlow({
 
   const startUnmask = () => {
     hapticTap();
+    onUnmaskPressed?.();
     trackUnmaskStarted(profile, product.id);
-    if (investigationComplete(intelLoading, profile)) {
+    if (intelReady || investigationComplete(intelLoading, profile)) {
       markUnmaskRevealed(product.id);
       setPhase('unmasked');
     } else {
@@ -136,7 +127,12 @@ export function ProductUnmaskFlow({
   useEffect(() => {
     if (!onIdentifyFooter) return;
     if (showIdentifyFooter) {
-      onIdentifyFooter(true, { onUnmask: startUnmask, onViewSpecs: () => onTabChange(firstFactTabKey(profile)) });
+      onIdentifyFooter(true, {
+        onUnmask: startUnmask,
+        onViewSpecs: () => {
+          if (intelReady) onTabChange(firstFactTabKey(profile));
+        },
+      });
     } else {
       onIdentifyFooter(false, null);
     }
@@ -145,11 +141,11 @@ export function ProductUnmaskFlow({
 
   useEffect(() => {
     if (phase !== 'investigating') return;
-    if (investigationComplete(intelLoading, profile)) {
+    if (intelReady || investigationComplete(intelLoading, profile)) {
       markUnmaskRevealed(product.id);
       setPhase('unmasked');
     }
-  }, [phase, intelLoading, profile, product.id]);
+  }, [phase, intelLoading, intelReady, profile, product.id]);
 
   if (phase === 'investigating') {
     if (intelError) {
@@ -168,6 +164,7 @@ export function ProductUnmaskFlow({
         product={product}
         profile={profile}
         loading={intelLoading}
+        jobProgress={jobProgress}
         clipsLoading={clipsLoading}
         clipsCount={clips.length}
         photoUri={scanPhoto}
@@ -175,7 +172,17 @@ export function ProductUnmaskFlow({
     );
   }
 
-  const factTabUnlocked = tab === 'specs' || isFactTab(tab);
+  const factTabUnlocked = intelReady && (tab === 'specs' || isFactTab(tab));
+  if (!intelReady && tab !== 'overview') {
+    return (
+      <View style={{ gap: 16, paddingVertical: 24, alignItems: 'center' }}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.bone2, textAlign: 'center', lineHeight: 22 }}>
+          Research is still running. Overview is available while we finish the scorecard and evidence.
+        </Text>
+        <PrimaryButton label="Back to overview" onPress={() => onTabChange('overview')} style={{ alignSelf: 'stretch' }} />
+      </View>
+    );
+  }
   if (phase === 'found' && tab !== 'overview' && !factTabUnlocked) {
     return (
       <View style={{ gap: 16, paddingVertical: 24, alignItems: 'center' }}>
@@ -293,6 +300,9 @@ export function ProductUnmaskFlow({
       <ProductIdentifyView
         product={product}
         profile={profile}
+        preview={preview}
+        jobProgress={jobProgress}
+        intelReady={intelReady}
         photos={urls}
         onViewSpecs={() => onTabChange('specs')}
       />

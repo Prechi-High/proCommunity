@@ -1,3 +1,4 @@
+import { canonicalFromListing } from './products/canonicalDisplay';
 import { accessToken } from './auth';
 import { useAppStore } from './store';
 import { supabaseAnonKey, supabaseUrl } from './supabase';
@@ -190,12 +191,30 @@ export type ProductPreviewResponse = {
   id: string;
   query: string;
   identity: ProductProfile['identity'];
+  canonicalDisplayName: string;
+  variantDisplay: string;
+  rawListingTitle: string;
+  identificationState: 'identified' | 'high_confidence_match' | 'user_verified' | 'externally_verified';
   domain?: string;
   summary?: string;
   heroImageUrl: string | null;
   images: string[];
   gallery?: Array<{ url: string; title?: string }>;
   specs?: Array<{ label: string; value: string }>;
+  previewSource?: string;
+};
+
+export type UnmaskJobMilestones = {
+  identified?: boolean;
+  videosFound?: number;
+  rawComments?: number;
+  validEvidence?: number;
+  youtubeComplete?: boolean;
+  evidenceMappingComplete?: boolean;
+  scorecardComplete?: boolean;
+  blueprintStartedAt?: string;
+  youtubeStartedAt?: string;
+  evidenceMappingStartedAt?: string;
 };
 
 export type UnmaskJobProgress = {
@@ -203,6 +222,7 @@ export type UnmaskJobProgress = {
   progressPercent: number;
   completedStages: string[];
   activeStages: string[];
+  milestones?: UnmaskJobMilestones;
   sections?: Partial<Record<'details' | 'evidence' | 'videos' | 'scores', 'ready' | 'researching' | 'pending'>>;
   parallelStages?: string[];
   startedAt: string;
@@ -211,17 +231,20 @@ export type UnmaskJobProgress = {
 
 export function previewToProfile(preview: ProductPreviewResponse): ProductProfile {
   const id = preview.identity;
+  const fallbackDisplay = canonicalFromListing(preview.rawListingTitle || id.name, id.brand);
+  const displayNameCanon = preview.canonicalDisplayName || fallbackDisplay.canonicalDisplayName;
+  const variantLine = preview.variantDisplay || fallbackDisplay.variantDisplay;
   return {
     id: preview.id,
     query: preview.query,
     identity: {
-      name: id.name,
+      name: displayNameCanon,
       brand: id.brand ?? '',
       manufacturer: id.manufacturer ?? '',
       model: id.model ?? '',
       category: id.category ?? 'Product',
       subcategory: id.subcategory ?? '',
-      variant: id.variant ?? '',
+      variant: variantLine || id.variant || '',
       size: id.size ?? '',
     },
     summary: preview.summary ?? '',
@@ -267,6 +290,7 @@ export async function resolveProductPreview(input: {
   brand?: string;
 }): Promise<{ preview: ProductPreviewResponse; cached: boolean; timingMs: number }> {
   const known = getKnownProduct(input.id);
+  const listingTitle = input.name ?? known?.name ?? '';
   const query = input.query?.trim() || (known ? displayName(known) : input.id.replace(/-/g, ' '));
   const res = await callIntel<{
     preview?: ProductPreviewResponse;
@@ -277,8 +301,11 @@ export async function resolveProductPreview(input: {
       action: 'preview',
       productId: input.id,
       query,
-      name: input.name ?? known?.name,
+      name: listingTitle,
+      listingTitle,
       brand: input.brand ?? known?.brand,
+      category: known?.category,
+      heroImageUrl: known?.heroImageUrl,
     },
     20_000,
   );
@@ -287,7 +314,7 @@ export async function resolveProductPreview(input: {
   rememberProduct(
     profileToProduct(previewToProfile(preview), {
       id: input.id,
-      name: preview.identity.name,
+      name: preview.canonicalDisplayName || preview.identity.name,
       brand: preview.identity.brand,
       category: preview.identity.category,
       heroImageUrl: preview.heroImageUrl,
@@ -309,7 +336,15 @@ export async function startProductUnmask(input: {
     job?: { progress: UnmaskJobProgress };
     profile?: ProductProfile;
   }>(
-    { action: 'start_unmask', productId: input.id, query, force: input.force === true },
+    {
+      action: 'start_unmask',
+      productId: input.id,
+      query,
+      name: known?.name,
+      brand: known?.brand,
+      category: known?.category,
+      force: input.force === true,
+    },
     25_000,
   );
   if (res.profile) {

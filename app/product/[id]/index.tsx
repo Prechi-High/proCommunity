@@ -39,6 +39,8 @@ import { useAppStore } from '@/lib/store';
 import { InferredDomainNotice } from '@/components/unmask/InferredDomainNotice';
 import { getPresentation, navigationTabs } from '@/lib/unmask/presentation';
 import type { ProductProfile } from '@/lib/types';
+import { flushProductOpenTimings, markProductOpenTiming, resetProductOpenTimings } from '@/lib/unmask/openTimings';
+import { investigationComplete } from '@/lib/unmask/investigationStages';
 import { trackOverviewViewed } from '@/lib/unmask/productAnalytics';
 import type { UnmaskTab } from '@/lib/unmask/types';
 import { loadProductClips } from '@/lib/videos';
@@ -69,9 +71,20 @@ export default function ProductScreen() {
     if (id) addRecent(id);
   }, [id, addRecent]);
 
+  useEffect(() => {
+    if (!id) return;
+    resetProductOpenTimings(id);
+    markProductOpenTiming(id, 'selection');
+  }, [id]);
+
   const previewQuery = useQuery({
     queryKey: ['preview', id, q],
-    queryFn: () => resolveProductPreview({ id, query: q }),
+    queryFn: async () => {
+      markProductOpenTiming(id, 'preview_request_started');
+      const out = await resolveProductPreview({ id, query: q, name: known?.name, brand: known?.brand });
+      markProductOpenTiming(id, 'preview_ready');
+      return out;
+    },
     enabled: Boolean(id),
     staleTime: 30 * 60_000,
     retry: 1,
@@ -83,8 +96,9 @@ export default function ProductScreen() {
   }, [id]);
 
   useEffect(() => {
-    if (!id || !previewQuery.data || unmaskStarted.current) return;
+    if (!id || unmaskStarted.current) return;
     unmaskStarted.current = true;
+    markProductOpenTiming(id, 'unmask_job_started');
     void startProductUnmask({ id, query: q })
       .then((started) => {
         if (started.profile) {
@@ -93,17 +107,24 @@ export default function ProductScreen() {
         void queryClient.invalidateQueries({ queryKey: ['unmaskJob', id] });
       })
       .catch(() => undefined);
-  }, [id, q, previewQuery.data, queryClient]);
+  }, [id, q, queryClient]);
 
   const jobQuery = useQuery({
     queryKey: ['unmaskJob', id],
     queryFn: () => getUnmaskJobStatus(id),
-    enabled: Boolean(id) && Boolean(previewQuery.data),
+    enabled: Boolean(id),
     refetchInterval: (query) => {
       const state = query.state.data?.state;
       return state === 'ready' || state === 'failed' ? false : 2500;
     },
   });
+
+  useEffect(() => {
+    if (jobQuery.data?.state === 'ready') {
+      markProductOpenTiming(id, 'job_ready');
+      flushProductOpenTimings(id);
+    }
+  }, [id, jobQuery.data?.state]);
 
   const intel = useQuery({
     queryKey: ['intel', id],
@@ -123,9 +144,10 @@ export default function ProductScreen() {
 
   const previewProfile = previewQuery.data ? previewToProfile(previewQuery.data.preview) : null;
   const profile = intel.data ?? previewProfile;
+  const intelReady = Boolean(intel.data && investigationComplete(false, intel.data));
   const intelLoading =
-    previewQuery.isLoading ||
-    (jobQuery.data?.state !== 'ready' && jobQuery.data?.state !== 'failed' && !intel.data);
+    !intelReady &&
+    (previewQuery.isLoading || (jobQuery.data?.state !== 'ready' && jobQuery.data?.state !== 'failed'));
   const product = getKnownProduct(id) ?? known;
   const name = profile?.identity.name || (product ? displayName(product) : q ?? '');
 
@@ -176,9 +198,15 @@ export default function ProductScreen() {
   };
 
   const changeTab = (t: UnmaskTab) => {
+    if (!intelReady && t !== 'overview') return;
     setTab(t);
     scroller.current?.scrollTo({ y: 0, animated: false });
   };
+
+  const previewOnlyTabs = useMemo(
+    () => [{ key: 'overview' as UnmaskTab, label: 'Overview', renderer: 'overview' as const }],
+    [],
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.wine }}>
@@ -194,7 +222,11 @@ export default function ProductScreen() {
         }}
         onShare={() => void Share.share({ message: `What owners really say about ${name} — on Unmask` })}
       >
-        <ProductSubTabs value={tab} onChange={changeTab} navigation={navigationTabs(profile)} />
+        <ProductSubTabs
+          value={tab}
+          onChange={changeTab}
+          navigation={intelReady ? navigationTabs(profile) : previewOnlyTabs}
+        />
       </ProductScreenChrome>
 
       {presentation?.domainNotice?.shouldShow && presentation.product.domain?.status === 'inferred' && presentation.product.domain.id ? (
@@ -252,8 +284,13 @@ export default function ProductScreen() {
               <ProductUnmaskFlow
                 product={currentProduct}
                 profile={profile}
-                intelLoading={intel.isLoading}
+                preview={previewQuery.data?.preview ?? null}
+                intelReady={intelReady}
+                jobProgress={jobQuery.data}
+                previewLoading={previewQuery.isLoading}
+                intelLoading={intelLoading}
                 intelError={intel.isError || previewQuery.isError}
+                onUnmaskPressed={() => markProductOpenTiming(id, 'user_pressed_unmask')}
                 onRetryIntel={() => {
                   unmaskStarted.current = false;
                   void previewQuery.refetch();
