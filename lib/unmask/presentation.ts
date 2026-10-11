@@ -1,3 +1,5 @@
+import { getUIContract, navigationFromContract } from '@/lib/product-result/contract';
+import { dynamicProductUiEnabled } from '@/lib/product-result/flags';
 import type { ProductProfile } from '@/lib/types';
 
 import type { UnmaskTab } from './types';
@@ -66,6 +68,16 @@ export function isFactTab(tab: string): boolean {
 }
 
 export function navigationTabs(profile: ProductProfile | null): PresentationNavItem[] | null {
+  if (dynamicProductUiEnabled()) {
+    const contract = getUIContract(profile);
+    if (contract) {
+      return navigationFromContract(contract).map((n) => ({
+        key: n.key,
+        label: n.label,
+        renderer: n.section_ref,
+      }));
+    }
+  }
   const pres = getPresentation(profile);
   return pres?.navigation?.length ? pres.navigation : null;
 }
@@ -93,7 +105,10 @@ export function factSectionForTab(profile: ProductProfile | null, tab: string) {
 }
 
 export function firstFactTabKey(profile: ProductProfile | null): UnmaskTab {
+  const tabs = navigationTabs(profile);
+  const fact = tabs?.find((n) => isFactTab(n.key));
+  if (fact) return fact.key as UnmaskTab;
   const pres = getPresentation(profile);
-  const fact = pres?.navigation.find((n) => isFactTab(n.key));
-  return (fact?.key ?? 'specs') as UnmaskTab;
+  const legacy = pres?.navigation.find((n) => isFactTab(n.key));
+  return (legacy?.key ?? 'specs') as UnmaskTab;
 }

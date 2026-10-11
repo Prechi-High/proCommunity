@@ -132,6 +132,8 @@ export interface ProductProfile {
   identityConfidence?: number;
   /** Backend presentation contract (dynamic navigation, facts, dimensions). */
   presentation?: import('./unmask/presentation').ProductPresentation;
+  /** Versioned render contract (tabs, sections, dimensions). Preferred when dynamic UI is on. */
+  uiContract?: import('./product-result/contract').ProductUIContractV1;
 }
 
 export interface GalleryImage {

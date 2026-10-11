@@ -1,5 +1,6 @@
 import { recordDomainDemand, resolveDomain, type DomainStore } from "../domain/index.ts";
 import { capture } from "../core/observability.ts";
+import { buildProductUIContractV1 } from "../ui-contract/index.ts";
 import { buildBlueprintRows, buildPresentationFromProfile } from "./build.ts";
 import { loadPresentationFromDb } from "./load.ts";
 import { persistBlueprint } from "./persist.ts";
@@ -13,6 +14,11 @@ type Store = DomainStore & {
 
 function blueprintEnabled(): boolean {
   const v = (Deno.env.get("DYNAMIC_BLUEPRINT_ENABLED") ?? "true").toLowerCase();
+  return v === "1" || v === "true" || v === "on" || v === "yes";
+}
+
+function dynamicProductUiEnabled(): boolean {
+  const v = (Deno.env.get("DYNAMIC_PRODUCT_UI") ?? "true").toLowerCase();
   return v === "1" || v === "true" || v === "on" || v === "yes";
 }
 
@@ -32,7 +38,15 @@ export async function attachProductPresentation(
   if (store && !opts?.force) {
     const loaded = await loadPresentationFromDb(store, productId).catch(() => null);
     if (loaded) {
-      return { ...profile, presentation: loaded };
+      const cached: Json = { ...profile, presentation: loaded };
+      if (dynamicProductUiEnabled()) {
+        try {
+          cached.uiContract = buildProductUIContractV1(productId, cached, loaded);
+        } catch {
+          /* keep presentation only */
+        }
+      }
+      return cached;
     }
   }
 
@@ -68,7 +82,15 @@ export async function attachProductPresentation(
     )
     : buildPresentationFromProfile(productId, query, profile, built.blueprintId, built.version, domainResolution);
 
-  return { ...profile, presentation, domainResolution };
+  const out: Json = { ...profile, presentation, domainResolution };
+  if (dynamicProductUiEnabled() && presentation && typeof presentation === "object") {
+    try {
+      out.uiContract = buildProductUIContractV1(productId, out, presentation as import("./types.ts").ProductPresentationContract);
+    } catch (e) {
+      console.warn("ui_contract_build_failed", e instanceof Error ? e.message : String(e));
+    }
+  }
+  return out;
 }
 
 export type { ProductPresentationContract } from "./types.ts";

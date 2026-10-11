@@ -1,6 +1,9 @@
 import type { ClaimComparison } from '@/lib/claims/types';
 import type { ProductProfile } from '@/lib/types';
 
+import { dynamicProductUiEnabled } from '@/lib/product-result/flags';
+import { getUIContract } from '@/lib/product-result/contract';
+
 import { getPresentation } from './presentation';
 import type {
   DisagreementCard,
@@ -192,21 +195,44 @@ function dimensionsFromPresentation(profile: ProductProfile): UnmaskDimension[] 
   }));
 }
 
+function dimensionsFromUIContract(profile: ProductProfile): UnmaskDimension[] | null {
+  const contract = getUIContract(profile);
+  if (!contract?.overview.dimensions.length) return null;
+  return [...contract.overview.dimensions]
+    .sort((a, b) => a.display_order - b.display_order)
+    .map((d) => ({
+      id: d.key,
+      label: d.label,
+      subtitle: d.description ?? (d.confidence_label ? `${d.confidence_label} confidence` : ''),
+      score: d.score ?? null,
+      tone: toneFromScore(d.score ?? null),
+      takeaway: d.finding ?? 'Not enough owner reports yet for a clear read.',
+    }));
+}
+
 export function deriveUnmaskBundle(profile: ProductProfile): UnmaskBundle {
   const claims = profile.findings?.claims ?? [];
-  const fromBlueprint = dimensionsFromPresentation(profile);
+  const dynamic = dynamicProductUiEnabled();
+  const fromContract = dynamic ? dimensionsFromUIContract(profile) : null;
+  const fromBlueprint = fromContract ?? dimensionsFromPresentation(profile);
   const dimensions =
     fromBlueprint ??
-    DIMENSION_SEEDS.map((seed) => dimensionFromClaim(seed, matchClaim(claims, seed.keywords)));
+    (dynamic
+      ? []
+      : DIMENSION_SEEDS.map((seed) => dimensionFromClaim(seed, matchClaim(claims, seed.keywords))));
   const experienceCount =
     profile.people?.ratings ?? profile.ratingCount ?? profile.voices?.length ?? claims.reduce((n, c) => n + c.eligibleOwnerCount, 0);
   const discussionCount = profile.people?.discussions ?? claims.length;
   const videoCount = profile.people?.commenters ?? 0;
 
+  const contract = getUIContract(profile);
   const pres = getPresentation(profile);
   const overallScore =
-    pres?.overview?.score ?? overallFromProfile(profile, dimensions);
+    contract?.overview.overall?.score ??
+    pres?.overview?.score ??
+    overallFromProfile(profile, dimensions);
   const verdictLine =
+    contract?.overview.overall?.verdict ||
     pres?.overview?.verdict ||
     profile.consensus?.replace(/<[^>]+>/g, '') ||
     profile.verdict ||

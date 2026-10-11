@@ -6,6 +6,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowRight } from '@/components/icons';
 import { PrimaryButton } from '@/components/kit';
 
+import { DynamicOverview } from '@/components/product-result/DynamicOverview';
+import { contractSectionForTab, RenderContractSection } from '@/components/product-result/renderContractSection';
+import { getUIContract } from '@/lib/product-result/contract';
+import { dynamicProductUiEnabled } from '@/lib/product-result/flags';
 import { DynamicFactPane } from '@/components/product/DynamicFactPane';
 import { SpecsPane } from '@/components/product/Panes';
 import { factSectionForTab, firstFactTabKey, isFactTab } from '@/lib/unmask/presentation';
@@ -104,6 +108,7 @@ export function ProductUnmaskFlow({
   const discovering = phase === 'found' && tab === 'overview' && !hasUnmaskRevealed(product.id) && (!discoverMinDone || !discoverIntelDone);
 
   const bundle = useMemo(() => (profile ? deriveUnmaskBundle(profile) : null), [profile]);
+  const uiContract = profile && dynamicProductUiEnabled() ? getUIContract(profile) : null;
   const trackedFactTab = useRef<string | null>(null);
   useEffect(() => {
     if (!profile || !isFactTab(tab)) return;
@@ -185,6 +190,9 @@ export function ProductUnmaskFlow({
         </View>
       );
     }
+    if (uiContract && contractSectionForTab(uiContract, tab)) {
+      return <RenderContractSection contract={uiContract} tab={tab} />;
+    }
     const section = factSectionForTab(profile, tab);
     if (section?.fields.length) {
       return <DynamicFactPane section={section} fallbackTitle={section.title} />;
@@ -257,6 +265,21 @@ export function ProductUnmaskFlow({
     return (
       <View style={{ paddingVertical: 32, alignItems: 'center' }}>
         <ActivityIndicator color={colors.hi} />
+      </View>
+    );
+  }
+
+  if (uiContract) {
+    return (
+      <View style={{ gap: 16 }}>
+        <DynamicOverview
+          contract={uiContract}
+          onDimension={(filterKey) => {
+            onTabChange('evidence');
+            setDimensionId(filterKey);
+          }}
+        />
+        <HighlightsTab bundle={bundle} onDimension={(id) => { onTabChange('evidence'); setDimensionId(id); }} />
       </View>
     );
   }
