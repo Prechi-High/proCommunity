@@ -82,10 +82,13 @@ but strict about fakes:
 - is_physical_photo: a real camera photo of a physical object in a real space.
 - is_screen_or_print: the product is shown on a phone/computer/TV screen or a printed page/box art only (moire, pixels, bezels, glare lines, flat paper).
 - is_stock_or_marketing: looks like a studio/marketing/listing image (seamless background, perfect lighting, watermark, text overlays).
-- matches_product: the physical item is plausibly the claimed product — same brand and product line; accept when the exact
-  model cannot be told apart visually, reject when it is clearly a different product or category.
+- same_brand_or_family: the item is consistent with the claimed brand or product family when that can be seen.
+- same_category: the physical item is the same broad kind of product (for example laptop vs laptop, perfume vs perfume).
+- matches_product: use true when the physical item is plausibly the claimed product or family. DO NOT reject only because the exact
+  model number, generation, year or storage/size variant cannot be proved from the photo. Exact SKU identity is handled separately
+  by the product-identification step. Reject only when the photo clearly contradicts the claimed brand/family or is a different category.
 Return JSON only:
-{"is_physical_photo":true,"is_screen_or_print":false,"is_stock_or_marketing":false,"matches_product":true,
+{"is_physical_photo":true,"is_screen_or_print":false,"is_stock_or_marketing":false,"same_brand_or_family":true,"same_category":true,"matches_product":true,
 "seen":"what item you actually see, 3-8 words","confidence":0.0,
 "tip":"if not accepted: one short friendly instruction for a better retake, else empty"}`;
 }
@@ -132,13 +135,14 @@ export async function verifyOwner(req: Request, body: Json, b64: string, mime: s
 
   const confidence = Math.max(0, Math.min(1, Number(d.confidence) || 0));
   const physical = d.is_physical_photo === true && d.is_screen_or_print !== true && d.is_stock_or_marketing !== true;
-  const verified = physical && d.matches_product === true && confidence >= 0.6;
+  const broadMatch = d.matches_product === true || (d.same_brand_or_family === true && d.same_category === true);
+  const verified = physical && broadMatch && confidence >= 0.6;
   const reason = verified
     ? ""
     : !physical
     ? "This needs to be a live photo of the item itself, not a screen, print or product image."
-    : d.matches_product !== true
-    ? `This looks like ${str(d.seen, 60) || "a different item"}, not the ${name}.`
+    : !(d.matches_product === true || (d.same_brand_or_family === true && d.same_category === true))
+    ? `This looks like ${str(d.seen, 60) || "a different item"}. Check the product you selected or choose a closer match.`
     : "We couldn’t see the product clearly enough.";
   const now = new Date().toISOString();
 
