@@ -52,7 +52,6 @@ import { investigationComplete } from '@/lib/unmask/investigationStages';
 import { trackOverviewViewed } from '@/lib/unmask/productAnalytics';
 import type { UnmaskTab } from '@/lib/unmask/types';
 import { loadProductClips } from '@/lib/videos';
-import { ProductJourneyActions } from '@/components/living/ProductJourneyActions';
 
 const ACTIVE_UNMASK_JOB_STATES = new Set([
   'queued',
@@ -171,23 +170,17 @@ export default function ProductScreen() {
     queryKey: ['intel', id],
     queryFn: async () => {
       const res = await callIntel<{ profile?: ProductProfile | null }>({ action: 'get', productId: id }, 20_000);
-      if (!res.profile) return null;
+      if (!res.profile) throw new Error('profile_not_ready');
       const { hydrateProductFindings } = await import('@/lib/products');
       await hydrateProductFindings(res.profile);
       rememberProduct(profileToProduct(res.profile, getKnownProduct(id)));
       return res.profile;
     },
-    enabled: Boolean(id),
-    refetchInterval: jobQuery.data && ACTIVE_UNMASK_JOB_STATES.has(jobQuery.data.state) ? 2500 : false,
+    enabled: Boolean(id) && jobQuery.data?.state === 'ready',
     staleTime: 30 * 60_000,
-    retry: 1,
+    retry: (count, err) => count < 10 && err instanceof Error && err.message === 'profile_not_ready',
     retryDelay: 2000,
   });
-
-  const refetchIntel = intel.refetch;
-  useEffect(() => {
-    if (jobQuery.data?.state === 'ready') void refetchIntel();
-  }, [jobQuery.data?.state, refetchIntel]);
 
   const previewProfile = previewQuery.data ? previewToProfile(previewQuery.data.preview) : null;
   const profile = intel.data ?? previewProfile;
@@ -201,11 +194,8 @@ export default function ProductScreen() {
     unmaskStarted.current = false;
     void previewQuery.refetch();
     void jobQuery.refetch();
-    void startProductUnmask({ id, query: q ?? known?.name, force: true }).then(() => {
-      void jobQuery.refetch();
-      void intel.refetch();
-    }).catch(() => undefined);
-  }, [id, q, known?.name, previewQuery, jobQuery, intel]);
+    void intel.refetch();
+  }, [previewQuery, jobQuery, intel]);
 
   const product = getKnownProduct(id) ?? known;
   const name = profile?.identity.name || (product ? displayName(product) : q ?? '');
@@ -257,7 +247,7 @@ export default function ProductScreen() {
   };
 
   const changeTab = (t: UnmaskTab) => {
-    if (t === 'timeline') { router.push(`/watch/${encodeURIComponent(id)}` as Href); return; }
+    if (!intelReady && t !== 'overview') return;
     setTab(t);
     scroller.current?.scrollTo({ y: 0, animated: false });
   };
@@ -284,7 +274,7 @@ export default function ProductScreen() {
         <ProductSubTabs
           value={tab}
           onChange={changeTab}
-          navigation={navigationTabs(profile)}
+          navigation={intelReady ? navigationTabs(profile) : previewOnlyTabs}
         />
       </ProductScreenChrome>
 
@@ -305,24 +295,21 @@ export default function ProductScreen() {
           style={{ flex: 1, backgroundColor: identifyFooterVisible ? '#F9F6F0' : colors.wine }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 48 }}
+          contentContainerStyle={{ paddingBottom: identifyFooterVisible ? 150 : 32 }}
         >
-          <View style={{ width: '100%', maxWidth: 1120, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 24, gap: 16 }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 12, gap: 12 }}>
             {!identifyFooterVisible && scan ? (
               <ScanBanner scan={scan} onPhoto={() => setViewing(0)} onMatches={() => setMatchesOpen(true)} />
             ) : null}
 
-
-            {intelReady && jobState && ACTIVE_UNMASK_JOB_STATES.has(jobState) ? (
-              <Text accessibilityLiveRegion="polite" style={{ color: colors.bone2, fontFamily: fonts.regular, fontSize: 13 }}>
-                Initial findings are ready. YouTube evidence and the scorecard are still updating.
-              </Text>
-            ) : intelReady && jobState === 'failed' ? (
-              <Pressable onPress={retryIntel} accessibilityRole="button">
-                <Text style={{ color: colors.hi, fontFamily: fonts.regular, fontSize: 13 }}>
-                  Saved findings are available. Further research was interrupted — tap to retry.
-                </Text>
-              </Pressable>
+            {!identifyFooterVisible ? (
+              <OwnershipStrip
+                owned={Boolean(owned)}
+                count={room.data?.verifiedOwners ?? 0}
+                onVerify={() => verify.start(currentProduct)}
+                onNote={() => note.start(currentProduct)}
+                onMine={() => myId && router.push({ pathname: '/member/[id]', params: { id: myId } } as unknown as Href)}
+              />
             ) : null}
 
             {(intel.isError || previewQuery.isError) && !profile && !intelLoading ? (
@@ -344,7 +331,7 @@ export default function ProductScreen() {
                 jobProgress={jobQuery.data}
                 previewLoading={previewQuery.isLoading}
                 intelLoading={intelLoading}
-                intelError={intel.isError || previewQuery.isError || jobState === 'failed'}
+                intelError={intel.isError || previewQuery.isError}
                 onUnmaskPressed={() => markProductOpenTiming(id, 'user_pressed_unmask')}
                 onRetryIntel={retryIntel}
                 clipsLoading={clips.isLoading}
@@ -366,8 +353,6 @@ export default function ProductScreen() {
                 }}
               />
             )}
-            <OwnershipStrip owned={Boolean(owned)} count={room.data?.verifiedOwners ?? 0} onVerify={() => verify.start(currentProduct)} onNote={() => note.start(currentProduct)} onMine={() => myId && router.push({ pathname: '/member/[id]', params: { id: myId } } as Href)} />
-
           </View>
         </ScrollView>
         {identifyFooter ? (

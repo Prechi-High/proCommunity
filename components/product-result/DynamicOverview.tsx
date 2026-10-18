@@ -62,7 +62,7 @@ export function DynamicOverview({ contract, onDimension }: Props) {
       <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.bone }}>Score breakdown</Text>
       {!dims.length ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.bone2 }}>
-          Dimension assessments are still developing. Available sources and observations remain accessible.
+          Dimension scores are not available yet. Pull to refresh after investigation finishes, or redeploy product-intelligence with LLM + blueprint enabled.
         </Text>
       ) : null}
       <View style={{ gap: 10 }}>

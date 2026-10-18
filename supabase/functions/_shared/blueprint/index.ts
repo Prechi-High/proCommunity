@@ -158,15 +158,6 @@ async function attachProductPresentationInner(
       cacheSource: "fresh",
     });
 
-  // Normalized rows are already persisted in evidence tables. Keep them out of
-  // result snapshots: they duplicate the full corpus and can exceed write limits.
-  if (presentation.dimensionExperience) {
-    delete presentation.dimensionExperience.normalizedRows;
-    for (const bundle of Object.values(presentation.dimensionExperience.byKey)) {
-      bundle.items = bundle.items.slice(0, 20);
-    }
-  }
-
   const out: Json = {
     ...profile,
     presentation,

@@ -25,15 +25,13 @@ export function ProductSubTabs({
   const items = navigation?.length ? navigation : FALLBACK;
 
   return (
-    <View style={{ backgroundColor: colors.wine, paddingBottom: 0, borderBottomWidth: 1, borderColor: colors.line, width: '100%', maxWidth: 1120, alignSelf: 'center' }}>
+    <View style={{ backgroundColor: colors.headerBg, paddingBottom: 4 }}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 4 }}>
         {items.map((item) => {
           const active = value === item.key;
           return (
             <Pressable
               key={item.key}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
               onPress={() => {
                 hapticSelect();
                 onChange(item.key as UnmaskTab);
@@ -44,13 +42,13 @@ export function ProductSubTabs({
                 style={{
                   fontFamily: active ? fonts.semibold : fonts.medium,
                   fontSize: 15,
-                  color: active ? colors.brand : colors.inkSoft,
+                  color: active ? colors.gold : 'rgba(255,255,255,0.72)',
                 }}
               >
                 {item.label}
               </Text>
               {active ? (
-                <View style={{ marginTop: 6, height: 3, width: '100%', minWidth: 32, borderRadius: 2, backgroundColor: colors.brand }} />
+                <View style={{ marginTop: 6, height: 3, width: '100%', minWidth: 32, borderRadius: 2, backgroundColor: colors.gold }} />
               ) : (
                 <View style={{ marginTop: 6, height: 3 }} />
               )}

@@ -7,7 +7,7 @@ import { BRAND_COPY } from './brand';
  * Legacy names (`wine`, `lac`, `bone`, `hi`) keep existing screens swappable.
  */
 export const colors = {
-  wine: '#FAF8F3',
+  wine: '#FDFBF7',
   wineDeep: '#F5F0E8',
   lac: '#FFFFFF',
   lac2: '#F5F2ED',
@@ -28,8 +28,8 @@ export const colors = {
   hiSoft: '#F3E8EA',
   hiInk: '#3D0F15',
   stage: '#E8E5DF',
-  shell: '#FAF8F3',
-  ink: '#241C1B',
+  shell: '#FDFBF7',
+  ink: '#161616',
   inkSoft: '#595959',
   rosewood: '#5C1620',
   rosewoodSoft: '#F3E8EA',

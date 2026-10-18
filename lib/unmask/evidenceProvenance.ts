@@ -3,8 +3,7 @@ import type { DimensionEvidenceItem } from './dimensionEvidence';
 export function formatEvidenceProvenance(e: DimensionEvidenceItem): string {
   const parts: string[] = [];
   const platform = (e.platform || e.provider || 'web').toLowerCase();
-  if (platform === 'unmask') parts.push('Unmask experience');
-  else if (platform.includes('youtube')) parts.push('YouTube');
+  if (platform.includes('youtube')) parts.push('YouTube');
   else parts.push(e.platform || 'Owner');
 
   if (e.isReply) parts.push('Reply');

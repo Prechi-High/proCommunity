@@ -1,7 +1,7 @@
 import { useRouter, type Href } from 'expo-router';
 import { Alert, Pressable, Switch, Text, View } from 'react-native';
 
-import { Page } from '@/components/living/ui';
+import { Screen } from '@/components/Screen';
 import { Files, Globe, SealCheck, ShieldCheck, Trash, User, WhatsappLogo } from '@/components/icons';
 import { isAuthUserId, signOutEverywhere } from '@/lib/auth';
 import { useMyMember } from '@/lib/owners';
@@ -24,9 +24,9 @@ export default function YouScreen() {
   const owned = useMyMember().data?.owned ?? [];
 
   return (
-    <Page eyebrow="YOUR CORNER OF UNMASK" title="Your story. Your terms." sub="Your product history, preferences and privacy, in one place.">
+    <Screen>
       <View style={{ paddingTop: 18, gap: 22 }}>
-
+        <LargeTitle>You</LargeTitle>
 
         <Pressable
           onPress={() => (profile ? undefined : router.push('/(auth)/sign-in'))}
@@ -73,8 +73,6 @@ export default function YouScreen() {
         ) : null}
 
         <Group>
-          <GroupRow icon={Files} label="My product history & routines" detail="Products, checkpoints and privacy." onPress={() => router.push('/products' as Href)} />
-          <GroupRow icon={Files} label="Product updates & questions" detail="Meaningful updates from your followed products." onPress={() => router.push('/living-notifications' as Href)} />
           <GroupRow icon={Files} label="My Research" detail="Your saved Research Cards." onPress={() => router.push('/research' as Href)} />
           <GroupRow icon={WhatsappLogo} label="WhatsApp" detail="Research products by sending a photo or name." badge="Coming soon" onPress={() => router.push('/settings/whatsapp' as Href)} last />
         </Group>
@@ -170,6 +168,6 @@ export default function YouScreen() {
           </Group>
         ) : null}
       </View>
-    </Page>
+    </Screen>
   );
 }

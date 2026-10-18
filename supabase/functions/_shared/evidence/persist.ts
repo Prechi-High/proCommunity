@@ -4,7 +4,6 @@ type Json = Record<string, unknown>;
 
 type Store = {
   upsert(table: string, row: Json): Promise<void>;
-  upsertMany?(table: string, rows: Json[]): Promise<void>;
   insertMany(table: string, rows: Json[]): Promise<void>;
   remove(table: string, filter: string): Promise<void>;
 };
@@ -18,9 +17,9 @@ export async function persistDimensionEvidence(
   rows: NormalizedEvidenceRow[],
 ): Promise<void> {
   const dimIds = dimensionKeys.map((k) => `${blueprintId}_dim_${k}`);
-  await Promise.all(dimIds.map((dimId) =>
-    store.remove("dimension_evidence", `dimension_id=eq.${encodeURIComponent(dimId)}`),
-  ));
+  for (const dimId of dimIds) {
+    await store.remove("dimension_evidence", `dimension_id=eq.${encodeURIComponent(dimId)}`);
+  }
 
   const evidenceRows: Json[] = [];
   const linkRows: Json[] = [];
@@ -64,16 +63,8 @@ export async function persistDimensionEvidence(
     }
   }
 
-  // PostgREST rejects duplicate conflict keys within a single upsert statement.
-  const unique = [...new Map(evidenceRows.map((row) => [row.id, row])).values()];
-  for (let offset = 0; offset < unique.length; offset += 200) {
-    const batch = unique.slice(offset, offset + 200);
-    if (store.upsertMany) await store.upsertMany("evidence", batch);
-    else {
-      for (let i = 0; i < batch.length; i += 8) {
-        await Promise.all(batch.slice(i, i + 8).map((row) => store.upsert("evidence", row)));
-      }
-    }
+  for (const e of evidenceRows) {
+    await store.upsert("evidence", e);
   }
   if (linkRows.length) await store.insertMany("dimension_evidence", linkRows);
 }

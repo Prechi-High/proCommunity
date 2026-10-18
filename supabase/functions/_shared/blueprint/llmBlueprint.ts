@@ -185,11 +185,8 @@ Product identity:
 ${identityBlock}`;
 
   let lastErrors: string[] = [];
-  const deadline = Date.now() + 28_000;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const remaining = deadline - Date.now();
-    if (remaining < 2500) break;
-    const llm = await callLlmJson(prompt, 2200, remaining);
+    const llm = await callLlmJson(prompt, 2200, attempt === 0 ? 28000 : 35000);
     lastErrors = llm.errors;
     const parsed = llm.data ? parseLlmBlueprintPayload(llm.data) : null;
     if (!parsed) continue;

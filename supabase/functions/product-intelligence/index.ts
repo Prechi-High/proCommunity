@@ -1,15 +1,12 @@
-import { attachNativePublicResponse } from "../_shared/evidence/nativeExperience.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { answerFromStoredEvidence } from "../_shared/ask/storedEvidence.ts";
-import { readBlueprintCache } from "../_shared/blueprint/cache.ts";
-import { presentationMatchesConversationEvidence } from "../_shared/blueprint/presentationEvidenceSync.ts";
 import { attachProductPresentation } from "../_shared/blueprint/index.ts";
 import {
   enrichProfileWithConversationEvidence,
 } from "../_shared/evidence/enrichProfile.ts";
 import { runInBackground } from "../_shared/investigation/background.ts";
 import {
-  acquireUnmaskJob, isStaleUnmaskJob,
+  acquireUnmaskJob,
   progressForState,
   readUnmaskJob,
   writeUnmaskJob,
@@ -55,15 +52,7 @@ function secret(name: string): string {
   return (Deno.env.get(name) ?? "").trim().replace(/^["']|["']$/g, "");
 }
 
-async function json(body: unknown, status = 200): Promise<Response> {
-  if (body && typeof body === "object" && "profile" in body) {
-    const obj = body as Json;
-    if (obj.profile && typeof obj.profile === "object") {
-      const profile = obj.profile as Json;
-      const pid = String(profile.id ?? (profile.identity as Json | undefined)?.id ?? "");
-      if (pid) obj.profile = await attachNativePublicResponse(db(), pid, profile).catch(() => profile);
-    }
-  }
+function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...cors, "Content-Type": "application/json" },
@@ -122,23 +111,11 @@ function db() {
       return rows[0] ?? null;
     },
     async upsert(table: string, row: Json): Promise<void> {
-      const r = await fetch(`${url}/rest/v1/${table}`, {
+      await fetch(`${url}/rest/v1/${table}`, {
         method: "POST",
-        signal: AbortSignal.timeout(15_000),
         headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify(row),
-      });
-      if (!r.ok) throw new Error(`upsert_${table}_http_${r.status}`);
-    },
-    async upsertMany(table: string, rows: Json[]): Promise<void> {
-      if (!rows.length) return;
-      const r = await fetch(`${url}/rest/v1/${table}`, {
-        method: "POST",
-        signal: AbortSignal.timeout(15_000),
-        headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
-        body: JSON.stringify(rows),
-      });
-      if (!r.ok) throw new Error(`bulk_upsert_${table}_http_${r.status}`);
+      }).catch(() => undefined);
     },
     async rows(path: string): Promise<Json[]> {
       const r = await fetch(`${url}/rest/v1/${path}`, { headers }).catch(() => null);
@@ -156,13 +133,11 @@ function db() {
       return out[0] ?? null;
     },
     async patch(table: string, filter: string, row: Json): Promise<void> {
-      const r = await fetch(`${url}/rest/v1/${table}?${filter}`, {
+      await fetch(`${url}/rest/v1/${table}?${filter}`, {
         method: "PATCH",
-        signal: AbortSignal.timeout(15_000),
         headers: { ...headers, Prefer: "return=minimal" },
         body: JSON.stringify(row),
-      });
-      if (!r.ok) throw new Error(`patch_${table}_http_${r.status}`);
+      }).catch(() => undefined);
     },
     async rpc(fn: string, args: Json): Promise<Json[]> {
       const r = await fetch(`${url}/rest/v1/rpc/${fn}`, { method: "POST", headers, body: JSON.stringify(args) }).catch(() => null);
@@ -401,7 +376,6 @@ async function callGemini(gKey: string, prompt: string, maxTokens: number, deadl
     const res = await withTimeout(
       fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: "POST",
-          signal: AbortSignal.timeout(Math.max(1, left)),
         headers: { "Content-Type": "application/json", "x-goog-api-key": gKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
@@ -453,7 +427,6 @@ async function callNvidia(
     const res = await withTimeout(
       fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
         method: "POST",
-          signal: AbortSignal.timeout(Math.max(1, left)),
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${nvKey}`,
@@ -512,7 +485,6 @@ async function callLlm(prompt: string, maxTokens: number, timeoutMs: number): Pr
       const res = await withTimeout(
         fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
-          signal: AbortSignal.timeout(Math.max(1, left)),
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${orKey}`,
@@ -794,22 +766,9 @@ async function runInvestigate(input: {
 
   if (store && !input.force) {
     const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`);
-    let payload = hit?.payload as Json | undefined;
-    if (payload && hit?.presentation_snapshot) payload = { ...payload, presentation: hit.presentation_snapshot, uiContract: hit.ui_contract_snapshot };
-    if (payload && !payload.presentation) {
-      const cached = await readBlueprintCache(id);
-      if (cached.hit && presentationMatchesConversationEvidence(payload, cached.payload.presentation)) {
-        const presentation = cached.payload.presentation;
-        if (presentation.dimensionExperience) {
-          delete presentation.dimensionExperience.normalizedRows;
-          for (const bundle of Object.values(presentation.dimensionExperience.byKey)) bundle.items = bundle.items.slice(0, 20);
-        }
-        payload = { ...payload, presentation, uiContract: cached.payload.uiContract };
-        await store.patch("product_intel", `id=eq.${encodeURIComponent(id)}`, { presentation_snapshot: presentation, ui_contract_snapshot: cached.payload.uiContract ?? null });
-      }
-    }
-    if (hit && payload?.version === PROFILE_VERSION && payload.presentation && +new Date(String(hit.refresh_after)) > Date.now()) {
-      const enriched = payload;
+    const payload = hit?.payload as Json | undefined;
+    if (hit && payload?.version === PROFILE_VERSION && +new Date(String(hit.refresh_after)) > Date.now()) {
+      const enriched = await attachProductPresentation(store, id, String(hit.query ?? input.query), payload, {});
       if (input.jobProductId) {
         jobTimings.totalReadyMs = Date.now() - jobStarted;
         await touchJob("ready", ["cache"], [], {
@@ -917,8 +876,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     sections: { details: "researching", evidence: "pending", videos: "pending", scores: "pending" },
   });
   const llm = evidence.length ? await callLlm(prompt, 3400, 32000) : { data: null, model: null, errors: ["no_evidence"] };
-  if (!llm.data) throw new Error(`initial_research_failed:${llm.errors.join("|")}`);
-  const d = llm.data as Json;
+  const d = (llm.data ?? {}) as Json;
   const identityRaw = (d.identity ?? {}) as Json;
 
   const identity = {
@@ -1202,23 +1160,6 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     findings,
   };
 
-  // Publish sourced initial findings before harvesting comments or building scores.
-  if (store && llm.data) {
-    await store.upsert("product_intel", {
-      id,
-      query: q,
-      name: identity.name,
-      brand: identity.brand || null,
-      category: identity.category,
-      hero_image_url: images[0] ?? null,
-      payload: { ...profile, score: null },
-      presentation_snapshot: null,
-      ui_contract_snapshot: null,
-      confidence,
-      verified_at: profile.verifiedAt,
-      refresh_after: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    });
-  }
   let outProfile = profile as Json;
   if (llm.data) {
     try {
@@ -1267,7 +1208,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
       brand: identity.brand || null,
       category: identity.category,
       hero_image_url: images[0] ?? null,
-      payload: { ...outProfile, score: outProfile.presentation ? outProfile.score : null },
+      payload: profile,
       confidence,
       verified_at: profile.verifiedAt,
       refresh_after: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -1282,9 +1223,17 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     jobTimings.blueprintMs = Date.now() - blueprintStart;
     jobTimings.scoringMs = jobTimings.blueprintMs;
     if (outProfile.presentation) {
-      await store.patch("product_intel", `id=eq.${encodeURIComponent(id)}`, {
-        presentation_snapshot: outProfile.presentation,
-        ui_contract_snapshot: outProfile.uiContract ?? null,
+      await store.upsert("product_intel", {
+        id,
+        query: q,
+        name: identity.name,
+        brand: identity.brand || null,
+        category: identity.category,
+        hero_image_url: images[0] ?? null,
+        payload: outProfile,
+        confidence,
+        verified_at: profile.verifiedAt,
+        refresh_after: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       });
     }
   } else if (store) {
@@ -1294,8 +1243,8 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     jobTimings.totalReadyMs = Date.now() - jobStarted;
     await touchJob("ready", ["web", "images", "shopping", "llm", "evidence", "blueprint", "scoring"], [], {
       timings: jobTimings,
-      sections: { details: "ready", evidence: "ready", videos: "ready", scores: outProfile.presentation ? "ready" : "pending" },
-      milestones: { scorecardComplete: Boolean(outProfile.presentation) },
+      sections: { details: "ready", evidence: "ready", videos: "ready", scores: "ready" },
+      milestones: { scorecardComplete: true },
     });
   }
   return { cached: false, profile: outProfile, errors: llm.errors };
@@ -2543,17 +2492,15 @@ Deno.serve(async (req) => {
       if (!q) return json({ error: "missing_query" }, 400);
       const id = productId || slugify(q);
       const store = db();
-      const saved = store ? await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`) : null;
-      const savedPayload = saved?.payload as Json | undefined;
-      const reusable = savedPayload?.version === PROFILE_VERSION && Boolean(saved?.presentation_snapshot || savedPayload.presentation) &&
-        +new Date(String(saved?.refresh_after)) > Date.now();
-      const mode = await acquireUnmaskJob(id, store, { force: body.force === true || !reusable });
+      const mode = await acquireUnmaskJob(id, store, { force: body.force === true });
       const existing = await readUnmaskJob(id, store);
       if (mode === "attach" && existing?.progress.state === "ready") {
         const hit = store ? await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`) : null;
         const payload = hit?.payload as Json | undefined;
         if (payload) {
-          const enriched = hit?.presentation_snapshot ? { ...payload, presentation: hit.presentation_snapshot, uiContract: hit.ui_contract_snapshot } : payload;
+          const enriched = store
+            ? await attachProductPresentation(store, id, String(hit?.query ?? q), payload, {})
+            : payload;
           return json({ success: true, attached: true, job: existing, profile: enriched });
         }
       }
@@ -2563,20 +2510,15 @@ Deno.serve(async (req) => {
       runInBackground(
         runUnmaskJob({ query: q, productId: id, force: body.force === true, country }),
       );
-      return json({ success: true, started: true, job: existing });
+      const job = await readUnmaskJob(id, store);
+      return json({ success: true, started: true, job });
     }
 
     if (action === "unmask_status") {
       const productId = str(body.productId, 100);
       if (!productId) return json({ error: "missing_product" }, 400);
       const store = db();
-      let job = await readUnmaskJob(productId, store);
-      if (job && isStaleUnmaskJob(job)) {
-        job = await writeUnmaskJob(productId, {
-          progress: { state: "failed", activeStages: [] },
-          error: "research_interrupted_retry_available",
-        }, store);
-      }
+      const job = await readUnmaskJob(productId, store);
       if (!job) return json({ success: true, job: null });
       return json({ success: true, job });
     }
@@ -2597,8 +2539,9 @@ Deno.serve(async (req) => {
       const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(productId)}`);
       const payload = hit?.payload as Json | undefined;
       if (!payload) return json({ success: false, profile: null });
-      // Reads must never trigger a blueprint LLM or fresh research.
-      return json({ success: true, profile: hit?.presentation_snapshot ? { ...payload, presentation: hit.presentation_snapshot, uiContract: hit.ui_contract_snapshot } : payload });
+      const q = str(hit?.query ?? payload.query, 200) || productId.replace(/-/g, " ");
+      const enriched = await attachProductPresentation(store, productId, q, payload, {});
+      return json({ success: true, profile: enriched });
     }
 
     if (action === "compare_aspects" || action === "compare_focus") {

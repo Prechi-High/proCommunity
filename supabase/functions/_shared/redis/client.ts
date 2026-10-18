@@ -18,7 +18,6 @@ export async function redisCommand(
   try {
     const response = await fetch(creds.url, {
       method: "POST",
-      signal: AbortSignal.timeout(2000),
       headers: {
         Authorization: `Bearer ${creds.token}`,
         "Content-Type": "application/json",
