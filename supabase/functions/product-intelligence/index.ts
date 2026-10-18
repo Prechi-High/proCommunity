@@ -1,3 +1,4 @@
+import { attachNativePublicResponse } from "../_shared/evidence/nativeExperience.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { answerFromStoredEvidence } from "../_shared/ask/storedEvidence.ts";
 import { attachProductPresentation } from "../_shared/blueprint/index.ts";
@@ -52,7 +53,15 @@ function secret(name: string): string {
   return (Deno.env.get(name) ?? "").trim().replace(/^["']|["']$/g, "");
 }
 
-function json(body: unknown, status = 200): Response {
+async function json(body: unknown, status = 200): Promise<Response> {
+  if (body && typeof body === "object" && "profile" in body) {
+    const obj = body as Json;
+    if (obj.profile && typeof obj.profile === "object") {
+      const profile = obj.profile as Json;
+      const pid = String(profile.id ?? (profile.identity as Json | undefined)?.id ?? "");
+      if (pid) obj.profile = await attachNativePublicResponse(db(), pid, profile).catch(() => profile);
+    }
+  }
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...cors, "Content-Type": "application/json" },

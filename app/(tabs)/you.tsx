@@ -73,6 +73,8 @@ export default function YouScreen() {
         ) : null}
 
         <Group>
+          <GroupRow icon={Files} label="My product history & routines" detail="Products, checkpoints and privacy." onPress={() => router.push('/products' as Href)} />
+          <GroupRow icon={Files} label="Product updates & questions" detail="Meaningful updates from your followed products." onPress={() => router.push('/living-notifications' as Href)} />
           <GroupRow icon={Files} label="My Research" detail="Your saved Research Cards." onPress={() => router.push('/research' as Href)} />
           <GroupRow icon={WhatsappLogo} label="WhatsApp" detail="Research products by sending a photo or name." badge="Coming soon" onPress={() => router.push('/settings/whatsapp' as Href)} last />
         </Group>

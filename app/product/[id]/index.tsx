@@ -52,6 +52,7 @@ import { investigationComplete } from '@/lib/unmask/investigationStages';
 import { trackOverviewViewed } from '@/lib/unmask/productAnalytics';
 import type { UnmaskTab } from '@/lib/unmask/types';
 import { loadProductClips } from '@/lib/videos';
+import { ProductJourneyActions } from '@/components/living/ProductJourneyActions';
 
 const ACTIVE_UNMASK_JOB_STATES = new Set([
   'queued',
@@ -353,6 +354,7 @@ export default function ProductScreen() {
                 }}
               />
             )}
+            {!identifyFooterVisible ? <ProductJourneyActions product={currentProduct} /> : null}
           </View>
         </ScrollView>
         {identifyFooter ? (

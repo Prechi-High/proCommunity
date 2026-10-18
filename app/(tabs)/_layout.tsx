@@ -1,57 +1,95 @@
-import { Tabs } from 'expo-router';
-
-import { BookmarkSimple, MagnifyingGlass, Pulse, User } from '@/components/icons';
-import { colors, fonts } from '@/constants/theme';
-
+import { Tabs } from "expo-router";
+import {
+  House,
+  MagnifyingGlass,
+  Package,
+  UsersThree,
+  User,
+} from "@/components/icons";
+import { colors, fonts } from "@/constants/theme";
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.hi,
+        tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.bone3,
         tabBarStyle: {
-          backgroundColor: 'rgba(255,255,255,0.96)',
+          backgroundColor: colors.wine,
           borderTopColor: colors.line,
-          height: 76,
-          paddingTop: 8,
+          height: 78,
+          paddingTop: 10,
           paddingBottom: 14,
         },
-        tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 11 },
+        tabBarLabelStyle: { fontFamily: fonts.semibold, fontSize: 10 },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Search',
+          title: "Today",
           tabBarIcon: ({ color, focused }) => (
-            <MagnifyingGlass size={24} color={String(color)} weight={focused ? 'bold' : 'regular'} />
+            <House
+              size={23}
+              color={String(color)}
+              weight={focused ? "fill" : "regular"}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="unmask"
+        options={{
+          title: "Unmask",
+          tabBarIcon: ({ color, focused }) => (
+            <MagnifyingGlass
+              size={23}
+              color={String(color)}
+              weight={focused ? "bold" : "regular"}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="products"
+        options={{
+          title: "My Products",
+          tabBarIcon: ({ color, focused }) => (
+            <Package
+              size={23}
+              color={String(color)}
+              weight={focused ? "fill" : "regular"}
+            />
           ),
         }}
       />
       <Tabs.Screen
         name="pulse"
         options={{
-          title: 'Pulse',
-          tabBarIcon: ({ color, focused }) => <Pulse size={24} color={String(color)} weight={focused ? 'bold' : 'regular'} />,
-        }}
-      />
-      <Tabs.Screen
-        name="saved"
-        options={{
-          title: 'Saved',
+          title: "Community",
           tabBarIcon: ({ color, focused }) => (
-            <BookmarkSimple size={24} color={String(color)} weight={focused ? 'fill' : 'regular'} />
+            <UsersThree
+              size={23}
+              color={String(color)}
+              weight={focused ? "fill" : "regular"}
+            />
           ),
         }}
       />
       <Tabs.Screen
         name="you"
         options={{
-          title: 'You',
-          tabBarIcon: ({ color, focused }) => <User size={24} color={String(color)} weight={focused ? 'fill' : 'regular'} />,
+          title: "You",
+          tabBarIcon: ({ color, focused }) => (
+            <User
+              size={23}
+              color={String(color)}
+              weight={focused ? "fill" : "regular"}
+            />
+          ),
         }}
       />
+      <Tabs.Screen name="saved" options={{ href: null }} />
     </Tabs>
   );
 }

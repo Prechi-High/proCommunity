@@ -3,6 +3,7 @@ import type { RawEvidenceInput } from "./types.ts";
 
 /** Ordered source tiers — higher weight = more trusted lived-experience provenance. */
 export type SourceProvenanceTier =
+  | "unmask_experience"
   | "youtube_comment"
   | "reddit_comment"
   | "x_post"
@@ -14,6 +15,7 @@ export type SourceProvenanceTier =
   | "serper_snippet";
 
 export const PROVENANCE_WEIGHT: Record<SourceProvenanceTier, number> = {
+  unmask_experience: 1.1,
   youtube_comment: 1,
   reddit_comment: 0.92,
   x_post: 0.88,
@@ -36,6 +38,7 @@ export function provenanceWeight(tier: SourceProvenanceTier): number {
 
 function tierFromProvider(provider?: string, platform?: string): SourceProvenanceTier | null {
   const p = (provider ?? platform ?? "").toLowerCase();
+  if (p === "unmask") return "unmask_experience";
   if (p === "youtube") return "youtube_comment";
   if (p === "reddit") return "reddit_comment";
   if (p === "x" || p === "twitter") return "x_post";

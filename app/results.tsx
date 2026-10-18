@@ -192,6 +192,7 @@ export default function ResultsScreen() {
           </View>
         ) : null}
       </ScrollView>
+      <Pressable onPress={() => router.push({ pathname: '/products', params: { section: 'requests' } } as Href)} style={{ padding: 14, alignItems: 'center' }}><Text style={{ fontFamily: fonts.semibold, color: colors.brand }}>Can’t find it? Request a product →</Text></Pressable>
       {scan.sheet}
     </SafeAreaView>
   );
