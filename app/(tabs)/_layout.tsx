@@ -16,12 +16,15 @@ export default function TabLayout() {
         tabBarInactiveTintColor: colors.bone3,
         tabBarStyle: {
           backgroundColor: colors.wine,
+          width: "100%",
+          maxWidth: 1160,
+          alignSelf: "center",
           borderTopColor: colors.line,
-          height: 78,
-          paddingTop: 10,
+          height: 80,
+          paddingTop: 12,
           paddingBottom: 14,
         },
-        tabBarLabelStyle: { fontFamily: fonts.semibold, fontSize: 10 },
+        tabBarLabelStyle: { fontFamily: fonts.semibold, fontSize: 11 },
       }}
     >
       <Tabs.Screen

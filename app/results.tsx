@@ -86,7 +86,7 @@ export default function ResultsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.wine }} edges={['top']}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 18, width: '100%', maxWidth: 1120, alignSelf: 'center' }}>
         <Pressable
           onPress={() => router.back()}
           hitSlop={10}
@@ -105,7 +105,7 @@ export default function ResultsScreen() {
           horizontal
           showsHorizontalScrollIndicator={false}
           style={{ flexGrow: 0 }}
-          contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingBottom: 10 }}
+          contentContainerStyle={{ width: '100%', maxWidth: 1120, alignSelf: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: 10 }}
         >
           {['All', ...categories].map((c) => {
             const on = c === category;
@@ -130,7 +130,7 @@ export default function ResultsScreen() {
         </ScrollView>
       ) : null}
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 18 }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ width: '100%', maxWidth: 1120, alignSelf: 'center', paddingHorizontal: 20, paddingBottom: 40, gap: 18 }} keyboardShouldPersistTaps="handled">
         {isLoading ? (
           <View style={{ gap: 16 }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.bone2 }}>

@@ -14,7 +14,7 @@ import {
   useLivingQuery,
 } from "./ui";
 import { FollowButton } from "./FollowButton";
-export function ProductJourneyActions({ product }: { product: Product }) {
+export function ProductJourneyActions({ product, compact = false, onCompare }: { product: Product; compact?: boolean; onCompare?: () => void }) {
   const r = useRouter();
   const uid = useAppStore((s) => s.profile?.id);
   const action = useAction();
@@ -33,14 +33,14 @@ export function ProductJourneyActions({ product }: { product: Product }) {
       r.push(`/watch/${encodeURIComponent(product.id)}` as Href);
     });
   };
-  return (
-    <Card>
-      <Tag text="WHAT HAPPENS AFTER THE PURCHASE" tone="gold" />
-      <Title>Keep the story going.</Title>
-      <Body>
+  const actions = (
+    <>
+      {!compact ? <Tag text="WHAT HAPPENS AFTER THE PURCHASE" tone="gold" /> : null}
+      {!compact ? <Title>Keep the story going.</Title> : null}
+      {!compact ? <Body>
         Follow new experiences, ask people who have used it, or start your own
         private product journey.
-      </Body>
+      </Body> : null}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         <Button
           label={own ? "My product journey" : "I own this"}
@@ -55,7 +55,8 @@ export function ProductJourneyActions({ product }: { product: Product }) {
             })
           }
         />
-        <Button quiet label="Evidence timeline & questions" onPress={open} />
+        {!compact ? <Button quiet label="Evidence timeline & questions" onPress={open} /> : null}
+        {onCompare ? <Button quiet label="Compare" onPress={onCompare} /> : null}
         {cat.data?.[0]?.company_id ? (
           <Button
             quiet
@@ -70,6 +71,7 @@ export function ProductJourneyActions({ product }: { product: Product }) {
       </View>
       <FollowButton type="product" id={product.id} preferences />
       <ActionStatus action={action} />
-    </Card>
+    </>
   );
+  return compact ? <View style={{ gap: 10 }}>{actions}</View> : <Card>{actions}</Card>;
 }
