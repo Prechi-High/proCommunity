@@ -69,9 +69,9 @@ export function ExperienceCard({
         {item.acquisition.replace("_", " ")} · {item.claimed_days} days reported
         · {item.documented_days} days documented
       </Text>
-      <Text style={[design.body, { color: c.ink }]}>{item.changed}</Text>
-      {item.unchanged ? <Body>Unchanged: {item.unchanged}</Body> : null}
-      {item.reaction ? <Body>Reaction reported: {item.reaction}</Body> : null}
+      <View style={{ borderLeftWidth: 3, borderColor: c.marker, paddingLeft: 16, gap: 7 }}><Text style={design.label}>WHAT CHANGED</Text><Text style={[design.body, { color: c.ink }]}>{item.changed}</Text></View>
+      {item.unchanged ? <View style={{ backgroundColor: c.lac2, padding: 14, borderRadius: 12, gap: 5 }}><Text style={design.label}>WHAT STAYED THE SAME</Text><Body>{item.unchanged}</Body></View> : null}
+      {item.reaction ? <View style={{ backgroundColor: c.coralSoft, padding: 14, borderRadius: 12, gap: 5 }}><Text style={[design.label, { color: c.coral }]}>REACTION REPORTED</Text><Body>{item.reaction}</Body></View> : null}
       {item.uncertainty ? (
         <Body>Still uncertain: {item.uncertainty}</Body>
       ) : null}
@@ -85,6 +85,7 @@ export function ExperienceCard({
           style={{ width: "100%", height: 230, borderRadius: 12 }}
         />
       ) : null}
+      {item.trust_explanation ? <Text style={design.small}>{item.trust_explanation}</Text> : null}
       <Text style={design.small}>
         {new Date(item.created_at).toLocaleDateString()} · {item.visibility} ·{" "}
         {item.would_rebuy === null

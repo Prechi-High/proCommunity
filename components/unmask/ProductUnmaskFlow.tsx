@@ -6,36 +6,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowRight } from '@/components/icons';
 import { PrimaryButton } from '@/components/kit';
 
-import { DynamicOverview } from '@/components/product-result/DynamicOverview';
+import { ProductStoryOverview } from './ProductStoryOverview';
 import { contractSectionForTab, RenderContractSection } from '@/components/product-result/renderContractSection';
 import { EvidenceListSection, VideoGroupsSection } from '@/components/product-result/renderers/registry';
 import { getUIContract } from '@/lib/product-result/contract';
 import { dynamicProductUiEnabled } from '@/lib/product-result/flags';
 import { DynamicFactPane } from '@/components/product/DynamicFactPane';
 import { SpecsPane } from '@/components/product/Panes';
-import { factSectionForTab, firstFactTabKey, isFactTab } from '@/lib/unmask/presentation';
-import { trackFactSectionViewed, trackUnmaskStarted } from '@/lib/unmask/productAnalytics';
+import { factSectionForTab, isFactTab } from '@/lib/unmask/presentation';
+import { trackFactSectionViewed } from '@/lib/unmask/productAnalytics';
 import { VideosPane } from '@/components/product/VideosPane';
 import { colors, fonts, radii } from '@/constants/theme';
 import { hapticTap } from '@/lib/haptics';
-import { startProductUnmask } from '@/lib/products';
 import { deriveUnmaskBundle } from '@/lib/unmask/derive';
-import { investigationComplete } from '@/lib/unmask/investigationStages';
-import { hasUnmaskRevealed, markUnmaskRevealed } from '@/lib/unmask/revealSession';
 import type { UnmaskTab } from '@/lib/unmask/types';
 import type { ProductPreviewResponse, UnmaskJobProgress } from '@/lib/products';
 import type { Product, ProductProfile } from '@/lib/types';
 import type { JourneyClip } from '@/lib/videos';
 
 import { AskUnmaskTab } from './AskUnmaskTab';
-import { HighlightsTab } from './HighlightsTab';
-import { ProductDiscoveringView } from './ProductDiscoveringView';
-import { ProductIdentifyView } from './ProductIdentifyView';
 import { DimensionDetail, ScorecardTab } from './ScorecardTab';
-import { UnmaskingView } from './UnmaskingView';
 
 const MAROON = '#6B0F1A';
-type FlowPhase = 'found' | 'investigating' | 'unmasked';
 
 export type IdentifyFooterActions = {
   onUnmask: () => void;
@@ -89,16 +81,7 @@ export function ProductUnmaskFlow({
   onOpenPrices,
   onIdentifyFooter,
 }: Props) {
-  const [phase, setPhase] = useState<FlowPhase>(() => (hasUnmaskRevealed(product.id) ? 'unmasked' : 'found'));
   const [dimensionId, setDimensionId] = useState<string | null>(null);
-  useEffect(() => {
-    setPhase(hasUnmaskRevealed(product.id) ? 'unmasked' : 'found');
-    setDimensionId(null);
-  }, [product.id]);
-
-  const discovering =
-    phase === 'found' && tab === 'overview' && !hasUnmaskRevealed(product.id) && previewLoading && !preview;
-
   const bundle = useMemo(() => (profile ? deriveUnmaskBundle(profile) : null), [profile]);
   const uiContract = profile && dynamicProductUiEnabled() ? getUIContract(profile) : null;
   const trackedFactTab = useRef<string | null>(null);
@@ -109,90 +92,7 @@ export function ProductUnmaskFlow({
     trackFactSectionViewed(profile, product.id, tab);
   }, [tab, profile, product.id]);
 
-  const startUnmask = () => {
-    hapticTap();
-    onUnmaskPressed?.();
-    trackUnmaskStarted(profile, product.id);
-    if (intelReady || investigationComplete(intelLoading, profile)) {
-      markUnmaskRevealed(product.id);
-      setPhase('unmasked');
-    } else {
-      void startProductUnmask({ id: product.id, query: product.name }).catch(() => undefined);
-      setPhase('investigating');
-    }
-  };
-
-  const showIdentifyFooter = phase === 'found' && tab === 'overview' && !discovering;
-
-  useEffect(() => {
-    if (!onIdentifyFooter) return;
-    if (showIdentifyFooter) {
-      onIdentifyFooter(true, {
-        onUnmask: startUnmask,
-        onViewSpecs: () => {
-          if (intelReady) onTabChange(firstFactTabKey(profile));
-        },
-      });
-    } else {
-      onIdentifyFooter(false, null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- parent setState callback; gate on layout mode only
-  }, [showIdentifyFooter, product.id, tab, phase]);
-
-  useEffect(() => {
-    if (phase !== 'investigating') return;
-    if (intelReady || investigationComplete(intelLoading, profile)) {
-      markUnmaskRevealed(product.id);
-      setPhase('unmasked');
-    }
-  }, [phase, intelLoading, intelReady, profile, product.id]);
-
-  if (phase === 'investigating') {
-    if (intelError) {
-      return (
-        <View style={{ gap: 12, paddingVertical: 24 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.bone }}>Research didn&apos;t finish</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2 }}>Check your connection and try again.</Text>
-          {onRetryIntel ? (
-            <Text onPress={onRetryIntel} style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.hi }}>Try again</Text>
-          ) : null}
-        </View>
-      );
-    }
-    return (
-      <UnmaskingView
-        product={product}
-        profile={profile}
-        loading={intelLoading}
-        jobProgress={jobProgress}
-        clipsLoading={clipsLoading}
-        clipsCount={clips.length}
-        photoUri={scanPhoto}
-      />
-    );
-  }
-
-  const factTabUnlocked = intelReady && (tab === 'specs' || isFactTab(tab));
-  if (!intelReady && tab !== 'overview') {
-    return (
-      <View style={{ gap: 16, paddingVertical: 24, alignItems: 'center' }}>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.bone2, textAlign: 'center', lineHeight: 22 }}>
-          Research is still running. Overview is available while we finish the scorecard and evidence.
-        </Text>
-        <PrimaryButton label="Back to overview" onPress={() => onTabChange('overview')} style={{ alignSelf: 'stretch' }} />
-      </View>
-    );
-  }
-  if (phase === 'found' && tab !== 'overview' && !factTabUnlocked) {
-    return (
-      <View style={{ gap: 16, paddingVertical: 24, alignItems: 'center' }}>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.bone2, textAlign: 'center', lineHeight: 22 }}>
-          Unmask this product first to unlock {tab === 'ask' ? 'Ask' : tab.charAt(0).toUpperCase() + tab.slice(1)}.
-        </Text>
-        <PrimaryButton label="Unmask this product →" onPress={startUnmask} style={{ alignSelf: 'stretch' }} />
-      </View>
-    );
-  }
+  useEffect(() => { onIdentifyFooter?.(false, null); }, [product.id]);
 
   if (tab === 'specs' || isFactTab(tab)) {
     if (!profile) {
@@ -291,24 +191,6 @@ export function ProductUnmaskFlow({
     );
   }
 
-  if (phase === 'found' && tab === 'overview') {
-    if (discovering) {
-      return <ProductDiscoveringView product={product} profile={profile} />;
-    }
-    const urls = photoUrls.filter(Boolean);
-    return (
-      <ProductIdentifyView
-        product={product}
-        profile={profile}
-        preview={preview}
-        jobProgress={jobProgress}
-        intelReady={intelReady}
-        photos={urls}
-        onViewSpecs={() => onTabChange('specs')}
-      />
-    );
-  }
-
   if (!profile || !bundle) {
     return (
       <View style={{ paddingVertical: 32, alignItems: 'center' }}>
@@ -317,39 +199,7 @@ export function ProductUnmaskFlow({
     );
   }
 
-  const contractDims = uiContract?.overview.dimensions?.length ?? 0;
-  const useDynamicOverview = uiContract && contractDims > 0;
-
-  if (useDynamicOverview) {
-    return (
-      <View style={{ gap: 16 }}>
-        <DynamicOverview
-          contract={uiContract}
-          onDimension={(filterKey) => {
-            onTabChange('evidence');
-            setDimensionId(filterKey);
-          }}
-        />
-        <HighlightsTab bundle={bundle} onDimension={(id) => { onTabChange('evidence'); setDimensionId(id); }} />
-      </View>
-    );
-  }
-
-  return (
-    <View style={{ gap: 16 }}>
-      <ScorecardTab
-        profile={profile}
-        bundle={bundle}
-        onDimension={(id) => {
-          onTabChange('evidence');
-          setDimensionId(id);
-        }}
-        onOpenSources={onOpenSources}
-        mode="overview"
-      />
-      <HighlightsTab bundle={bundle} onDimension={(id) => { onTabChange('evidence'); setDimensionId(id); }} />
-    </View>
-  );
+  return <ProductStoryOverview key={product.id} product={product} profile={profile} bundle={bundle} photos={photoUrls} onTabChange={onTabChange} onCompare={onCompare} onOpenSources={onOpenSources} onOpenPrices={onOpenPrices} onDimension={(id) => { onTabChange('evidence'); setDimensionId(id); }} />;
 }
 
 /** Fixed bottom CTA for the identify screen (rendered outside the scroll view). */

@@ -1,7 +1,7 @@
 import { useRouter, type Href } from 'expo-router';
 import { Alert, Pressable, Switch, Text, View } from 'react-native';
 
-import { Screen } from '@/components/Screen';
+import { Page } from '@/components/living/ui';
 import { Files, Globe, SealCheck, ShieldCheck, Trash, User, WhatsappLogo } from '@/components/icons';
 import { isAuthUserId, signOutEverywhere } from '@/lib/auth';
 import { useMyMember } from '@/lib/owners';
@@ -24,9 +24,9 @@ export default function YouScreen() {
   const owned = useMyMember().data?.owned ?? [];
 
   return (
-    <Screen>
+    <Page eyebrow="YOUR CORNER OF UNMASK" title="Your story. Your terms." sub="Your product history, preferences and privacy, in one place.">
       <View style={{ paddingTop: 18, gap: 22 }}>
-        <LargeTitle>You</LargeTitle>
+
 
         <Pressable
           onPress={() => (profile ? undefined : router.push('/(auth)/sign-in'))}
@@ -170,6 +170,6 @@ export default function YouScreen() {
           </Group>
         ) : null}
       </View>
-    </Screen>
+    </Page>
   );
 }

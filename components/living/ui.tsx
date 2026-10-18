@@ -7,6 +7,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,9 +21,9 @@ export const design = StyleSheet.create({
     backgroundColor: c.white,
     borderWidth: 1,
     borderColor: c.line,
-    borderRadius: 20,
-    padding: 20,
-    gap: 12,
+    borderRadius: 18,
+    padding: 24,
+    gap: 14,
   },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
   body: {
@@ -71,6 +72,7 @@ export function Page({
   back?: boolean;
 }) {
   const r = useRouter();
+  const { width } = useWindowDimensions();
   return (
     <Screen>
       <View
@@ -78,11 +80,11 @@ export function Page({
           width: "100%",
           maxWidth: 1060,
           alignSelf: "center",
-          paddingTop: 18,
-          gap: 24,
+          paddingTop: 20,
+          gap: 28,
         }}
       >
-        <View style={[design.row, { justifyContent: "space-between" }]}>
+        <View style={[design.row, { justifyContent: "space-between", borderBottomWidth: 1, borderColor: c.line, paddingBottom: 20 }]}>
           {back ? (
             <Pressable
               accessibilityLabel="Back"
@@ -104,8 +106,8 @@ export function Page({
             accessibilityRole="header"
             style={{
               fontFamily: f.serif,
-              fontSize: 44,
-              lineHeight: 48,
+              fontSize: width >= 760 ? 52 : 36,
+              lineHeight: width >= 760 ? 56 : 41,
               color: c.ink,
               letterSpacing: -1,
             }}
@@ -318,19 +320,19 @@ export function Choices({
             accessibilityState={{ selected: value === o.id }}
             onPress={() => onChange(o.id)}
             style={{
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              borderRadius: 9,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderRadius: 999,
               borderWidth: 1,
               borderColor: value === o.id ? c.brand : c.line,
-              backgroundColor: value === o.id ? c.hiSoft : c.white,
+              backgroundColor: value === o.id ? c.brand : c.white,
             }}
           >
             <Text
               style={{
                 fontFamily: value === o.id ? f.semibold : f.regular,
                 fontSize: 12,
-                color: value === o.id ? c.brand : c.inkSoft,
+                color: value === o.id ? c.white : c.inkSoft,
               }}
             >
               {o.label}

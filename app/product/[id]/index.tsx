@@ -257,7 +257,7 @@ export default function ProductScreen() {
   };
 
   const changeTab = (t: UnmaskTab) => {
-    if (!intelReady && t !== 'overview') return;
+    if (t === 'timeline') { router.push(`/watch/${encodeURIComponent(id)}` as Href); return; }
     setTab(t);
     scroller.current?.scrollTo({ y: 0, animated: false });
   };
@@ -284,7 +284,7 @@ export default function ProductScreen() {
         <ProductSubTabs
           value={tab}
           onChange={changeTab}
-          navigation={intelReady ? navigationTabs(profile) : previewOnlyTabs}
+          navigation={navigationTabs(profile)}
         />
       </ProductScreenChrome>
 
@@ -305,22 +305,13 @@ export default function ProductScreen() {
           style={{ flex: 1, backgroundColor: identifyFooterVisible ? '#F9F6F0' : colors.wine }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: identifyFooterVisible ? 150 : 32 }}
+          contentContainerStyle={{ paddingBottom: 48 }}
         >
-          <View style={{ paddingHorizontal: 16, paddingTop: 12, gap: 12 }}>
+          <View style={{ width: '100%', maxWidth: 1120, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 24, gap: 16 }}>
             {!identifyFooterVisible && scan ? (
               <ScanBanner scan={scan} onPhoto={() => setViewing(0)} onMatches={() => setMatchesOpen(true)} />
             ) : null}
 
-            {!identifyFooterVisible ? (
-              <OwnershipStrip
-                owned={Boolean(owned)}
-                count={room.data?.verifiedOwners ?? 0}
-                onVerify={() => verify.start(currentProduct)}
-                onNote={() => note.start(currentProduct)}
-                onMine={() => myId && router.push({ pathname: '/member/[id]', params: { id: myId } } as unknown as Href)}
-              />
-            ) : null}
 
             {intelReady && jobState && ACTIVE_UNMASK_JOB_STATES.has(jobState) ? (
               <Text accessibilityLiveRegion="polite" style={{ color: colors.bone2, fontFamily: fonts.regular, fontSize: 13 }}>
@@ -375,7 +366,8 @@ export default function ProductScreen() {
                 }}
               />
             )}
-            {!identifyFooterVisible ? <ProductJourneyActions product={currentProduct} /> : null}
+            <OwnershipStrip owned={Boolean(owned)} count={room.data?.verifiedOwners ?? 0} onVerify={() => verify.start(currentProduct)} onNote={() => note.start(currentProduct)} onMine={() => myId && router.push({ pathname: '/member/[id]', params: { id: myId } } as Href)} />
+
           </View>
         </ScrollView>
         {identifyFooter ? (

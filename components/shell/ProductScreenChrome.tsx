@@ -17,8 +17,8 @@ type Props = {
 
 export function ProductScreenChrome({ onBack, saved, onSave, onShare, children }: Props) {
   return (
-    <SafeAreaView edges={['top']} style={{ backgroundColor: colors.headerBg }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 8, gap: 8 }}>
+    <SafeAreaView edges={['top']} style={{ backgroundColor: colors.wine }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 1120, alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 12, gap: 8 }}>
         <Pressable
           onPress={() => {
             hapticTap();
@@ -28,10 +28,10 @@ export function ProductScreenChrome({ onBack, saved, onSave, onShare, children }
           accessibilityLabel="Back"
           style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
         >
-          <ArrowLeft size={22} color={colors.white} weight="bold" />
+          <ArrowLeft size={22} color={colors.brand} weight="bold" />
         </Pressable>
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Wordmark height={26} tone="white" />
+          <Wordmark height={26} tone="ink" />
         </View>
         <Pressable
           onPress={() => onShare?.()}
@@ -39,7 +39,7 @@ export function ProductScreenChrome({ onBack, saved, onSave, onShare, children }
           accessibilityLabel="Share"
           style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
         >
-          <ShareNetwork size={20} color={colors.white} weight="bold" />
+          <ShareNetwork size={20} color={colors.brand} weight="bold" />
         </Pressable>
         <Pressable
           onPress={() => onSave?.()}
@@ -47,7 +47,7 @@ export function ProductScreenChrome({ onBack, saved, onSave, onShare, children }
           accessibilityLabel={saved ? 'Remove from saved' : 'Save'}
           style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
         >
-          <BookmarkSimple size={20} color={colors.white} weight={saved ? 'fill' : 'regular'} />
+          <BookmarkSimple size={20} color={colors.brand} weight={saved ? 'fill' : 'regular'} />
         </Pressable>
       </View>
       {children}

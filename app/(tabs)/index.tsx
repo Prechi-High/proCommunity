@@ -1,4 +1,4 @@
-import { Text, View } from "react-native";
+import { Text, View, useWindowDimensions } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { colors as c, fonts as f } from "@/constants/theme";
 import { useAppStore } from "@/lib/store";
@@ -19,8 +19,10 @@ import {
 import { ExperienceCard } from "@/components/living/ExperienceCard";
 export default function Today() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const uid = useAppStore((s) => s.profile?.id);
   const profile = useAppStore((s) => s.profile);
+  const routines = useLivingQuery(["my-routines"], () => api.routines(true), !!uid);
   const mine = useLivingQuery(["journeys"], api.journeys, !!uid);
   const feed = useLivingQuery(["feed"], () => api.experiences());
   const updates = useLivingQuery(["activity"], api.activity, !!uid);
@@ -45,68 +47,20 @@ export default function Today() {
       }
       sub="Look beyond the promise. See what happened after people brought it home."
     >
-      <Card tone="wine">
-        <Tag text="KNOW BEFORE YOU BUY" tone="gold" />
-        <Text
-          style={{
-            fontFamily: f.serif,
-            fontSize: 35,
-            lineHeight: 40,
-            color: c.white,
-          }}
-        >
-          What are you curious about?
-        </Text>
-        <Body light>
-          Search a product or show us its label. Explore the claims, real
-          experiences, and what is still unknown.
-        </Body>
-        <Button
-          quiet
-          label="Unmask a product →"
-          onPress={() => router.push("/unmask" as Href)}
-        />
-      </Card>
-      <View style={[design.row, { flexWrap: "wrap", alignItems: "stretch" }]}>
-        <View style={{ flex: 1, minWidth: 230 }}>
-          <Card>
-            <Tag text="YOUR NEXT CHAPTER" tone="sage" />
-            <Title>
-              {due?.length ? "What changed?" : "Start with what you use."}
-            </Title>
-            <Body>
-              {due?.length
-                ? "Your experience becomes more useful when you return to it. Add an update when you have something new to share."
-                : "Keep your products, routines and observations together. You choose what to share."}
-            </Body>
-            <Button
-              quiet
-              label={due?.length ? "Update a product" : "My products"}
-              onPress={() =>
-                router.push(
-                  due?.[0]
-                    ? (`/journey/${due[0].id}` as Href)
-                    : ("/products" as Href),
-                )
-              }
-            />
-          </Card>
+      <View style={{ flexDirection: width >= 850 ? "row" : "column", gap: 16 }}>
+        <View style={{ flex: 1.5, backgroundColor: c.brandDeep, borderRadius: 24, padding: width >= 760 ? 32 : 24, gap: 20 }}>
+          <Tag text="KNOW BEFORE YOU BUY" tone="gold" />
+          <Text style={{ fontFamily: f.serif, fontSize: width >= 760 ? 42 : 33, lineHeight: width >= 760 ? 47 : 39, color: c.white }}>A promise is only{`\n`}the beginning.</Text>
+          <Body light>See the claims, the experiences and what is still unknown. Start with a product you’re curious about.</Body>
+          <Button quiet label="Unmask a product →" onPress={() => router.push("/unmask" as Href)} />
         </View>
-        <View style={{ flex: 1, minWidth: 230 }}>
-          <Card tone="gold">
-            <Tag text="ONE PRODUCT. MANY EXPERIENCES." />
-            <Title>Watch the story unfold.</Title>
-            <Body>
-              First impressions are only the beginning. Follow a product or
-              someone whose context speaks to yours.
-            </Body>
-            <Button
-              quiet
-              label="Explore the community"
-              onPress={() => router.push("/pulse" as Href)}
-            />
-          </Card>
+        <View style={{ flex: 1, gap: 14 }}>
+          <Card><Tag text="YOUR NEXT CHAPTER" tone="sage" /><Title>{due?.length ? "What changed?" : "Start with what you use."}</Title><Body>{due?.length ? "Return to a product journey when you have something new to share." : "Keep your products, routines and observations together. You choose what to share."}</Body><Button quiet label={due?.length ? "Add an update →" : "Open my products →"} onPress={() => router.push(due?.[0] ? `/journey/${due[0].id}` as Href : "/products" as Href)} /></Card>
         </View>
+      </View>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
+        <View style={{ flex: 1, minWidth: 240 }}><Card tone="sage"><Tag text="YOUR DAILY RHYTHM" tone="sage" /><Title>{routines.data?.[0]?.name || "Make space for a routine."}</Title><Body>{routines.data?.[0]?.goal || "What you use together matters. Keep product order, frequency and changes in one place."}</Body><Button quiet label={routines.data?.length ? "Open routine →" : "Explore my routines →"} onPress={() => router.push(routines.data?.[0] ? `/routine/${routines.data[0].id}` as Href : "/products?section=routines" as Href)} /></Card></View>
+        <View style={{ flex: 1, minWidth: 240 }}><Card tone="gold"><Tag text="THE EVENING EDIT" /><Title>A little curiosity. No pressure.</Title><Body>Settle in with recent routine updates. Ask what changed, follow a product story, or simply read.</Body><Button quiet label="Visit the evening community →" onPress={() => router.push("/pulse?section=evening" as Href)} /></Card></View>
       </View>
       {uid ? (
         <>

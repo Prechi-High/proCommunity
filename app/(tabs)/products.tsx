@@ -1,3 +1,4 @@
+import { RoutineCard } from "@/components/living/RoutineCard";
 import { useMyMember } from "@/lib/owners";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
@@ -27,7 +28,7 @@ export default function MyProducts() {
     section === "requests" ? "requests" : "products",
   );
   const [name, setName] = useState("");
-  useEffect(() => { if(section === "requests") setTab("requests"); }, [section]);
+  useEffect(() => { if(section && ["products", "routines", "watching", "requests"].includes(section)) setTab(section); }, [section]);
   const action = useAction();
   const verified = useMyMember().data?.owned ?? [];
   const mine = useLivingQuery(["journeys"], api.journeys, !!uid);
@@ -141,18 +142,7 @@ export default function MyProducts() {
                 onPress={() => r.push("/routine/new" as Href)}
               />
               {routines.data?.map((x) => (
-                <Card key={x.id}>
-                  <Title>{x.name}</Title>
-                  <Body>{x.goal || "A routine in progress."}</Body>
-                  <Body>
-                    {x.visibility} · {x.time_of_day.toUpperCase()}
-                  </Body>
-                  <Button
-                    quiet
-                    label="Open routine →"
-                    onPress={() => r.push(`/routine/${x.id}` as Href)}
-                  />
-                </Card>
+                <RoutineCard key={x.id} routine={x} />
               ))}
               {routines.data?.length === 0 ? (
                 <Empty
@@ -207,8 +197,7 @@ export default function MyProducts() {
               <Card>
                 <Title>Missing a product?</Title>
                 <Body>
-                  Tell us what you want investigated. Requests are demand
-                  signals, not manufactured evidence.
+                  Tell us what you want investigated. We will keep your request here as the product catalogue grows.
                 </Body>
                 <Field
                   label="Product name and brand"

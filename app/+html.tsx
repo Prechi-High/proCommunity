@@ -20,8 +20,10 @@ export default function Root({ children }: { children: ReactNode }) {
 
 const css = `
 html, body, #root { height: 100%; margin: 0; }
+*:focus-visible { outline: 2px solid #5C1620; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
 body {
-  background-color: #F6F4EF;
+  background-color: #FAF8F3;
   overscroll-behavior: none;
   font-family: 'General Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }

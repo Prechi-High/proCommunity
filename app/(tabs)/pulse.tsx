@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
-import { useRouter, type Href } from "expo-router";
+import { useRouter, useLocalSearchParams, type Href } from "expo-router";
 import * as api from "@/lib/living/api";
 import { useAppStore } from "@/lib/store";
 import {
@@ -16,11 +16,14 @@ import {
   useLivingQuery,
 } from "@/components/living/ui";
 import { ExperienceCard } from "@/components/living/ExperienceCard";
+import { RoutineCard } from "@/components/living/RoutineCard";
 import { FollowButton } from "@/components/living/FollowButton";
 export default function Community() {
   const r = useRouter();
+  const { section } = useLocalSearchParams<{ section?: string }>();
   const uid = useAppStore((s) => s.profile?.id);
   const [tab, setTab] = useState("stories");
+  useEffect(() => { if (section && ["stories", "following", "routines", "questions", "evening"].includes(section)) setTab(section); }, [section]);
   const [context, setContext] = useState("");
   const feed = useLivingQuery(["feed"], () => api.experiences());
   const routines = useLivingQuery(["public-routines"], () => api.routines());
@@ -94,19 +97,7 @@ export default function Community() {
             ?.filter((x) => x.time_of_day === "pm")
             .slice(0, 4)
             .map((x) => (
-              <Card key={x.id}>
-                <Title>{x.name}</Title>
-                <Body>{x.goal || "An evening routine in progress."}</Body>
-                <Body>{x.context || "Context not provided."}</Body>
-                {x.uncertainty ? (
-                  <Body>Still uncertain: {x.uncertainty}</Body>
-                ) : null}
-                <Button
-                  quiet
-                  label="See products & recent updates"
-                  onPress={() => r.push(`/routine/${x.id}` as Href)}
-                />
-              </Card>
+              <RoutineCard key={x.id} routine={x} follow />
             ))}
           {routines.data?.filter((x) => x.time_of_day === "pm").length === 0 ? (
             <Body>
@@ -146,20 +137,7 @@ export default function Community() {
         <>
           <Busy loading={routines.isLoading} error={routines.error} />
           {routines.data?.map((x) => (
-            <Card key={x.id}>
-              <Title>{x.name}</Title>
-              <Body>{x.goal || "A shared routine."}</Body>
-              <Body>{x.context || "Context not provided."}</Body>
-              {x.uncertainty ? (
-                <Body>Still uncertain: {x.uncertainty}</Body>
-              ) : null}
-              <Button
-                quiet
-                label="Explore routine"
-                onPress={() => r.push(`/routine/${x.id}` as Href)}
-              />
-              <FollowButton type="routine" id={x.id} />
-            </Card>
+            <RoutineCard key={x.id} routine={x} follow />
           ))}
           {routines.data?.length === 0 ? (
             <Empty
