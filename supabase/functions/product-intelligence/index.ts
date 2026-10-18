@@ -156,11 +156,13 @@ function db() {
       return out[0] ?? null;
     },
     async patch(table: string, filter: string, row: Json): Promise<void> {
-      await fetch(`${url}/rest/v1/${table}?${filter}`, {
+      const r = await fetch(`${url}/rest/v1/${table}?${filter}`, {
         method: "PATCH",
+        signal: AbortSignal.timeout(15_000),
         headers: { ...headers, Prefer: "return=minimal" },
         body: JSON.stringify(row),
-      }).catch(() => undefined);
+      });
+      if (!r.ok) throw new Error(`patch_${table}_http_${r.status}`);
     },
     async rpc(fn: string, args: Json): Promise<Json[]> {
       const r = await fetch(`${url}/rest/v1/rpc/${fn}`, { method: "POST", headers, body: JSON.stringify(args) }).catch(() => null);
@@ -793,13 +795,17 @@ async function runInvestigate(input: {
   if (store && !input.force) {
     const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`);
     let payload = hit?.payload as Json | undefined;
+    if (payload && hit?.presentation_snapshot) payload = { ...payload, presentation: hit.presentation_snapshot, uiContract: hit.ui_contract_snapshot };
     if (payload && !payload.presentation) {
       const cached = await readBlueprintCache(id);
       if (cached.hit && presentationMatchesConversationEvidence(payload, cached.payload.presentation)) {
         const presentation = cached.payload.presentation;
-        if (presentation.dimensionExperience) delete presentation.dimensionExperience.normalizedRows;
+        if (presentation.dimensionExperience) {
+          delete presentation.dimensionExperience.normalizedRows;
+          for (const bundle of Object.values(presentation.dimensionExperience.byKey)) bundle.items = bundle.items.slice(0, 20);
+        }
         payload = { ...payload, presentation, uiContract: cached.payload.uiContract };
-        await store.upsert("product_intel", { id, payload });
+        await store.patch("product_intel", `id=eq.${encodeURIComponent(id)}`, { presentation_snapshot: presentation, ui_contract_snapshot: cached.payload.uiContract ?? null });
       }
     }
     if (hit && payload?.version === PROFILE_VERSION && payload.presentation && +new Date(String(hit.refresh_after)) > Date.now()) {
@@ -1206,6 +1212,8 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
       category: identity.category,
       hero_image_url: images[0] ?? null,
       payload: { ...profile, score: null },
+      presentation_snapshot: null,
+      ui_contract_snapshot: null,
       confidence,
       verified_at: profile.verifiedAt,
       refresh_after: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -1274,17 +1282,9 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     jobTimings.blueprintMs = Date.now() - blueprintStart;
     jobTimings.scoringMs = jobTimings.blueprintMs;
     if (outProfile.presentation) {
-      await store.upsert("product_intel", {
-        id,
-        query: q,
-        name: identity.name,
-        brand: identity.brand || null,
-        category: identity.category,
-        hero_image_url: images[0] ?? null,
-        payload: { ...outProfile, score: outProfile.presentation ? outProfile.score : null },
-        confidence,
-        verified_at: profile.verifiedAt,
-        refresh_after: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      await store.patch("product_intel", `id=eq.${encodeURIComponent(id)}`, {
+        presentation_snapshot: outProfile.presentation,
+        ui_contract_snapshot: outProfile.uiContract ?? null,
       });
     }
   } else if (store) {
@@ -2545,7 +2545,7 @@ Deno.serve(async (req) => {
       const store = db();
       const saved = store ? await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`) : null;
       const savedPayload = saved?.payload as Json | undefined;
-      const reusable = savedPayload?.version === PROFILE_VERSION && Boolean(savedPayload.presentation) &&
+      const reusable = savedPayload?.version === PROFILE_VERSION && Boolean(saved?.presentation_snapshot || savedPayload.presentation) &&
         +new Date(String(saved?.refresh_after)) > Date.now();
       const mode = await acquireUnmaskJob(id, store, { force: body.force === true || !reusable });
       const existing = await readUnmaskJob(id, store);
@@ -2553,7 +2553,7 @@ Deno.serve(async (req) => {
         const hit = store ? await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`) : null;
         const payload = hit?.payload as Json | undefined;
         if (payload) {
-          const enriched = payload;
+          const enriched = hit?.presentation_snapshot ? { ...payload, presentation: hit.presentation_snapshot, uiContract: hit.ui_contract_snapshot } : payload;
           return json({ success: true, attached: true, job: existing, profile: enriched });
         }
       }
@@ -2598,7 +2598,7 @@ Deno.serve(async (req) => {
       const payload = hit?.payload as Json | undefined;
       if (!payload) return json({ success: false, profile: null });
       // Reads must never trigger a blueprint LLM or fresh research.
-      return json({ success: true, profile: payload });
+      return json({ success: true, profile: hit?.presentation_snapshot ? { ...payload, presentation: hit.presentation_snapshot, uiContract: hit.ui_contract_snapshot } : payload });
     }
 
     if (action === "compare_aspects" || action === "compare_focus") {
