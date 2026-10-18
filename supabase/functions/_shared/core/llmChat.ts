@@ -71,6 +71,7 @@ async function callGemini(
     const res = await withTimeout(
       fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: "POST",
+        signal: AbortSignal.timeout(Math.max(1, left)),
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
@@ -116,6 +117,7 @@ async function callNvidia(
     const res = await withTimeout(
       fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
         method: "POST",
+        signal: AbortSignal.timeout(Math.max(1, left)),
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
@@ -169,6 +171,7 @@ export async function callLlmJson(prompt: string, maxTokens: number, timeoutMs: 
       const res = await withTimeout(
         fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
+        signal: AbortSignal.timeout(Math.max(1, left)),
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${orKey}`,

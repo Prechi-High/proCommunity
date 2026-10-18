@@ -14,6 +14,12 @@ export function isActiveJobState(state: UnmaskJobState): boolean {
   return ACTIVE.includes(state);
 }
 
+// Workers have a finite lifetime; an abandoned job must not lock a product forever.
+export function isStaleUnmaskJob(record: UnmaskJobRecord, now = Date.now()): boolean {
+  const updated = Date.parse(record.progress.updatedAt);
+  return isActiveJobState(record.progress.state) && (!Number.isFinite(updated) || now - updated > 120_000);
+}
+
 function defaultProgress(state: UnmaskJobState = "queued"): UnmaskJobProgress {
   const now = new Date().toISOString();
   return {
@@ -85,7 +91,7 @@ export async function acquireUnmaskJob(
   opts?: { force?: boolean },
 ): Promise<"attach" | "start"> {
   const existing = await readUnmaskJob(productId, store);
-  if (existing && isActiveJobState(existing.progress.state)) return "attach";
+  if (existing && isActiveJobState(existing.progress.state) && !isStaleUnmaskJob(existing)) return "attach";
   if (!opts?.force && existing?.progress.state === "ready") return "attach";
   await writeUnmaskJob(productId, { progress: defaultProgress("queued") }, store);
   return "start";

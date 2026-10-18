@@ -7,7 +7,7 @@ import {
 } from "../_shared/evidence/enrichProfile.ts";
 import { runInBackground } from "../_shared/investigation/background.ts";
 import {
-  acquireUnmaskJob,
+  acquireUnmaskJob, isStaleUnmaskJob,
   progressForState,
   readUnmaskJob,
   writeUnmaskJob,
@@ -385,6 +385,7 @@ async function callGemini(gKey: string, prompt: string, maxTokens: number, deadl
     const res = await withTimeout(
       fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: "POST",
+          signal: AbortSignal.timeout(Math.max(1, left)),
         headers: { "Content-Type": "application/json", "x-goog-api-key": gKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
@@ -436,6 +437,7 @@ async function callNvidia(
     const res = await withTimeout(
       fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
         method: "POST",
+          signal: AbortSignal.timeout(Math.max(1, left)),
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${nvKey}`,
@@ -494,6 +496,7 @@ async function callLlm(prompt: string, maxTokens: number, timeoutMs: number): Pr
       const res = await withTimeout(
         fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
+          signal: AbortSignal.timeout(Math.max(1, left)),
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${orKey}`,
@@ -776,8 +779,8 @@ async function runInvestigate(input: {
   if (store && !input.force) {
     const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`);
     const payload = hit?.payload as Json | undefined;
-    if (hit && payload?.version === PROFILE_VERSION && +new Date(String(hit.refresh_after)) > Date.now()) {
-      const enriched = await attachProductPresentation(store, id, String(hit.query ?? input.query), payload, {});
+    if (hit && payload?.version === PROFILE_VERSION && payload.presentation && +new Date(String(hit.refresh_after)) > Date.now()) {
+      const enriched = payload;
       if (input.jobProductId) {
         jobTimings.totalReadyMs = Date.now() - jobStarted;
         await touchJob("ready", ["cache"], [], {
@@ -885,7 +888,8 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     sections: { details: "researching", evidence: "pending", videos: "pending", scores: "pending" },
   });
   const llm = evidence.length ? await callLlm(prompt, 3400, 32000) : { data: null, model: null, errors: ["no_evidence"] };
-  const d = (llm.data ?? {}) as Json;
+  if (!llm.data) throw new Error(`initial_research_failed:${llm.errors.join("|")}`);
+  const d = llm.data as Json;
   const identityRaw = (d.identity ?? {}) as Json;
 
   const identity = {
@@ -1169,6 +1173,21 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     findings,
   };
 
+  // Publish sourced initial findings before harvesting comments or building scores.
+  if (store && llm.data) {
+    await store.upsert("product_intel", {
+      id,
+      query: q,
+      name: identity.name,
+      brand: identity.brand || null,
+      category: identity.category,
+      hero_image_url: images[0] ?? null,
+      payload: { ...profile, score: null },
+      confidence,
+      verified_at: profile.verifiedAt,
+      refresh_after: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+  }
   let outProfile = profile as Json;
   if (llm.data) {
     try {
@@ -1217,7 +1236,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
       brand: identity.brand || null,
       category: identity.category,
       hero_image_url: images[0] ?? null,
-      payload: profile,
+      payload: { ...outProfile, score: outProfile.presentation ? outProfile.score : null },
       confidence,
       verified_at: profile.verifiedAt,
       refresh_after: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -1239,7 +1258,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
         brand: identity.brand || null,
         category: identity.category,
         hero_image_url: images[0] ?? null,
-        payload: outProfile,
+        payload: { ...outProfile, score: outProfile.presentation ? outProfile.score : null },
         confidence,
         verified_at: profile.verifiedAt,
         refresh_after: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -1252,8 +1271,8 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     jobTimings.totalReadyMs = Date.now() - jobStarted;
     await touchJob("ready", ["web", "images", "shopping", "llm", "evidence", "blueprint", "scoring"], [], {
       timings: jobTimings,
-      sections: { details: "ready", evidence: "ready", videos: "ready", scores: "ready" },
-      milestones: { scorecardComplete: true },
+      sections: { details: "ready", evidence: "ready", videos: "ready", scores: outProfile.presentation ? "ready" : "pending" },
+      milestones: { scorecardComplete: Boolean(outProfile.presentation) },
     });
   }
   return { cached: false, profile: outProfile, errors: llm.errors };
@@ -2501,15 +2520,17 @@ Deno.serve(async (req) => {
       if (!q) return json({ error: "missing_query" }, 400);
       const id = productId || slugify(q);
       const store = db();
-      const mode = await acquireUnmaskJob(id, store, { force: body.force === true });
+      const saved = store ? await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`) : null;
+      const savedPayload = saved?.payload as Json | undefined;
+      const reusable = savedPayload?.version === PROFILE_VERSION && Boolean(savedPayload.presentation) &&
+        +new Date(String(saved?.refresh_after)) > Date.now();
+      const mode = await acquireUnmaskJob(id, store, { force: body.force === true || !reusable });
       const existing = await readUnmaskJob(id, store);
       if (mode === "attach" && existing?.progress.state === "ready") {
         const hit = store ? await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`) : null;
         const payload = hit?.payload as Json | undefined;
         if (payload) {
-          const enriched = store
-            ? await attachProductPresentation(store, id, String(hit?.query ?? q), payload, {})
-            : payload;
+          const enriched = payload;
           return json({ success: true, attached: true, job: existing, profile: enriched });
         }
       }
@@ -2527,7 +2548,13 @@ Deno.serve(async (req) => {
       const productId = str(body.productId, 100);
       if (!productId) return json({ error: "missing_product" }, 400);
       const store = db();
-      const job = await readUnmaskJob(productId, store);
+      let job = await readUnmaskJob(productId, store);
+      if (job && isStaleUnmaskJob(job)) {
+        job = await writeUnmaskJob(productId, {
+          progress: { state: "failed", activeStages: [] },
+          error: "research_interrupted_retry_available",
+        }, store);
+      }
       if (!job) return json({ success: true, job: null });
       return json({ success: true, job });
     }
@@ -2548,9 +2575,8 @@ Deno.serve(async (req) => {
       const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(productId)}`);
       const payload = hit?.payload as Json | undefined;
       if (!payload) return json({ success: false, profile: null });
-      const q = str(hit?.query ?? payload.query, 200) || productId.replace(/-/g, " ");
-      const enriched = await attachProductPresentation(store, productId, q, payload, {});
-      return json({ success: true, profile: enriched });
+      // Reads must never trigger a blueprint LLM or fresh research.
+      return json({ success: true, profile: payload });
     }
 
     if (action === "compare_aspects" || action === "compare_focus") {
