@@ -1,6 +1,8 @@
 import { attachNativePublicResponse } from "../_shared/evidence/nativeExperience.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { answerFromStoredEvidence } from "../_shared/ask/storedEvidence.ts";
+import { readBlueprintCache } from "../_shared/blueprint/cache.ts";
+import { presentationMatchesConversationEvidence } from "../_shared/blueprint/presentationEvidenceSync.ts";
 import { attachProductPresentation } from "../_shared/blueprint/index.ts";
 import {
   enrichProfileWithConversationEvidence,
@@ -120,11 +122,13 @@ function db() {
       return rows[0] ?? null;
     },
     async upsert(table: string, row: Json): Promise<void> {
-      await fetch(`${url}/rest/v1/${table}`, {
+      const r = await fetch(`${url}/rest/v1/${table}`, {
         method: "POST",
+        signal: AbortSignal.timeout(15_000),
         headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify(row),
-      }).catch(() => undefined);
+      });
+      if (!r.ok) throw new Error(`upsert_${table}_http_${r.status}`);
     },
     async upsertMany(table: string, rows: Json[]): Promise<void> {
       if (!rows.length) return;
@@ -788,7 +792,16 @@ async function runInvestigate(input: {
 
   if (store && !input.force) {
     const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`);
-    const payload = hit?.payload as Json | undefined;
+    let payload = hit?.payload as Json | undefined;
+    if (payload && !payload.presentation) {
+      const cached = await readBlueprintCache(id);
+      if (cached.hit && presentationMatchesConversationEvidence(payload, cached.payload.presentation)) {
+        const presentation = cached.payload.presentation;
+        if (presentation.dimensionExperience) delete presentation.dimensionExperience.normalizedRows;
+        payload = { ...payload, presentation, uiContract: cached.payload.uiContract };
+        await store.upsert("product_intel", { id, payload });
+      }
+    }
     if (hit && payload?.version === PROFILE_VERSION && payload.presentation && +new Date(String(hit.refresh_after)) > Date.now()) {
       const enriched = payload;
       if (input.jobProductId) {
