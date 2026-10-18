@@ -126,6 +126,16 @@ function db() {
         body: JSON.stringify(row),
       }).catch(() => undefined);
     },
+    async upsertMany(table: string, rows: Json[]): Promise<void> {
+      if (!rows.length) return;
+      const r = await fetch(`${url}/rest/v1/${table}`, {
+        method: "POST",
+        signal: AbortSignal.timeout(15_000),
+        headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify(rows),
+      });
+      if (!r.ok) throw new Error(`bulk_upsert_${table}_http_${r.status}`);
+    },
     async rows(path: string): Promise<Json[]> {
       const r = await fetch(`${url}/rest/v1/${path}`, { headers }).catch(() => null);
       if (!r?.ok) return [];
