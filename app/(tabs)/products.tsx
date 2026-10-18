@@ -1,5 +1,5 @@
 import { useMyMember } from "@/lib/owners";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import * as api from "@/lib/living/api";
@@ -27,6 +27,7 @@ export default function MyProducts() {
     section === "requests" ? "requests" : "products",
   );
   const [name, setName] = useState("");
+  useEffect(() => { if(section === "requests") setTab("requests"); }, [section]);
   const action = useAction();
   const verified = useMyMember().data?.owned ?? [];
   const mine = useLivingQuery(["journeys"], api.journeys, !!uid);

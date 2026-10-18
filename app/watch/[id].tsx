@@ -87,7 +87,7 @@ export default function ProductWatch() {
             <Tag text="EVIDENCE IS STILL DEVELOPING" />
             <Body>
               YouTube comments and other external sources remain available in
-              the full investigation. Native experiences below show reported
+              the full investigation. Unmask experiences below show reported
               usage, documented history and acquisition disclosure separately.
             </Body>
             <Body>
@@ -117,7 +117,7 @@ export default function ProductWatch() {
           {items?.length === 0 ? (
             <Empty
               title="This chapter is still being written."
-              body="There are no shared native experiences at this stage yet. That is a gap in evidence, not proof of a good or bad outcome."
+              body="There are no shared community experiences at this stage yet. That is a gap in evidence, not proof of a good or bad outcome."
             />
           ) : null}
           <Title>Ask someone who has used it</Title>

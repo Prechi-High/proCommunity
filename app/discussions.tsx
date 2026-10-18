@@ -179,6 +179,7 @@ export default function PulseScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.wine }} edges={['top']}>
+      <Pressable accessibilityRole="button" onPress={() => router.canGoBack() ? router.back() : router.replace('/pulse' as Href)} style={{ paddingHorizontal: 16, paddingVertical: 12 }}><Text style={{ fontFamily: fonts.semibold, color: colors.brand }}>← Back to community</Text></Pressable>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 110, gap: 16 }}
         showsVerticalScrollIndicator={false}
