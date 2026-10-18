@@ -79,6 +79,7 @@ async function callGemini(
             temperature: 0.2,
             maxOutputTokens: maxTokens * 2 + 4096,
             responseMimeType: "application/json",
+            ...(/^gemini-3.*flash/.test(model) ? { thinkingConfig: { thinkingLevel: "minimal" } } : {}),
           },
         }),
       }),

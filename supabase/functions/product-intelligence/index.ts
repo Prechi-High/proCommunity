@@ -2540,8 +2540,7 @@ Deno.serve(async (req) => {
       runInBackground(
         runUnmaskJob({ query: q, productId: id, force: body.force === true, country }),
       );
-      const job = await readUnmaskJob(id, store);
-      return json({ success: true, started: true, job });
+      return json({ success: true, started: true, job: existing });
     }
 
     if (action === "unmask_status") {
