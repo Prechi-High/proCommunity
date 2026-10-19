@@ -59,7 +59,8 @@ export async function setDisplayName(name: string): Promise<void> {
   const { data } = await supabase.auth.getSession();
   const user = data.session?.user;
   if (!user) return;
-  await supabase.from('profiles').update({ display_name: clean }).eq('id', user.id);
+  const { error } = await supabase.from('profiles').update({ display_name: clean }).eq('id', user.id);
+  if (error) throw error;
   useAppStore.getState().updateProfile({ displayName: clean });
 }
 

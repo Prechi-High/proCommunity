@@ -34,7 +34,7 @@ export function AskUnmaskTab({ profile, bundle, onAskCommunity, uiContract, sect
   };
 
   const runAsk = async (q: string) => {
-    if (dynamicProductUiEnabled() && uiContract) {
+    if (profile.id) {
       setLoading(true);
       try {
         const api = await askUnmaskFromEdge({
@@ -58,8 +58,11 @@ export function AskUnmaskTab({ profile, bundle, onAskCommunity, uiContract, sect
           });
           return;
         }
+        setResult({ kind: 'insufficient', hint: api.hint || 'No relevant answer was found in the available evidence.', suggestions: bundle.suggestions });
+        return;
       } catch {
-        /* fall through to local matcher */
+        setResult({ kind: 'insufficient', hint: 'The evidence service is unavailable. Please try again or ask the community.', suggestions: bundle.suggestions });
+        return;
       } finally {
         setLoading(false);
       }

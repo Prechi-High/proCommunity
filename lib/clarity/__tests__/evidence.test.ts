@@ -1,0 +1,8 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { summarizeReports, numericReportShare } from '../evidence';
+import type { DimensionEvidenceItem, DimensionExperienceBundle } from '../../unmask/dimensionEvidence';
+const item = (i: number): DimensionEvidenceItem => ({ evidenceId: String(i), statement: 'Report', platform: 'YouTube', url: 'https://youtube.com/watch?v=test', stance: i < 15 ? 'positive' : i < 18 ? 'mixed' : 'negative', strength: 1, relevanceConfidence: 1, productMatchConfidence: 1, affectsScore: true });
+test('deduplicates, excludes ineligible records and calculates traceable positive share', () => { const rows = Array.from({ length: 20 }, (_, i) => item(i)); const r = summarizeReports([...rows, rows[0], { ...item(21), affectsScore: false }]); assert.equal(r.total, 20); assert.equal(r.percent, 75); assert.deepEqual([r.positive, r.mixed, r.negative], [15, 3, 2]); });
+test('does not infer skin type and suppresses sparse percentages', () => { assert.equal(summarizeReports(Array.from({ length: 20 }, (_, i) => item(i)), 'Dry').total, 0); assert.equal(summarizeReports([item(0)]).percent, null); const explicit = { ...item(1), skinType: 'Dry', skinTypeSource: 'self_disclosed' }; assert.equal(summarizeReports([explicit, item(2)], 'Dry').total, 1); });
+test('respects backend insufficiency even when traceable sample reaches twenty', () => { const r = summarizeReports(Array.from({ length: 20 }, (_, i) => item(i))); assert.equal(numericReportShare(r, { sufficiencyGate: { sufficientForNumericScore: false } } as DimensionExperienceBundle), null); });

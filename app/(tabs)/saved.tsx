@@ -87,7 +87,7 @@ export default function SavedScreen() {
                 ? 'Tap the bookmark on any product to keep it here while you decide.'
                 : 'Products you open will appear here so you can pick up where you left off.'}
             </Text>
-            <PrimaryButton label="Search products" onPress={() => router.push('/(tabs)')} style={{ marginTop: 6 }} />
+            <PrimaryButton label="Search products" onPress={() => router.push('/unmask' as Href)} style={{ marginTop: 6 }} />
           </View>
         )}
       </View>

@@ -1,3 +1,4 @@
+import { EvidenceOverview } from '@/components/clarity/EvidenceOverview';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -317,39 +318,8 @@ export function ProductUnmaskFlow({
     );
   }
 
-  const contractDims = uiContract?.overview.dimensions?.length ?? 0;
-  const useDynamicOverview = uiContract && contractDims > 0;
+  return <EvidenceOverview product={product} profile={profile} bundle={bundle} onTabChange={onTabChange} onOpenSources={onOpenSources}/>;
 
-  if (useDynamicOverview) {
-    return (
-      <View style={{ gap: 16 }}>
-        <DynamicOverview
-          contract={uiContract}
-          onDimension={(filterKey) => {
-            onTabChange('evidence');
-            setDimensionId(filterKey);
-          }}
-        />
-        <HighlightsTab bundle={bundle} onDimension={(id) => { onTabChange('evidence'); setDimensionId(id); }} />
-      </View>
-    );
-  }
-
-  return (
-    <View style={{ gap: 16 }}>
-      <ScorecardTab
-        profile={profile}
-        bundle={bundle}
-        onDimension={(id) => {
-          onTabChange('evidence');
-          setDimensionId(id);
-        }}
-        onOpenSources={onOpenSources}
-        mode="overview"
-      />
-      <HighlightsTab bundle={bundle} onDimension={(id) => { onTabChange('evidence'); setDimensionId(id); }} />
-    </View>
-  );
 }
 
 /** Fixed bottom CTA for the identify screen (rendered outside the scroll view). */
