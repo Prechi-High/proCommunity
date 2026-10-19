@@ -1,2 +1,4 @@
-import { SearchHomeScreen } from '@/components/search/SearchHomeScreen';
-export default function Unmask(){return <SearchHomeScreen/>;}
+import { UnmaskEntry } from "@/components/unmask/reference/Entry";
+export default function Unmask() {
+  return <UnmaskEntry />;
+}

@@ -1,3 +1,4 @@
+import { ReferenceQuestionThread } from '@/components/unmask/reference/QuestionThread';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
@@ -20,6 +21,10 @@ import type { CommunityReply, CommunityThread } from '@/lib/types';
 import { useVerifyOwner } from '@/components/VerifyOwner';
 
 export default function ThreadScreen() {
+ const {id,unmask}=useLocalSearchParams<{id:string;unmask?:string}>();
+ return unmask==='1'?<ReferenceQuestionThread id={routeId(id)}/>:<LegacyThreadScreen/>;
+}
+function LegacyThreadScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const params = useLocalSearchParams<{ id: string }>();

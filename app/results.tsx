@@ -1,198 +1,174 @@
-import { useQuery } from '@tanstack/react-query';
-import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { ArrowClockwise, ArrowLeft, MagnifyingGlass } from '@/components/icons';
-import { Eyebrow, FeatureCard, Group, PrimaryButton, ProductRow, SearchBar, Shimmer } from '@/components/kit';
-import { BRAND_COPY } from '@/constants/brand';
-import { colors, fonts } from '@/constants/theme';
-import { hapticSelect } from '@/lib/haptics';
-import { displayName, kickProductOpenPipeline, rememberProduct, searchProducts, slugify } from '@/lib/products';
-import { markProductOpenTiming } from '@/lib/unmask/openTimings';
-import { agentLog } from '@/lib/debug/agentLog';
-import { useAppStore } from '@/lib/store';
-import { nextResearchRequestId } from '@/lib/research/requestScope';
-import { useScan } from '@/lib/useScan';
-import type { Product } from '@/lib/types';
-
+import { useQuery } from "@tanstack/react-query";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { useEffect, useState } from "react";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  ArrowLeft,
+  CaretRight,
+  Check,
+  MagnifyingGlass,
+  X,
+} from "@/components/icons";
+import { fonts } from "@/constants/theme";
+import { rememberProduct, searchProducts } from "@/lib/products";
+import { useAppStore } from "@/lib/store";
+import type { Product } from "@/lib/types";
+import {
+  BottomNav,
+  Button,
+  Busy,
+  Card,
+  Copy,
+  Header,
+  Heading,
+  Photo,
+  Pill,
+  ink,
+  s,
+} from "@/components/unmask/reference/ui";
 export default function ResultsScreen() {
-  const router = useRouter();
-  const params = useLocalSearchParams<{ q?: string }>();
-  const initial = typeof params.q === 'string' ? params.q : '';
-  const [draft, setDraft] = useState(initial);
-  const [query, setQuery] = useState(initial);
-  const [category, setCategory] = useState<string>('All');
-  const addSearch = useAppStore((s) => s.addSearch);
-  const scan = useScan();
-  const requestRef = useRef<string | null>(null);
-
+  const r = useRouter();
+  const { q } = useLocalSearchParams<{ q?: string }>();
+  const [draft, setDraft] = useState(q || "");
+  const [query, setQuery] = useState(q || "");
   useEffect(() => {
-    setDraft(initial);
-    setQuery(initial);
-  }, [initial]);
-
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['search', query],
+    setDraft(q || "");
+    setQuery(q || "");
+  }, [q]);
+  const result = useQuery({
+    queryKey: ["search", query],
     queryFn: () => searchProducts(query),
     enabled: query.trim().length > 1,
-    staleTime: 10 * 60_000,
+    staleTime: 600000,
     retry: 1,
   });
-
-  const products = data?.products ?? [];
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>();
-    products.forEach((p) => counts.set(p.category, (counts.get(p.category) ?? 0) + 1));
-    return [...counts.entries()].filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]).map(([c]) => c).slice(0, 6);
-  }, [products]);
-  const filtered = category === 'All' ? products : products.filter((p) => p.category === category);
-  const [top, ...rest] = filtered;
-
+  const submit = () => {
+    if (draft.trim()) {
+      setQuery(draft.trim());
+      useAppStore.getState().addSearch(draft.trim());
+    }
+  };
   const open = (p: Product) => {
     rememberProduct(p);
-    markProductOpenTiming(p.id, 'selection');
-    agentLog('results.tsx:open', 'search_result_selected', { productId: p.id, q: displayName(p) }, 'H1');
-    kickProductOpenPipeline({
-      id: p.id,
-      query: displayName(p),
-      name: p.name,
-      brand: p.brand,
-      category: p.category,
-      heroImageUrl: p.heroImageUrl,
-    });
-    router.push({ pathname: '/product/[id]', params: { id: p.id, q: displayName(p) } } as Href);
+    r.push({
+      pathname: "/product/[id]",
+      params: { id: p.id, q: p.name },
+    } as Href);
   };
-
-  const investigateQuery = () => {
-    const id = slugify(query);
-    rememberProduct({ id, name: query, brand: '', category: 'Product' });
-    markProductOpenTiming(id, 'selection');
-    kickProductOpenPipeline({ id, query, name: query });
-    router.push({ pathname: '/product/[id]', params: { id, q: query } } as Href);
-  };
-
-  const submit = () => {
-    const t = draft.trim();
-    if (!t) {
-      return;
-    }
-    requestRef.current = nextResearchRequestId();
-    addSearch(t);
-    setCategory('All');
-    setQuery(t);
-  };
-
+  const products = result.data?.products || [];
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.wine }} edges={['top']}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10 }}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={10}
-          accessibilityLabel="Back"
-          style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.lac, alignItems: 'center', justifyContent: 'center' }}
-        >
-          <ArrowLeft size={18} color={colors.bone} weight="bold" />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <SearchBar value={draft} onChangeText={setDraft} onSubmit={submit} onScan={scan.start} busy={scan.busy} />
-        </View>
-      </View>
-
-      {categories.length > 1 ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ flexGrow: 0 }}
-          contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingBottom: 10 }}
-        >
-          {['All', ...categories].map((c) => {
-            const on = c === category;
-            return (
-              <Pressable
-                key={c}
-                onPress={() => {
-                  hapticSelect();
-                  setCategory(c);
-                }}
-                style={{
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                  borderRadius: 999,
-                  backgroundColor: on ? colors.black : colors.lac,
-                }}
-              >
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: on ? colors.white : colors.bone }}>{c}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      ) : null}
-
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 18 }} keyboardShouldPersistTaps="handled">
-        {isLoading ? (
-          <View style={{ gap: 16 }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.bone2 }}>
-              Searching stores, reviews and the web…
-            </Text>
-            <Shimmer height={144} radius={22} />
-            <Group>
-              {[0, 1, 2, 3].map((i) => (
-                <View key={i} style={{ flexDirection: 'row', gap: 14, paddingVertical: 12 }}>
-                  <Shimmer height={68} width={68} radius={14} />
-                  <View style={{ flex: 1, gap: 8, justifyContent: 'center' }}>
-                    <Shimmer height={14} width="80%" />
-                    <Shimmer height={12} width="40%" />
-                  </View>
-                </View>
-              ))}
-            </Group>
-          </View>
-        ) : isError ? (
-          <View style={{ alignItems: 'center', gap: 14, paddingTop: 60 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.bone }}>Search didn’t go through</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2, textAlign: 'center' }}>
-              Check your connection and try again.
-            </Text>
-            <PrimaryButton label={isFetching ? 'Retrying…' : 'Try again'} icon={ArrowClockwise} onPress={() => void refetch()} />
-          </View>
-        ) : top ? (
-          <>
-            <Eyebrow>{BRAND_COPY.resultsIntro}</Eyebrow>
-            <FeatureCard product={top} label="Best match" onPress={() => open(top)} />
-            {rest.length ? (
-              <View style={{ gap: 8 }}>
-                <Eyebrow>{`${rest.length} more ${rest.length === 1 ? 'result' : 'results'}`}</Eyebrow>
-                <Group>
-                  {rest.map((p, i) => (
-                    <View key={p.id} style={{ borderBottomWidth: i === rest.length - 1 ? 0 : 1, borderBottomColor: colors.line }}>
-                      <ProductRow product={p} onPress={() => open(p)} />
-                    </View>
-                  ))}
-                </Group>
-              </View>
-            ) : null}
-            <Pressable onPress={investigateQuery} style={{ alignItems: 'center', paddingVertical: 8 }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.hi }}>
-                Not here? Investigate “{query}” directly
-              </Text>
+    <SafeAreaView edges={["top"]} style={s.page}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={s.content}
+      >
+        <Header wordmarkLarge />
+        <Text style={[s.eyebrow, { textAlign: "center", letterSpacing: 3 }]}>
+          PRODUCT CLARITY
+        </Text>
+        <View style={s.row}>
+          <Pressable accessibilityLabel="Back" onPress={() => r.back()}>
+            <ArrowLeft size={24} color={ink.text} />
+          </Pressable>
+          <View style={[s.row, s.input, { flex: 1 }]}>
+            <MagnifyingGlass size={22} color={ink.muted} />
+            <TextInput
+              accessibilityLabel="Search products"
+              value={draft}
+              onChangeText={setDraft}
+              onSubmitEditing={submit}
+              style={{
+                flex: 1,
+                fontFamily: fonts.regular,
+                fontSize: 15,
+                color: ink.text,
+              }}
+            />
+            <Pressable
+              onPress={() => setDraft("")}
+              accessibilityLabel="Clear search"
+            >
+              <X size={18} color={ink.muted} />
             </Pressable>
-          </>
-        ) : query ? (
-          <View style={{ alignItems: 'center', gap: 14, paddingTop: 60, paddingHorizontal: 12 }}>
-            <MagnifyingGlass size={36} color={colors.bone3} weight="regular" />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.bone, textAlign: 'center' }}>
-              No listings for “{query}”
-            </Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.bone2, textAlign: 'center', lineHeight: 20 }}>
-              We can still build its profile from reviews, specs and discussions across the web.
-            </Text>
-            <PrimaryButton label="Investigate this product" onPress={investigateQuery} />
           </View>
+        </View>
+        <Heading hero>Choose the right product</Heading>
+        <Copy muted>Check the formula and size before you continue.</Copy>
+        <Busy
+          loading={result.isLoading}
+          error={result.error}
+          retry={() => void result.refetch()}
+        />
+        <Text style={s.eyebrow}>{products.length} POSSIBLE MATCHES</Text>
+        {products.map((p, i) => (
+          <Card
+            key={p.id}
+            style={i === 0 ? { borderColor: ink.brand } : undefined}
+          >
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => open(p)}
+              style={s.row}
+            >
+              <Photo uri={p.heroImageUrl} size={i === 0 ? 122 : 90} />
+              <View style={{ flex: 1, gap: 7 }}>
+                {i === 0 ? <Pill>Closest match</Pill> : null}
+                <Text
+                  style={[
+                    s.body,
+                    {
+                      fontFamily: fonts.semibold,
+                      fontSize: 18,
+                      lineHeight: 23,
+                    },
+                  ]}
+                >
+                  {p.name}
+                </Text>
+                <Copy muted>{p.brand}</Copy>
+                <Copy small>{p.description || p.category}</Copy>
+                {i === 0 ? (
+                  <View style={s.row}>
+                    <Check size={17} color={ink.brand} />
+                    <Copy small>
+                      Check the name and size match your product
+                    </Copy>
+                  </View>
+                ) : null}
+              </View>
+              <CaretRight size={20} color={ink.text} />
+            </Pressable>
+            {i === 0 ? (
+              <Button label="This is my product" onPress={() => open(p)} />
+            ) : null}
+          </Card>
+        ))}
+        {!products.length && !result.isLoading && !result.error ? (
+          <Copy muted>
+            No matching product was found. Try a fuller name, brand or model.
+          </Copy>
         ) : null}
+        <Button
+          quiet
+          label="None of these? Refine search"
+          onPress={() => {
+            setDraft("");
+            r.back();
+          }}
+        />
+        <Button
+          quiet
+          label="Request a product"
+          onPress={() =>
+            r.push({
+              pathname: "/request-product",
+              params: { q: query },
+            } as Href)
+          }
+        />
       </ScrollView>
-      {scan.sheet}
+      <BottomNav />
     </SafeAreaView>
   );
 }

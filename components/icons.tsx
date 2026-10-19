@@ -290,3 +290,5 @@ export function IconBubble({
     </View>
   );
 }
+
+export { ArrowBendUpLeft, SlidersHorizontal, Buildings, Ruler } from 'phosphor-react-native';
