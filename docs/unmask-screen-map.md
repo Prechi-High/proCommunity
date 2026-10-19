@@ -33,4 +33,4 @@ White backgrounds, existing burgundy brand accent (#70323E), Boska display/Gener
 Question/context is drafted locally until the explicit Post question action. Selected context is included in the persisted body. Changing the audience returns to the draft, which can be saved privately. There is no automatic community posting.
 
 ## Device scope
-Custom camera composition is implemented for browser getUserMedia. Native Expo uses the existing device camera picker. Camera hardware, authenticated posting, and live provider responses require a permitted device/account during verification.
+Custom camera composition is implemented for browser getUserMedia. Native Expo uses CameraView with the same custom frame and capture controls. Native builds need rebuilding after the camera plugin is added. Camera hardware, authenticated posting, and live provider responses require a permitted device/account during verification.

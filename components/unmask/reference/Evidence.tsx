@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import {
   ChatCircle,
+  CaretRight,
   Clock,
   ArrowBendUpLeft,
   SlidersHorizontal,
@@ -147,7 +148,14 @@ export function Evidence({
             setSort(sort === "Most relevant" ? "Newest first" : "Most relevant")
           }
         >
-          <Copy small>{sort}⌄</Copy>
+          <View style={s.row}>
+            <Copy small>{sort}</Copy>
+            <CaretRight
+              size={14}
+              color={ink.muted}
+              style={{ transform: [{ rotate: "90deg" }] }}
+            />
+          </View>
         </Pressable>
       </View>
       {entries
@@ -222,6 +230,12 @@ export function ExternalCard({
   topic: string;
   replies?: DimensionEvidenceItem[];
 }) {
+  const context = item as DimensionEvidenceItem & {
+    skinType?: string;
+    skinTypeSource?: string;
+  };
+  const disclosed =
+    context.skinTypeSource === "self_disclosed" ? context.skinType : undefined;
   return (
     <Card>
       <Pressable
@@ -250,7 +264,11 @@ export function ExternalCard({
           <Copy>{item.statement}</Copy>
           <View style={[s.row, { flexWrap: "wrap" }]}>
             <Pill>{topic}</Pill>
-            <Pill warning>Skin type not stated</Pill>
+            <Pill warning={!disclosed}>
+              {disclosed
+                ? `${disclosed} skin · self-disclosed`
+                : "Skin type not stated"}
+            </Pill>
           </View>
         </View>
       </View>

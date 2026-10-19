@@ -40,6 +40,14 @@
           "url": "https://sentry.io/",
           "note": "Use SENTRY_AUTH_TOKEN env to authenticate with Sentry."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Unmask to identify products using your camera.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
       ]
     ],
     "experiments": {

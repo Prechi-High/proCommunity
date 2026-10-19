@@ -1,3 +1,4 @@
+import { NativeScanCamera } from "@/components/unmask/reference/NativeScanCamera";
 import {
   Header as ReferenceHeader,
   Button as ReferenceButton,
@@ -97,6 +98,7 @@ export function useScan() {
   const [stage, setStage] = useState<ScanStage>("idle");
   const [preview, setPreview] = useState<string | null>(null);
   const [choosing, setChoosing] = useState(false);
+  const [nativeCamera, setNativeCamera] = useState(false);
   const [webCamera, setWebCamera] = useState(false);
   const [multi, setMulti] = useState<MultiScan | null>(null);
   const [pendingMatch, setPendingMatch] = useState<{
@@ -254,7 +256,8 @@ export function useScan() {
 
   const takePhoto = () => {
     setChoosing(false);
-    if (hasWebCamera()) setWebCamera(true);
+    if (Platform.OS !== "web") setNativeCamera(true);
+    else if (hasWebCamera()) setWebCamera(true);
     else void pick(true);
   };
 
@@ -498,6 +501,19 @@ export function useScan() {
           </Pressable>
         </Pressable>
       </Modal>
+      {nativeCamera ? (
+        <NativeScanCamera
+          onClose={() => setNativeCamera(false)}
+          onPhoto={() => {
+            setNativeCamera(false);
+            upload();
+          }}
+          onCapture={(asset) => {
+            setNativeCamera(false);
+            setPendingReview(asset);
+          }}
+        />
+      ) : null}
       {webCamera ? (
         <WebCameraModal
           reference
@@ -569,7 +585,7 @@ function PhotoReviewModal({
           style={{
             padding: 20,
             gap: 10,
-            backgroundColor: colors.wine,
+            backgroundColor: "#FFFFFF",
             borderTopWidth: 1,
             borderTopColor: colors.line,
           }}

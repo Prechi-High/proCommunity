@@ -474,6 +474,11 @@ export function ReferenceProductFlow(props: Props) {
                     product={product}
                     profile={profile}
                     onEvidence={() => {
+                      if (!intelReady) {
+                        setTab("Overview");
+                        start();
+                        return;
+                      }
                       setPhase("result");
                       change("Evidence");
                     }}
