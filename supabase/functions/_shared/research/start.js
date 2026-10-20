@@ -28,7 +28,7 @@ export async function startParallelResearch(input) {
  const identity={name,brand:input.selectedBrand||preview?.identity?.brand||"",manufacturer:"",
   model:preview?.identity?.model||"",category:preview?.identity?.category||"Product",
   subcategory:preview?.identity?.subcategory||"",variant:preview?.identity?.variant||"",size:preview?.identity?.size||""};
- const profile={id,query:input.query,version:8,identity,summary:preview?.summary||"Checking product information and experiences.",
+ const profile={id,query:input.query,version:9,identity,summary:preview?.summary||"Checking product information and experiences.",
   verdict:"",consensus:"",consensusMark:"",voices:[],reveals:[],people:{voices:0,commenters:0,ratings:0,discussions:0},
   specs:preview?.specs||[],praise:[],complaints:[],bestFor:[],notFor:[],uses:[],howToUse:"",compatibility:"",
   alternatives:[],offers:[],priceRange:null,rating:null,ratingCount:null,score:null,confidence:0,band:"Uncertain",

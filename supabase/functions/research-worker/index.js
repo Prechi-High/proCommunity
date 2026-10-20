@@ -85,15 +85,15 @@ Categories: ${JSON.stringify(run.blueprint.dimensions.map(d=>({key:d.key,label:d
 Read each comment with its parent and validated video title. Reject spam, creator/social chat, questions, hearsay and other products/variants.
 A category needs DIRECT support in the comment; do not invent a connection. Usage frequency ("not everyday") is not absorption; permission to use on the face is not observed performance. If no category is directly supported, return k:[].
 A collection or comparison is not exact-product attribution. Cream, oil, lotion, mist and wash are distinct. A reply can inherit its parent's explicit product context. Do not assume skin type or duration.
-Accept direct user experiences/observations only. Negation matters: "no irritation" is favourable skin comfort. One comment may support several categories with different sentiment.
-Return compact JSON {"r":[{"id":"supplied ID","p":true,"f":true,"c":0.95,"w":"brief reason","a":"verbatim product-form attribution, or empty","k":[["category_key","positive|negative|mixed","exact quote from THIS comment",0.95]],"u":[]}]}.
+Accept direct user experiences/observations only. Classify the speech act in t first. A question about whether a creator’s appearance came from a product is a question, not evidence of that product’s effect. A purchase or future intention is a plan, not observed results. Negation matters: "no irritation" is favourable skin comfort. One comment may support several categories with different sentiment.
+Return compact JSON {"r":[{"id":"supplied ID","p":true,"f":true,"c":0.95,"w":"brief reason","t":"experience|question|plan|hearsay|social|other","a":"verbatim product-form attribution, or empty","k":[["category_key","positive|negative|mixed","exact quote from THIS comment",0.95]],"u":[]}]}.
 Use u:[{"theme":"short label","quote":"verbatim clause","stance":"positive|negative|mixed","confidence":0.95}] only for a useful observed experience outside every listed category. These observations remain separate and unscored.
 p=exact product, f=firsthand experience/observation, c=confidence. Return one item per ID, including rejects (p or f false). Never invent quotes. Keep reasons under eight words.
 Comments: ${JSON.stringify(records.map(r=>({id:r.id,text:r.text,parent:r.contextText,video:r.title})))}`;
  const result=await callLlmJson(prompt,maxTokens,timeout);
  const items=result.data?.r;
  if(!Array.isArray(items))return result;
- return {...result,data:{decisions:items.map(d=>({id:d.id,exactProduct:d.p===false||d.f===false?false:d.p,firsthand:d.p===false||d.f===false?false:d.f,confidence:d.c,reason:d.w||(d.p===false||d.f===false?"No product-specific firsthand experience":"Product experience assessed"),
+ return {...result,data:{decisions:items.map(d=>({id:d.id,exactProduct:d.p===false||d.f===false||d.t&&d.t!=="experience"?false:d.p,firsthand:d.p===false||d.f===false||d.t&&d.t!=="experience"?false:d.f,confidence:d.c,reason:d.w||(d.p===false||d.f===false?"No product-specific firsthand experience":"Product experience assessed"),
   attributionQuote:d.a||"",categories:Array.isArray(d.k)?d.k.map(k=>({key:k[0],stance:k[1],quote:k[2],confidence:k[3],reason:"Product-specific experience"})):[]})),
   observations:items.flatMap(d=>{const r=records.find(x=>x.id===d.id);return d.p===true&&d.f===true&&d.c>=.85&&r&&Array.isArray(d.u)?d.u.filter(u=>u.confidence>=.85&&typeof u.theme==="string"&&typeof u.quote==="string"&&u.quote.length>=3&&r.text.includes(u.quote)).map(u=>({...u,recordId:r.id,url:r.url,text:r.text})):[];})}};
 }
@@ -113,7 +113,8 @@ Category definitions: ${JSON.stringify(run.blueprint.dimensions.map(d=>({key:d.k
 Keep a category ONLY when the comment directly reports an observed experience with this exact product that answers that category.
 Reject inferred bridges: usage frequency is not absorption; having just bought a product or planning to mix it is not a result; repeating an ingredient claim is not personally observed brightening. Questions, speculation, hearsay, jokes and product praise without a relevant observation are not category evidence.
 A contextual reply can report a clear observation without repeating "I used". Consider its parent to disambiguate, but never borrow an experience or quote from the parent.
-Return JSON {"keep":[{"id":"supplied ID","keys":["only directly supported category keys"]}]} for EVERY supplied ID. Empty keys rejects the candidate.
+A viewer complimenting a creator’s skin or asking whether a product caused their appearance is not an attributed product experience.
+Return JSON {"keep":[{"id":"supplied ID","type":"experience|question|plan|hearsay|social|other","keys":["only directly supported category keys"]}]} for EVERY supplied ID. Empty keys rejects the candidate.
 Candidates: ${JSON.stringify(accepted.map(([id,d])=>({id,text:d.row.text,parent:d.row.contextText,title:d.row.sourceTitle,
  proposed:d.row.dimensionLinks.map(l=>({key:l.dimensionKey,quote:l.extractedStatement,stance:l.stance}))})))}
 `,1000,20000);
@@ -122,7 +123,7 @@ Candidates: ${JSON.stringify(accepted.map(([id,d])=>({id,text:d.row.text,parent:
   for(const [id,decision] of accepted){
    const matches=Array.isArray(audit.data?.keep)?audit.data.keep.filter(x=>x.id===id&&Array.isArray(x.keys)):[];
    if(matches.length!==1){delete state.decisions[id];continue;}
-   decision.row.dimensionLinks=decision.row.dimensionLinks.filter(l=>matches[0].keys.includes(l.dimensionKey));
+   decision.row.dimensionLinks=matches[0].type==="experience"?decision.row.dimensionLinks.filter(l=>matches[0].keys.includes(l.dimensionKey)):[];
    if(!decision.row.dimensionLinks.length)state.decisions[id]={inputHash:decision.inputHash,status:"rejected",reason:"No directly supported experience category after semantic verification"};
   }
  }

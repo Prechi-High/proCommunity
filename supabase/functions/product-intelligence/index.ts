@@ -52,7 +52,7 @@ const COMMUNITY_ACTIONS = new Set(["threads", "thread", "post", "reply", "owners
 const MEMBER_ONLY_ACTIONS = new Set(["post", "reply", "ownership_note", "helpful", "vote", "follow", "notifications", "notifications_read", "following", "upload"]);
 
 const SEARCH_TTL_MS = 24 * 60 * 60 * 1000;
-const PROFILE_VERSION = 8;
+const PROFILE_VERSION = 9;
 
 type Json = Record<string, unknown>;
 
