@@ -1,4 +1,4 @@
-import { selectedIdentityDetail } from "../_shared/investigation/selectedIdentity.ts";
+import { selectedIdentityDetail, cleanSelectedProductName } from "../_shared/investigation/selectedIdentity.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { redisService } from "../_shared/redis/service.ts";
 import { productPreviewKey } from "../_shared/redis/keys.ts";
@@ -621,10 +621,13 @@ async function runInvestigate(input: {
   if (store && !input.force) {
     const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`);
     const payload = hit?.payload as Json | undefined;
-    if (hit && payload?.version === PROFILE_VERSION && (payload.researchStatus === "researching" || !payload.evidenceCollectionError || (Array.isArray(payload.conversationEvidence) && payload.conversationEvidence.length > 0)) && +new Date(String(hit.refresh_after)) > Date.now()) {
+    if (hit && payload?.version === PROFILE_VERSION && (payload.researchStatus === "researching" || !payload.evidenceCollectionError || (Array.isArray(payload.conversationEvidence) && payload.conversationEvidence.length > 0)) && (+new Date(String(hit.refresh_after)) > Date.now() || ((!payload.presentation || Number((payload.semanticReview as Json | undefined)?.pending) > 0) && Array.isArray(payload.conversationEvidence) && payload.conversationEvidence.length > 0))) {
       let enriched = payload;
       // Resume interrupted presentation work from already-saved sources, not another provider harvest.
       if (payload.semanticReviewRequired || (!payload.presentation && payload.researchStatus === "researching")) {
+        const savedIdentity = (payload.identity ?? {}) as Json;
+        payload.identity = { ...savedIdentity, name: cleanSelectedProductName(String(savedIdentity.name || input.selectedName || input.query)) };
+        if (!payload.llm) payload.summary = "Product details are being verified. Reviewed experiences are shown below when available.";
         payload.communityEvidence = await loadCommunityEvidence(store, id);
         enriched = await attachProductPresentation(store, id, String(hit.query ?? input.query), payload, { reviewDeadline: Math.min(Date.now() + 45000, jobStarted + 105000) });
         enriched = { ...enriched, researchStatus: enriched.presentation && !enriched.evidenceCollectionError && (enriched.semanticReview as { complete?: boolean } | undefined)?.complete ? "complete" : "limited" };
@@ -643,7 +646,7 @@ async function runInvestigate(input: {
 
   const cachedPreview = await redisService.getJson<ProductPreviewPayload>(productPreviewKey(id));
   const preview = cachedPreview.ok && cachedPreview.value ? { preview: cachedPreview.value } : null;
-  const selectedName = input.selectedName || preview?.preview.identity.name || input.query;
+  const selectedName = cleanSelectedProductName(input.selectedName || preview?.preview.identity.name || input.query);
   const selectedBrand = input.selectedBrand || preview?.preview.identity.brand || "";
   const q = selectedBrand && !selectedName.toLowerCase().includes(selectedBrand.toLowerCase())
     ? `${selectedBrand} ${selectedName}` : selectedName;
@@ -996,7 +999,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     id,
     query: q,
     identity,
-    summary: str(d.summary, 300) || evidence[0]?.snippet || "",
+    summary: str(d.summary, 300) || `Researching ${selectedName}. Product details are being verified.`,
     verdict: str(d.verdict, 300),
     consensus: str(d.consensus, 260),
     consensusMark: exactMark(str(d.consensus, 260), str(d.consensus_mark, 90)),

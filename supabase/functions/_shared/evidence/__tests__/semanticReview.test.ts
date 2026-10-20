@@ -88,3 +88,14 @@ test('database JSON key ordering does not discard reviewed evidence or spend ano
  assert.equal(calls, 1);
  assert.equal(second.rows.length, 1);
 });
+
+test('collection comments must identify the selected physical product form', () => {
+ const dims = [{ key: 'fragrance', label: 'Fragrance', keywords: [], importance: 1 }];
+ const r = { ...record, id: 'cream', title: 'Butterfly Collection Review', text: 'The body cream smells beautiful.' };
+ const decision = { id: r.id, exactProduct: true, firsthand: true, confidence: .95, reason: 'Direct experience', attributionQuote: 'body cream',
+   categories: [{ key: 'fragrance', quote: 'smells beautiful', stance: 'positive', confidence: .9 }] };
+ const target = { name: 'Bath & Body Works Butterfly Body Cream' };
+ assert.equal(validateReviewDecision(r, decision, dims, 'h', target)?.status, 'accepted');
+ assert.equal(validateReviewDecision({ ...r, text: 'The hand cream smells beautiful.' }, { ...decision, attributionQuote: 'hand cream' }, dims, 'h', target)?.status, 'rejected');
+ assert.equal(validateReviewDecision(r, { ...decision, attributionQuote: 'invented body cream' }, dims, 'h', target)?.status, 'rejected');
+});

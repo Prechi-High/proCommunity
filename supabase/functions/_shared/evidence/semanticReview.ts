@@ -51,13 +51,22 @@ export function reviewRecords(profile: Json): ReviewRecord[] {
 }
 
 /** Fail closed on missing IDs, uncertain identity, unsupported categories or non-verbatim quotes. */
-export function validateReviewDecision(record: ReviewRecord, raw: unknown, dimensions: BlueprintDimensionDef[], inputHash: string): ReviewDecision | null {
+export function validateReviewDecision(record: ReviewRecord, raw: unknown, dimensions: BlueprintDimensionDef[], inputHash: string, target?: unknown): ReviewDecision | null {
   const d = obj(raw);
   if (d.id !== record.id || typeof d.exactProduct !== "boolean" || typeof d.firsthand !== "boolean") return null;
   const reason = txt(d.reason).slice(0, 300);
   if (!reason) return null;
   if (!d.exactProduct || !d.firsthand) return { inputHash, status: "rejected", reason };
   if (num(d.confidence) < 0.8 || !Array.isArray(d.categories)) return null;
+  // Identity safeguard for a collection containing multiple physical products.
+  const targetName = txt(obj(target).name).toLowerCase();
+  const form = targetName.match(/\b(body cream|hand cream|body lotion|body mist|shower gel)\b/)?.[1];
+  if (form && /\b(collection|haul)\b/i.test(record.title || "")) {
+    const attribution = txt(d.attributionQuote);
+    if (!attribution || !record.text.includes(attribution) || !attribution.toLowerCase().includes(form)) {
+      return { inputHash, status: "rejected", reason: "Collection discussion does not identify the selected product form" };
+    }
+  }
   const known = new Set(dimensions.map(x => x.key));
   const used = new Set<string>();
   const links = d.categories.flatMap(value => {
@@ -93,10 +102,10 @@ export async function reviewEvidence(input: {
     complete: false, calls: previous?.calls ?? 0, failedCalls: previous?.failedCalls ?? 0, usage: previous?.usage ?? [] };
   const hashes = new Map<string, string>();
   for (const r of input.records) {
-    const hash = await digest([SEMANTIC_REVIEW_VERSION, input.identity, input.dimensions, r]);
+    const hash = await digest([SEMANTIC_REVIEW_VERSION, "exact-product-form-v2", input.identity, input.dimensions, r]);
     hashes.set(r.id, hash);
     const old = previous?.decisions[r.id];
-    if (old && (old.inputHash === hash || old.inputHash === await digest([SEMANTIC_REVIEW_VERSION, input.identity, input.dimensions, r], true))) {
+    if (old && (old.inputHash === hash || old.inputHash === await digest([SEMANTIC_REVIEW_VERSION, "exact-product-form-v2", input.identity, input.dimensions, r], true))) {
       state.decisions[r.id] = { ...old, inputHash: hash };
     }
   }
@@ -106,7 +115,7 @@ export async function reviewEvidence(input: {
     return Number.isFinite(n) && n > 0 ? Math.min(max, Math.floor(n)) : fallback;
   };
   const deadline = input.deadline ?? Date.now() + setting("EVIDENCE_REVIEW_BUDGET_MS", 45000, 90000);
-  const batchSize = setting("EVIDENCE_REVIEW_BATCH_SIZE", 20, 30);
+  const batchSize = setting("EVIDENCE_REVIEW_BATCH_SIZE", 8, 20);
   const maxCalls = setting("EVIDENCE_REVIEW_MAX_CALLS", 24, 100);
   let callsThisRun = 0;
   const refresh = () => {
@@ -124,9 +133,12 @@ Target exact identity: ${JSON.stringify(input.identity)}
 Category meanings: ${JSON.stringify(input.dimensions)}
 Interpret meaning and negation, NOT keyword overlap. An ordinary brand word in spam is NOT identity.
 A validated product video provides context, but reject unrelated creator chat, questions, ads, hearsay and other models.
-Only firsthand experiences/observations of this exact model/variant may contribute. Comparisons need explicit attribution.
+Only firsthand experiences/observations of this exact model/variant AND physical product form may contribute. Comparisons need explicit attribution.
+A scent collection is NOT one product: its hand cream, body cream, body lotion, mist, candle and shower gel differ. Reject comments about a sibling form.
+For a collection/haul source, a generic "Butterfly smells nice" comment cannot identify body cream; reject it. attributionQuote must quote the comment identifying the selected form.
+Buying several items or saying "pretty collection" alone is not performance evidence.
 Do not infer skin type or ownership from likes. No useful experience = reject. Uncertain identity = reject.
-For every supplied ID return {id,exactProduct:boolean,firsthand:boolean,confidence:0..1,reason,categories:[{key,quote,stance:"positive"|"mixed"|"negative",confidence,reason}]}.
+For every supplied ID return {id,exactProduct:boolean,firsthand:boolean,confidence:0..1,reason,attributionQuote:"verbatim product/form reference from this comment, or empty",categories:[{key,quote,stance:"positive"|"mixed"|"negative",confidence,reason}]}.
 quote MUST be an exact contiguous substring of that record's text, never from its parent/title. Select the meaningful clause for EACH category.
 One record can have different category stances. Positive means favourable experience for that category (e.g. no irritation is positive).
 Return JSON {"decisions":[...]} with one decision per ID. Keep reasons brief. Never invent facts.
@@ -142,7 +154,7 @@ Records: ${JSON.stringify(batch)}`;
       for (const r of batch) {
         const matches = decisions.filter(d => obj(d).id === r.id);
         if (matches.length !== 1) continue;
-        const decision = validateReviewDecision(r, matches[0], input.dimensions, hashes.get(r.id)!);
+        const decision = validateReviewDecision(r, matches[0], input.dimensions, hashes.get(r.id)!, input.identity);
         if (decision) state.decisions[r.id] = decision;
       }
     }));

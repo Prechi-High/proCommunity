@@ -48,6 +48,8 @@ export async function requestLlmJson(url: string, init: RequestInit, ms: number)
   }
 }
 
+let geminiBackoffUntil = 0;
+
 const RETIRED_GEMINI = /^gemini-(1\.|2\.0|2\.5)/;
 
 function geminiModels(): string[] {
@@ -93,20 +95,22 @@ async function callGemini(
           generationConfig: {
             temperature: 0.2,
             maxOutputTokens: maxTokens + 2048,
-            ...(/^gemini-3/.test(model) ? { thinkingConfig: { thinkingLevel: "low" } } : {}),
+            ...(/^gemini-3/.test(model) ? { thinkingConfig: { thinkingLevel: /flash-lite/.test(model) ? "minimal" : "low" } } : {}),
             responseMimeType: "application/json",
           },
         }),
       },
-      Math.min(left, 18000),
+      Math.min(left, Math.max(4000, Math.min(12000, Math.floor(left * 0.6)))),
     );
     if (!res) {
       errors.push(`${model}:timeout`);
+      geminiBackoffUntil = Date.now() + 60000;
       if (secret("OPENROUTER_API_KEY") || secret("NVIDIA_API_KEY") || secret("NGC_API_KEY")) break;
       continue;
     }
     if (!res.ok) {
       errors.push(`${model}:http_${res.status}`);
+      if ([429, 500, 502, 503, 504].includes(res.status)) { geminiBackoffUntil = Date.now() + 60000; break; }
       continue;
     }
     const body = res.body as {
@@ -173,7 +177,7 @@ export async function callLlmJson(prompt: string, maxTokens: number, timeoutMs: 
   const nvKey = secret("NVIDIA_API_KEY") || secret("NGC_API_KEY");
   const deadline = Date.now() + timeoutMs;
 
-  if (gKey) {
+  if (gKey && (Date.now() >= geminiBackoffUntil || (!orKey && !nvKey))) {
     const out = await callGemini(gKey, prompt, maxTokens, deadline, errors);
     if (out?.data) return out;
   }

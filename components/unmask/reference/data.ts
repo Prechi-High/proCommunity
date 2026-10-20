@@ -35,7 +35,7 @@ export function dimensions(profile: ProductProfile) {
       }));
   const actual = defined.length
     ? defined
-    : (profile.findings?.claims || []).map((c) => ({
+    : ((profile as ProductProfile & { semanticReviewRequired?: boolean }).semanticReviewRequired ? [] : profile.findings?.claims || []).map((c) => ({
         id: c.id,
         label: c.topic,
         takeaway: c.buyingImplication || c.findingLabel,
@@ -109,4 +109,25 @@ export function claimFor(profile: ProductProfile, id: string, label: string) {
   return profile.findings?.claims.find(
     (c) => c.id === id || c.topic.toLowerCase() === label.toLowerCase(),
   );
+}
+
+export function researchNotice(profile: ProductProfile): string | null {
+  const p = profile as ProductProfile & {
+    semanticReviewRequired?: boolean;
+    conversationEvidence?: unknown[];
+    semanticReview?: { pending?: number; decisions?: Record<string, unknown>; rows?: unknown[] };
+    blueprintAttachError?: string;
+    evidenceCollectionError?: string;
+  };
+  if (!p.semanticReviewRequired) return null;
+  const collected = Array.isArray(p.conversationEvidence) ? p.conversationEvidence.length : 0;
+  const assessed = Object.keys(p.semanticReview?.decisions ?? {}).length;
+  const accepted = p.semanticReview?.rows?.length ?? 0;
+  if (p.blueprintAttachError) return collected
+    ? `${collected} YouTube comments were retrieved, but assessment could not finish. Please retry.`
+    : "Product research could not finish. Please retry.";
+  if ((p.semanticReview?.pending ?? 0) > 0) return `${collected} YouTube comments retrieved. ${accepted} relevant reports available; more comments are awaiting review.`;
+  if (assessed && !accepted) return `${assessed} distinct source comments assessed. None could be confidently attributed to this exact product and its assessment categories.`;
+  if (accepted) return `${accepted} relevant reports from assessed source comments. Percentages appear only when enough reports support them.`;
+  return p.evidenceCollectionError || (collected ? `${collected} YouTube comments retrieved; assessment is still pending.` : "No matching product experiences have been found yet.");
 }

@@ -1,3 +1,4 @@
+import { fallbackBlueprint } from "./fallbackBlueprint.ts";
 import type { DomainResolution } from "../domain/types.ts";
 import type { BuiltBlueprintPackage } from "./build.ts";
 import { generateProductBlueprintLlm } from "./llmBlueprint.ts";
@@ -14,6 +15,7 @@ export async function getOrBuildBlueprintPackage(
   if (prepared?.blueprintId && prepared.dimensions?.length) return prepared;
   const identity = (profile.identity ?? {}) as Json;
   const specs = (Array.isArray(profile.specs) ? profile.specs : []) as Array<{ label?: string; value?: string }>;
+  try {
   const generated = await generateProductBlueprintLlm({
     productId,
     query,
@@ -40,4 +42,7 @@ export async function getOrBuildBlueprintPackage(
     generatedByModel: generated.model ?? "blueprint-llm",
     llmJson: generated.json as Record<string, unknown>,
   };
+  } catch {
+    return fallbackBlueprint(productId, identity, query);
+  }
 }

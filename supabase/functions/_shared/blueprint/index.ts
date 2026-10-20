@@ -144,6 +144,8 @@ async function attachProductPresentationInner(
   );
 
   const built = await getOrBuildBlueprintPackage(productId, query, profile, domainResolution);
+  profile.preparedBlueprint = built;
+  delete profile.blueprintAttachError;
   if (profile.semanticReviewRequired) {
     profile.semanticReview = await reviewEvidence({ deadline: opts?.reviewDeadline, identity: profile.identity, dimensions: built.dimensions,
       records: reviewRecords(profile), previous: profile.semanticReview as SemanticReviewState | undefined,
