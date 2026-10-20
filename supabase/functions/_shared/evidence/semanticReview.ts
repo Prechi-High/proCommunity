@@ -61,11 +61,15 @@ export function validateReviewDecision(record: ReviewRecord, raw: unknown, dimen
   // Identity safeguard for a collection containing multiple physical products.
   const targetName = txt(obj(target).name).toLowerCase();
   const form = targetName.match(/\b(body cream|hand cream|body lotion|body mist|shower gel)\b/)?.[1];
-  if (form && /\b(collection|haul)\b/i.test(record.title || "")) {
+  if (form && (!record.title?.toLowerCase().includes(form) || /\b(collection|haul)\b/i.test(record.title || ""))) {
     const attribution = txt(d.attributionQuote);
     if (!attribution || !record.text.includes(attribution) || !attribution.toLowerCase().includes(form)) {
-      return { inputHash, status: "rejected", reason: "Collection discussion does not identify the selected product form" };
+      return { inputHash, status: "rejected", reason: "Source discussion does not identify the selected product form" };
     }
+  }
+  if (form) {
+    const mentionedForms = record.text.toLowerCase().match(/\b(body cream|hand cream|body lotion|body mist|shower gel)\b/g) ?? [];
+    if (mentionedForms.length && !mentionedForms.includes(form)) return { inputHash, status: "rejected", reason: "Comment explicitly discusses a different product form" };
   }
   const known = new Set(dimensions.map(x => x.key));
   const used = new Set<string>();
@@ -102,7 +106,7 @@ export async function reviewEvidence(input: {
     complete: false, calls: previous?.calls ?? 0, failedCalls: previous?.failedCalls ?? 0, usage: previous?.usage ?? [] };
   const hashes = new Map<string, string>();
   for (const r of input.records) {
-    const hash = await digest([SEMANTIC_REVIEW_VERSION, "exact-product-form-v2", input.identity, input.dimensions, r]);
+    const hash = await digest([SEMANTIC_REVIEW_VERSION, "exact-product-form-v3", input.identity, input.dimensions, r]);
     hashes.set(r.id, hash);
     const old = previous?.decisions[r.id];
     if (old && (old.inputHash === hash || old.inputHash === await digest([SEMANTIC_REVIEW_VERSION, "exact-product-form-v2", input.identity, input.dimensions, r], true))) {
@@ -135,7 +139,7 @@ Interpret meaning and negation, NOT keyword overlap. An ordinary brand word in s
 A validated product video provides context, but reject unrelated creator chat, questions, ads, hearsay and other models.
 Only firsthand experiences/observations of this exact model/variant AND physical product form may contribute. Comparisons need explicit attribution.
 A scent collection is NOT one product: its hand cream, body cream, body lotion, mist, candle and shower gel differ. Reject comments about a sibling form.
-For a collection/haul source, a generic "Butterfly smells nice" comment cannot identify body cream; reject it. attributionQuote must quote the comment identifying the selected form.
+Unless the source title explicitly identifies the selected physical product form and is dedicated to it, a generic "Butterfly smells nice" comment cannot identify body cream; reject it. attributionQuote must quote the comment identifying the selected form.
 Buying several items or saying "pretty collection" alone is not performance evidence.
 Do not infer skin type or ownership from likes. No useful experience = reject. Uncertain identity = reject.
 For every supplied ID return {id,exactProduct:boolean,firsthand:boolean,confidence:0..1,reason,attributionQuote:"verbatim product/form reference from this comment, or empty",categories:[{key,quote,stance:"positive"|"mixed"|"negative",confidence,reason}]}.
