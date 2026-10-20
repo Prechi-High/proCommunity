@@ -57,7 +57,8 @@ export function validateReviewDecision(record: ReviewRecord, raw: unknown, dimen
   const reason = txt(d.reason).slice(0, 300);
   if (!reason) return null;
   if (!d.exactProduct || !d.firsthand) return { inputHash, status: "rejected", reason };
-  if (num(d.confidence) < 0.8 || !Array.isArray(d.categories)) return null;
+  if (typeof d.confidence !== "number" || !Number.isFinite(d.confidence) || !Array.isArray(d.categories)) return null;
+  if (num(d.confidence) < 0.8) return { inputHash, status: "rejected", reason: "Insufficient confidence in product-specific firsthand experience" };
   // Identity safeguard for a collection containing multiple physical products.
   const targetName = txt(obj(target).name).toLowerCase();
   const form = targetName.match(/\b(body cream|hand cream|body lotion|body mist|shower gel)\b/)?.[1];

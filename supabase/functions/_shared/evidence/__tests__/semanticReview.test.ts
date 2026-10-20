@@ -99,3 +99,8 @@ test('collection comments must identify the selected physical product form', () 
  assert.equal(validateReviewDecision({ ...r, text: 'The hand cream smells beautiful.' }, { ...decision, attributionQuote: 'hand cream' }, dims, 'h', target)?.status, 'rejected');
  assert.equal(validateReviewDecision(r, { ...decision, attributionQuote: 'invented body cream' }, dims, 'h', target)?.status, 'rejected');
 });
+
+test('a valid low-confidence assessment is excluded rather than retried forever', () => {
+ assert.equal(validateReviewDecision(record, { ...answer, confidence: .6 }, dimensions, 'h')?.status, 'rejected');
+ assert.equal(validateReviewDecision(record, { ...answer, confidence: 'low' }, dimensions, 'h'), null);
+});
