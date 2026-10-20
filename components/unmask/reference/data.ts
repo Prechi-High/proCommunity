@@ -115,6 +115,7 @@ export function researchNotice(profile: ProductProfile): string | null {
   const parallel = parallelResearchState(profile);
   if (parallel) {
     const reports = (profile as ProductProfile & { semanticReview?: { rows?: unknown[] } }).semanticReview?.rows?.length || 0;
+    if (/http_429|http_402/.test(parallel.failureReason || "")) return `${reports} relevant reports reviewed. AI assessment is limited by provider rate limits or unavailable credits; remaining comments could not all be reviewed.`;
     if (parallel.phase === "batch1") return `${reports} relevant reports reviewed. Research is continuing; results update as more comments are assessed.`;
     if (parallel.phase === "batch2") return "First-batch results are available. We’re checking another batch for categories with fewer than five reports.";
     if (parallel.phase === "interrupted") {

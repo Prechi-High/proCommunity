@@ -198,7 +198,7 @@ async function publish(store,run,tasks,phase,loading){
   parallelResearch:{version:RESEARCH_VERSION,phase,batch:phase==="batch2"?2:run.batch,
    loadingCategories:loading,counts:coverage(semantic.rows,run.blueprint.dimensions),
    summary:researchSummary(semantic.rows,run.blueprint.dimensions),failedTasks:failed.length,
-   failureReason:failed.length?String(failed[0].error||"Some evidence could not be assessed").slice(0,500):null,
+   failureReason:failed.length?String((failed.find(t=>/http_429|http_402/.test(t.error||""))||failed[0]).error||"Some evidence could not be assessed").slice(0,500):null,
    videoTimings:videoTimings(tasks,run.created_at)}};
  profile.findings=buildProductFindings({
   identityConfidence:profile.identityConfidence||0.6,identity:profile.identity,brandClaims:profile.brandClaims||[],
