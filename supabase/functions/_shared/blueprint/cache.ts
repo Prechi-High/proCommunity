@@ -41,13 +41,13 @@ export async function writeBlueprintCache(
     dimensions: presentation.overview?.dimensions ?? [],
     algorithm: presentation.dimensionEvidenceAlgorithm ?? null,
   };
-  await redisService.setJson(productOverviewKey(productId), overview, CACHE_TTL.overview());
-
+  const writes: Promise<unknown>[] = [redisService.setJson(productOverviewKey(productId), overview, CACHE_TTL.overview())];
   const dimExp = presentation.dimensionExperience;
   if (dimExp?.byKey) {
     for (const [dimKey, bundle] of Object.entries(dimExp.byKey)) {
-      await redisService.setJson(productDimensionKey(productId, dimKey), bundle, CACHE_TTL.dimension());
-      await redisService.setJson(productEvidenceKey(productId, dimKey), bundle.items ?? [], CACHE_TTL.evidence());
+      writes.push(redisService.setJson(productDimensionKey(productId, dimKey), bundle, CACHE_TTL.dimension()));
+      writes.push(redisService.setJson(productEvidenceKey(productId, dimKey), bundle.items ?? [], CACHE_TTL.evidence()));
     }
   }
+  await Promise.all(writes);
 }

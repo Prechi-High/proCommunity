@@ -9,7 +9,9 @@ type BuiltBlueprint = BuiltBlueprintPackage;
 type Json = Record<string, unknown>;
 
 type Store = {
+  patch?(table: string, filter: string, row: Json): Promise<void>;
   upsert(table: string, row: Json): Promise<void>;
+  upsertMany?(table: string, rows: Json[]): Promise<void>;
   insertMany(table: string, rows: Json[]): Promise<void>;
   remove(table: string, filter: string): Promise<void>;
 };
@@ -145,8 +147,8 @@ export async function persistBlueprint(
   }
   await cacheInvalidation.invalidateBlueprint(productId, dimensions.map((d) => d.key), factSections.map((f) => f.key));
 
-  await store.upsert("product_intel", {
-    id: productId,
+  // Metadata belongs to an existing profile; a partial INSERT violates required identity columns.
+  if (store.patch) await store.patch("product_intel", `id=eq.${encodeURIComponent(productId)}`, {
     category_id: classification.categoryId,
     product_type: classification.productType,
     product_subtype: classification.productSubtype,

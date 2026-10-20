@@ -11,6 +11,7 @@ import { presentationMatchesConversationEvidence } from "./presentationEvidenceS
 type Json = Record<string, unknown>;
 
 type Store = DomainStore & {
+  upsertMany?(table: string, rows: Json[]): Promise<void>;
   insertMany(table: string, rows: Json[]): Promise<void>;
   remove(table: string, filter: string): Promise<void>;
 };

@@ -115,11 +115,28 @@ function db() {
       return rows[0] ?? null;
     },
     async upsert(table: string, row: Json): Promise<void> {
-      const response = await fetch(`${url}/rest/v1/${table}`, {
-        method: "POST",
-        headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
-        body: JSON.stringify(row),
-        signal: AbortSignal.timeout(8000),
+      const body = JSON.stringify(row);
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const response = await fetch(`${url}/rest/v1/${table}`, {
+            method: "POST",
+            headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
+            body,
+            signal: AbortSignal.timeout(table === "product_intel" ? 15000 : 8000),
+          });
+          if (!response.ok) throw new Error(`persist_${table}_http_${response.status}`);
+          return;
+        } catch (error) {
+          if (attempt === 0 && error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) continue;
+          throw new Error(`persist_${table}:${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    },
+    async upsertMany(table: string, rows: Json[]): Promise<void> {
+      if (!rows.length) return;
+      const response = await fetch(`${url}/rest/v1/${table}?on_conflict=id`, {
+        method: "POST", headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify(rows), signal: AbortSignal.timeout(12000),
       });
       if (!response.ok) throw new Error(`persist_${table}_http_${response.status}`);
     },
@@ -600,7 +617,13 @@ async function runInvestigate(input: {
     const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`);
     const payload = hit?.payload as Json | undefined;
     if (hit && payload?.version === PROFILE_VERSION && +new Date(String(hit.refresh_after)) > Date.now()) {
-      const enriched = payload;
+      let enriched = payload;
+      // Resume interrupted presentation work from already-saved sources, not another provider harvest.
+      if (!payload.presentation && payload.researchStatus === "researching") {
+        enriched = await attachProductPresentation(store, id, String(hit.query ?? input.query), payload, {});
+        enriched = { ...enriched, researchStatus: enriched.presentation ? "complete" : "limited" };
+        await store.upsert("product_intel", { ...hit, payload: enriched });
+      }
       if (input.jobProductId) {
         jobTimings.totalReadyMs = Date.now() - jobStarted;
         await touchJob("ready", ["cache"], [], {
@@ -1102,6 +1125,7 @@ async function runUnmaskJob(input: { query: string; productId: string; force?: b
   try {
     await runInvestigate({ ...input, jobProductId: input.productId });
   } catch (err) {
+    console.error("unmask_job_failed", input.productId, err instanceof Error ? err.stack : String(err));
     await writeUnmaskJob(
       input.productId,
       {

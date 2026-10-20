@@ -26,10 +26,13 @@ test('sourced fallback is persisted when AI is unavailable; get performs no rese
     if (address.startsWith('https://db.test/rest/v1/')) {
       if (init?.method === 'POST') {
         const row = JSON.parse(String(init.body));
-        if (address.endsWith('/product_intel')) payload = row.payload;
+        if (address.endsWith('/product_intel')) {
+          assert.ok(row.query && row.name && row.payload, 'profile upserts must include required database columns');
+          payload = row.payload;
+        }
         return new Response(null, { status: 201 });
       }
-      return Response.json(address.includes('/product_intel?') && payload ? [{ payload }] : []);
+      return Response.json(address.includes('/product_intel?') && payload ? [{ id: 'test-lotion', query: 'Test Lotion', name: 'Test Lotion', refresh_after: new Date(Date.now() + 60000).toISOString(), payload }] : []);
     }
     throw new Error(`Unexpected network request: ${address}`);
   };
@@ -47,6 +50,11 @@ test('sourced fallback is persisted when AI is unavailable; get performs no rese
     const loaded = await (await request({ action: 'get', productId: 'test-lotion' })).json();
     assert.equal(loaded.profile.id, 'test-lotion');
     assert.equal(providerCalls, before, 'cached get must not trigger additional research');
+    (payload as Record<string, any>).researchStatus = 'researching';
+    env.DYNAMIC_BLUEPRINT_ENABLED = 'false';
+    const resumed = await (await request({ action: 'investigate', productId: 'test-lotion', query: 'Test Lotion' })).json();
+    assert.equal(resumed.profile.researchStatus, 'limited');
+    assert.equal(providerCalls, before, 'an interrupted saved profile resumes without another source harvest');
   } finally {
     globalThis.fetch = originalFetch;
     (globalThis as any).Deno = originalDeno;

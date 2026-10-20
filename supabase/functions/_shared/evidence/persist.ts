@@ -4,6 +4,7 @@ type Json = Record<string, unknown>;
 
 type Store = {
   upsert(table: string, row: Json): Promise<void>;
+  upsertMany?(table: string, rows: Json[]): Promise<void>;
   insertMany(table: string, rows: Json[]): Promise<void>;
   remove(table: string, filter: string): Promise<void>;
 };
@@ -63,8 +64,12 @@ export async function persistDimensionEvidence(
     }
   }
 
-  for (const e of evidenceRows) {
-    await store.upsert("evidence", e);
+  if (store.upsertMany) {
+    for (let offset = 0; offset < evidenceRows.length; offset += 100) {
+      await store.upsertMany("evidence", evidenceRows.slice(offset, offset + 100));
+    }
+  } else {
+    for (const e of evidenceRows) await store.upsert("evidence", e);
   }
   if (linkRows.length) await store.insertMany("dimension_evidence", linkRows);
 }
