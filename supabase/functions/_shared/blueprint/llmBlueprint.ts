@@ -179,7 +179,7 @@ Rules:
 - Never include smartphone dimensions (camera, battery) on beauty/home products unless the product truly has them.
 - For inferred domains (e.g. mountain bike), invent appropriate experience dimensions (handling, braking, comfort) — do not default to tech phone dimensions.
 - factual sections must match product type (foundation → Ingredients + Product Details; air fryer → Specs; lipstick → Ingredients + Product Details).
-- Do NOT copy generic templates; reason from the product identity below.
+- Evaluation dimensions must be user-experience outcomes (e.g. comfort, effectiveness, absorption, durability). Product facts such as volume, ingredients, material, model number, packaging type, certifications and supported skin types belong ONLY in fact_sections and fact_field_candidates. Never score those facts as experience dimensions.\n- Do NOT copy generic templates; reason from the product identity below.
 
 Product identity:
 ${identityBlock}`;

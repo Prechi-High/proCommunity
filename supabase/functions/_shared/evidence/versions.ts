@@ -1,13 +1,13 @@
 /** Bump when identity resolution logic changes materially. */
 export const EVIDENCE_IDENTITY_VERSION = "identity-v4";
 /** Bump when dimension relevance / mapping changes. */
-export const EVIDENCE_RELEVANCE_VERSION = "relevance-v3";
+export const EVIDENCE_RELEVANCE_VERSION = "relevance-v4";
 /** Bump when per-dimension statement extraction changes. */
 export const EVIDENCE_EXTRACTION_VERSION = "extraction-v2";
 /** Bump when score aggregation / confidence composition changes. */
 export const DIMENSION_SCORING_VERSION = "dim-scoring-v2";
 /** Composite pipeline package version (client-facing). */
-export const DIMENSION_EVIDENCE_ALGO = "dim-evidence-v4";
+export const DIMENSION_EVIDENCE_ALGO = "dim-evidence-v5";
 
 export type EvidenceAlgorithmFingerprint = {
   dimensionEvidenceAlgorithm: string;
