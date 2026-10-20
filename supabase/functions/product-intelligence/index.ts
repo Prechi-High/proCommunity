@@ -1087,7 +1087,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
   }
   // Persist acquired evidence before optional AI presentation work.
   await persistProfile();
-  if (store && llm.data) {
+  if (store && (llm.data || outProfile.preparedBlueprint)) {
     await touchJob("scoring", ["web", "images", "shopping", "llm", "evidence"], ["blueprint", "scoring"], {
       timings: jobTimings,
       sections: { details: "ready", evidence: "ready", videos: "ready", scores: "researching" },

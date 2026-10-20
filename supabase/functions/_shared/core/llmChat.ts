@@ -98,7 +98,7 @@ async function callGemini(
           },
         }),
       },
-      Math.min(left, 10000),
+      Math.min(left, 18000),
     );
     if (!res) {
       errors.push(`${model}:timeout`);
@@ -147,7 +147,7 @@ async function callNvidia(
           ],
         }),
       },
-      Math.min(left, 10000),
+      Math.min(left, 18000),
     );
     if (!res) {
       errors.push(`nvidia/${model}:timeout`);
@@ -201,7 +201,7 @@ export async function callLlmJson(prompt: string, maxTokens: number, timeoutMs: 
             ],
           }),
         },
-        Math.min(left, 10000),
+        Math.min(left, 18000),
       );
       if (!res) {
         errors.push(`${model}:timeout`);
