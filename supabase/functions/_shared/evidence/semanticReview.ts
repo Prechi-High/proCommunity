@@ -119,7 +119,7 @@ export async function reviewEvidence(input: {
     return Number.isFinite(n) && n > 0 ? Math.min(max, Math.floor(n)) : fallback;
   };
   const deadline = input.deadline ?? Date.now() + setting("EVIDENCE_REVIEW_BUDGET_MS", 45000, 90000);
-  const batchSize = setting("EVIDENCE_REVIEW_BATCH_SIZE", 8, 20);
+  const batchSize = setting("EVIDENCE_REVIEW_BATCH_SIZE", 4, 12);
   const maxCalls = setting("EVIDENCE_REVIEW_MAX_CALLS", 24, 100);
   let callsThisRun = 0;
   const refresh = () => {
@@ -150,7 +150,7 @@ Records: ${JSON.stringify(batch)}`;
       state.calls++;
       callsThisRun++;
       let result: LlmResult;
-      try { result = await (input.call ?? callLlmJson)(prompt, 5000, Math.min(20000, deadline - Date.now())); }
+      try { result = await (input.call ?? callLlmJson)(prompt, Math.min(2500, batch.length * 600), Math.min(20000, deadline - Date.now())); }
       catch { state.failedCalls++; return; }
       state.usage.push({ model: result.model, usage: result.usage, receivedAt: new Date().toISOString() });
       const decisions = result.data?.decisions;
