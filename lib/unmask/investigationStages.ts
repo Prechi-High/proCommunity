@@ -74,7 +74,7 @@ export function investigationComplete(loading: boolean, profile: ProductProfile 
   if (loading || !profile) return false;
   const parallel = (profile as ProductProfile & { parallelResearch?: { phase: string } }).parallelResearch;
   if (parallel) {
-    return ["batch2", "complete", "interrupted"].includes(parallel.phase) && Boolean(profile.presentation);
+    return ["batch1", "batch2", "complete", "interrupted"].includes(parallel.phase) && Boolean(profile.presentation);
   }
   if (profile.findings) return true;
   const pres = profile.presentation as { dimensionExperience?: unknown } | undefined;

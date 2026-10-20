@@ -115,6 +115,11 @@ begin
    where q.state='pending' and q.ready_at<=now() and r.phase not in ('complete','interrupted')
    and (case when q.kind in ('collect','review','identity') then q.kind else 'other' end)=k
    order by q.created_at limit slots for update of q skip locked loop
+    -- Never publish a preview and a final snapshot for the same run concurrently.
+    if t.kind='coordinate' and exists(select 1 from public.research_tasks active_task
+      where active_task.run_id=t.run_id and active_task.kind='coordinate' and active_task.state in ('dispatched','running')) then
+      continue;
+    end if;
     select * into r from public.research_runs where id=t.run_id;
     update public.research_tasks set state='dispatched',attempts=attempts+1,updated_at=now() where id=t.id;
     perform net.http_post(url:=r.endpoint,body:=jsonb_build_object('runId',r.id,'taskId',t.id,'token',r.token),

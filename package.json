@@ -15,7 +15,7 @@
     "test:whatsapp": "tsx --test supabase/functions/_shared/**/__tests__/*.test.ts",
     "typecheck": "tsc --noEmit",
     "whatsapp:keys": "node scripts/whatsapp-flow-keys.mjs",
-    "test:parallel-research": "tsx --test supabase/functions/_shared/research/logic.node.test.ts"
+    "test:parallel-research": "node --import tsx --test supabase/functions/_shared/research/*.node.test.ts lib/unmask/__tests__/investigationStages.test.ts"
   },
   "dependencies": {
     "@expo/config-plugins": "^57.0.9",

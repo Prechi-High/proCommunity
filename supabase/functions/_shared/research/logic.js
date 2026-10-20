@@ -4,6 +4,13 @@ export const BATCH_SIZE = 20;
 export const MIN_REPORTS = 5;
 export const REVIEW_GROUP_SIZE = 8;
 
+/** Opaque YouTube cursors can exceed PostgreSQL's indexed-key size. Keep them in payload only. */
+export async function commentPageTaskKey(videoId, stream, parentId, token) {
+ const hash=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(token));
+ const key=Array.from(new Uint8Array(hash),n=>n.toString(16).padStart(2,"0")).join("");
+ return "collect:"+videoId+":"+stream+":"+(parentId||"")+":"+key;
+}
+
 export function assessmentTasks(records, prefix, batch=1) {
  const tasks=[];
  for(let i=0;i<records.length;i+=REVIEW_GROUP_SIZE) tasks.push({

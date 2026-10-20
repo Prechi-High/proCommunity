@@ -114,8 +114,14 @@ export function claimFor(profile: ProductProfile, id: string, label: string) {
 export function researchNotice(profile: ProductProfile): string | null {
   const parallel = parallelResearchState(profile);
   if (parallel) {
+    const reports = (profile as ProductProfile & { semanticReview?: { rows?: unknown[] } }).semanticReview?.rows?.length || 0;
+    if (parallel.phase === "batch1") return `${reports} relevant reports reviewed. Research is continuing; results update as more comments are assessed.`;
     if (parallel.phase === "batch2") return "First-batch results are available. We’re checking another batch for categories with fewer than five reports.";
-    if (parallel.phase === "interrupted") return "Research was interrupted. Reviewed evidence is shown below; retry to finish.";
+    if (parallel.phase === "interrupted") {
+      if (/Search Queries|youtube_search_limit/.test(parallel.failureReason || "")) return "YouTube’s video-search limit was reached. Research could not finish. Please retry later.";
+      if (/youtube_(quotaExceeded|rateLimitExceeded)/.test(parallel.failureReason || "")) return "YouTube’s data limit was reached. Research could not finish. Please retry later.";
+      return reports ? `${reports} relevant reports are available, but some research could not finish. Retry to continue.` : "Research stopped before any relevant reports were available. Please retry.";
+    }
     if (parallel.phase === "complete") return "Research finished. Percentages describe the available reports; small samples have limited confidence.";
     return "Collecting and reviewing product-specific evidence.";
   }
@@ -140,9 +146,9 @@ export function researchNotice(profile: ProductProfile): string | null {
 }
 
 export function parallelResearchState(profile: ProductProfile): {
-  phase: string; batch: number; loadingCategories?: string[]; failedTasks?: number;
+  phase: string; batch: number; loadingCategories?: string[]; failedTasks?: number; failureReason?: string;
 } | undefined {
   return (profile as ProductProfile & { parallelResearch?: {
-    phase: string; batch: number; loadingCategories?: string[]; failedTasks?: number;
+    phase: string; batch: number; loadingCategories?: string[]; failedTasks?: number; failureReason?: string;
   } }).parallelResearch;
 }

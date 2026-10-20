@@ -20,4 +20,8 @@ Verification: run npm run test:parallel-research, npm run test:dynamic-ui, npm r
 
 The 10-second target is not a completion guarantee. Total latency depends on available comments, sequential YouTube pagination, provider capacity, and assessment latency.
 
+Discovery caches successful routes for one day and uses at most two concurrent search requests. If YouTube search is unavailable or has exhausted its separate search quota, Serper discovers public YouTube URLs; videos.list supplies canonical metadata and commentThreads/comments still supply all comment evidence. Failed routes do not erase successful ones. Search snippets never become experience reports.
+
+Reviewed evidence is published incrementally during batch one. Per-run publication is serialized so a preview cannot overwrite a final result. The UI can reveal these snapshots, shows the actual source-limit failure when interrupted, and offers Retry research. Long opaque YouTube pagination tokens remain in task payloads; task keys use SHA-256 to stay below indexed-key size limits.
+
 Accepted category candidates receive a compact semantic verification pass to prevent unsupported category inference. Unexpected directly observed themes retain source quotes separately and do not silently create score categories.

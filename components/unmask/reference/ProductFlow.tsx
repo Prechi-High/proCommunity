@@ -371,6 +371,9 @@ export function ReferenceProductFlow(props: Props) {
             ) : null}
             {showResult && intelLoading ? <Notice>More evidence is being checked. Available results are shown below.</Notice> : null}
             {showResult && researchNotice(profile) ? <Notice>{researchNotice(profile)}</Notice> : null}
+            {showResult && parallelResearchState(profile)?.phase === "interrupted" ? (
+              <Button label="Retry research" onPress={props.onRetry} disabled={intelLoading} />
+            ) : null}
             {showResult && tab !== "Overview" ? (
               <View
                 style={{
