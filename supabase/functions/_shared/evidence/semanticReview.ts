@@ -98,7 +98,7 @@ export async function reviewEvidence(input: {
     const n = Number(typeof Deno !== "undefined" ? Deno.env.get(name) : undefined);
     return Number.isFinite(n) && n > 0 ? Math.min(max, Math.floor(n)) : fallback;
   };
-  const deadline = input.deadline ?? Date.now() + setting("EVIDENCE_REVIEW_BUDGET_MS", 90000, 120000);
+  const deadline = input.deadline ?? Date.now() + setting("EVIDENCE_REVIEW_BUDGET_MS", 45000, 90000);
   const batchSize = setting("EVIDENCE_REVIEW_BATCH_SIZE", 20, 30);
   const maxCalls = setting("EVIDENCE_REVIEW_MAX_CALLS", 24, 100);
   let callsThisRun = 0;

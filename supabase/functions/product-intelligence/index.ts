@@ -626,7 +626,7 @@ async function runInvestigate(input: {
       // Resume interrupted presentation work from already-saved sources, not another provider harvest.
       if (payload.semanticReviewRequired || (!payload.presentation && payload.researchStatus === "researching")) {
         payload.communityEvidence = await loadCommunityEvidence(store, id);
-        enriched = await attachProductPresentation(store, id, String(hit.query ?? input.query), payload, {});
+        enriched = await attachProductPresentation(store, id, String(hit.query ?? input.query), payload, { reviewDeadline: Math.min(Date.now() + 45000, jobStarted + 105000) });
         enriched = { ...enriched, researchStatus: enriched.presentation && !enriched.evidenceCollectionError && (enriched.semanticReview as { complete?: boolean } | undefined)?.complete ? "complete" : "limited" };
         await store.upsert("product_intel", { ...hit, payload: enriched });
       }
@@ -1113,7 +1113,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
       milestones: { blueprintStartedAt: new Date().toISOString() },
     });
     const blueprintStart = Date.now();
-    outProfile = await attachProductPresentation(store, id, q, outProfile, { force: input.force });
+    outProfile = await attachProductPresentation(store, id, q, outProfile, { force: input.force, reviewDeadline: Math.min(Date.now() + 45000, jobStarted + 105000) });
     jobTimings.blueprintMs = Date.now() - blueprintStart;
     jobTimings.scoringMs = jobTimings.blueprintMs;
   }

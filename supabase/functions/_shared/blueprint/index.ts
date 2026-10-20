@@ -39,7 +39,7 @@ export async function attachProductPresentation(
   productId: string,
   query: string,
   profile: Json,
-  opts?: { force?: boolean },
+  opts?: { force?: boolean; reviewDeadline?: number },
 ): Promise<Json> {
   if (!blueprintEnabled()) return profile;
 
@@ -57,7 +57,7 @@ async function attachProductPresentationInner(
   productId: string,
   query: string,
   profile: Json,
-  opts?: { force?: boolean },
+  opts?: { force?: boolean; reviewDeadline?: number },
 ): Promise<Json> {
   const existing = profile.presentation as Json | undefined;
   if (!opts?.force && existing?.version) {
@@ -145,7 +145,7 @@ async function attachProductPresentationInner(
 
   const built = await getOrBuildBlueprintPackage(productId, query, profile, domainResolution);
   if (profile.semanticReviewRequired) {
-    profile.semanticReview = await reviewEvidence({ identity: profile.identity, dimensions: built.dimensions,
+    profile.semanticReview = await reviewEvidence({ deadline: opts?.reviewDeadline, identity: profile.identity, dimensions: built.dimensions,
       records: reviewRecords(profile), previous: profile.semanticReview as SemanticReviewState | undefined,
       checkpoint: store ? async state => {
         const hit = await store.rows(`product_intel?select=*&id=eq.${encodeURIComponent(productId)}&limit=1`);
