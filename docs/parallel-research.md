@@ -19,3 +19,5 @@ Apply database/parallel-research.sql before deploying research-worker and produc
 Verification: run npm run test:parallel-research, npm run test:dynamic-ui, npm run typecheck. The production export runs these checks before packaging the frontend. database/parallel-research-tests.sql runs queue persistence and lease checks inside a rolled-back transaction. Worker selfTest requests require the private run token and exercise pure scheduling and semantic quote validation without model calls.
 
 The 10-second target is not a completion guarantee. Total latency depends on available comments, sequential YouTube pagination, provider capacity, and assessment latency.
+
+Accepted category candidates receive a compact semantic verification pass to prevent unsupported category inference. Unexpected directly observed themes retain source quotes separately and do not silently create score categories.
