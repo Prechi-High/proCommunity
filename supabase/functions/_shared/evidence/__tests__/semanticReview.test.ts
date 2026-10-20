@@ -72,3 +72,9 @@ test('community and YouTube reports contribute together while repeated authors c
  assert.ok(bundle.items.some(i => i.platform === 'community' && i.affectsScore));
  assert.ok(bundle.items.some(i => i.platform === 'youtube' && i.affectsScore));
 });
+test('a timed-out YouTube page is contained instead of rejecting the entire harvest', async () => {
+ const { withTimeout } = await import('../providers/youtube/harvest.ts');
+ const aborted = Promise.reject(new DOMException('Signal timed out', 'TimeoutError'));
+ assert.equal(await withTimeout(aborted, 50), null);
+ assert.deepEqual(await withTimeout(Promise.resolve({ items: ['previously collected'] }), 50), { items: ['previously collected'] });
+});

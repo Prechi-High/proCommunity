@@ -38,11 +38,16 @@ function decodeHtml(text: string): string {
     .replace(/&gt;/g, ">");
 }
 
-async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
-  return Promise.race([
-    p,
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
-  ]);
+export async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([p, new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), ms); })]);
+  } catch {
+    // A failed page is not a failed harvest: retain records already collected.
+    return null;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 type Limits = ReturnType<typeof readLimits>;

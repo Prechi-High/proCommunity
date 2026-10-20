@@ -1061,6 +1061,8 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
       outProfile = await enrichProfileWithConversationEvidence(id, q, outProfile, {
         forceRefresh: input.force === true, dimensions: prepared.dimensions,
       });
+      const providerState = outProfile.evidenceProviderDiagnostics as { youtube?: { status?: string } } | undefined;
+      if (providerState?.youtube?.status === "error") outProfile.evidenceCollectionError = "YouTube retrieval did not finish. Available reviewed evidence is preserved.";
       jobTimings.evidenceMappingMs = Date.now() - enrichStart;
       const ytDiag = outProfile.youtubeAcquisitionDiagnostics as Json | undefined;
       if (ytDiag && typeof ytDiag === "object") {
@@ -1096,7 +1098,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     jobTimings.blueprintMs = Date.now() - blueprintStart;
     jobTimings.scoringMs = jobTimings.blueprintMs;
   }
-  outProfile = { ...outProfile, researchStatus: llm.data && (outProfile.semanticReview as { complete?: boolean } | undefined)?.complete ? "complete" : "limited" };
+  outProfile = { ...outProfile, researchStatus: llm.data && !outProfile.evidenceCollectionError && (outProfile.semanticReview as { complete?: boolean } | undefined)?.complete ? "complete" : "limited" };
   await persistProfile();
   if (input.jobProductId) {
     jobTimings.totalReadyMs = Date.now() - jobStarted;
