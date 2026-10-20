@@ -109,10 +109,12 @@ Comments: ${JSON.stringify(records.map(r=>({id:r.id,text:r.text,parent:r.context
 }
 async function review(run,task){
  const observations=[];
+ const attempts=[];
  const state=await reviewEvidence({identity:run.identity,dimensions:run.blueprint.dimensions,
   records:task.payload.records,deadline:Date.now()+65000,batchSize:8,maxCalls:1,
   call:async(_prompt,maxTokens,timeout)=>{
    const result=await compactReview(run,task.payload.records,maxTokens,timeout);
+   attempts.push({model:result.model,errors:result.errors,keys:Object.keys(result.data||{}),decisions:result.data?.decisions?.length||0});
    observations.push(...(result.data?.observations||[]));return result;
   }});
  const accepted=Object.entries(state.decisions).filter(([,d])=>d.status==="accepted");
@@ -138,7 +140,7 @@ Candidates: ${JSON.stringify(accepted.map(([id,d])=>({id,text:d.row.text,parent:
   }
  }
  const pending=task.payload.records.filter(r=>!state.decisions[r.id]);
- if(pending.length===task.payload.records.length)throw Error("comment_assessment_incomplete:"+pending.length);
+ if(pending.length===task.payload.records.length)throw Error("comment_assessment_incomplete:"+pending.length+" "+JSON.stringify(attempts).slice(0,380));
  const round=task.payload.round||1;
  const children=pending.length&&round<3?assessmentTasks(pending,task.task_key+":continuation",task.batch)
   .map(t=>({...t,payload:{...t.payload,round:round+1}})):[];
@@ -303,15 +305,16 @@ Deno.serve(async req=>{
   const body=await req.json();
   if(!UUID.test(body.runId||"")||!UUID.test(body.token||""))return json({error:"unauthorized"},401);
   const store=researchStore();
-  const authorized=await store.select("research_runs","id=eq."+body.runId+"&token=eq."+body.token);
+  const authorized=(await store.rows("research_runs?select=id&limit=1&id=eq."+body.runId+"&token=eq."+body.token))[0];
   if(!authorized)return json({error:"unauthorized"},401);
   if(body.selfTest){
    if(body.modelTest){
+    const testRun=await store.select("research_runs","id=eq."+body.runId);
     const task={payload:{records:[{id:"youtube:usage",sourceId:"usage",platform:"youtube",url:"",text:"Yes but not everyday",
      contextText:"Did you apply it on your face?",title:"CAROTONE BRIGHTENING BODY CREAM REVIEW"},
      {id:"youtube:hydration",sourceId:"hydration",platform:"youtube",url:"",text:"No it doesn't dry the skin",
       contextText:"Does carotone make the skin dry?",title:"CAROTONE BRIGHTENING BODY CREAM REVIEW"}]},task_key:"model-test",batch:1};
-    const result=await review(authorized,task);
+    const result=await review(testRun,task);
     return json({success:true,result});
    }
    const logic=logicSelfTest();

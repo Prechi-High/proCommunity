@@ -47,7 +47,7 @@ begin
  update public.research_tasks set state='running',lease=gen_random_uuid(),updated_at=now()
  where id=p_task and run_id=p_run and state='dispatched' returning * into t;
  if not found then return null; end if;
- return jsonb_build_object('task',to_jsonb(t),'run',to_jsonb(r));
+ return jsonb_build_object('task',to_jsonb(t),'run',case when t.kind='facts' then to_jsonb(r) else to_jsonb(r)-'profile' end);
 end $$;
 
 -- Child tasks and raw-page result commit in the same transaction. Lease guards prevent stale writes.
@@ -97,7 +97,8 @@ begin
  if not pg_try_advisory_xact_lock(77190241) then return 0; end if;
  update public.research_tasks set state=case when attempts>=3 then 'failed' else 'pending' end,lease=null,
  error='worker lease expired',updated_at=now(),ready_at=now()
- where state in ('dispatched','running') and updated_at<now()-interval '150 seconds';
+ where (state='dispatched' and updated_at<now()-interval '45 seconds')
+    or (state='running' and updated_at<now()-interval '150 seconds');
  update public.research_runs r set phase='validating' where phase='discovering'
  and exists(select 1 from public.research_tasks t where t.run_id=r.id and t.kind='discover' and t.state='failed');
  for r in select * from public.research_runs where phase not in ('complete','interrupted') loop
@@ -123,7 +124,7 @@ begin
     select * into r from public.research_runs where id=t.run_id;
     update public.research_tasks set state='dispatched',attempts=attempts+1,updated_at=now() where id=t.id;
     perform net.http_post(url:=r.endpoint,body:=jsonb_build_object('runId',r.id,'taskId',t.id,'token',r.token),
-     headers:='{"Content-Type":"application/json"}'::jsonb,timeout_milliseconds:=2000);
+     headers:='{"Content-Type":"application/json"}'::jsonb,timeout_milliseconds:=20000);
     sent:=sent+1;
   end loop;
  end loop;

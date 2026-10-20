@@ -7,6 +7,7 @@ begin
  insert into research_tasks(run_id,task_key,kind,state) values(r,'test','collect','dispatched') returning id into t;
  c:=research_claim(t,r,(select token from research_runs where id=r));
  if c is null then raise exception 'claim failed';end if;
+ if (c->'run') ? 'profile' then raise exception 'collector claim unnecessarily includes full profile';end if;
  if research_claim(t,r,(select token from research_runs where id=r)) is not null then raise exception 'double claim';end if;
  ok:=research_finish(t,(c->'task'->>'lease')::uuid,'{"records":[{"id":"youtube:1","text":"example"}]}',
  '[{"key":"review:1","kind":"review","payload":{"records":[{"id":"youtube:1","text":"example"}]}}]');
