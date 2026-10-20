@@ -618,7 +618,7 @@ async function runInvestigate(input: {
   if (store && !input.force) {
     const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`);
     const payload = hit?.payload as Json | undefined;
-    if (hit && payload?.version === PROFILE_VERSION && +new Date(String(hit.refresh_after)) > Date.now()) {
+    if (hit && payload?.version === PROFILE_VERSION && (payload.researchStatus === "researching" || !payload.evidenceCollectionError) && +new Date(String(hit.refresh_after)) > Date.now()) {
       let enriched = payload;
       // Resume interrupted presentation work from already-saved sources, not another provider harvest.
       if (payload.semanticReviewRequired || (!payload.presentation && payload.researchStatus === "researching")) {
@@ -1024,7 +1024,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     findings,
   };
 
-  let outProfile: Json = { ...profile, semanticReviewRequired: true, researchStatus: llm.data ? "researching" : "limited" } as Json;
+  let outProfile: Json = { ...profile, llmErrors: llm.errors, semanticReviewRequired: true, researchStatus: llm.data ? "researching" : "limited" } as Json;
   const persistProfile = async () => {
     if (!store) throw new Error("product_store_unavailable");
     await store.upsert("product_intel", {
