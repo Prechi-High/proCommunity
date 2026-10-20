@@ -72,7 +72,7 @@ function geminiModels(): string[] {
 function nvidiaModels(): string[] {
   return Array.from(
     new Set(
-      [secret("NVIDIA_TEXT_MODEL"), secret("NVIDIA_MODEL"), "nvidia/nemotron-3.5-lightning-30b-a3b", "mistralai/mistral-7b-instruct-v0.3"].filter(model => Boolean(model) && !["meta/llama-3.1-8b-instruct", "meta/llama-3.3-70b-instruct"].includes(model)),
+      [secret("NVIDIA_TEXT_MODEL"), secret("NVIDIA_MODEL"), "nvidia/nemotron-3.5-lightning-30b-a3b"].filter(model => Boolean(model) && !["meta/llama-3.1-8b-instruct", "meta/llama-3.3-70b-instruct"].includes(model)),
     ),
   );
 }
@@ -170,13 +170,18 @@ async function callNvidia(
   return null;
 }
 
-/** Shared JSON-only LLM call for edge intelligence modules. Gemini → OpenRouter → NVIDIA NIM. */
+/** Shared JSON-only LLM call for edge intelligence modules. NVIDIA NIM → Gemini → OpenRouter. Each route retains the shared deadline. */
 export async function callLlmJson(prompt: string, maxTokens: number, timeoutMs: number): Promise<LlmResult> {
   const errors: string[] = [];
   const orKey = secret("OPENROUTER_API_KEY");
   const gKey = secret("GEMINI_API_KEY") || secret("GOOGLE_API_KEY");
   const nvKey = secret("NVIDIA_API_KEY") || secret("NGC_API_KEY");
   const deadline = Date.now() + timeoutMs;
+
+  if (nvKey) {
+    const out = await callNvidia(nvKey, prompt, maxTokens, deadline, errors);
+    if (out?.data) return out;
+  }
 
   if (gKey && (Date.now() >= geminiBackoffUntil || (!orKey && !nvKey))) {
     const out = await callGemini(gKey, prompt, maxTokens, deadline, errors);
@@ -224,10 +229,6 @@ export async function callLlmJson(prompt: string, maxTokens: number, timeoutMs: 
     }
   }
 
-  if (nvKey) {
-    const out = await callNvidia(nvKey, prompt, maxTokens, deadline, errors);
-    if (out?.data) return out;
-  }
 
   return { data: null, model: null, errors };
 }
