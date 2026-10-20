@@ -292,7 +292,7 @@ async function execute(store,run,task){
  }catch(error){
   console.warn("research_task_failed",task.kind,task.id,String(error).slice(0,200));
   await store.rpc("research_retry",{p_task:task.id,p_lease:task.lease,p_error:String(error)});
-  if(task.kind==="coordinate" && task.attempts>=3) {
+  if(task.kind==="coordinate" && task.payload.stage!=="preview" && task.attempts>=3) {
     await store.patch("research_runs","id=eq."+run.id,{phase:"interrupted",updated_at:new Date().toISOString()});
     await writeUnmaskJob(run.product_id,{progress:{...progressForState("failed",[],[]),
       failureReason:"Research publication failed. Please retry."}},store);
