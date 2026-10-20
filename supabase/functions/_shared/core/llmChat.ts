@@ -21,14 +21,19 @@ export function parseJsonLoose(text: string): Json | null {
   }
 }
 
-async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
-  let id: number | undefined;
-  const t = new Promise<null>((r) => {
-    id = setTimeout(() => r(null), ms) as unknown as number;
-  });
-  const out = await Promise.race([p.catch(() => null), t]);
-  if (id !== undefined) clearTimeout(id);
-  return out as T | null;
+/** Bound both response headers and body; abort upstream work on timeout. */
+export async function requestLlmJson(url: string, init: RequestInit, ms: number): Promise<{ ok: boolean; status: number; body: Json | null } | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(1, ms));
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    const body = response.ok ? await response.json() as Json : null;
+    return { ok: response.ok, status: response.status, body };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const RETIRED_GEMINI = /^gemini-(1\.|2\.0|2\.5)/;
@@ -68,30 +73,31 @@ async function callGemini(
   for (const model of geminiModels()) {
     const left = deadline - Date.now();
     if (left < 2500) break;
-    const res = await withTimeout(
-      fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    const res = await requestLlmJson(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.2,
-            maxOutputTokens: maxTokens * 2 + 4096,
+            maxOutputTokens: maxTokens + 2048,
+            ...(/^gemini-3/.test(model) ? { thinkingConfig: { thinkingLevel: "low" } } : {}),
             responseMimeType: "application/json",
           },
         }),
-      }),
-      left,
+      },
+      Math.min(left, 10000),
     );
     if (!res) {
       errors.push(`${model}:timeout`);
+      if (secret("OPENROUTER_API_KEY") || secret("NVIDIA_API_KEY") || secret("NGC_API_KEY")) break;
       continue;
     }
     if (!res.ok) {
       errors.push(`${model}:http_${res.status}`);
       continue;
     }
-    const body = (await res.json().catch(() => null)) as {
+    const body = res.body as {
       candidates?: Array<{ finishReason?: string; content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>;
     } | null;
     const candidate = body?.candidates?.[0];
@@ -113,8 +119,7 @@ async function callNvidia(
   for (const model of nvidiaModels()) {
     const left = deadline - Date.now();
     if (left < 2500) break;
-    const res = await withTimeout(
-      fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    const res = await requestLlmJson("https://integrate.api.nvidia.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -129,8 +134,8 @@ async function callNvidia(
             { role: "user", content: prompt },
           ],
         }),
-      }),
-      left,
+      },
+      Math.min(left, 10000),
     );
     if (!res) {
       errors.push(`nvidia/${model}:timeout`);
@@ -140,7 +145,7 @@ async function callNvidia(
       errors.push(`nvidia/${model}:http_${res.status}`);
       continue;
     }
-    const body = (await res.json().catch(() => null)) as { choices?: Array<{ message?: { content?: string } }> } | null;
+    const body = res.body as { choices?: Array<{ message?: { content?: string } }> } | null;
     const data = parseJsonLoose(body?.choices?.[0]?.message?.content ?? "");
     if (data) return { data, model: `nvidia/${model}`, errors };
     errors.push(`nvidia/${model}:unparseable`);
@@ -166,8 +171,7 @@ export async function callLlmJson(prompt: string, maxTokens: number, timeoutMs: 
     for (const model of models) {
       const left = deadline - Date.now();
       if (left < 2500) break;
-      const res = await withTimeout(
-        fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const res = await requestLlmJson("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -184,8 +188,8 @@ export async function callLlmJson(prompt: string, maxTokens: number, timeoutMs: 
               { role: "user", content: prompt },
             ],
           }),
-        }),
-        left,
+        },
+        Math.min(left, 10000),
       );
       if (!res) {
         errors.push(`${model}:timeout`);
@@ -195,7 +199,7 @@ export async function callLlmJson(prompt: string, maxTokens: number, timeoutMs: 
         errors.push(`${model}:http_${res?.status ?? "timeout"}`);
         continue;
       }
-      const body = (await res.json().catch(() => null)) as { choices?: Array<{ message?: { content?: string } }> } | null;
+      const body = res.body as { choices?: Array<{ message?: { content?: string } }> } | null;
       const data = parseJsonLoose(body?.choices?.[0]?.message?.content ?? "");
       if (data) return { data, model, errors };
       errors.push(`${model}:unparseable`);

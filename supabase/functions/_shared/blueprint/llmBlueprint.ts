@@ -185,8 +185,8 @@ Product identity:
 ${identityBlock}`;
 
   let lastErrors: string[] = [];
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const llm = await callLlmJson(prompt, 2200, attempt === 0 ? 28000 : 35000);
+  for (let attempt = 0; attempt < 1; attempt++) {
+    const llm = await callLlmJson(prompt, 2200, 12000);
     lastErrors = llm.errors;
     const parsed = llm.data ? parseLlmBlueprintPayload(llm.data) : null;
     if (!parsed) continue;

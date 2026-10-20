@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
 import { View } from "react-native";
@@ -39,6 +39,7 @@ const ACTIVE_UNMASK_JOB_STATES = new Set([
 ]);
 export default function ProductScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useLocalSearchParams<{
     id: string;
     q?: string;
@@ -126,21 +127,53 @@ export default function ProductScreen() {
     if (jobQuery.data?.state === "ready") {
       markProductOpenTiming(id, "job_ready");
       flushProductOpenTimings(id);
+      void queryClient.invalidateQueries({ queryKey: ["intel", id] });
     }
   }, [id, jobQuery.data?.state]);
+
+
+  const intel = useQuery({
+    queryKey: ["intel", id],
+    queryFn: async () => {
+      const res = await callIntel<{ profile?: ProductProfile | null }>(
+        { action: "get", productId: id },
+        20_000,
+      );
+      if (!res.profile) return null;
+      const { hydrateProductFindings } = await import("@/lib/products");
+      await hydrateProductFindings(res.profile);
+      rememberProduct(profileToProduct(res.profile, getKnownProduct(id)));
+      return res.profile;
+    },
+    enabled: Boolean(id),
+    refetchInterval: (query) => {
+      const state = jobQuery.data?.state;
+      if (state && ACTIVE_UNMASK_JOB_STATES.has(state)) return 3000;
+      if (state === "ready" && !query.state.data && query.state.dataUpdateCount < 3) return 1500;
+      return false;
+    },
+    staleTime: 30 * 60_000,
+    retry: 1,
+    retryDelay: 1000,
+  });
 
   useEffect(() => {
     if (!id) return;
     if (previewQuery.isLoading || !previewQuery.data) return;
     if (jobQuery.isLoading) return;
     const state = jobQuery.data?.state;
-    if (state === "ready" || state === "failed") return;
-    if (state && ACTIVE_UNMASK_JOB_STATES.has(state)) return;
+    if (state === "failed") return;
+    const stale = jobQuery.data && Date.now() - Date.parse(jobQuery.data.updatedAt) > 180_000;
+    if (state === "ready" && intel.data !== null) return;
+    if (state && ACTIVE_UNMASK_JOB_STATES.has(state) && !stale) return;
     if (unmaskStarted.current) return;
     unmaskStarted.current = true;
     void startProductUnmask({
       id,
       query: q ?? (known ? displayName(known) : undefined),
+    }).then((result) => {
+      if (result.profile) queryClient.setQueryData(["intel", id], result.profile);
+      void jobQuery.refetch();
     }).catch(() => {
       unmaskStarted.current = false;
     });
@@ -153,27 +186,10 @@ export default function ProductScreen() {
     previewQuery.data,
     jobQuery.isLoading,
     jobQuery.data?.state,
+    jobQuery.data?.updatedAt,
+    intel.data,
+    queryClient,
   ]);
-
-  const intel = useQuery({
-    queryKey: ["intel", id],
-    queryFn: async () => {
-      const res = await callIntel<{ profile?: ProductProfile | null }>(
-        { action: "get", productId: id },
-        20_000,
-      );
-      if (!res.profile) throw new Error("profile_not_ready");
-      const { hydrateProductFindings } = await import("@/lib/products");
-      await hydrateProductFindings(res.profile);
-      rememberProduct(profileToProduct(res.profile, getKnownProduct(id)));
-      return res.profile;
-    },
-    enabled: Boolean(id) && jobQuery.data?.state === "ready",
-    staleTime: 30 * 60_000,
-    retry: (count, err) =>
-      count < 10 && err instanceof Error && err.message === "profile_not_ready",
-    retryDelay: 2000,
-  });
 
   const previewProfile = previewQuery.data
     ? previewToProfile(previewQuery.data.preview)
@@ -184,18 +200,21 @@ export default function ProductScreen() {
   );
   const jobState = jobQuery.data?.state;
   const intelLoading =
-    !intelReady &&
     (previewQuery.isLoading ||
       (jobState != null && ACTIVE_UNMASK_JOB_STATES.has(jobState)));
 
   const retryIntel = useCallback(() => {
     unmaskStarted.current = false;
-    void startProductUnmask({ id, query: q ?? known?.name })
-      .then(() => jobQuery.refetch())
+    void startProductUnmask({ id, query: q ?? known?.name, force: true })
+      .then(async (result) => {
+        if (result.profile) queryClient.setQueryData(["intel", id], result.profile);
+        await jobQuery.refetch();
+        await intel.refetch();
+      })
       .catch(() => undefined);
     void previewQuery.refetch();
     void jobQuery.refetch();
-    void intel.refetch();
+
   }, [id, q, known?.name, previewQuery, jobQuery, intel]);
 
   const product = getKnownProduct(id) ?? known;
@@ -244,7 +263,7 @@ export default function ProductScreen() {
         profile={profile}
         intelReady={intelReady}
         intelLoading={intelLoading}
-        intelError={intel.isError || previewQuery.isError}
+        intelError={!intelReady && (intel.isError || (previewQuery.isError && !product))}
         jobProgress={jobQuery.data}
         previewLoading={previewQuery.isLoading}
         clips={clips.data || []}

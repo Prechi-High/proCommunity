@@ -23,6 +23,7 @@ export async function redisCommand(
         "Content-Type": "application/json",
       },
       body: JSON.stringify(command),
+      signal: AbortSignal.timeout(2000),
     });
     if (!response.ok) {
       return { ok: false, error: `redis_http_${response.status}` };

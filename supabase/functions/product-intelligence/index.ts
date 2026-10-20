@@ -1,4 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { redisService } from "../_shared/redis/service.ts";
+import { productPreviewKey } from "../_shared/redis/keys.ts";
+import type { ProductPreviewPayload } from "../_shared/investigation/types.ts";
+import { callLlmJson as callLlm } from "../_shared/core/llmChat.ts";
 import { answerFromStoredEvidence } from "../_shared/ask/storedEvidence.ts";
 import { attachProductPresentation } from "../_shared/blueprint/index.ts";
 import {
@@ -111,11 +115,13 @@ function db() {
       return rows[0] ?? null;
     },
     async upsert(table: string, row: Json): Promise<void> {
-      await fetch(`${url}/rest/v1/${table}`, {
+      const response = await fetch(`${url}/rest/v1/${table}`, {
         method: "POST",
         headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify(row),
-      }).catch(() => undefined);
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!response.ok) throw new Error(`persist_${table}_http_${response.status}`);
     },
     async rows(path: string): Promise<Json[]> {
       const r = await fetch(`${url}/rest/v1/${path}`, { headers }).catch(() => null);
@@ -296,24 +302,33 @@ type SerperShopping = {
 };
 type SerperImage = { title?: string; imageUrl?: string; link?: string; source?: string; imageWidth?: number; imageHeight?: number; thumbnailUrl?: string };
 
-async function serper<T>(endpoint: "search" | "shopping" | "images", body: Json): Promise<T | null> {
+async function serper<T>(endpoint: "search" | "shopping" | "images", body: Json, onFailure?: (code: string) => void): Promise<T | null> {
   const key = secret("SERPER_API_KEY");
-  if (!key) return null;
+  if (!key) { console.warn("product_search_provider_unconfigured"); return null; }
   return withTimeout(
     fetch(`https://google.serper.dev/${endpoint}`, {
       method: "POST",
       headers: { "X-API-KEY": key, "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }).then((r) => (r.ok ? (r.json() as Promise<T>) : null)),
+    }).then(async (r) => {
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({})) as { message?: string; error?: string };
+        const message = String(data.message ?? data.error ?? "").replace(/(?:sk-|Bearer )[^\s]+/g, "[redacted]").slice(0, 160);
+        console.warn("product_search_provider_failed", endpoint, r.status, message);
+        onFailure?.(/not enough credits/i.test(message) ? "source_quota_exhausted" : `source_http_${r.status}`);
+        return null;
+      }
+      return r.json() as Promise<T>;
+    }),
     9000,
   );
 }
 
-async function shopping(q: string, country: string): Promise<SerperShopping[]> {
-  const local = await serper<{ shopping?: SerperShopping[] }>("shopping", { q, gl: country, num: 20 });
+async function shopping(q: string, country: string, onFailure?: (code: string) => void): Promise<SerperShopping[]> {
+  const local = await serper<{ shopping?: SerperShopping[] }>("shopping", { q, gl: country, num: 20 }, onFailure);
   const rows = local?.shopping ?? [];
   if (rows.length >= 3 || country === "us") return rows;
-  const global = await serper<{ shopping?: SerperShopping[] }>("shopping", { q, gl: "us", num: 20 });
+  const global = await serper<{ shopping?: SerperShopping[] }>("shopping", { q, gl: "us", num: 20 }, onFailure);
   return [...rows, ...(global?.shopping ?? [])];
 }
 
@@ -342,189 +357,6 @@ function parsePrice(raw?: string): { amount: number; currency: string; display: 
 
 // ---------------------------------------------------------------------------
 // LLM
-
-type LlmResult = { data: Json | null; model: string | null; errors: string[] };
-
-function parseJsonLoose(text: string): Json | null {
-  const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
-  try {
-    return JSON.parse(cleaned) as Json;
-  } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-    try {
-      return JSON.parse(match[0]) as Json;
-    } catch {
-      return null;
-    }
-  }
-}
-
-const RETIRED_GEMINI = /^gemini-(1\.|2\.0|2\.5)/;
-
-function geminiModels(): string[] {
-  const pref = secret("GEMINI_MODEL");
-  return Array.from(
-    new Set([pref && !RETIRED_GEMINI.test(pref) ? pref : "", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-flash-latest"].filter(Boolean)),
-  );
-}
-
-async function callGemini(gKey: string, prompt: string, maxTokens: number, deadline: number, errors: string[]): Promise<LlmResult | null> {
-  for (const model of geminiModels()) {
-    const left = deadline - Date.now();
-    if (left < 2500) break;
-    const res = await withTimeout(
-      fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": gKey },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: maxTokens * 2 + 4096, responseMimeType: "application/json" },
-        }),
-      }),
-      left,
-    );
-    if (!res) {
-      errors.push(`${model}:timeout`);
-      continue;
-    }
-    if (!res.ok) {
-      errors.push(`${model}:http_${res.status}`);
-      continue;
-    }
-    const body = (await res.json().catch(() => null)) as {
-      candidates?: Array<{ finishReason?: string; content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>;
-    } | null;
-    const candidate = body?.candidates?.[0];
-    const text = candidate?.content?.parts?.filter((p) => !p.thought).map((p) => p.text ?? "").join("") ?? "";
-    const data = parseJsonLoose(text);
-    if (data) return { data, model, errors };
-    errors.push(`${model}:unparseable:${candidate?.finishReason ?? "none"}`);
-  }
-  return null;
-}
-
-function nvidiaModels(): string[] {
-  return Array.from(
-    new Set(
-      [secret("NVIDIA_TEXT_MODEL"), secret("NVIDIA_MODEL"), "meta/llama-3.3-70b-instruct", "meta/llama-3.1-8b-instruct"].filter(
-        Boolean,
-      ),
-    ),
-  );
-}
-
-async function callNvidia(
-  nvKey: string,
-  prompt: string,
-  maxTokens: number,
-  deadline: number,
-  errors: string[],
-): Promise<LlmResult | null> {
-  for (const model of nvidiaModels()) {
-    const left = deadline - Date.now();
-    if (left < 2500) break;
-    const res = await withTimeout(
-      fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${nvKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0.2,
-          max_tokens: maxTokens,
-          messages: [
-            { role: "system", content: "You are a precise product analyst. Reply with one valid JSON object only." },
-            { role: "user", content: prompt },
-          ],
-        }),
-      }),
-      left,
-    );
-    if (!res) {
-      errors.push(`nvidia/${model}:timeout`);
-      continue;
-    }
-    if (!res.ok) {
-      errors.push(`nvidia/${model}:http_${res.status}`);
-      continue;
-    }
-    const body = (await res.json().catch(() => null)) as { choices?: Array<{ message?: { content?: string } }> } | null;
-    const data = parseJsonLoose(body?.choices?.[0]?.message?.content ?? "");
-    if (data) return { data, model: `nvidia/${model}`, errors };
-    errors.push(`nvidia/${model}:unparseable`);
-  }
-  return null;
-}
-
-async function callLlm(prompt: string, maxTokens: number, timeoutMs: number): Promise<LlmResult> {
-  const errors: string[] = [];
-  const orKey = secret("OPENROUTER_API_KEY");
-  const gKey = secret("GEMINI_API_KEY") || secret("GOOGLE_API_KEY");
-  const nvKey = secret("NVIDIA_API_KEY") || secret("NGC_API_KEY");
-  const deadline = Date.now() + timeoutMs;
-
-  if (gKey) {
-    const out = await callGemini(gKey, prompt, maxTokens, deadline, errors);
-    if (out) return out;
-  }
-
-  if (orKey) {
-    const models = Array.from(
-      new Set(
-        [secret("OPENROUTER_TEXT_MODEL"), "anthropic/claude-haiku-4.5"].filter(
-          Boolean,
-        ),
-      ),
-    );
-    for (const model of models) {
-      const left = deadline - Date.now();
-      if (left < 2500) break;
-      const res = await withTimeout(
-        fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${orKey}`,
-            "HTTP-Referer": secret("PUBLIC_SITE_ORIGIN") || "https://pro-community.vercel.app",
-            "X-Title": "Sourced",
-          },
-          body: JSON.stringify({
-            model,
-            temperature: 0.2,
-            max_tokens: maxTokens,
-            messages: [
-              { role: "system", content: "You are a precise product analyst. Reply with one valid JSON object only." },
-              { role: "user", content: prompt },
-            ],
-          }),
-        }),
-        left,
-      );
-      if (!res) {
-        errors.push(`${model}:timeout`);
-        continue;
-      }
-      if (!res.ok) {
-        errors.push(`${model}:http_${res.status}`);
-        continue;
-      }
-      const body = (await res.json().catch(() => null)) as { choices?: Array<{ message?: { content?: string } }> } | null;
-      const data = parseJsonLoose(body?.choices?.[0]?.message?.content ?? "");
-      if (data) return { data, model, errors };
-      errors.push(`${model}:unparseable`);
-    }
-  }
-
-  if (nvKey) {
-    const out = await callNvidia(nvKey, prompt, maxTokens, deadline, errors);
-    if (out) return out;
-  }
-
-  return { data: null, model: null, errors };
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -768,7 +600,7 @@ async function runInvestigate(input: {
     const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`);
     const payload = hit?.payload as Json | undefined;
     if (hit && payload?.version === PROFILE_VERSION && +new Date(String(hit.refresh_after)) > Date.now()) {
-      const enriched = await attachProductPresentation(store, id, String(hit.query ?? input.query), payload, {});
+      const enriched = payload;
       if (input.jobProductId) {
         jobTimings.totalReadyMs = Date.now() - jobStarted;
         await touchJob("ready", ["cache"], [], {
@@ -781,18 +613,26 @@ async function runInvestigate(input: {
   }
 
   const q = input.query;
+  const cachedPreview = await redisService.getJson<ProductPreviewPayload>(productPreviewKey(id));
+  const preview = cachedPreview.ok && cachedPreview.value ? { preview: cachedPreview.value } : null;
+  // Start independent owner-source acquisition while web facts and AI are being organised.
+  const evidenceFlight = preview ? enrichProfileWithConversationEvidence(id, q, {
+    identity: preview.preview.identity,
+  }, { forceRefresh: input.force === true }).catch(() => null) : null;
   await touchJob("researching", [], ["web", "images", "shopping"], {
     parallelStages: ["web", "images", "shopping"],
     sections: { details: "researching", evidence: "pending", videos: "pending", scores: "pending" },
   });
+  const sourceFailures: string[] = [];
+  const noteSourceFailure = (code: string) => { sourceFailures.push(code); };
   const webStart = Date.now();
   const [overview, reviews, reddit, owners, shop, imgs] = await Promise.all([
-    serper<{ organic?: SerperOrganic[]; knowledgeGraph?: Json }>("search", { q: `${q} specifications features`, num: 8 }),
-    serper<{ organic?: SerperOrganic[] }>("search", { q: `${q} review pros cons problems`, num: 8 }),
-    serper<{ organic?: SerperOrganic[] }>("search", { q: `${q} reddit owners experience`, num: 8 }),
-    serper<{ organic?: SerperOrganic[] }>("search", { q: `${q} customer reviews "I bought" OR "I've been using" OR "after months"`, num: 8 }),
-    shopping(q, input.country),
-    serper<{ images?: SerperImage[] }>("images", { q: `${q}`, num: 20 }),
+    serper<{ organic?: SerperOrganic[]; knowledgeGraph?: Json }>("search", { q: `${q} specifications features`, num: 8 }, noteSourceFailure),
+    serper<{ organic?: SerperOrganic[] }>("search", { q: `${q} review pros cons problems`, num: 8 }, noteSourceFailure),
+    serper<{ organic?: SerperOrganic[] }>("search", { q: `${q} reddit owners experience`, num: 8 }, noteSourceFailure),
+    serper<{ organic?: SerperOrganic[] }>("search", { q: `${q} customer reviews "I bought" OR "I've been using" OR "after months"`, num: 8 }, noteSourceFailure),
+    shopping(q, input.country, noteSourceFailure),
+    serper<{ images?: SerperImage[] }>("images", { q: `${q}`, num: 20 }, noteSourceFailure),
   ]);
   jobTimings.webMs = Date.now() - webStart;
   jobTimings.imageMs = jobTimings.webMs;
@@ -875,16 +715,16 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     timings: jobTimings,
     sections: { details: "researching", evidence: "pending", videos: "pending", scores: "pending" },
   });
-  const llm = evidence.length ? await callLlm(prompt, 3400, 32000) : { data: null, model: null, errors: ["no_evidence"] };
+  const llm = evidence.length ? await callLlm(prompt, 3400, 20000) : { data: null, model: null, errors: ["no_evidence"] };
   const d = (llm.data ?? {}) as Json;
   const identityRaw = (d.identity ?? {}) as Json;
 
   const identity = {
-    name: str(identityRaw.name, 140) || str(kg?.title, 140) || q,
-    brand: str(identityRaw.brand, 80),
+    name: str(identityRaw.name, 140) || preview?.preview.identity.name || str(kg?.title, 140) || q,
+    brand: str(identityRaw.brand, 80) || preview?.preview.identity.brand || "",
     manufacturer: str(identityRaw.manufacturer, 80),
     model: str(identityRaw.model, 80),
-    category: str(identityRaw.category, 60) || str(kg?.type, 60) || "Product",
+    category: str(identityRaw.category, 60) || preview?.preview.identity.category || str(kg?.type, 60) || "Product",
     subcategory: str(identityRaw.subcategory, 60),
     variant: str(identityRaw.variant, 80),
     size: str(identityRaw.size, 60),
@@ -1160,8 +1000,23 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     findings,
   };
 
-  let outProfile = profile as Json;
-  if (llm.data) {
+  let outProfile = { ...profile, researchStatus: llm.data ? "researching" : "limited" } as Json;
+  const persistProfile = async () => {
+    if (!store) throw new Error("product_store_unavailable");
+    await store.upsert("product_intel", {
+      id, query: q, name: identity.name, brand: identity.brand || null,
+      category: identity.category, hero_image_url: images[0] ?? preview?.preview.heroImageUrl ?? null,
+      payload: outProfile, confidence, verified_at: profile.verifiedAt,
+      refresh_after: new Date(Date.now() + (llm.data ? 7 * 24 * 60 * 60 * 1000 : 5 * 60 * 1000)).toISOString(),
+    });
+  };
+  if (!evidence.length && !images.length) throw new Error(sourceFailures.includes("source_quota_exhausted") ? "source_quota_exhausted" : "product_sources_unavailable");
+  await persistProfile();
+  await touchJob("researching", ["web", "images", "shopping", "llm"], ["evidence"], {
+    sections: { details: "ready", evidence: "researching", videos: "researching", scores: "pending" },
+    milestones: { identified: true },
+  });
+  {
     try {
       const ytStarted = new Date().toISOString();
       await touchJob("researching", ["web", "images", "shopping", "llm"], ["youtube", "reddit", "evidence"], {
@@ -1175,7 +1030,11 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
         },
       });
       const enrichStart = Date.now();
-      outProfile = await enrichProfileWithConversationEvidence(id, q, outProfile, {
+      const collected = evidenceFlight ? await evidenceFlight : null;
+      outProfile = collected ? {
+        ...collected, ...outProfile,
+        voices: [...(Array.isArray(outProfile.voices) ? outProfile.voices : []), ...(Array.isArray(collected.voices) ? collected.voices : [])],
+      } : await enrichProfileWithConversationEvidence(id, q, outProfile, {
         forceRefresh: input.force === true,
       });
       jobTimings.evidenceMappingMs = Date.now() - enrichStart;
@@ -1200,19 +1059,9 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
       /* provider layer is best-effort */
     }
   }
+  // Persist acquired evidence before optional AI presentation work.
+  await persistProfile();
   if (store && llm.data) {
-    await store.upsert("product_intel", {
-      id,
-      query: q,
-      name: identity.name,
-      brand: identity.brand || null,
-      category: identity.category,
-      hero_image_url: images[0] ?? null,
-      payload: profile,
-      confidence,
-      verified_at: profile.verifiedAt,
-      refresh_after: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    });
     await touchJob("scoring", ["web", "images", "shopping", "llm", "evidence"], ["blueprint", "scoring"], {
       timings: jobTimings,
       sections: { details: "ready", evidence: "ready", videos: "ready", scores: "researching" },
@@ -1222,23 +1071,9 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     outProfile = await attachProductPresentation(store, id, q, outProfile, { force: input.force });
     jobTimings.blueprintMs = Date.now() - blueprintStart;
     jobTimings.scoringMs = jobTimings.blueprintMs;
-    if (outProfile.presentation) {
-      await store.upsert("product_intel", {
-        id,
-        query: q,
-        name: identity.name,
-        brand: identity.brand || null,
-        category: identity.category,
-        hero_image_url: images[0] ?? null,
-        payload: outProfile,
-        confidence,
-        verified_at: profile.verifiedAt,
-        refresh_after: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      });
-    }
-  } else if (store) {
-    outProfile = await attachProductPresentation(store, id, q, outProfile, { force: input.force });
   }
+  outProfile = { ...outProfile, researchStatus: llm.data ? "complete" : "limited" };
+  await persistProfile();
   if (input.jobProductId) {
     jobTimings.totalReadyMs = Date.now() - jobStarted;
     await touchJob("ready", ["web", "images", "shopping", "llm", "evidence", "blueprint", "scoring"], [], {
@@ -1270,7 +1105,7 @@ async function runUnmaskJob(input: { query: string; productId: string; force?: b
     await writeUnmaskJob(
       input.productId,
       {
-        progress: progressForState("failed", [], []),
+        progress: { ...progressForState("failed", [], []), failureReason: err instanceof Error ? err.message : String(err) },
         error: err instanceof Error ? err.message : String(err),
       },
       store,
@@ -2492,17 +2327,15 @@ Deno.serve(async (req) => {
       if (!q) return json({ error: "missing_query" }, 400);
       const id = productId || slugify(q);
       const store = db();
-      const mode = await acquireUnmaskJob(id, store, { force: body.force === true });
+      let mode = await acquireUnmaskJob(id, store, { force: body.force === true });
       const existing = await readUnmaskJob(id, store);
       if (mode === "attach" && existing?.progress.state === "ready") {
         const hit = store ? await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`) : null;
         const payload = hit?.payload as Json | undefined;
         if (payload) {
-          const enriched = store
-            ? await attachProductPresentation(store, id, String(hit?.query ?? q), payload, {})
-            : payload;
-          return json({ success: true, attached: true, job: existing, profile: enriched });
+          return json({ success: true, attached: true, job: existing, profile: payload });
         }
+        mode = await acquireUnmaskJob(id, store, { force: true });
       }
       if (mode === "attach" && existing) {
         return json({ success: true, attached: true, job: existing });
@@ -2539,9 +2372,7 @@ Deno.serve(async (req) => {
       const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(productId)}`);
       const payload = hit?.payload as Json | undefined;
       if (!payload) return json({ success: false, profile: null });
-      const q = str(hit?.query ?? payload.query, 200) || productId.replace(/-/g, " ");
-      const enriched = await attachProductPresentation(store, productId, q, payload, {});
-      return json({ success: true, profile: enriched });
+      return json({ success: true, profile: payload });
     }
 
     if (action === "compare_aspects" || action === "compare_focus") {

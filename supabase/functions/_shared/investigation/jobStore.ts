@@ -14,6 +14,10 @@ export function isActiveJobState(state: UnmaskJobState): boolean {
   return ACTIVE.includes(state);
 }
 
+export function isStaleJob(progress: UnmaskJobProgress, now = Date.now()): boolean {
+  return isActiveJobState(progress.state) && now - Date.parse(progress.updatedAt) > 180_000;
+}
+
 function defaultProgress(state: UnmaskJobState = "queued"): UnmaskJobProgress {
   const now = new Date().toISOString();
   return {
@@ -47,10 +51,10 @@ export async function writeUnmaskJob(
   patch: Partial<UnmaskJobRecord> & { progress?: Partial<UnmaskJobProgress> },
   store?: Db | null,
 ): Promise<UnmaskJobRecord> {
-  const prev = (await readUnmaskJob(productId, store)) ?? {
-    productId,
-    progress: defaultProgress("queued"),
-  };
+  const previous = await readUnmaskJob(productId, store);
+  const prev = patch.progress?.state === "queued" || !previous
+    ? { productId, progress: defaultProgress("queued"), timings: undefined, error: undefined }
+    : previous;
   const progress: UnmaskJobProgress = {
     ...prev.progress,
     ...patch.progress,
@@ -61,7 +65,7 @@ export async function writeUnmaskJob(
     productId,
     progress,
     timings: { ...prev.timings, ...patch.timings },
-    error: patch.error ?? prev.error,
+    error: progress.state === "ready" || progress.state === "queued" ? patch.error : patch.error ?? prev.error,
   };
 
   await redisService.setJson(unmaskJobKey(productId), record, CACHE_TTL.unmaskJob());
@@ -85,9 +89,9 @@ export async function acquireUnmaskJob(
   opts?: { force?: boolean },
 ): Promise<"attach" | "start"> {
   const existing = await readUnmaskJob(productId, store);
-  if (existing && isActiveJobState(existing.progress.state)) return "attach";
+  if (existing && isActiveJobState(existing.progress.state) && !isStaleJob(existing.progress)) return "attach";
   if (!opts?.force && existing?.progress.state === "ready") return "attach";
-  await writeUnmaskJob(productId, { progress: defaultProgress("queued") }, store);
+  await writeUnmaskJob(productId, { progress: { ...defaultProgress("queued"), milestones: {}, sections: {} }, timings: {}, error: undefined }, store);
   return "start";
 }
 

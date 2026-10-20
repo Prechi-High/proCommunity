@@ -237,6 +237,7 @@ export type UnmaskJobMilestones = {
 export type UnmaskJobProgress = {
   state: string;
   progressPercent: number;
+  failureReason?: string;
   completedStages: string[];
   activeStages: string[];
   milestones?: UnmaskJobMilestones;

@@ -205,14 +205,16 @@ export function ReferenceProductFlow(props: Props) {
   };
   const start = () => {
     props.onStart();
+    setError("");
     if (intelReady) {
       markUnmaskRevealed(product.id);
       setPhase("result");
     } else {
       setPhase("research");
-      void startProductUnmask({ id: product.id, query: product.name }).catch(
-        () => setError("Unable to start research. Please retry."),
-      );
+      void startProductUnmask({ id: product.id, query: product.name }).then((result) => {
+        if (result.profile) qc.setQueryData(["intel", product.id], result.profile);
+        void qc.invalidateQueries({ queryKey: ["unmaskJob", product.id] });
+      }).catch(() => setError("Unable to start research. Please retry."));
     }
   };
   const back = () => {
@@ -358,7 +360,7 @@ export function ReferenceProductFlow(props: Props) {
             loading={intelLoading}
             clipsLoading={props.clipsLoading}
             clipsCount={clips.length}
-            error={props.intelError || jobProgress?.state === "failed"}
+            error={!intelReady && (props.intelError || jobProgress?.state === "failed")}
             retry={props.onRetry}
           />
         ) : null}
@@ -367,6 +369,8 @@ export function ReferenceProductFlow(props: Props) {
             {tab !== "Company" ? (
               <Identity product={product} profile={profile} />
             ) : null}
+            {showResult && intelLoading ? <Notice>More evidence is being checked. Available results are shown below.</Notice> : null}
+            {showResult && (profile as ProductProfile & { researchStatus?: string }).researchStatus === "limited" ? <Notice>Some analysis is unavailable. Showing sourced details; missing evidence is left unscored.</Notice> : null}
             {showResult && tab !== "Overview" ? (
               <View
                 style={{
@@ -523,6 +527,7 @@ function Research({
 }) {
   const rotate = useRef(new Animated.Value(0)).current;
   useEffect(() => {
+    if (error) return;
     const loop = Animated.loop(
       Animated.timing(rotate, {
         toValue: 1,
@@ -532,22 +537,18 @@ function Research({
     );
     loop.start();
     return () => loop.stop();
-  }, [rotate]);
+  }, [rotate, error]);
   const state = job?.state;
-  const idx =
-    state === "queued"
-      ? 0
-      : state === "identified"
-        ? 1
-        : state === "researching"
-          ? 2
-          : state === "mapping"
-            ? 3
-            : state === "scoring"
-              ? 4
-              : state === "ready"
-                ? 5
-                : 0;
+  const complete = new Set(job?.completedStages ?? []);
+  const ready = state === "ready";
+  const done = [
+    !!job?.milestones?.identified || complete.has("llm") || ready,
+    job?.sections?.details === "ready" || ready,
+    !!job?.milestones?.evidenceMappingComplete || job?.sections?.evidence === "ready" || ready,
+    !!job?.milestones?.youtubeComplete || job?.sections?.videos === "ready" || ready,
+    ready,
+  ];
+  const idx = done.findIndex((finished) => !finished);
   const stages = [
     "Confirming product details",
     "Checking company information",
@@ -618,7 +619,9 @@ function Research({
       </View>
       {error ? (
         <Notice>
-          Research didn’t finish.{" "}
+          {job?.failureReason === "source_quota_exhausted"
+            ? "Product research is temporarily unavailable. Please try again later."
+            : "Research didn’t finish."}{" "}
           <Text onPress={retry} style={{ color: ink.brand }}>
             Try again
           </Text>
@@ -632,13 +635,13 @@ function Research({
               height: 33,
               borderRadius: 99,
               borderWidth: 1,
-              borderColor: i <= idx ? ink.brand : ink.line,
-              backgroundColor: i < idx ? ink.brand : "#FFFFFF",
+              borderColor: done[i] || i === idx ? ink.brand : ink.line,
+              backgroundColor: done[i] ? ink.brand : "#FFFFFF",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            {i < idx ? (
+            {done[i] ? (
               <Check size={19} color="#FFFFFF" />
             ) : i === idx && !error ? (
               <ActivityIndicator size="small" color={ink.brand} />
@@ -647,8 +650,8 @@ function Research({
             )}
           </View>
           <View style={{ flex: 1 }}>
-            <Copy muted={i > idx}>{t}</Copy>
-            {i > idx ? <Copy small>up next</Copy> : null}
+            <Copy muted={!done[i] && i !== idx}>{t}</Copy>
+            {!done[i] && i !== idx ? <Copy small>up next</Copy> : null}
           </View>
         </View>
       ))}
