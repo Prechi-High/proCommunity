@@ -72,6 +72,10 @@ export function investigationSteps(input: {
 
 export function investigationComplete(loading: boolean, profile: ProductProfile | null): boolean {
   if (loading || !profile) return false;
+  const parallel = (profile as ProductProfile & { parallelResearch?: { phase: string } }).parallelResearch;
+  if (parallel) {
+    return ["batch2", "complete", "interrupted"].includes(parallel.phase) && Boolean(profile.presentation);
+  }
   if (profile.findings) return true;
   const pres = profile.presentation as { dimensionExperience?: unknown } | undefined;
   return Boolean(pres?.dimensionExperience);

@@ -38,7 +38,7 @@ import type { JourneyClip } from "@/lib/videos";
 import { summarizeReports, numericReportShare } from "@/lib/clarity/evidence";
 import * as clarity from "@/lib/clarity/api";
 import * as living from "@/lib/living/api";
-import { dimensions, claimFor, dateLabel, evidenceRows, researchNotice } from "./data";
+import { dimensions, claimFor, dateLabel, evidenceRows, researchNotice, parallelResearchState } from "./data";
 import { Evidence } from "./Evidence";
 import { Questions } from "./Questions";
 import {
@@ -707,7 +707,7 @@ function Overview({
             : null;
           const pct =
             d.reports && summary
-              ? numericReportShare(summary, d.reports)
+              ? (parallelResearchState(profile) && summary.total ? summary.percent : numericReportShare(summary, d.reports))
               : null;
           const Icon = i === 0 ? Drop : i === 1 ? Leaf : ListBullets;
           return (
@@ -726,7 +726,12 @@ function Overview({
             >
               <Icon size={27} color={ink.brand} />
               <View style={{ flex: 1, gap: 5 }}>
-                <Copy>{d.label}</Copy>
+                <View style={[s.row, { gap: 6 }]}>
+                  <Copy>{d.label}</Copy>
+                  {parallelResearchState(profile)?.loadingCategories?.includes(d.id) ? (
+                    <ActivityIndicator size="small" color={ink.brand} accessibilityLabel="Checking more evidence" />
+                  ) : null}
+                </View>
                 <Text
                   style={[
                     s.body,
@@ -739,6 +744,11 @@ function Overview({
                       : "Limited evidence"
                     : `${pct}% positive`}
                 </Text>
+                {parallelResearchState(profile)?.loadingCategories?.includes(d.id) ? (
+                  <Copy small>Checking more evidence</Copy>
+                ) : summary?.total && summary.total < 5 ? (
+                  <Copy small>Limited evidence · low confidence</Copy>
+                ) : null}
               </View>
               <View style={{ width: "47%", gap: 5 }}>
                 <View
@@ -883,7 +893,7 @@ function CategoryDetail({
     ? summarizeReports(d.reports.items, skin === "All reports" ? "All" : skin)
     : null;
   const pct =
-    summary && d.reports ? numericReportShare(summary, d.reports) : null;
+    summary && d.reports ? (parallelResearchState(profile) && summary.total ? summary.percent : numericReportShare(summary, d.reports)) : null;
   return (
     <>
       <Heading hero>{d.label} evidence</Heading>

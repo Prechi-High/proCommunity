@@ -264,11 +264,15 @@ export function buildDimensionExperiencePackage(input: {
       sufficiency.scoreDisplay = scoringItems.length ? "limited" : "unavailable";
       sufficiency.failedConditions.push("semantic minimum: 20 distinct reports across 2 conversations");
     }
+    if (input.profile.parallelResearch) {
+      // Show the descriptive share even for a small sample, with confidence and sample limits alongside it.
+      sufficiency.scoreDisplay = scoringItems.length ? "numeric" : "unavailable";
+    }
     const buckets = stanceBuckets(scoringItems);
     const rawScore = semanticMode
       ? (scoringItems.length ? Math.round(100 * scoringItems.filter(i => i.stance === "positive").length / scoringItems.length) : null)
       : computeNumericScore(buckets);
-    const confidence = computeDimensionConfidence(
+    let confidence = computeDimensionConfidence(
       scoringItems,
       buckets,
       sufficiency.sufficientForNumericScore,
@@ -277,6 +281,7 @@ export function buildDimensionExperiencePackage(input: {
       sufficiency.avgProductMatch,
     );
 
+    if (input.profile.parallelResearch && scoringItems.length < 5) confidence = Math.min(confidence, 0.35);
     const scoreDisplay = sufficiency.scoreDisplay;
     const score = scoreDisplay === "numeric" && rawScore != null ? rawScore : null;
 

@@ -1,4 +1,4 @@
-export const CACHE_PREFIX = "cache";
+export const CACHE_PREFIX = "cache:parallel-research-v1";
 
 export const CONTENT_TAG_KEYS = [
   "how_it_works",
@@ -115,7 +115,7 @@ export function productAskKey(productId: string, questionHash: string): string {
 
 /** Hot progress + dedupe for in-flight product investigations. */
 export function unmaskJobKey(productId: string): string {
-  return `unmask:job:${productId}`;
+  return `unmask:parallel-research-v1:job:${productId}`;
 }
 
 export function productPreviewKey(productId: string): string {

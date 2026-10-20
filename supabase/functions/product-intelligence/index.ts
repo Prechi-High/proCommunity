@@ -1,3 +1,4 @@
+import { startParallelResearch } from "../_shared/research/start.js";
 import { selectedIdentityDetail, cleanSelectedProductName } from "../_shared/investigation/selectedIdentity.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { redisService } from "../_shared/redis/service.ts";
@@ -575,7 +576,11 @@ Return JSON: {"items":[{"i":0,"name":"","brand":"","category":"","dup_of":null,"
 // ---------------------------------------------------------------------------
 // investigate
 
-async function runInvestigate(input: {
+async function runInvestigate(input: { query: string; selectedName?: string; selectedBrand?: string; productId?: string; force?: boolean; country: string; jobProductId?: string }) {
+  return startParallelResearch({ ...input, productId: input.productId || slugify(input.query) });
+}
+
+async function runLegacyInvestigate(input: {
   query: string;
   selectedName?: string;
   selectedBrand?: string;

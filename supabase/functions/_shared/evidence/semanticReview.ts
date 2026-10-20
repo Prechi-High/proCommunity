@@ -100,6 +100,7 @@ export function validateReviewDecision(record: ReviewRecord, raw: unknown, dimen
 export async function reviewEvidence(input: {
   identity: unknown; dimensions: BlueprintDimensionDef[]; records: ReviewRecord[];
   previous?: SemanticReviewState; deadline?: number; call?: Caller;
+  batchSize?: number; maxCalls?: number;
   checkpoint?: (state: SemanticReviewState) => Promise<void>;
 }): Promise<SemanticReviewState> {
   const previous = input.previous?.version === SEMANTIC_REVIEW_VERSION ? input.previous : undefined;
@@ -110,7 +111,7 @@ export async function reviewEvidence(input: {
     const hash = await digest([SEMANTIC_REVIEW_VERSION, "exact-product-form-v3", input.identity, input.dimensions, r]);
     hashes.set(r.id, hash);
     const old = previous?.decisions[r.id];
-    if (old && (old.inputHash === hash || old.inputHash === await digest([SEMANTIC_REVIEW_VERSION, "exact-product-form-v2", input.identity, input.dimensions, r], true))) {
+    if (old && (old.inputHash === hash)) {
       state.decisions[r.id] = { ...old, inputHash: hash };
     }
   }
@@ -120,8 +121,8 @@ export async function reviewEvidence(input: {
     return Number.isFinite(n) && n > 0 ? Math.min(max, Math.floor(n)) : fallback;
   };
   const deadline = input.deadline ?? Date.now() + setting("EVIDENCE_REVIEW_BUDGET_MS", 45000, 90000);
-  const batchSize = setting("EVIDENCE_REVIEW_BATCH_SIZE", 4, 12);
-  const maxCalls = setting("EVIDENCE_REVIEW_MAX_CALLS", 24, 100);
+  const batchSize = Math.max(1, Math.min(12, input.batchSize ?? setting("EVIDENCE_REVIEW_BATCH_SIZE", 4, 12)));
+  const maxCalls = Math.max(1, Math.min(100, input.maxCalls ?? setting("EVIDENCE_REVIEW_MAX_CALLS", 24, 100)));
   let callsThisRun = 0;
   const refresh = () => {
     state.rows = Object.values(state.decisions).flatMap(d => d.row ? [d.row] : []);
@@ -151,7 +152,7 @@ Records: ${JSON.stringify(batch)}`;
       state.calls++;
       callsThisRun++;
       let result: LlmResult;
-      try { result = await (input.call ?? callLlmJson)(prompt, Math.min(2500, batch.length * 600), Math.min(20000, deadline - Date.now())); }
+      try { result = await (input.call ?? callLlmJson)(prompt, Math.min(5000, batch.length * 600), Math.min(20000, deadline - Date.now())); }
       catch { state.failedCalls++; return; }
       state.usage.push({ model: result.model, usage: result.usage, receivedAt: new Date().toISOString() });
       const decisions = result.data?.decisions;

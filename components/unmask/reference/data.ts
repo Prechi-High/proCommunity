@@ -112,6 +112,13 @@ export function claimFor(profile: ProductProfile, id: string, label: string) {
 }
 
 export function researchNotice(profile: ProductProfile): string | null {
+  const parallel = parallelResearchState(profile);
+  if (parallel) {
+    if (parallel.phase === "batch2") return "First-batch results are available. We’re checking another batch for categories with fewer than five reports.";
+    if (parallel.phase === "interrupted") return "Research was interrupted. Reviewed evidence is shown below; retry to finish.";
+    if (parallel.phase === "complete") return "Research finished. Percentages describe the available reports; small samples have limited confidence.";
+    return "Collecting and reviewing product-specific evidence.";
+  }
   const p = profile as ProductProfile & {
     semanticReviewRequired?: boolean;
     conversationEvidence?: unknown[];
@@ -130,4 +137,12 @@ export function researchNotice(profile: ProductProfile): string | null {
   if (assessed && !accepted) return `${assessed} distinct source comments assessed. None could be confidently attributed to this exact product and its assessment categories.`;
   if (accepted) return `${accepted} relevant reports from assessed source comments. Percentages appear only when enough reports support them.`;
   return p.evidenceCollectionError || (collected ? `${collected} YouTube comments retrieved; assessment is still pending.` : "No matching product experiences have been found yet.");
+}
+
+export function parallelResearchState(profile: ProductProfile): {
+  phase: string; batch: number; loadingCategories?: string[]; failedTasks?: number;
+} | undefined {
+  return (profile as ProductProfile & { parallelResearch?: {
+    phase: string; batch: number; loadingCategories?: string[]; failedTasks?: number;
+  } }).parallelResearch;
 }

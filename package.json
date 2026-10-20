@@ -8,13 +8,14 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "export:web": "expo export --platform web",
+    "export:web": "npm run typecheck && npm run test:parallel-research && npm run test:dynamic-ui && expo export --platform web",
     "test:redis": "tsx --test lib/server/redis/__tests__/redis.service.test.ts",
     "test:dynamic-ui": "tsx --test lib/product-result/__tests__/dynamic-ui.test.ts supabase/functions/_shared/blueprint/__tests__/*.test.ts supabase/functions/_shared/evidence/__tests__/*.test.ts supabase/functions/_shared/domain/__tests__/*.test.ts",
     "test:evidence-providers": "tsx --test supabase/functions/_shared/evidence/__tests__/conversationEvidence.test.ts",
     "test:whatsapp": "tsx --test supabase/functions/_shared/**/__tests__/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "whatsapp:keys": "node scripts/whatsapp-flow-keys.mjs"
+    "whatsapp:keys": "node scripts/whatsapp-flow-keys.mjs",
+    "test:parallel-research": "tsx --test supabase/functions/_shared/research/logic.node.test.ts"
   },
   "dependencies": {
     "@expo/config-plugins": "^57.0.9",
