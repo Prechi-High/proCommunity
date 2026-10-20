@@ -49,6 +49,7 @@ export async function requestLlmJson(url: string, init: RequestInit, ms: number)
 }
 
 let geminiBackoffUntil = 0;
+let openRouterBackoffUntil = 0;
 
 const RETIRED_GEMINI = /^gemini-(1\.|2\.0|2\.5)/;
 
@@ -58,6 +59,7 @@ function geminiModels(): string[] {
     new Set(
       [
         pref && !RETIRED_GEMINI.test(pref) ? pref : "",
+        "gemini-3-flash-preview",
         "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite",
         "gemini-3.8-flash",
@@ -70,9 +72,7 @@ function geminiModels(): string[] {
 function nvidiaModels(): string[] {
   return Array.from(
     new Set(
-      [secret("NVIDIA_TEXT_MODEL"), secret("NVIDIA_MODEL"), "meta/llama-3.3-70b-instruct", "meta/llama-3.1-8b-instruct"].filter(
-        Boolean,
-      ),
+      [secret("NVIDIA_TEXT_MODEL"), secret("NVIDIA_MODEL"), "nvidia/nemotron-3.5-lightning-30b-a3b", "mistralai/mistral-7b-instruct-v0.3"].filter(model => Boolean(model) && !["meta/llama-3.1-8b-instruct", "meta/llama-3.3-70b-instruct"].includes(model)),
     ),
   );
 }
@@ -95,7 +95,7 @@ async function callGemini(
           generationConfig: {
             temperature: 0.2,
             maxOutputTokens: maxTokens + 2048,
-            ...(/^gemini-3/.test(model) ? { thinkingConfig: { thinkingLevel: /flash-lite/.test(model) ? "minimal" : "low" } } : {}),
+            ...(/^gemini-3/.test(model) ? { thinkingConfig: { thinkingLevel: /flash-lite|^gemini-3-flash-preview$/.test(model) ? "minimal" : "low" } } : {}),
             responseMimeType: "application/json",
           },
         }),
@@ -145,6 +145,7 @@ async function callNvidia(
           model,
           temperature: 0.2,
           max_tokens: maxTokens,
+          ...(model.includes("nemotron-3.5-lightning") ? { chat_template_kwargs: { enable_thinking: false } } : {}),
           messages: [
             { role: "system", content: "Reply with one valid JSON object only. No markdown." },
             { role: "user", content: prompt },
@@ -182,7 +183,7 @@ export async function callLlmJson(prompt: string, maxTokens: number, timeoutMs: 
     if (out?.data) return out;
   }
 
-  if (orKey) {
+  if (orKey && Date.now() >= openRouterBackoffUntil) {
     const models = Array.from(new Set([secret("OPENROUTER_TEXT_MODEL"), "anthropic/claude-haiku-4.5"].filter(Boolean)));
     for (const model of models) {
       const left = deadline - Date.now();
@@ -213,6 +214,7 @@ export async function callLlmJson(prompt: string, maxTokens: number, timeoutMs: 
       }
       if (!res.ok) {
         errors.push(`${model}:http_${res?.status ?? "timeout"}`);
+        if ([401, 402, 403].includes(res.status)) { openRouterBackoffUntil = Date.now() + 300000; break; }
         continue;
       }
       const body = res.body as { choices?: Array<{ message?: { content?: string } }> } | null;

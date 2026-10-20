@@ -618,8 +618,10 @@ async function runInvestigate(input: {
     );
   };
 
+  const savedProfileRow = store ? await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`) : null;
+  const savedEvidenceProfile = savedProfileRow?.payload as Json | undefined;
   if (store && !input.force) {
-    const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`);
+    const hit = savedProfileRow;
     const payload = hit?.payload as Json | undefined;
     if (hit && payload?.version === PROFILE_VERSION && (payload.researchStatus === "researching" || !payload.evidenceCollectionError || (Array.isArray(payload.conversationEvidence) && payload.conversationEvidence.length > 0)) && (+new Date(String(hit.refresh_after)) > Date.now() || ((!payload.presentation || Number((payload.semanticReview as Json | undefined)?.pending) > 0) && Array.isArray(payload.conversationEvidence) && payload.conversationEvidence.length > 0))) {
       let enriched = payload;
@@ -1106,6 +1108,14 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
       outProfile.evidenceCollectionError = "Evidence collection did not complete; no unreviewed comments are scored.";
       outProfile.evidenceCollectionFailure = error instanceof Error ? error.message : String(error);
     }
+  }
+  // A provider outage must not erase an already-collected corpus on refresh.
+  if (outProfile.evidenceCollectionError && (!Array.isArray(outProfile.conversationEvidence) || !outProfile.conversationEvidence.length)
+    && Array.isArray(savedEvidenceProfile?.conversationEvidence) && savedEvidenceProfile.conversationEvidence.length > 0
+    && cleanSelectedProductName(String((savedEvidenceProfile.identity as Json | undefined)?.name || "")) === identity.name) {
+    outProfile.conversationEvidence = savedEvidenceProfile.conversationEvidence;
+    outProfile.semanticReview = savedEvidenceProfile.semanticReview;
+    outProfile.evidencePreservedFromPreviousRun = true;
   }
   // Persist acquired evidence before optional AI presentation work.
   await persistProfile();
@@ -2282,9 +2292,26 @@ Deno.serve(async (req) => {
       openrouter: openrouter ?? "no_key",
       youtube: Boolean(secret("YOUTUBE_DATA_API_KEY")),
       nvidia: Boolean(secret("NVIDIA_API_KEY") || secret("NGC_API_KEY")),
+      nvidiaModels: body.inspectModels === true && (secret("NVIDIA_API_KEY") || secret("NGC_API_KEY"))
+        ? await withTimeout(fetch("https://integrate.api.nvidia.com/v1/models", {
+          headers: { Authorization: `Bearer ${secret("NVIDIA_API_KEY") || secret("NGC_API_KEY")}` },
+        }).then(async r => { const data = await r.json(); return { status: r.status, models: Array.isArray(data.data) ? data.data.map((m: Json) => str(m.id, 150)) : [] }; }), 8000)
+        : undefined,
       geminiModel: secret("GEMINI_MODEL") || null,
       openrouterModel: secret("OPENROUTER_TEXT_MODEL") || null,
       nvidiaModel: secret("NVIDIA_TEXT_MODEL") || secret("NVIDIA_MODEL") || null,
+      nvidiaProbes: Array.isArray(body.nvidiaProbe) && (secret("NVIDIA_API_KEY") || secret("NGC_API_KEY"))
+        ? await Promise.all((body.nvidiaProbe as unknown[]).slice(0, 3).map(async m => {
+          const model = str(m, 100); const started = Date.now();
+          const response = await withTimeout(fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${secret("NVIDIA_API_KEY") || secret("NGC_API_KEY")}` },
+            body: JSON.stringify({ model, max_tokens: 128, temperature: 0, messages: [{ role: "user", content: 'Return JSON {"ok":true}' }],
+              ...(model.includes("nemotron-3.5-lightning") ? { chat_template_kwargs: { enable_thinking: false } } : {}) }),
+          }).then(async r => ({ status: r.status, data: await r.json() })), 15000);
+          return { model, ms: Date.now() - started, status: response?.status ?? 0,
+            valid: Boolean(response?.data?.choices?.[0]?.message?.content), error: response?.data?.error?.message ?? null };
+        })) : undefined,
       probes: gKey && Array.isArray(body.probe)
         ? await Promise.all(
             (body.probe as unknown[]).slice(0, 6).map(async (m) => {
