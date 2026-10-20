@@ -46,6 +46,7 @@ export type DimensionRelevanceResult = {
   affectsScore: boolean;
   reason: string;
   extractedStatement?: string;
+  highlightSpans?: Array<{ start: number; end: number }>;
 };
 
 export type NormalizedEvidenceRow = {
@@ -64,6 +65,9 @@ export type NormalizedEvidenceRow = {
   contextText?: string;
   createdAt?: string;
   provenanceWeight?: number;
+  skinType?: string;
+  skinTypeSource?: string;
+  reportKey?: string;
   productMatch: ProductMatchResult;
   dimensionLinks: DimensionRelevanceResult[];
 };
@@ -107,6 +111,10 @@ export type DimensionEvidenceDisplayItem = {
   evidenceId: string;
   statement: string;
   fullText?: string;
+  highlightSpans?: Array<{ start: number; end: number }>;
+  skinType?: string;
+  skinTypeSource?: string;
+  reportKey?: string;
   platform: string;
   author?: string;
   url: string;

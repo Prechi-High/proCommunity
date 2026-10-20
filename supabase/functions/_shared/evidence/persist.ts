@@ -57,7 +57,7 @@ export async function persistDimensionEvidence(
         strength: link.strength,
         relevance_confidence: link.relevanceConfidence,
         product_match_confidence: row.productMatch.confidence,
-        extracted_statement: row.extractedStatement,
+        extracted_statement: link.extractedStatement ?? row.extractedStatement,
         affects_score: link.affectsScore && row.productMatch.affectsScore,
         context: link.reason,
       });

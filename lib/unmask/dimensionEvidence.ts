@@ -4,6 +4,10 @@ export type DimensionEvidenceItem = {
   evidenceId: string;
   statement: string;
   fullText?: string;
+  highlightSpans?: Array<{ start: number; end: number }>;
+  skinType?: string;
+  skinTypeSource?: string;
+  reportKey?: string;
   platform: string;
   url: string;
   stance: 'positive' | 'mixed' | 'negative' | 'neutral';

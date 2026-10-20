@@ -73,7 +73,7 @@ export function evidenceConfidence(inputs: {
   } else if (inputs.eligibleOwners >= 15 && inputs.origins >= 3 && inputs.contextCompleteRatio >= 0.8) {
     level = 'moderate';
   }
-  if (inputs.hasTestConflict && level !== 'unavailable') {
+  if (inputs.hasTestConflict) {
     level = 'limited';
     reasons.push('Independent test conflicts with owner reports');
   }

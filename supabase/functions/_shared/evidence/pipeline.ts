@@ -142,9 +142,13 @@ export function buildDimensionExperiencePackage(input: {
 
   const parsed = parseTargetProduct(target);
   const raw = collectRawEvidenceFromProfile(input.profile);
-  const normalized: NormalizedEvidenceRow[] = [];
+  const semantic = input.profile.semanticReview as { version?: string; rows?: NormalizedEvidenceRow[] } | undefined;
+  const semanticMode = Boolean(input.profile.semanticReviewRequired || semantic?.version);
+  const normalized: NormalizedEvidenceRow[] = semanticMode && semantic?.version === "semantic-review-v1"
+    ? (semantic.rows ?? []).map(row => ({ ...row, evidenceId: hashId(input.productId, row.evidenceId),
+        parentId: row.parentId ? hashId(input.productId, row.parentId) : undefined })) : [];
 
-  for (const r of raw) {
+  for (const r of semanticMode ? [] : raw) {
     if (r.experienceAffectsScoring === false) continue;
     const sourceContext = buildEvidenceSourceContext(r, parsed, input.query);
     const match = resolveEvidenceIdentity({
@@ -153,7 +157,7 @@ export function buildDimensionExperiencePackage(input: {
       context: sourceContext,
       aliases: [input.query, identity.name ?? ""].filter(Boolean),
     });
-    const productAffectsScore = match.affectsScore && r.experienceAffectsScoring !== false;
+    const productAffectsScore = match.affectsScore;
     const provenance = resolveProvenanceFromCollectRow(r);
     const links = mapTextToDimensions(r.text, input.dimensions, productAffectsScore, {
       classification,
@@ -215,6 +219,10 @@ export function buildDimensionExperiencePackage(input: {
               evidenceId: `${row.evidenceId}:${d.key}`,
               statement,
               fullText: row.text,
+              highlightSpans: l.highlightSpans,
+              skinType: row.skinType,
+              skinTypeSource: row.skinTypeSource,
+              reportKey: row.reportKey,
               platform: row.platform,
               author: row.author ?? "",
               url: row.url,
@@ -239,13 +247,27 @@ export function buildDimensionExperiencePackage(input: {
       )
       .filter((i) => i.relevanceConfidence >= 0.5);
 
-    const scoringItems = items.filter((i) => i.affectsScore) as Array<
+    // One person/author per category; repeated updates do not inflate the sample.
+    const seenReports = new Set<string>();
+    for (const item of items) {
+      const key = item.reportKey || `${item.platform}:${item.author || item.evidenceId}`;
+      if (seenReports.has(key)) item.affectsScore = false;
+      else if (item.affectsScore) seenReports.add(key);
+    }
+    const scoringItems = items.filter((i) => i.affectsScore && (!semanticMode || i.stance !== "neutral")) as Array<
       ScoringEvidenceItem & { stance: string; strength: number; statement: string }
     >;
 
     const sufficiency = evaluateDimensionSufficiencyWithDiagnostics(scoringItems);
+    if (semanticMode && (scoringItems.length < 20 || sufficiency.uniqueConversations < 2)) {
+      sufficiency.sufficientForNumericScore = false;
+      sufficiency.scoreDisplay = scoringItems.length ? "limited" : "unavailable";
+      sufficiency.failedConditions.push("semantic minimum: 20 distinct reports across 2 conversations");
+    }
     const buckets = stanceBuckets(scoringItems);
-    const rawScore = computeNumericScore(buckets);
+    const rawScore = semanticMode
+      ? (scoringItems.length ? Math.round(100 * scoringItems.filter(i => i.stance === "positive").length / scoringItems.length) : null)
+      : computeNumericScore(buckets);
     const confidence = computeDimensionConfidence(
       scoringItems,
       buckets,

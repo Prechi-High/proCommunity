@@ -90,7 +90,7 @@ export function evidenceRows(
     );
   return [
     ...new Map(
-      (records.length ? records : voices).map((x) => [x.evidenceId, x]),
+      (records.length ? records : ((profile as ProductProfile & { semanticReviewRequired?: boolean }).semanticReviewRequired ? [] : voices)).map((x) => [x.evidenceId, x]),
     ).values(),
   ];
 }

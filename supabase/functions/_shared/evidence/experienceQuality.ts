@@ -46,7 +46,7 @@ export function assessExperienceQuality(text: string, platform?: string): Experi
   if (score >= 0.62) experienceQuality = "strong";
   else if (score >= 0.42) experienceQuality = "moderate";
 
-  const affectsScoring = experienceQuality !== "noise" && score >= 0.38 && t.length >= 35;
+  const affectsScoring = score >= 0.38 && t.length >= 35;
 
   return {
     experienceQuality,
@@ -55,7 +55,7 @@ export function assessExperienceQuality(text: string, platform?: string): Experi
     temporalExperienceSignal: Math.min(0.95, temporal),
     ownershipSignal: Math.min(0.95, ownership),
     affectsScoring,
-    reason: affectsScoring ? "usable_experience" : experienceQuality === "noise" ? "noise" : "low_experience_signal",
+    reason: affectsScoring ? "usable_experience" : "low_experience_signal",
   };
 }
 

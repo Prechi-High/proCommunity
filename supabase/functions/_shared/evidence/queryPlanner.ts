@@ -102,7 +102,7 @@ export function planEvidenceQueries(input: EvidenceSearchInput): PlannedQuery[] 
   }
 
   const domain = input.domain;
-  if (domain === "tech" || domain === "inferred") {
+  if (domain === "tech") {
     add("longevity", "after 6 months", "temporal", "long_term", 88);
     add("long_term", "long term", "temporal", "long_term", 86);
     add("problems", "problems", "risk", "risk", 82);

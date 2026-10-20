@@ -97,7 +97,7 @@ export function youtubeRepliesKey(productId: string, parentCommentId: string): s
 }
 
 export function youtubeHarvestBundleKey(productId: string): string {
-  return `${CACHE_PREFIX}:evidence:${productId}:youtube:harvest_v2`;
+  return `${CACHE_PREFIX}:evidence:${productId}:youtube:harvest_v3`;
 }
 
 export function evidenceProviderCacheKey(productId: string, provider: string, query: string): string {

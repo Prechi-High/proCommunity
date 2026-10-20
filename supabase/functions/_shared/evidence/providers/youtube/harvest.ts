@@ -1,3 +1,4 @@
+import { validateProductVideos } from "../../videoIdentity.ts";
 import { assessExperienceQuality } from "../../experienceQuality.ts";
 import { assessProductEvidenceMatch } from "../../identityGate.ts";
 import { mapStatementToDimensions } from "../../dimensionRelevance.ts";
@@ -126,8 +127,7 @@ function normalizeRow(
   extraMeta?: Record<string, unknown>,
 ): RawEvidence | null {
   const clean = decodeHtml(text).replace(/\s+/g, " ").trim();
-  if (clean.length < 25 || clean.length > 900) return null;
-  if (COMMENT_SPAM.test(clean)) return null;
+  if (!clean) return null; // Preserve meaning for semantic assessment; no keyword spam gate.
   return {
     provider: "youtube",
     platform: "youtube",
@@ -313,6 +313,7 @@ export async function harvestYoutubeEvidence(
 
   const limits = readLimits();
   const ledger = emptyQuotaLedger();
+  const collectionDeadline = Date.now() + 45000;
   const stopped: string[] = [];
   const cache = cacheFromStore(input.cacheStore);
   const forceRefresh = input.forceRefresh === true;
@@ -330,12 +331,14 @@ export async function harvestYoutubeEvidence(
 
   const runSearchPlans = async (plans: SearchExecutionPlan[]) => {
     for (const plan of plans) {
+      if (Date.now() >= collectionDeadline) { stopped.push("collection_deadline"); break; }
       if (!budgetOk(ledger, limits, stopped)) break;
       if (videoMap.size >= limits.maxVideos) break;
       executedQueries.push(plan.query);
       let pageToken = "";
       for (let page = 0; page < limits.maxSearchPages; page++) {
-        if (!budgetOk(ledger, limits, stopped)) break;
+        if (Date.now() >= collectionDeadline) { stopped.push("collection_deadline"); break; }
+      if (!budgetOk(ledger, limits, stopped)) break;
         const qHash = queryHash(plan.query);
         const cacheKey = youtubeSearchPageKey(input.productId, qHash, pageToken);
         const res = await cachedJson(cache, cacheKey, forceRefresh, async () => {
@@ -346,7 +349,7 @@ export async function harvestYoutubeEvidence(
             `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${limits.searchPageSize}` +
             `&relevanceLanguage=en&q=${encodeURIComponent(plan.query)}&key=${apiKey}` +
             (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
-          return withTimeout(fetch(url).then((r) => (r.ok ? (r.json() as Promise<SearchRes>) : null)), PROVIDER_TIMEOUT_MS);
+          return withTimeout(fetch(url, { signal: AbortSignal.timeout(Math.max(1, Math.min(PROVIDER_TIMEOUT_MS, collectionDeadline - Date.now()))) }).then((r) => (r.ok ? (r.json() as Promise<SearchRes>) : null)), PROVIDER_TIMEOUT_MS);
         });
         if (!res?.items?.length) break;
         for (const it of res.items) {
@@ -397,6 +400,7 @@ export async function harvestYoutubeEvidence(
 
   const harvestComments = async (videos: DiscoveredVideo[], onlyNew = false) => {
     for (let vi = 0; vi < videos.length; vi++) {
+      if (Date.now() >= collectionDeadline) { stopped.push("collection_deadline"); break; }
       if (!budgetOk(ledger, limits, stopped)) break;
       if (items.length >= limits.maxRaw) {
         stopped.push("max_raw_comments");
@@ -413,7 +417,8 @@ export async function harvestYoutubeEvidence(
         if (order === "time" && vi >= 8) continue;
         let pageToken = "";
         for (let p = 0; p < pages; p++) {
-          if (!budgetOk(ledger, limits, stopped)) break;
+          if (Date.now() >= collectionDeadline) { stopped.push("collection_deadline"); break; }
+      if (!budgetOk(ledger, limits, stopped)) break;
           if (items.length >= limits.maxRaw) break;
           const cacheKey = youtubeCommentPageKey(input.productId, v.id, order, pageToken);
           const res = await cachedJson(cache, cacheKey, forceRefresh, async () => {
@@ -423,7 +428,7 @@ export async function harvestYoutubeEvidence(
               `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet,replies&videoId=${v.id}` +
               `&maxResults=${limits.commentPageSize}&order=${order}&textFormat=plainText&key=${apiKey}` +
               (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
-            return withTimeout(fetch(url).then((r) => (r.ok ? (r.json() as Promise<ThreadRes>) : null)), PROVIDER_TIMEOUT_MS);
+            return withTimeout(fetch(url, { signal: AbortSignal.timeout(Math.max(1, Math.min(PROVIDER_TIMEOUT_MS, collectionDeadline - Date.now()))) }).then((r) => (r.ok ? (r.json() as Promise<ThreadRes>) : null)), PROVIDER_TIMEOUT_MS);
           });
           if (!res?.items) break;
           commentPages += 1;
@@ -492,7 +497,7 @@ export async function harvestYoutubeEvidence(
                     `https://www.googleapis.com/youtube/v3/comments?part=snippet&parentId=${top.id}` +
                     `&maxResults=${limits.commentPageSize}&textFormat=plainText&key=${apiKey}` +
                     (replyPageToken ? `&pageToken=${encodeURIComponent(replyPageToken)}` : "");
-                  return withTimeout(fetch(url).then((r) => (r.ok ? (r.json() as Promise<ReplyRes>) : null)), PROVIDER_TIMEOUT_MS);
+                  return withTimeout(fetch(url, { signal: AbortSignal.timeout(Math.max(1, Math.min(PROVIDER_TIMEOUT_MS, collectionDeadline - Date.now()))) }).then((r) => (r.ok ? (r.json() as Promise<ReplyRes>) : null)), PROVIDER_TIMEOUT_MS);
                 });
                 if (!repRes?.items?.length) break;
                 for (const rc of repRes.items) {
@@ -528,16 +533,17 @@ export async function harvestYoutubeEvidence(
     }
   };
 
-  let ranked = rankVideos([...videoMap.values()]);
+  let ranked = await validateProductVideos(rankVideos([...videoMap.values()]), input, { cache: input.cacheStore, deadline: collectionDeadline });
   await harvestComments(ranked);
 
   const weakThreshold = YOUTUBE_LIMITS.hybridCoverageThreshold();
-  const allowFocusedFallback = queryMode === "hybrid" || queryMode === "separate";
+  const allowFocusedFallback = false; // Coverage must be measured by semantic decisions, not the old keyword gate.
   const hybridFallbackQueries: string[] = [];
   const stage1Coverage = countValidEvidence(items, input).perDim;
 
   for (let round = 0; allowFocusedFallback && round < 2; round++) {
-    if (!budgetOk(ledger, limits, stopped)) break;
+    if (Date.now() >= collectionDeadline) { stopped.push("collection_deadline"); break; }
+      if (!budgetOk(ledger, limits, stopped)) break;
     const { perDim, valid } = countValidEvidence(items, input);
     const weak = (input.dimensions ?? [])
       .filter((d) => (perDim[d.key] ?? 0) < weakThreshold)
@@ -557,7 +563,7 @@ export async function harvestYoutubeEvidence(
       videoMap.clear();
       for (const v of enriched) videoMap.set(v.id, v);
     }
-    ranked = rankVideos([...videoMap.values()]);
+    ranked = await validateProductVideos(rankVideos([...videoMap.values()]), input, { cache: input.cacheStore, deadline: collectionDeadline });
     await harvestComments(ranked.slice(0, 20), true);
     const nextValid = countValidEvidence(items, input).valid;
     if (nextValid - valid < limits.marginalMin) {

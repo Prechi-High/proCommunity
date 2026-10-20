@@ -317,28 +317,18 @@ export function decodeEntities(text: string): string {
 }
 
 export async function loadProductClips(product: Pick<Product, 'id' | 'name' | 'brand'>): Promise<JourneyClip[]> {
-  const cached = await cachedProductClips(product.id).catch(() => []);
+  const proof = `exact-identity-v1:${encodeURIComponent(JSON.stringify([product.name, product.brand || ""]))}:`;
+  const accepted = (rows: JourneyClip[]) => rows.filter(c => c.classificationJustification?.startsWith(proof));
+  const cached = accepted(await cachedProductClips(product.id).catch(() => []));
   if (cached.length >= 3) return cached.slice(0, 8);
-  const { clips } = await ensureYoutubeVideosForProduct(product);
-  const refreshed = await cachedProductClips(product.id).catch(() => []);
-  if (refreshed.length) return refreshed.slice(0, 8);
-  return clips.slice(0, 8).map((clip) => ({
-    id: `yt-${clip.youtubeVideoId}`,
-    platform: 'youtube' as const,
-    sourceUrl: `https://www.youtube.com/watch?v=${clip.youtubeVideoId}`,
-    embedHtml: null,
-    youtubeVideoId: clip.youtubeVideoId,
-    title: decodeEntities(clip.title),
-    author: decodeEntities(clip.channelTitle),
-    thumbnailUrl: clip.thumbnailUrl,
-    durationSeconds: clip.durationSeconds,
-    contentTags: [],
-    classificationConfidence: null,
-    classificationJustification: null,
-    helpfulCount: 0,
-    notHelpfulCount: 0,
-    wilson: 0,
-  }));
+  if (!supabase) return cached;
+  // Avoid the older loader's unvalidated DB/browser-proxy shortcuts.
+  const { error } = await supabase.functions.invoke('youtube-fetch', { body: {
+    query: `${product.brand || ""} ${product.name} review`, productName: product.name,
+    brand: product.brand, catalogProductId: product.id,
+  } });
+  if (error) return cached;
+  return accepted(await cachedProductClips(product.id).catch(() => [])).slice(0, 8);
 }
 
 const TAG_QUERY: Record<ContentTagKey, string> = {

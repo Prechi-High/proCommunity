@@ -74,6 +74,7 @@ export async function loadPresentationFromDb(store: Store, productId: string): P
       label: str(d.label, 80),
       score: assess?.score !== null && assess?.score !== undefined ? Number(assess.score) : null,
       confidence,
+      scoreDisplay: assess?.score != null ? "numeric" : evidenceCount ? "limited" : "unavailable",
       evidenceCount,
       limitedEvidence: evidenceCount < 5 || confidence < 0.45,
       finding: assess?.finding ? str(assess.finding) : undefined,
@@ -100,6 +101,7 @@ export async function loadPresentationFromDb(store: Store, productId: string): P
     navigation,
     overview: {
       score: overviewScore,
+      scoreDisplay: overviewScore != null ? "numeric" : "unavailable",
       verdict: "Owner-backed scores for what matters on this product.",
       dimensions,
     },

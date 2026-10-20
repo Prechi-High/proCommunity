@@ -48,7 +48,7 @@ export async function readUnmaskJob(productId: string, store?: Db | null): Promi
 
 export async function writeUnmaskJob(
   productId: string,
-  patch: Partial<UnmaskJobRecord> & { progress?: Partial<UnmaskJobProgress> },
+  patch: Partial<Omit<UnmaskJobRecord, "progress">> & { progress?: Partial<UnmaskJobProgress> },
   store?: Db | null,
 ): Promise<UnmaskJobRecord> {
   const previous = await readUnmaskJob(productId, store);

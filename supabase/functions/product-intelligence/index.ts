@@ -4,6 +4,8 @@ import { productPreviewKey } from "../_shared/redis/keys.ts";
 import type { ProductPreviewPayload } from "../_shared/investigation/types.ts";
 import { callLlmJson as callLlm } from "../_shared/core/llmChat.ts";
 import { answerFromStoredEvidence } from "../_shared/ask/storedEvidence.ts";
+import { loadCommunityEvidence } from "../_shared/evidence/communityEvidence.ts";
+import { getOrBuildBlueprintPackage } from "../_shared/blueprint/getOrBuild.ts";
 import { attachProductPresentation } from "../_shared/blueprint/index.ts";
 import {
   enrichProfileWithConversationEvidence,
@@ -48,7 +50,7 @@ const COMMUNITY_ACTIONS = new Set(["threads", "thread", "post", "reply", "owners
 const MEMBER_ONLY_ACTIONS = new Set(["post", "reply", "ownership_note", "helpful", "vote", "follow", "notifications", "notifications_read", "following", "upload"]);
 
 const SEARCH_TTL_MS = 24 * 60 * 60 * 1000;
-const PROFILE_VERSION = 6;
+const PROFILE_VERSION = 7;
 
 type Json = Record<string, unknown>;
 
@@ -619,9 +621,10 @@ async function runInvestigate(input: {
     if (hit && payload?.version === PROFILE_VERSION && +new Date(String(hit.refresh_after)) > Date.now()) {
       let enriched = payload;
       // Resume interrupted presentation work from already-saved sources, not another provider harvest.
-      if (!payload.presentation && payload.researchStatus === "researching") {
+      if (payload.semanticReviewRequired || (!payload.presentation && payload.researchStatus === "researching")) {
+        payload.communityEvidence = await loadCommunityEvidence(store, id);
         enriched = await attachProductPresentation(store, id, String(hit.query ?? input.query), payload, {});
-        enriched = { ...enriched, researchStatus: enriched.presentation ? "complete" : "limited" };
+        enriched = { ...enriched, researchStatus: enriched.presentation && (enriched.semanticReview as { complete?: boolean } | undefined)?.complete ? "complete" : "limited" };
         await store.upsert("product_intel", { ...hit, payload: enriched });
       }
       if (input.jobProductId) {
@@ -638,10 +641,8 @@ async function runInvestigate(input: {
   const q = input.query;
   const cachedPreview = await redisService.getJson<ProductPreviewPayload>(productPreviewKey(id));
   const preview = cachedPreview.ok && cachedPreview.value ? { preview: cachedPreview.value } : null;
-  // Start independent owner-source acquisition while web facts and AI are being organised.
-  const evidenceFlight = preview ? enrichProfileWithConversationEvidence(id, q, {
-    identity: preview.preview.identity,
-  }, { forceRefresh: input.force === true }).catch(() => null) : null;
+  // Public community first. Facts can load concurrently; external collection waits for the product blueprint.
+  const communityFlight = loadCommunityEvidence(store, id);
   await touchJob("researching", [], ["web", "images", "shopping"], {
     parallelStages: ["web", "images", "shopping"],
     sections: { details: "researching", evidence: "pending", videos: "pending", scores: "pending" },
@@ -1023,7 +1024,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     findings,
   };
 
-  let outProfile = { ...profile, researchStatus: llm.data ? "researching" : "limited" } as Json;
+  let outProfile: Json = { ...profile, semanticReviewRequired: true, researchStatus: llm.data ? "researching" : "limited" } as Json;
   const persistProfile = async () => {
     if (!store) throw new Error("product_store_unavailable");
     await store.upsert("product_intel", {
@@ -1053,12 +1054,12 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
         },
       });
       const enrichStart = Date.now();
-      const collected = evidenceFlight ? await evidenceFlight : null;
-      outProfile = collected ? {
-        ...collected, ...outProfile,
-        voices: [...(Array.isArray(outProfile.voices) ? outProfile.voices : []), ...(Array.isArray(collected.voices) ? collected.voices : [])],
-      } : await enrichProfileWithConversationEvidence(id, q, outProfile, {
-        forceRefresh: input.force === true,
+      outProfile.communityEvidence = await communityFlight;
+      outProfile.semanticReviewRequired = true;
+      const prepared = await getOrBuildBlueprintPackage(id, q, outProfile);
+      outProfile.preparedBlueprint = prepared;
+      outProfile = await enrichProfileWithConversationEvidence(id, q, outProfile, {
+        forceRefresh: input.force === true, dimensions: prepared.dimensions,
       });
       jobTimings.evidenceMappingMs = Date.now() - enrichStart;
       const ytDiag = outProfile.youtubeAcquisitionDiagnostics as Json | undefined;
@@ -1079,7 +1080,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
         sections: { details: "ready", evidence: "ready", videos: "ready", scores: "pending" },
       });
     } catch {
-      /* provider layer is best-effort */
+      outProfile.evidenceCollectionError = "Evidence collection did not complete; no unreviewed comments are scored.";
     }
   }
   // Persist acquired evidence before optional AI presentation work.
@@ -1095,7 +1096,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
     jobTimings.blueprintMs = Date.now() - blueprintStart;
     jobTimings.scoringMs = jobTimings.blueprintMs;
   }
-  outProfile = { ...outProfile, researchStatus: llm.data ? "complete" : "limited" };
+  outProfile = { ...outProfile, researchStatus: llm.data && (outProfile.semanticReview as { complete?: boolean } | undefined)?.complete ? "complete" : "limited" };
   await persistProfile();
   if (input.jobProductId) {
     jobTimings.totalReadyMs = Date.now() - jobStarted;
@@ -2356,7 +2357,7 @@ Deno.serve(async (req) => {
       if (mode === "attach" && existing?.progress.state === "ready") {
         const hit = store ? await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`) : null;
         const payload = hit?.payload as Json | undefined;
-        if (payload) {
+        if (payload && payload.version === PROFILE_VERSION && !payload.semanticReviewRequired) {
           return json({ success: true, attached: true, job: existing, profile: payload });
         }
         mode = await acquireUnmaskJob(id, store, { force: true });
@@ -2396,6 +2397,10 @@ Deno.serve(async (req) => {
       const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(productId)}`);
       const payload = hit?.payload as Json | undefined;
       if (!payload) return json({ success: false, profile: null });
+      if (payload.version !== PROFILE_VERSION) return json({ success: true, profile: {
+        ...payload, semanticReviewRequired: true, presentation: undefined, dimensionExperience: undefined,
+        uiContract: undefined, findings: undefined, voices: [], researchStatus: "researching",
+      } });
       return json({ success: true, profile: payload });
     }
 

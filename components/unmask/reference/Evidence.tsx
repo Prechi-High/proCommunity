@@ -1,3 +1,4 @@
+import { evidenceSegments } from "@/lib/unmask/evidenceHighlights";
 import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import {
@@ -26,6 +27,11 @@ import {
   s,
 } from "./ui";
 import { dateLabel, dimensions, evidenceRows } from "./data";
+export function EvidenceQuote({ item }: { item: DimensionEvidenceItem }) {
+  const text = item.fullText || item.statement;
+  return <Copy>{evidenceSegments(text, item.highlightSpans).map((part, i) =>
+    <Text key={i} style={part.highlighted ? { backgroundColor: ink.tint, color: ink.brand, fontWeight: "600" } : undefined}>{part.text}</Text>)}</Copy>;
+}
 export function Evidence({
   profile,
   native,
@@ -47,7 +53,7 @@ export function Evidence({
   const [source, setSource] = useState("All sources");
   const [sort, setSort] = useState("Most relevant");
   const external = evidenceRows(profile, topic);
-  const nativeMatched = native.filter(
+  const nativeMatched = ((profile as ProductProfile & { semanticReviewRequired?: boolean }).semanticReviewRequired ? [] : native).filter(
     (x) =>
       topic === "All" ||
       [x.body, x.context, x.uncertainty].some((v) =>
@@ -60,7 +66,7 @@ export function Evidence({
       | { kind: "community"; item: Experience }
     > = [];
     for (let i = 0; i < Math.max(external.length, nativeMatched.length); i++) {
-      if (external[i] && source !== "Community")
+      if (external[i] && (source === "All sources" || (source === "Community" ? external[i].platform === "community" : external[i].platform !== "community")))
         out.push({ kind: "external", item: external[i] });
       if (nativeMatched[i] && source !== "External")
         out.push({ kind: "community", item: nativeMatched[i] });
@@ -83,7 +89,7 @@ export function Evidence({
   const replyIds = new Set(
     external
       .filter(
-        (x) => x.parentId && external.some((p) => p.evidenceId === x.parentId),
+        (x) => x.parentId && external.some((p) => p.evidenceId === x.parentId || p.evidenceId.startsWith(`${x.parentId}:`)),
       )
       .map((x) => x.evidenceId),
   );
@@ -93,7 +99,8 @@ export function Evidence({
       <Copy muted>
         Experiences from external discussions and the Unmask community.
       </Copy>
-      <Notice>Different sources, one view. Source labels stay visible.</Notice>
+      <Notice>Different sources, one view. Highlighted passages explain the selected topic.</Notice>
+      {(profile as ProductProfile & { semanticReview?: { pending?: number } }).semanticReview?.pending ? <Notice>More collected comments are awaiting review. Only assessed experiences appear here.</Notice> : null}
       <View style={s.row}>
         <View style={{ flex: 1 }}>
           <Chips
@@ -200,7 +207,7 @@ export function Evidence({
               key={"external" + e.item.evidenceId}
               item={e.item}
               topic={topic}
-              replies={external.filter((x) => x.parentId === e.item.evidenceId)}
+              replies={external.filter((x) => x.parentId && (x.parentId === e.item.evidenceId || e.item.evidenceId.startsWith(`${x.parentId}:`)))}
             />
           ),
         )}
@@ -230,6 +237,8 @@ export function ExternalCard({
   topic: string;
   replies?: DimensionEvidenceItem[];
 }) {
+  const isCommunity = item.platform === "community";
+  const SourceIcon = isCommunity ? UsersThree : YoutubeLogo;
   const context = item as DimensionEvidenceItem & {
     skinType?: string;
     skinTypeSource?: string;
@@ -243,13 +252,13 @@ export function ExternalCard({
         onPress={() => openSource(item.url)}
         style={s.row}
       >
-        <YoutubeLogo size={25} color={ink.brand} />
+        <SourceIcon size={25} color={ink.brand} />
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={s.eyebrow}>
-            EXTERNAL · {item.platform.toUpperCase()}
+            {isCommunity ? "UNMASK COMMUNITY EXPERIENCE" : `EXTERNAL · ${item.platform.toUpperCase()}`}
           </Text>
           <Copy small>
-            {item.videoTitle || item.sourceContext || "Product discussion"} ·{" "}
+            {isCommunity ? item.author || "Member" : item.videoTitle || item.sourceContext || "Product discussion"} ·{" "}
             {dateLabel(item.createdAt)}
           </Copy>
         </View>
@@ -261,7 +270,7 @@ export function ExternalCard({
           <Text style={s.eyebrow}>
             {item.isReply ? "REPLY" : "COMMENT THEME"}
           </Text>
-          <Copy>{item.statement}</Copy>
+          <EvidenceQuote item={item} />
           <View style={[s.row, { flexWrap: "wrap" }]}>
             <Pill>{topic}</Pill>
             <Pill warning={!disclosed}>
@@ -305,7 +314,7 @@ export function ExternalCard({
               <ArrowBendUpLeft size={23} color={ink.muted} />
               <Text style={s.eyebrow}>REPLIES</Text>
             </View>
-            <Copy>{x.statement}</Copy>
+            <EvidenceQuote item={x} />
           </View>
         ))
       ) : (

@@ -13,7 +13,7 @@ export async function sha256Hex(value: string): Promise<string> {
 export async function hmacSha256Hex(secret: string, payload: string | Uint8Array): Promise<string> {
   const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const data = typeof payload === "string" ? enc.encode(payload) : payload;
-  return toHex(await crypto.subtle.sign("HMAC", key, data));
+  return toHex(await crypto.subtle.sign("HMAC", key, new Uint8Array(data)));
 }
 
 export function timingSafeEqual(a: string, b: string): boolean {

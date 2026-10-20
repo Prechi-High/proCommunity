@@ -1,6 +1,15 @@
 type Json = Record<string, unknown>;
 
-export type LlmResult = { data: Json | null; model: string | null; errors: string[] };
+export type LlmUsage = { inputTokens: number; outputTokens: number; thinkingTokens: number };
+export type LlmResult = { data: Json | null; model: string | null; errors: string[]; usage?: LlmUsage };
+export function readLlmUsage(body: Json | null): LlmUsage | undefined {
+  const u = (body?.usageMetadata ?? body?.usage) as Json | undefined;
+  if (!u) return undefined;
+  const n = (v: unknown) => typeof v === "number" && Number.isFinite(v) ? Math.max(0, v) : 0;
+  return { inputTokens: n(u.promptTokenCount ?? u.prompt_tokens),
+    outputTokens: n(u.candidatesTokenCount ?? u.completion_tokens),
+    thinkingTokens: n(u.thoughtsTokenCount) };
+}
 
 function secret(name: string): string {
   return (Deno.env.get(name) ?? "").trim().replace(/^["']|["']$/g, "");
@@ -28,6 +37,9 @@ export async function requestLlmJson(url: string, init: RequestInit, ms: number)
   try {
     const response = await fetch(url, { ...init, signal: controller.signal });
     const body = response.ok ? await response.json() as Json : null;
+    const usage = readLlmUsage(body);
+    console.info(JSON.stringify({ event: "llm_request_usage", status: response.status,
+      model: body?.modelVersion ?? body?.model ?? null, usage: usage ?? null }));
     return { ok: response.ok, status: response.status, body };
   } catch {
     return null;
@@ -103,7 +115,7 @@ async function callGemini(
     const candidate = body?.candidates?.[0];
     const text = candidate?.content?.parts?.filter((p) => !p.thought).map((p) => p.text ?? "").join("") ?? "";
     const data = parseJsonLoose(text);
-    if (data) return { data, model, errors };
+    if (data) return { data, model, errors, usage: readLlmUsage(res.body) };
     errors.push(`${model}:unparseable:${candidate?.finishReason ?? "none"}`);
   }
   return null;
@@ -147,7 +159,7 @@ async function callNvidia(
     }
     const body = res.body as { choices?: Array<{ message?: { content?: string } }> } | null;
     const data = parseJsonLoose(body?.choices?.[0]?.message?.content ?? "");
-    if (data) return { data, model: `nvidia/${model}`, errors };
+    if (data) return { data, model: `nvidia/${model}`, errors, usage: readLlmUsage(res.body) };
     errors.push(`nvidia/${model}:unparseable`);
   }
   return null;
@@ -201,7 +213,7 @@ export async function callLlmJson(prompt: string, maxTokens: number, timeoutMs: 
       }
       const body = res.body as { choices?: Array<{ message?: { content?: string } }> } | null;
       const data = parseJsonLoose(body?.choices?.[0]?.message?.content ?? "");
-      if (data) return { data, model, errors };
+      if (data) return { data, model, errors, usage: readLlmUsage(res.body) };
       errors.push(`${model}:unparseable`);
     }
   }

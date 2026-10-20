@@ -1,3 +1,4 @@
+import { digest } from "./semanticReview.ts";
 import { dedupeRawEvidence } from "./dedupeEvidence.ts";
 import { assessExperienceQuality } from "./experienceQuality.ts";
 import { planEvidenceQueries } from "./queryPlanner.ts";
@@ -29,6 +30,7 @@ export type EvidenceProviderCacheStore = {
 
 export type GatherCacheOptions = {
   cache?: EvidenceProviderCacheStore;
+  providers?: ProviderId[];
   /** When true, read through Upstash before calling providers. */
   useCache?: boolean;
   /** Investigation force — skip Redis GET, fetch fresh, overwrite cache on success. */
@@ -58,7 +60,7 @@ export async function loadProviderEvidenceWithCache(
   const queryKey = provider.id === "youtube" ? "harvest_v2" : (queries[0] ?? input.productName);
   const ck =
     provider.id === "youtube"
-      ? youtubeHarvestBundleKey(input.productId)
+      ? `${youtubeHarvestBundleKey(input.productId)}:${await digest([input.productName, input.brand, input.model, input.variant, input.dimensions])}`
       : providerCacheKey(input.productId, provider.id, queryKey);
   const ttl = providerEvidenceCacheTtlSec();
 
@@ -102,7 +104,7 @@ export async function loadProviderEvidenceWithCache(
       provider.id === "youtube"
         ? { items: result.items, acquisition: result.acquisition }
         : result.items;
-    await options.cache.setJson(ck, payload, ttl);
+    await options.cache.setJson(ck, payload, result.acquisition?.stoppedBecause && (result.acquisition.stoppedBecause as string[]).includes("collection_deadline") ? 120 : ttl);
   }
 
   return {
@@ -117,7 +119,7 @@ export async function gatherConversationEvidence(
   input: EvidenceSearchInput,
   options?: GatherCacheOptions,
 ): Promise<GatheredConversationEvidence> {
-  const order = providerRouteOrder(input.domain);
+  const order = options?.providers ?? providerRouteOrder(input.domain);
   const planned = planEvidenceQueries(input);
   const queries = planned.map((p) => p.query);
 

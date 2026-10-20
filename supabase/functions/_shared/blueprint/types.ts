@@ -100,7 +100,6 @@ export type ProductPresentationContract = {
     /** Rows in profile.conversationEvidence when presentation was built. */
     conversationEvidenceCount?: number;
     evidenceCorpusFingerprint?: string;
-    blueprintVersion?: number;
     dimensionEvidenceAlgorithm?: string;
     evidenceIdentityVersion?: string;
     evidenceRelevanceVersion?: string;

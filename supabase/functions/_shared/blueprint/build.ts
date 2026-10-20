@@ -206,7 +206,6 @@ export function buildPresentationFromProfile(
       cacheSource: schema.cacheSource ?? "fresh",
       conversationEvidenceCount: conversationEvidenceCount(profile),
       evidenceCorpusFingerprint: evidenceCorpusFingerprint(profile),
-      blueprintVersion: blueprintVersion,
       ...currentEvidenceFingerprint(),
     },
     navigation,

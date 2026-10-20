@@ -10,6 +10,8 @@ export async function getOrBuildBlueprintPackage(
   profile: Json,
   domainResolution?: DomainResolution,
 ): Promise<BuiltBlueprintPackage> {
+  const prepared = profile.preparedBlueprint as BuiltBlueprintPackage | undefined;
+  if (prepared?.blueprintId && prepared.dimensions?.length) return prepared;
   const identity = (profile.identity ?? {}) as Json;
   const specs = (Array.isArray(profile.specs) ? profile.specs : []) as Array<{ label?: string; value?: string }>;
   const generated = await generateProductBlueprintLlm({

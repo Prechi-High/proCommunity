@@ -45,11 +45,13 @@ export async function enrichProfileWithConversationEvidence(
   productId: string,
   query: string,
   profile: Json,
-  options?: { forceRefresh?: boolean },
+  options?: { forceRefresh?: boolean; dimensions?: import("../blueprint/types.ts").BlueprintDimensionDef[] },
 ): Promise<Json> {
   const input = buildEvidenceSearchInputFromProfile(productId, query, profile);
+  if (options?.dimensions) input.dimensions = options.dimensions;
   const gathered = await gatherConversationEvidence(input, {
     useCache: true,
+    providers: ["youtube"],
     cache: redisEvidenceProviderCache,
     forceRefresh: options?.forceRefresh === true,
   });
@@ -172,6 +174,7 @@ export async function gatherOwnerCommentsForInvestigate(
   };
   const { items } = await gatherConversationEvidence(input, {
     useCache: true,
+    providers: ["youtube"],
     cache: redisEvidenceProviderCache,
     forceRefresh,
   });

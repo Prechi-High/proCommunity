@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+import { validateProductVideos } from "../_shared/evidence/videoIdentity.ts";
 import { cacheInvalidation } from "../_shared/redis/invalidate.ts";
 
 const cors = {
@@ -169,6 +170,13 @@ Deno.serve(async (req) => {
         .slice(0, 6);
     }
 
+    const validated = await validateProductVideos(clips.map(c => ({ id: c.youtubeVideoId, title: c.title,
+      description: "", matchedQueryTopics: [], videoRelevanceScore: 0 })), {
+      productName: body.productName || "", brand: body.brand || "",
+    });
+    const acceptedIds = new Set(validated.map(v => v.id));
+    clips = clips.filter(c => acceptedIds.has(c.youtubeVideoId));
+    const identityProof = `exact-identity-v1:${encodeURIComponent(JSON.stringify([body.productName || "", body.brand || ""]))}:`;
     let inserted = 0;
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -197,7 +205,7 @@ Deno.serve(async (req) => {
             content_tags: guessed.tags,
             classification_confidence: guessed.confidence,
             classification_method: "title_description",
-            classification_justification: guessed.justification,
+            classification_justification: identityProof + guessed.justification,
             fetched_at: new Date().toISOString(),
           };
           if (catalogProductId) {

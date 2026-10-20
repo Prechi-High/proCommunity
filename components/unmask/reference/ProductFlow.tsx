@@ -370,7 +370,7 @@ export function ReferenceProductFlow(props: Props) {
               <Identity product={product} profile={profile} />
             ) : null}
             {showResult && intelLoading ? <Notice>More evidence is being checked. Available results are shown below.</Notice> : null}
-            {showResult && (profile as ProductProfile & { researchStatus?: string }).researchStatus === "limited" ? <Notice>Some analysis is unavailable. Showing sourced details; missing evidence is left unscored.</Notice> : null}
+            {showResult && (profile as ProductProfile & { researchStatus?: string }).researchStatus === "limited" ? <Notice>Only reviewed evidence is scored. Further collected comments may still be awaiting assessment.</Notice> : null}
             {showResult && tab !== "Overview" ? (
               <View
                 style={{

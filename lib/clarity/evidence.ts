@@ -1,6 +1,6 @@
 import type { DimensionEvidenceItem, DimensionExperienceBundle } from '@/lib/unmask/dimensionEvidence';
 export function summarizeReports(items: DimensionEvidenceItem[], skin = 'All') {
-    const unique = [...new Map(items.filter(x => x.affectsScore && x.url && ['positive', 'mixed', 'negative'].includes(x.stance)).map(x => [x.evidenceId, x])).values()];
+    const unique = [...new Map(items.filter(x => x.affectsScore && x.url && ['positive', 'mixed', 'negative'].includes(x.stance)).map(x => [x.reportKey || x.evidenceId, x])).values()];
     const matched = skin === 'All' ? unique : unique.filter(x => (x as DimensionEvidenceItem & {
         skinType?: string;
         skinTypeSource?: string;

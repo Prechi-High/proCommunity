@@ -1,3 +1,4 @@
+import { reviewEvidence, reviewRecords, type SemanticReviewState } from "../evidence/semanticReview.ts";
 import { recordDomainDemand, resolveDomain, type DomainStore } from "../domain/index.ts";
 import { capture } from "../core/observability.ts";
 import { buildProductUIContractV1 } from "../ui-contract/index.ts";
@@ -143,6 +144,14 @@ async function attachProductPresentationInner(
   );
 
   const built = await getOrBuildBlueprintPackage(productId, query, profile, domainResolution);
+  if (profile.semanticReviewRequired) {
+    profile.semanticReview = await reviewEvidence({ identity: profile.identity, dimensions: built.dimensions,
+      records: reviewRecords(profile), previous: profile.semanticReview as SemanticReviewState | undefined,
+      checkpoint: store ? async state => {
+        const hit = await store.rows(`product_intel?select=*&id=eq.${encodeURIComponent(productId)}&limit=1`);
+        if (hit[0]) await store.upsert("product_intel", { ...hit[0], payload: { ...profile, semanticReview: state } });
+      } : undefined });
+  }
   const presentation = store
     ? await persistBlueprint(store, productId, query, profile, built, domainResolution).catch(() =>
       buildPresentationFromProfile(productId, query, profile, built.blueprintId, built.version, domainResolution, {
