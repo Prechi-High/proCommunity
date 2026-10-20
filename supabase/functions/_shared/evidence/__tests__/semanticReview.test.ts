@@ -78,3 +78,13 @@ test('a timed-out YouTube page is contained instead of rejecting the entire harv
  assert.equal(await withTimeout(aborted, 50), null);
  assert.deepEqual(await withTimeout(Promise.resolve({ items: ['previously collected'] }), 50), { items: ['previously collected'] });
 });
+
+test('database JSON key ordering does not discard reviewed evidence or spend another LLM call', async () => {
+ let calls = 0;
+ const call = async () => { calls++; return { data: { decisions: [answer] }, model: 'test', errors: [] }; };
+ const first = await reviewEvidence({ identity: { name: 'Cream', brand: 'Brand' }, dimensions, records: [record], call });
+ const reordered = dimensions.map(d => ({ importance: d.importance, keywords: d.keywords, label: d.label, key: d.key }));
+ const second = await reviewEvidence({ identity: { brand: 'Brand', name: 'Cream' }, dimensions: reordered, records: [record], previous: JSON.parse(JSON.stringify(first)), call });
+ assert.equal(calls, 1);
+ assert.equal(second.rows.length, 1);
+});

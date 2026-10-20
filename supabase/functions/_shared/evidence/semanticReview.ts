@@ -16,8 +16,13 @@ export type SemanticReviewState = {
   usage: Array<{ model: string | null; usage?: LlmUsage; receivedAt: string }>;
 };
 type Caller = (prompt: string, maxTokens: number, timeoutMs: number) => Promise<LlmResult>;
-export async function digest(value: unknown): Promise<string> {
-  const bytes = new TextEncoder().encode(JSON.stringify(value));
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, canonical(item)]));
+  return value;
+}
+export async function digest(value: unknown, legacy = false): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify(legacy ? value : canonical(value)));
   const sum = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(sum), x => x.toString(16).padStart(2, "0")).join("");
 }
@@ -91,7 +96,9 @@ export async function reviewEvidence(input: {
     const hash = await digest([SEMANTIC_REVIEW_VERSION, input.identity, input.dimensions, r]);
     hashes.set(r.id, hash);
     const old = previous?.decisions[r.id];
-    if (old?.inputHash === hash) state.decisions[r.id] = old;
+    if (old && (old.inputHash === hash || old.inputHash === await digest([SEMANTIC_REVIEW_VERSION, input.identity, input.dimensions, r], true))) {
+      state.decisions[r.id] = { ...old, inputHash: hash };
+    }
   }
   const pending = input.records.filter(r => !state.decisions[r.id]);
   const setting = (name: string, fallback: number, max: number) => {
