@@ -334,7 +334,7 @@ export function kickProductOpenPipeline(input: {
       );
       return r;
     }),
-    startProductUnmask({ id: input.id, query }).then((r) => {
+    startProductUnmask({ id: input.id, query, name: input.name ?? known?.name, brand: input.brand ?? known?.brand }).then((r) => {
       agentLog(
         'products.ts:kick',
         'unmask_settled',
@@ -437,6 +437,8 @@ export function resolveProductPreview(input: {
 }
 
 async function startProductUnmaskInner(input: {
+  name?: string;
+  brand?: string;
   id: string;
   query?: string;
   force?: boolean;
@@ -456,8 +458,8 @@ async function startProductUnmaskInner(input: {
       action: 'start_unmask',
       productId: input.id,
       query,
-      name: known?.name,
-      brand: known?.brand,
+      name: input.name ?? known?.name,
+      brand: input.brand ?? known?.brand,
       category: known?.category,
       force: input.force === true,
     },
@@ -471,6 +473,8 @@ async function startProductUnmaskInner(input: {
 }
 
 export function startProductUnmask(input: {
+  name?: string;
+  brand?: string;
   id: string;
   query?: string;
   force?: boolean;

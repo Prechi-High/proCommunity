@@ -30,7 +30,7 @@ export function buildBundledYoutubeSearchPlans(
   };
 
   push({ query: base, topics: ["product"], kind: "anchor" });
-  push({ query: `${base} review`.replace(/\s+/g, " ").trim(), topics: ["review"], kind: "anchor" });
+  push({ query: `${base.replace(/"/g, "")} review`.replace(/\s+/g, " ").trim(), topics: ["review"], kind: "anchor" });
   push({
     query: `${base} owner review`.replace(/\s+/g, " ").trim(),
     topics: ["owner_review"],

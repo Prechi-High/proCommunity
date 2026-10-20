@@ -10,13 +10,18 @@ test('sourced fallback is persisted when AI is unavailable; get performs no rese
   let handler: (req: Request) => Promise<Response>;
   let payload: Record<string, any> | null = null;
   let providerCalls = 0;
+  const youtubeQueries: string[] = [];
   const env: Record<string, string> = {
     SUPABASE_URL: 'https://db.test', SUPABASE_SERVICE_ROLE_KEY: 'test', SERPER_API_KEY: 'test',
-    EVIDENCE_YOUTUBE_ENABLED: 'false', EVIDENCE_WEB_ENABLED: 'false',
+    YOUTUBE_DATA_API_KEY: 'test', EVIDENCE_YOUTUBE_ENABLED: 'true', EVIDENCE_WEB_ENABLED: 'false',
   };
   (globalThis as any).Deno = { env: { get: (key: string) => env[key] }, serve: (fn: typeof handler) => { handler = fn; } };
   globalThis.fetch = async (url, init) => {
     const address = String(url);
+    if (address.startsWith('https://www.googleapis.com/youtube/v3/search')) {
+      youtubeQueries.push(new URL(address).searchParams.get('q') || '');
+      return Response.json({ items: [] });
+    }
     if (address.startsWith('https://google.serper.dev/')) {
       providerCalls++;
       if (address.endsWith('/images')) return Response.json({ images: [{ imageUrl: 'https://images.test/lotion.png', title: 'Test Lotion' }] });
@@ -37,12 +42,16 @@ test('sourced fallback is persisted when AI is unavailable; get performs no rese
     throw new Error(`Unexpected network request: ${address}`);
   };
   try {
-    const source = (await readFile(new URL('../index.ts', import.meta.url), 'utf8')).replace(/^import "jsr:[^\n]+\n/, '');
+    const source = (await readFile(new URL('../index.ts', import.meta.url), 'utf8')).replace(/^import "jsr:[^\n]+\n/m, '');
     await writeFile(modulePath, source);
     await import(modulePath.href);
     const request = (body: Record<string, unknown>) => handler(new Request('https://edge.test', { method: 'POST', body: JSON.stringify(body) }));
-    const result = await (await request({ action: 'investigate', productId: 'test-lotion', query: 'Test Lotion', force: true })).json();
+    const result = await (await request({ action: 'investigate', productId: 'test-lotion', query: 'Lotion', name: 'Test Lotion', brand: 'Selected Brand', force: true })).json();
     assert.equal(result.success, true);
+    assert.equal(result.profile.identity.brand, 'Selected Brand');
+    assert.equal(result.profile.identity.name, 'Test Lotion');
+    assert.ok(youtubeQueries.length > 0, 'YouTube must run even when the category LLM fails');
+    assert.ok(youtubeQueries.every(q => q.includes('Selected Brand') && q.includes('Test Lotion')));
     assert.equal(result.profile.researchStatus, 'limited');
     assert.ok(result.profile.findings);
     assert.ok(payload, 'a successful response must have a persisted profile');

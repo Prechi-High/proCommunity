@@ -1,3 +1,4 @@
+import { selectedIdentityDetail } from "../_shared/investigation/selectedIdentity.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { redisService } from "../_shared/redis/service.ts";
 import { productPreviewKey } from "../_shared/redis/keys.ts";
@@ -50,7 +51,7 @@ const COMMUNITY_ACTIONS = new Set(["threads", "thread", "post", "reply", "owners
 const MEMBER_ONLY_ACTIONS = new Set(["post", "reply", "ownership_note", "helpful", "vote", "follow", "notifications", "notifications_read", "following", "upload"]);
 
 const SEARCH_TTL_MS = 24 * 60 * 60 * 1000;
-const PROFILE_VERSION = 7;
+const PROFILE_VERSION = 8;
 
 type Json = Record<string, unknown>;
 
@@ -576,6 +577,8 @@ Return JSON: {"items":[{"i":0,"name":"","brand":"","category":"","dup_of":null,"
 
 async function runInvestigate(input: {
   query: string;
+  selectedName?: string;
+  selectedBrand?: string;
   productId?: string;
   force?: boolean;
   country: string;
@@ -618,13 +621,13 @@ async function runInvestigate(input: {
   if (store && !input.force) {
     const hit = await store.select("product_intel", `id=eq.${encodeURIComponent(id)}`);
     const payload = hit?.payload as Json | undefined;
-    if (hit && payload?.version === PROFILE_VERSION && (payload.researchStatus === "researching" || !payload.evidenceCollectionError) && +new Date(String(hit.refresh_after)) > Date.now()) {
+    if (hit && payload?.version === PROFILE_VERSION && (payload.researchStatus === "researching" || !payload.evidenceCollectionError || (Array.isArray(payload.conversationEvidence) && payload.conversationEvidence.length > 0)) && +new Date(String(hit.refresh_after)) > Date.now()) {
       let enriched = payload;
       // Resume interrupted presentation work from already-saved sources, not another provider harvest.
       if (payload.semanticReviewRequired || (!payload.presentation && payload.researchStatus === "researching")) {
         payload.communityEvidence = await loadCommunityEvidence(store, id);
         enriched = await attachProductPresentation(store, id, String(hit.query ?? input.query), payload, {});
-        enriched = { ...enriched, researchStatus: enriched.presentation && (enriched.semanticReview as { complete?: boolean } | undefined)?.complete ? "complete" : "limited" };
+        enriched = { ...enriched, researchStatus: enriched.presentation && !enriched.evidenceCollectionError && (enriched.semanticReview as { complete?: boolean } | undefined)?.complete ? "complete" : "limited" };
         await store.upsert("product_intel", { ...hit, payload: enriched });
       }
       if (input.jobProductId) {
@@ -638,9 +641,12 @@ async function runInvestigate(input: {
     }
   }
 
-  const q = input.query;
   const cachedPreview = await redisService.getJson<ProductPreviewPayload>(productPreviewKey(id));
   const preview = cachedPreview.ok && cachedPreview.value ? { preview: cachedPreview.value } : null;
+  const selectedName = input.selectedName || preview?.preview.identity.name || input.query;
+  const selectedBrand = input.selectedBrand || preview?.preview.identity.brand || "";
+  const q = selectedBrand && !selectedName.toLowerCase().includes(selectedBrand.toLowerCase())
+    ? `${selectedBrand} ${selectedName}` : selectedName;
   // Public community first. Facts can load concurrently; external collection waits for the product blueprint.
   const communityFlight = loadCommunityEvidence(store, id);
   await touchJob("researching", [], ["web", "images", "shopping"], {
@@ -698,6 +704,7 @@ ${evidence.map((s) => `[${s.n}] (${s.kind}, ${s.domain}) ${s.title}: ${s.snippet
 ${offers.length ? `\nListings: ${offers.slice(0, 6).map((o) => `${o.title} — ${o.price?.display}`).join("; ")}` : ""}
 ${comments.length ? `\nOwner comments (real people, verbatim, C-numbered):\n${comments.map((c, i) => `[C${i + 1}] (${c.author}, ${c.likes} likes) ${c.text.slice(0, 360)}`).join("\n")}` : ""}
 
+Selected product identity (do not replace with a different brand/model): ${JSON.stringify({ name: selectedName, brand: selectedBrand })}.
 Rules: use only the evidence and well-established public facts about this exact product. Never invent numbers.
 Each praise/complaint/spec should cite the source number it came from when possible. Keep phrases short and plain.
 Work for ANY product type (electronics, appliances, clothing, food, tools, cosmetics, vehicles, software...).
@@ -744,13 +751,13 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
   const identityRaw = (d.identity ?? {}) as Json;
 
   const identity = {
-    name: str(identityRaw.name, 140) || preview?.preview.identity.name || str(kg?.title, 140) || q,
-    brand: str(identityRaw.brand, 80) || preview?.preview.identity.brand || "",
+    name: selectedName,
+    brand: selectedBrand || str(identityRaw.brand, 80),
     manufacturer: str(identityRaw.manufacturer, 80),
-    model: str(identityRaw.model, 80),
+    model: selectedIdentityDetail(selectedName, str(identityRaw.model, 80)),
     category: str(identityRaw.category, 60) || preview?.preview.identity.category || str(kg?.type, 60) || "Product",
     subcategory: str(identityRaw.subcategory, 60),
-    variant: str(identityRaw.variant, 80),
+    variant: selectedIdentityDetail(selectedName, str(identityRaw.variant, 80)),
     size: str(identityRaw.size, 60),
   };
 
@@ -1056,15 +1063,25 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
       const enrichStart = Date.now();
       outProfile.communityEvidence = await communityFlight;
       outProfile.semanticReviewRequired = true;
-      const prepared = await getOrBuildBlueprintPackage(id, q, outProfile);
-      outProfile.preparedBlueprint = prepared;
+      // Category generation may time out; it must never prevent source collection.
+      let prepared: Awaited<ReturnType<typeof getOrBuildBlueprintPackage>> | undefined;
+      try {
+        prepared = await getOrBuildBlueprintPackage(id, q, outProfile);
+        outProfile.preparedBlueprint = prepared;
+      } catch (error) {
+        outProfile.blueprintPreparationError = error instanceof Error ? error.message : String(error);
+      }
       outProfile = await enrichProfileWithConversationEvidence(id, q, outProfile, {
-        forceRefresh: input.force === true, dimensions: prepared.dimensions,
+        forceRefresh: input.force === true, dimensions: prepared?.dimensions,
       });
       const providerState = outProfile.evidenceProviderDiagnostics as { youtube?: { status?: string } } | undefined;
       if (providerState?.youtube?.status === "error") outProfile.evidenceCollectionError = "YouTube retrieval did not finish. Available reviewed evidence is preserved.";
       jobTimings.evidenceMappingMs = Date.now() - enrichStart;
       const ytDiag = outProfile.youtubeAcquisitionDiagnostics as Json | undefined;
+      const stopped = Array.isArray(ytDiag?.stoppedBecause) ? ytDiag.stoppedBecause as string[] : [];
+      if (stopped.some(reason => reason !== "youtube_api_commentsDisabled" && /^(youtube_api_|youtube_request_|video_identity_|missing_api_key|collection_deadline)/.test(reason))) {
+        outProfile.evidenceCollectionError = "YouTube collection is incomplete. Available reviewed evidence is preserved; retry to finish.";
+      }
       if (ytDiag && typeof ytDiag === "object") {
         jobTimings.youtubeMs = jobTimings.evidenceMappingMs;
       }
@@ -1081,13 +1098,15 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
         },
         sections: { details: "ready", evidence: "ready", videos: "ready", scores: "pending" },
       });
-    } catch {
+    } catch (error) {
+      console.error("evidence_collection_failed", id, error instanceof Error ? error.message : String(error));
       outProfile.evidenceCollectionError = "Evidence collection did not complete; no unreviewed comments are scored.";
+      outProfile.evidenceCollectionFailure = error instanceof Error ? error.message : String(error);
     }
   }
   // Persist acquired evidence before optional AI presentation work.
   await persistProfile();
-  if (store && (llm.data || outProfile.preparedBlueprint)) {
+  if (store) {
     await touchJob("scoring", ["web", "images", "shopping", "llm", "evidence"], ["blueprint", "scoring"], {
       timings: jobTimings,
       sections: { details: "ready", evidence: "ready", videos: "ready", scores: "researching" },
@@ -1111,7 +1130,7 @@ owner_claims: REQUIRED whenever owner comments or discussion snippets exist — 
   return { cached: false, profile: outProfile, errors: llm.errors };
 }
 
-async function runUnmaskJob(input: { query: string; productId: string; force?: boolean; country: string }) {
+async function runUnmaskJob(input: { query: string; selectedName?: string; selectedBrand?: string; productId: string; force?: boolean; country: string }) {
   const store = db();
   await writeUnmaskJob(
     input.productId,
@@ -2368,7 +2387,7 @@ Deno.serve(async (req) => {
         return json({ success: true, attached: true, job: existing });
       }
       runInBackground(
-        runUnmaskJob({ query: q, productId: id, force: body.force === true, country }),
+        runUnmaskJob({ query: q, selectedName: name || undefined, selectedBrand: brand || undefined, productId: id, force: body.force === true, country }),
       );
       const job = await readUnmaskJob(id, store);
       return json({ success: true, started: true, job });
@@ -2389,7 +2408,7 @@ Deno.serve(async (req) => {
       const brand = str(body.brand, 80);
       const q = query || [brand, name].filter(Boolean).join(" ");
       if (!q) return json({ error: "missing_query" }, 400);
-      return json({ success: true, ...(await runInvestigate({ query: q, productId, force: body.force === true, country })) });
+      return json({ success: true, ...(await runInvestigate({ query: q, selectedName: name || undefined, selectedBrand: brand || undefined, productId, force: body.force === true, country })) });
     }
 
     if (action === "get") {

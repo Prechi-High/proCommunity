@@ -334,6 +334,22 @@ export async function harvestYoutubeEvidence(
   const videoMap = new Map<string, DiscoveredVideo>();
   let searchRequests = 0;
 
+  const fetchPage = async <T>(url: string): Promise<T | null> => {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(Math.max(1, Math.min(PROVIDER_TIMEOUT_MS, collectionDeadline - Date.now()))) });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const reason = String(body?.error?.errors?.[0]?.reason ?? response.status).replace(/[^a-zA-Z0-9_]/g, "");
+        stopped.push(`youtube_api_${reason}`);
+        return null;
+      }
+      return await response.json() as T;
+    } catch {
+      stopped.push("youtube_request_timeout");
+      return null;
+    }
+  };
+
   const runSearchPlans = async (plans: SearchExecutionPlan[]) => {
     for (const plan of plans) {
       if (Date.now() >= collectionDeadline) { stopped.push("collection_deadline"); break; }
@@ -354,7 +370,7 @@ export async function harvestYoutubeEvidence(
             `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${limits.searchPageSize}` +
             `&relevanceLanguage=en&q=${encodeURIComponent(plan.query)}&key=${apiKey}` +
             (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
-          return withTimeout(fetch(url, { signal: AbortSignal.timeout(Math.max(1, Math.min(PROVIDER_TIMEOUT_MS, collectionDeadline - Date.now()))) }).then((r) => (r.ok ? (r.json() as Promise<SearchRes>) : null)), PROVIDER_TIMEOUT_MS);
+          return fetchPage<SearchRes>(url);
         });
         if (!res?.items?.length) break;
         for (const it of res.items) {
@@ -433,7 +449,7 @@ export async function harvestYoutubeEvidence(
               `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet,replies&videoId=${v.id}` +
               `&maxResults=${limits.commentPageSize}&order=${order}&textFormat=plainText&key=${apiKey}` +
               (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
-            return withTimeout(fetch(url, { signal: AbortSignal.timeout(Math.max(1, Math.min(PROVIDER_TIMEOUT_MS, collectionDeadline - Date.now()))) }).then((r) => (r.ok ? (r.json() as Promise<ThreadRes>) : null)), PROVIDER_TIMEOUT_MS);
+            return fetchPage<ThreadRes>(url);
           });
           if (!res?.items) break;
           commentPages += 1;
@@ -502,7 +518,7 @@ export async function harvestYoutubeEvidence(
                     `https://www.googleapis.com/youtube/v3/comments?part=snippet&parentId=${top.id}` +
                     `&maxResults=${limits.commentPageSize}&textFormat=plainText&key=${apiKey}` +
                     (replyPageToken ? `&pageToken=${encodeURIComponent(replyPageToken)}` : "");
-                  return withTimeout(fetch(url, { signal: AbortSignal.timeout(Math.max(1, Math.min(PROVIDER_TIMEOUT_MS, collectionDeadline - Date.now()))) }).then((r) => (r.ok ? (r.json() as Promise<ReplyRes>) : null)), PROVIDER_TIMEOUT_MS);
+                  return fetchPage<ReplyRes>(url);
                 });
                 if (!repRes?.items?.length) break;
                 for (const rc of repRes.items) {
@@ -538,7 +554,7 @@ export async function harvestYoutubeEvidence(
     }
   };
 
-  let ranked = await validateProductVideos(rankVideos([...videoMap.values()]), input, { cache: input.cacheStore, deadline: collectionDeadline });
+  let ranked = await validateProductVideos(rankVideos([...videoMap.values()]), input, { cache: input.cacheStore, deadline: collectionDeadline, onIncomplete: () => stopped.push("video_identity_review_incomplete") });
   await harvestComments(ranked);
 
   const weakThreshold = YOUTUBE_LIMITS.hybridCoverageThreshold();
@@ -568,7 +584,7 @@ export async function harvestYoutubeEvidence(
       videoMap.clear();
       for (const v of enriched) videoMap.set(v.id, v);
     }
-    ranked = await validateProductVideos(rankVideos([...videoMap.values()]), input, { cache: input.cacheStore, deadline: collectionDeadline });
+    ranked = await validateProductVideos(rankVideos([...videoMap.values()]), input, { cache: input.cacheStore, deadline: collectionDeadline, onIncomplete: () => stopped.push("video_identity_review_incomplete") });
     await harvestComments(ranked.slice(0, 20), true);
     const nextValid = countValidEvidence(items, input).valid;
     if (nextValid - valid < limits.marginalMin) {
