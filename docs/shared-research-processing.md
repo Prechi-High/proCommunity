@@ -22,9 +22,13 @@ Groq defaults to `openai/gpt-oss-20b`. NVIDIA keeps a supported configured text 
 
 Cloudflare Workers AI is invoked through its REST API from Supabase; a Cloudflare Worker gateway, Queue or Workflow deployment is not required. Screening fails open when unconfigured, unavailable or over budget. Source comments remain stored.
 
-Screening defaults to `shadow`: proposed rejections are recorded but every comment still reaches assessment. `enforce` requires both `RESEARCH_FILTER_MODE=enforce` and `RESEARCH_FILTER_APPROVED=true` after evaluating missed useful experiences. Enforced exclusions require an explicit high-confidence spam/unrelated decision; ten percent of proposed exclusions are still assessed for audit. Missing or malformed filter decisions are retained for assessment. Shadow mode has inference cost and should be benchmarked before enforcement.
+Screening defaults to `shadow`: it runs as a background audit in `research_filter_audits`, without blocking assessment, and every comment still reaches assessment. `enforce` requires both `RESEARCH_FILTER_MODE=enforce` and `RESEARCH_FILTER_APPROVED=true` after evaluating missed useful experiences. Enforced exclusions require an explicit high-confidence spam/unrelated decision; ten percent of proposed exclusions are still assessed for audit. Missing or malformed filter decisions are retained for assessment. Shadow mode has inference cost and should be benchmarked before enforcement.
 
 Primary assessment checks exact-product attribution, firsthand experience, category links, sentiment, and exact quote spans together. Existing semantic validators enforce the source quote and product rules. Proposed accepted decisions create separate verification tasks. Primary results never affect category scores before verification. Missing verification IDs stay unresolved; unrelated or duplicated IDs cannot manufacture accepted evidence.
+
+Validated videos enter collection immediately, up to twenty distinct videos per batch. The first forty ranked candidates are considered in the first wave; remaining candidates are considered only if the second wave is needed. Ranking never replaces exact-product validation. Each validation wave has a ninety-second deadline, after which unresolved videos are flagged instead of blocking collection indefinitely.
+
+A generic selected name without a brand or model (such as Travel Size Body Butter) requires identity confirmation before discovery. Brand names are included in discovery queries.
 
 Stage checkpoints preserve valid per-comment decisions and atomically create verification tasks. A partially failed task retries only missing decisions. Successfully verified evidence may publish even when another record in the same group fails. Source collection and decision processing overlap; no stage waits for all twenty collectors to finish.
 
@@ -34,7 +38,7 @@ Verified decisions and semantic rejections are cached by a hash of identity, blu
 
 Each task stage gets at most two worker attempts: original plus one automatic retry. A durable capacity deferral makes no upstream request and does not consume that retry allowance. `Retry-After` produces a shared provider cooldown; credential/payment failures pause that provider for an hour. An actual failed request remains recorded and consumes an attempt. Other configured providers remain eligible.
 
-Capacity-deferred tasks older than thirty minutes become failed, retaining their evidence and checkpoints so the report can finish as interrupted rather than load indefinitely. This is not a speed guarantee. Verification is dispatched first and primary reviews leave one concurrent provider slot available for verification. Further throughput depends on actual account budgets and measured model latency.
+Tasks waiting for provider capacity for ninety seconds become resumable failures, retaining their evidence and checkpoints so the report can finish as interrupted rather than load indefinitely. This is not a speed guarantee. Verification is dispatched first and primary reviews leave one concurrent provider slot available for verification. Further throughput depends on actual account budgets and measured model latency.
 
 ## Owner setup
 
@@ -59,3 +63,12 @@ New installs apply `database/parallel-research.sql` then the shared-processing m
 Tests: `npm run test:parallel-research` (includes provider and stage regressions), `database/shared-research-tests.sql` (transaction rollback), TypeScript, and the existing evidence/domain/blueprint tests. Inspect `research_usage_summary(run_id)` for actual per-provider request counts and tokens.
 
 To disable screening, set `RESEARCH_FILTER_MODE=off`. To disable a new provider, remove its backend secret while keeping the new worker so queued verification tasks remain supported. Do not roll back to a worker that cannot recognise `verify` tasks.
+
+
+## Timing and October 21 investigation
+
+Task metadata records first start, last start, completion, cumulative processing time and capacity deferrals. The published profile includes `parallelResearch.timings`; provider requests record their own start/finish and returned rate-limit headers. Storage calls also emit operation and duration logs without credentials. Preview publication builds the UI contract in memory; full normalized blueprint persistence happens at final publication only.
+
+The live Carotone Brightening Oil investigation confirmed collection began before identity validation finished: discovery completed 28 seconds after run creation and the first collector started at 34 seconds. Under the then-active provider throttling, the investigation was interrupted after about 11 minutes, with a verified brightening report. That run spanned several deployments, so it is a failure diagnosis, not a clean post-change speed benchmark. Its dominant cost was capacity waiting, including 161 review deferrals; it does not establish a seconds-long full-report guarantee.
+
+Groq returned account headers of 8,000 tokens/minute and 1,000 requests/day. NVIDIA returned HTTP 429 responses. The configured app daily Groq budget was almost exhausted (about 197,000 reserved/recorded tokens of 200,000), which is not proof of an upstream daily limit. More parallel workers cannot bypass these account constraints. Explicit retries reset both validation and capacity wait windows and preserve completed evidence.
