@@ -13,15 +13,12 @@ export async function startParallelResearch(input) {
  let old=await store.select("research_runs","product_id=eq."+encodeURIComponent(id));
  if(old&&!input.force){
   const hit=await store.select("product_intel","id=eq."+encodeURIComponent(id));
-  if(old.phase!=="interrupted"){
+  {
    await store.rpc("research_dispatch",{});
-   await writeUnmaskJob(id,{progress:{...progressForState(old.phase==="complete"?"ready":"researching",[],old.phase==="complete"?[]:["research"]),
-    sections:{details:"ready",evidence:old.phase==="complete"?"ready":"researching",videos:"ready",scores:old.phase==="complete"?"ready":"researching"}}},store);
+   await writeUnmaskJob(id,{progress:{...progressForState(["complete","interrupted"].includes(old.phase)?"ready":"researching",[],old.phase==="complete"?[]:["research"]),
+    sections:{details:"ready",evidence:["complete","interrupted"].includes(old.phase)?"ready":"researching",videos:"ready",scores:["complete","interrupted"].includes(old.phase)?"ready":"researching"}}},store);
    return {cached:old.phase==="complete",profile:hit?.payload||old.profile};
   }
- }
- if(old) {
-  await store.remove("research_runs","id=eq."+old.id);
  }
  const preview=(await redisService.getJson(productPreviewKey(id))).value;
  const name=cleanSelectedProductName(input.selectedName||preview?.identity?.name||input.query);
@@ -40,14 +37,19 @@ export async function startParallelResearch(input) {
  identity.category=blueprint.classification.domain==="beauty"?"Beauty":identity.category;
  // Community is loaded before external discovery. Private experiences never enter this pool.
  profile.communityEvidence=await loadCommunityEvidence(store,id);
- const run=await store.insert("research_runs",{product_id:id,identity,blueprint,profile,
-  endpoint:Deno.env.get("SUPABASE_URL")+"/functions/v1/research-worker"});
+ const tasks=[{key:"discover",kind:"discover",payload:{}},{key:"facts",kind:"facts",payload:{}},
+  ...assessmentTasks(reviewRecords(profile),"community")];
+ const opened=await store.rpc("research_open",{p_product:id,p_identity:identity,p_blueprint:blueprint,p_profile:profile,
+  p_endpoint:Deno.env.get("SUPABASE_URL")+"/functions/v1/research-worker",p_force:!!input.force,p_tasks:tasks});
+ const run=opened.run;
+ if(!opened.created){
+  await store.rpc("research_dispatch",{});
+  const hit=await store.select("product_intel","id=eq."+encodeURIComponent(id));
+  return {cached:run.phase==="complete",profile:hit?.payload||run.profile};
+ }
  await store.upsert("product_intel",{id,query:input.query,name,brand:identity.brand,category:identity.category,
   hero_image_url:profile.images[0]||null,payload:profile,confidence:0,verified_at:new Date().toISOString(),
   refresh_after:new Date(Date.now()+7*86400000).toISOString()});
- const tasks=[{key:"discover",kind:"discover",payload:{}},{key:"facts",kind:"facts",payload:{}},
-  ...assessmentTasks(reviewRecords(profile),"community")];
- await store.insertMany("research_tasks",tasks.map(t=>({run_id:run.id,task_key:t.key,kind:t.kind,batch:1,payload:t.payload})));
  await writeUnmaskJob(id,{progress:{...progressForState("researching",[],["youtube","community","details"]),
   sections:{details:"researching",evidence:"researching",videos:"researching",scores:"pending"}}},store);
  await store.rpc("research_dispatch",{});

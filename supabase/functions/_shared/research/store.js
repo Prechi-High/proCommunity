@@ -12,6 +12,7 @@ export function researchStore() {
   rows:async path=>(await request(path))||[],
   select:async(table,filter)=>(await request(table+"?"+filter+"&limit=1"))?.[0]||null,
   upsert:async(table,row)=>request(table,"POST",row,{Prefer:"resolution=merge-duplicates,return=minimal"}),
+  upsertOn:async(table,rows,key)=>rows.length?request(table+"?on_conflict="+encodeURIComponent(key),"POST",rows,{Prefer:"resolution=merge-duplicates,return=minimal"}):undefined,
   upsertMany:async(table,rows)=>rows.length?request(table+"?on_conflict=id","POST",rows,{Prefer:"resolution=merge-duplicates,return=minimal"}):undefined,
   insertMany:async(table,rows)=>rows.length?request(table,"POST",rows,{Prefer:"resolution=ignore-duplicates,return=minimal"}):undefined,
   insert:async(table,row)=>(await request(table,"POST",row,{Prefer:"return=representation"}))?.[0],
