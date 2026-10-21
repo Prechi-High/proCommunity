@@ -624,7 +624,9 @@ function Research({
         <Notice>
           {job?.failureReason === "source_quota_exhausted"
             ? "Product research is temporarily unavailable. Please try again later."
-            : "Research didn’t finish."}{" "}
+            : job?.failureReason?.includes("exact product")
+              ? job.failureReason
+              : "Research didn’t finish."}{" "}
           <Text onPress={retry} style={{ color: ink.brand }}>
             Try again
           </Text>

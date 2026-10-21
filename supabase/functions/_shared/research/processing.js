@@ -1,5 +1,5 @@
 import { digest, reviewEvidence, SEMANTIC_REVIEW_VERSION } from "../evidence/semanticReview.ts";
-import { policyVersion, ProviderWait, screenComments } from "./providers.js";
+import { policyVersion, ProviderWait, screenComments, filterMode } from "./providers.js";
 
 const emptyState=()=>({version:SEMANTIC_REVIEW_VERSION,decisions:{},rows:[],pending:0,complete:false,calls:0,failedCalls:0,usage:[]});
 const reviewIdentity=run=>({...run.identity,assessmentPolicy:policyVersion()});
@@ -21,7 +21,15 @@ export async function assessComments(store,run,task,assess,filter){
   for(const r of records){const hit=saved.find(d=>d.input_hash===hashes[r.id]);if(hit){previous.decisions[r.id]=hit.decision;reused[r.id]=hit.decision;}}
  }
  const pending=records.filter(r=>previous.decisions[r.id]?.inputHash!==hashes[r.id]);
- const screening=snapshot.screening||await screenComments(filter,run,pending);
+ let screening=snapshot.screening;
+ if(!screening&&filterMode()==="shadow"&&pending.length){
+  screening={records:pending,decisions:[],mode:"shadow",background:true};
+  const audit=screenComments(filter,run,pending,"shadow").then(async result=>{
+   if(store.upsertOn)await store.upsertOn("research_filter_audits",[{task_id:task.id,run_id:run.id,result:{...result,records:undefined},created_at:new Date().toISOString()}],"task_id");
+  }).catch(error=>console.warn("research_filter_audit_failed",String(error).slice(0,160)));
+  globalThis.EdgeRuntime?.waitUntil(audit);
+ }
+ screening=screening||(pending.length?await screenComments(filter,run,pending):{records:[],decisions:[],mode:"off"});
  const excluded=new Set((screening.decisions||[]).filter(d=>d.excluded).map(d=>d.id));
  for(const r of pending)if(excluded.has(r.id))previous.decisions[r.id]={inputHash:hashes[r.id],status:"rejected",reason:"Filter exclusion retained for audit"};
  const base={...snapshot,pipelineVersion:2,reused,screening:{...screening,records:undefined}};
@@ -72,10 +80,11 @@ Product: ${JSON.stringify(run.identity)}
 Categories: ${JSON.stringify(run.blueprint.dimensions.map(d=>({key:d.key,meaning:d.description||d.whyItMatters||d.label})))}
 Keep a category only if THIS comment directly describes an observed experience with this exact product and physical form. Use the parent for context only; do not borrow its experience or quote. Reject questions, plans, hearsay, creator compliments, spam and sibling variants. Negation matters. Usage frequency is not absorption; permission to use is not observed performance.
 Return JSON {"keep":[{"id":"every supplied ID","type":"experience|question|plan|hearsay|social|other","keys":["directly supported category keys"]}]}. Empty keys rejects.
-Candidates: ${JSON.stringify(pending.map(r=>({id:r.id,text:r.text,parent:r.contextText,video:r.title,proposed:proposed[r.id]?.row?.dimensionLinks.map(l=>({key:l.dimensionKey,quote:l.extractedStatement,stance:l.stance}))})))}`,Math.min(2500,300+pending.length*130),25000);
- const decisions=validateVerification(records,proposed,response.data,before);
+Candidates: ${JSON.stringify(pending.map((r,i)=>({id:String(i+1),text:r.text,parent:r.contextText,video:r.title,proposed:proposed[r.id]?.row?.dimensionLinks.map(l=>({key:l.dimensionKey,quote:l.extractedStatement,stance:l.stance}))})))}`,Math.min(3000,1200+pending.length*180),25000);
+ const output=response.data&&{...response.data,keep:Array.isArray(response.data.keep)?response.data.keep.map(d=>({...d,id:pending[Number(d.id)-1]?.id||d.id})):response.data.keep};
+ const decisions=validateVerification(records,proposed,output,before);
  const result={pipelineVersion:2,verified:{decisions},videoId:records[0]?.conversationId||null,
-  usage:[...(task.result?.usage||[]),{model:response.model,usage:response.usage}],errors:response.errors};
+  usage:[...(task.result?.usage||[]),{model:response.model,usage:response.usage}],responseShape:response.data,errors:response.errors};
  await store.rpc("research_checkpoint",{p_task:task.id,p_lease:task.lease,p_result:result});
  await cacheDecisions(store,run,decisions);
  const unresolved=records.filter(r=>!decisions[r.id]);

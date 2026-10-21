@@ -111,3 +111,33 @@ export function logicSelfTest() {
  assert(merged.rows.length===2,"idempotent merge");
  return {passed:9};
 }
+
+/** A generic product type is not an exact identity. Never guess a brand. */
+export function identityNeedsConfirmation(identity) {
+ if(identity.brand?.trim()||identity.model?.trim())return false;
+ const words=String(identity.name||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim().split(/\s+/);
+ const generic=new Set("travel size sized mini small medium large body face facial hand foot skin butter cream lotion oil cleanser wash soap moisturizer moisturising moisturizing hydrating hydration brightening nourishing natural organic whipped rich shea cocoa coconut unscented fragrance free product gel serum shampoo conditioner deodorant sunscreen phone charger cable headphones laptop review pack oz ml g the a and for".split(" "));
+ return !words.some(w=>w&&!generic.has(w)&&!/^\d+$/.test(w));
+}
+export function discoveryName(identity){
+ const name=identity.name.trim(),brand=identity.brand?.trim();
+ return brand&&!name.toLowerCase().includes(brand.toLowerCase())?brand+" "+name:name;
+}
+export function rankedCandidates(videos,identity){
+ const words=discoveryName(identity).toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>2);
+ const score=v=>words.reduce((n,w)=>n+(v.title||"").toLowerCase().includes(w),0)+(v.commentCount>0?.1:0);
+ return [...videos].sort((a,b)=>score(b)-score(a));
+}
+export function stageTimings(tasks,start,now=Date.now()){
+ const stages={};
+ for(const t of tasks){
+  const s=stages[t.kind]||{tasks:0,done:0,failed:0,pending:0,processingMs:0,queueMs:0,deferrals:0,firstStartedMs:null,lastFinishedMs:null};
+  s.tasks++;s[t.state==="done"?"done":t.state==="failed"?"failed":"pending"]++;
+  s.processingMs+=Number(t.total_processing_ms||t.result?.durationMs||0);
+  s.deferrals+=Number(t.capacity_deferrals||0);
+  if(t.first_started_at){const first=Date.parse(t.first_started_at);s.queueMs+=Math.max(0,first-Date.parse(t.created_at));s.firstStartedMs=Math.min(s.firstStartedMs??Infinity,first-Date.parse(start));}
+  if(t.finished_at)s.lastFinishedMs=Math.max(s.lastFinishedMs??0,Date.parse(t.finished_at)-Date.parse(start));
+  stages[t.kind]=s;
+ }
+ return {elapsedMs:now-Date.parse(start),stages};
+}

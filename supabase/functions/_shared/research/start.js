@@ -1,5 +1,5 @@
 import { researchStore } from "./store.js";
-import { RESEARCH_VERSION, assessmentTasks } from "./logic.js";
+import { RESEARCH_VERSION, assessmentTasks, identityNeedsConfirmation } from "./logic.js";
 import { loadCommunityEvidence } from "../evidence/communityEvidence.ts";
 import { reviewRecords } from "../evidence/semanticReview.ts";
 import { getOrBuildBlueprintPackage } from "../blueprint/getOrBuild.ts";
@@ -25,6 +25,7 @@ export async function startParallelResearch(input) {
  const identity={name,brand:input.selectedBrand||preview?.identity?.brand||"",manufacturer:"",
   model:preview?.identity?.model||"",category:preview?.identity?.category||"Product",
   subcategory:preview?.identity?.subcategory||"",variant:preview?.identity?.variant||"",size:preview?.identity?.size||""};
+ if(identityNeedsConfirmation(identity))throw Error("Please select the exact product, including its brand. The selected name is only a generic product type.");
  const profile={id,query:input.query,version:9,identity,summary:preview?.summary||"Checking product information and experiences.",
   verdict:"",consensus:"",consensusMark:"",voices:[],reveals:[],people:{voices:0,commenters:0,ratings:0,discussions:0},
   specs:preview?.specs||[],praise:[],complaints:[],bestFor:[],notFor:[],uses:[],howToUse:"",compatibility:"",

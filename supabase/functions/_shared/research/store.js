@@ -3,8 +3,10 @@ export function researchStore() {
  if(!base||!key)throw Error("research_storage_unconfigured");
  const headers={apikey:key,Authorization:"Bearer "+key,"Content-Type":"application/json"};
  const request=async(path,method="GET",body,extra={})=>{
+  const began=Date.now();
   const r=await fetch(base+"/rest/v1/"+path,{method,headers:{...headers,...extra},
    body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20000)});
+  console.info(JSON.stringify({event:"research_storage",operation:path.split("?")[0],method,status:r.status,durationMs:Date.now()-began}));
   if(!r.ok)throw Error("research_storage_"+r.status+":"+ (await r.text()).slice(0,200));
   const text=await r.text();return text?JSON.parse(text):null;
  };
