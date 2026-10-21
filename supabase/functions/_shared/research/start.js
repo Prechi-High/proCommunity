@@ -11,6 +11,7 @@ import { writeUnmaskJob, progressForState } from "../investigation/jobStore.ts";
 export async function startParallelResearch(input) {
  const store=researchStore(), id=input.productId;
  let old=await store.select("research_runs","product_id=eq."+encodeURIComponent(id));
+ if(old&&identityNeedsConfirmation(old.identity)&&!input.selectedBrand)throw Error("Please select the exact product, including its brand. The selected name is only a generic product type.");
  if(old&&!input.force){
   const hit=await store.select("product_intel","id=eq."+encodeURIComponent(id));
   {
