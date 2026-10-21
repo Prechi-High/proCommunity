@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { assessComments, verifyComments, evidenceResults, validateVerification, decisionHash } from "./processing.js";
-import { researchCaller, ProviderWait, screenComments, retryDelay } from "./providers.js";
+import { researchCaller, ProviderWait, screenComments, retryDelay, responseFormat } from "./providers.js";
 
 const run={id:"run",product_id:"cream",identity:{name:"Example Cream",brand:"Example"},blueprint:{dimensions:[{key:"hydration",label:"Hydration",importance:1,keywords:[]}]}};
 const record=(id:string,text="It kept my skin hydrated all day.")=>({id,sourceId:id,platform:"youtube",text,url:"https://youtube.com/watch?v=x",title:"Example Cream Review",conversationId:"x"});
@@ -76,4 +76,21 @@ test("changing product form or parent context invalidates comment reuse",async()
  const r=record("a");
  assert.notEqual(await decisionHash(run,r),await decisionHash({...run,identity:{...run.identity,name:"Example Lotion"}},r));
  assert.notEqual(await decisionHash(run,r),await decisionHash(run,{...r,contextText:"Was this the lotion?"}));
+});
+
+
+test("shadow screening cannot hold primary comment assessment open",async()=>{
+ const store=memory();let release:any;
+ const waiting=new Promise(resolve=>{release=resolve;});
+ const out=await assessComments(store,run,{id:"shadow-task",lease:"l",task_key:"shadow",kind:"review",attempts:1,batch:1,payload:{records:[record("a")]}},
+  async()=>({data:{decisions:[rejected("a")]},model:"mock",errors:[]}),async()=>waiting);
+ assert.equal(out.result.assessed,1);assert.equal(out.result.screening.background,true);
+ release({data:{items:[]}});
+});
+test("Groq verification and identity require their supported strict output schema",()=>{
+ const format:any=responseFormat("groq","openai/gpt-oss-20b","verify");
+ assert.equal(format.json_schema.strict,true);
+ assert.deepEqual(format.json_schema.schema.required,["keep"]);
+ assert.equal(responseFormat("nvidia","nemotron","verify").type,"json_object");
+ assert.equal(responseFormat("groq","openai/gpt-oss-20b","review").type,"json_object");
 });
