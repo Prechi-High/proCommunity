@@ -6,6 +6,12 @@ export class ProviderWait extends Error {
 }
 export function providerConfiguration(){
  const configured=[];
+ const modalKey=env("MODAL_NANO_API_KEY"),modalBase=env("MODAL_NANO_BASE_URL");
+ if(modalKey&&modalBase){
+  const parsed=new URL(modalBase);
+  if(parsed.protocol!=="https:"||!parsed.hostname.endsWith(".modal.run")||parsed.username||parsed.password||parsed.search||parsed.hash||parsed.pathname!=="/v1")throw Error("modal_base_url_invalid");
+  configured.push({provider:"modal",model:"unmask-nano",key:modalKey,url:modalBase+"/chat/completions"});
+ }
  const sfKey=env("SILICONFLOW_API_KEY");
  const sfBase=env("SILICONFLOW_BASE_URL")||"https://api.siliconflow.com/v1";
  if(sfKey){
@@ -22,17 +28,18 @@ export function providerConfiguration(){
 }
 export function providerStatus(){
  const list=providerConfiguration();
- return {configured:Object.fromEntries(['siliconflow','nvidia','groq','cloudflare'].map(p=>[p,list.some(c=>c.provider===p)])),
+ return {configured:Object.fromEntries(['modal','siliconflow','nvidia','groq','cloudflare'].map(p=>[p,list.some(c=>c.provider===p)])),
   models:Object.fromEntries(list.map(c=>[c.provider,c.model])),mode:researchProviderMode(),active:providerCandidates(list,"review").map(p=>p.provider),filterMode:filterMode(),policyVersion:policyVersion()};
 }
 export function researchProviderMode(){return env("RESEARCH_PROVIDER_MODE")||"siliconflow";}
 export function providerCandidates(list,stage,mode=researchProviderMode()){
+ if(mode==="modal")return stage==="filter"?[]:list.filter(p=>p.provider==="modal");
  if(mode==="siliconflow")return stage==="filter"?[]:list.filter(p=>p.provider==="siliconflow");
  if(mode!=="shared")throw Error("research_provider_mode_invalid");
- return list.filter(p=>stage==="filter"?p.provider==="cloudflare":p.provider!=="cloudflare");
+ return list.filter(p=>stage==="filter"?p.provider==="cloudflare":["nvidia","groq"].includes(p.provider));
 }
 export function filterMode(){
- if(researchProviderMode()==="siliconflow")return "off";
+ if(["siliconflow","modal"].includes(researchProviderMode()))return "off";
  const mode=env("RESEARCH_FILTER_MODE")||"shadow";
  return mode==="enforce"&&env("RESEARCH_FILTER_APPROVED")==="true"?"enforce":mode==="off"?"off":"shadow";
 }
@@ -57,7 +64,7 @@ export function researchCaller(store,run,task,stage=task.kind,dependencies={}){
  const fetcher=dependencies.fetch||fetch;
  return async(prompt,maxTokens,timeoutMs)=>{
   const candidates=providerCandidates(available,stage,dependencies.mode||(dependencies.providers?"shared":researchProviderMode()));
-  if(!candidates.length)throw Error(stage==="filter"?"filter_unconfigured":researchProviderMode()==="siliconflow"?"siliconflow_key_missing":"assessment_providers_unconfigured");
+  if(!candidates.length)throw Error(stage==="filter"?"filter_unconfigured":["siliconflow","modal"].includes(researchProviderMode())?researchProviderMode()+"_key_missing":"assessment_providers_unconfigured");
   const tokens=Math.ceil(prompt.length/3)+maxTokens+128;
   const slot=await store.rpc("research_provider_acquire",{p_run:run.id,p_task:task.id,p_stage:stage,p_tokens:tokens,
    p_candidates:candidates.map(p=>({provider:p.provider,model:p.model}))});

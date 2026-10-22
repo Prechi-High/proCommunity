@@ -22,7 +22,7 @@ export async function startParallelResearch(input) {
    return {cached:old.phase==="complete",profile:hit?.payload||old.profile};
   }
  }
- if(researchProviderMode()==="siliconflow"&&!providerCandidates(providerConfiguration(),"review").length)throw Error("SiliconFlow is not configured. Add SILICONFLOW_API_KEY in Supabase Edge Function secrets.");
+ if(["siliconflow","modal"].includes(researchProviderMode())&&!providerCandidates(providerConfiguration(),"review").length)throw Error(researchProviderMode()==="modal"?"Modal inference is not configured. Set MODAL_NANO_API_KEY and MODAL_NANO_BASE_URL in Supabase secrets.":"SiliconFlow is not configured. Add SILICONFLOW_API_KEY in Supabase Edge Function secrets.");
  const preview=(await redisService.getJson(productPreviewKey(id))).value;
  const name=cleanSelectedProductName(input.selectedName||preview?.identity?.name||input.query);
  const identity={name,brand:input.selectedBrand||preview?.identity?.brand||"",manufacturer:"",

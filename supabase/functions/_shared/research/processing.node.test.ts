@@ -114,3 +114,11 @@ test("SiliconFlow uses its own endpoint and does not forward incompatible provid
  assert.equal(sent.url,"https://api.siliconflow.com/v1/chat/completions");assert.equal(candidates.length,1);
  assert.equal(sent.body.reasoning_effort,undefined);assert.equal(sent.body.chat_template_kwargs,undefined);assert.equal(sent.body.response_format.type,"json_object");
 });
+
+ test("Modal mode isolates inference from all external providers",()=>{
+ const all=[{provider:"modal"},{provider:"siliconflow"},{provider:"groq"},{provider:"nvidia"},{provider:"cloudflare"}];
+ for(const stage of ["review","verify","identity","facts"])assert.deepEqual(providerCandidates(all,stage,"modal"),[{provider:"modal"}]);
+ assert.deepEqual(providerCandidates(all,"filter","modal"),[]);
+ assert.deepEqual(providerCandidates(all.slice(1),"review","modal"),[]);
+ assert.deepEqual(providerCandidates(all,"review","shared"),[{provider:"groq"},{provider:"nvidia"}]);
+ });

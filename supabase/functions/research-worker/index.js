@@ -293,7 +293,7 @@ Deno.serve(async req=>{
   if(!authorized)return json({error:"unauthorized"},401);
   if(body.providerStatus)return json(providerStatus());
   if(body.providerProbe){
-   if(!["siliconflow","nvidia","groq","cloudflare"].includes(body.provider))return json({error:"unknown_provider"},400);
+   if(!["modal","siliconflow","nvidia","groq","cloudflare"].includes(body.provider))return json({error:"unknown_provider"},400);
    const configs=providerCandidates(providerConfiguration(),body.provider==="cloudflare"?"filter":"diagnostic").filter(p=>p.provider===body.provider);
    if(!configs.length)return json({configured:false,provider:body.provider});
    const task=await store.select("research_tasks","run_id=eq."+body.runId);
