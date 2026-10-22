@@ -6,6 +6,12 @@ export class ProviderWait extends Error {
 }
 export function providerConfiguration(){
  const configured=[];
+ const sfKey=env("SILICONFLOW_API_KEY");
+ const sfBase=env("SILICONFLOW_BASE_URL")||"https://api.siliconflow.com/v1";
+ if(sfKey){
+  if(!["https://api.siliconflow.com/v1","https://api.siliconflow.cn/v1"].includes(sfBase))throw Error("siliconflow_base_url_invalid");
+  configured.push({provider:"siliconflow",model:env("SILICONFLOW_TEXT_MODEL")||"Qwen/Qwen3-30B-A3B-Instruct-2507",key:sfKey,url:sfBase+"/chat/completions"});
+ }
  const nvKey=env("NVIDIA_API_KEY")||env("NGC_API_KEY");
  const nvModel=[env("NVIDIA_TEXT_MODEL"),env("NVIDIA_MODEL")].find(m=>m&&!['meta/llama-3.1-8b-instruct','meta/llama-3.3-70b-instruct'].includes(m))||"nvidia/nemotron-3.5-lightning-30b-a3b";
  if(nvKey)configured.push({provider:"nvidia",model:nvModel,key:nvKey,url:"https://integrate.api.nvidia.com/v1/chat/completions"});
@@ -16,14 +22,21 @@ export function providerConfiguration(){
 }
 export function providerStatus(){
  const list=providerConfiguration();
- return {configured:Object.fromEntries(['nvidia','groq','cloudflare'].map(p=>[p,list.some(c=>c.provider===p)])),
-  models:Object.fromEntries(list.map(c=>[c.provider,c.model])),filterMode:filterMode(),policyVersion:policyVersion()};
+ return {configured:Object.fromEntries(['siliconflow','nvidia','groq','cloudflare'].map(p=>[p,list.some(c=>c.provider===p)])),
+  models:Object.fromEntries(list.map(c=>[c.provider,c.model])),mode:researchProviderMode(),active:providerCandidates(list,"review").map(p=>p.provider),filterMode:filterMode(),policyVersion:policyVersion()};
+}
+export function researchProviderMode(){return env("RESEARCH_PROVIDER_MODE")||"siliconflow";}
+export function providerCandidates(list,stage,mode=researchProviderMode()){
+ if(mode==="siliconflow")return stage==="filter"?[]:list.filter(p=>p.provider==="siliconflow");
+ if(mode!=="shared")throw Error("research_provider_mode_invalid");
+ return list.filter(p=>stage==="filter"?p.provider==="cloudflare":p.provider!=="cloudflare");
 }
 export function filterMode(){
+ if(researchProviderMode()==="siliconflow")return "off";
  const mode=env("RESEARCH_FILTER_MODE")||"shadow";
  return mode==="enforce"&&env("RESEARCH_FILTER_APPROVED")==="true"?"enforce":mode==="off"?"off":"shadow";
 }
-export function policyVersion(){return "shared-research-v1:"+providerConfiguration().filter(p=>p.provider!=="cloudflare").map(p=>p.provider+":"+p.model).sort().join("|");}
+export function policyVersion(){return "research-routing-v2:"+researchProviderMode()+":"+providerCandidates(providerConfiguration(),"review").map(p=>p.provider+":"+p.model).sort().join("|");}
 export function retryDelay(value,now=Date.now()){
  if(!value)return 60;
  const seconds=Number(value);
@@ -43,8 +56,8 @@ export function researchCaller(store,run,task,stage=task.kind,dependencies={}){
  const available=dependencies.providers||providerConfiguration();
  const fetcher=dependencies.fetch||fetch;
  return async(prompt,maxTokens,timeoutMs)=>{
-  const candidates=available.filter(p=>stage==="filter"?p.provider==="cloudflare":p.provider!=="cloudflare");
-  if(!candidates.length)throw Error(stage==="filter"?"filter_unconfigured":"assessment_providers_unconfigured");
+  const candidates=providerCandidates(available,stage,dependencies.mode||(dependencies.providers?"shared":researchProviderMode()));
+  if(!candidates.length)throw Error(stage==="filter"?"filter_unconfigured":researchProviderMode()==="siliconflow"?"siliconflow_key_missing":"assessment_providers_unconfigured");
   const tokens=Math.ceil(prompt.length/3)+maxTokens+128;
   const slot=await store.rpc("research_provider_acquire",{p_run:run.id,p_task:task.id,p_stage:stage,p_tokens:tokens,
    p_candidates:candidates.map(p=>({provider:p.provider,model:p.model}))});

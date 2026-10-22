@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { assessComments, verifyComments, evidenceResults, validateVerification, decisionHash } from "./processing.js";
-import { researchCaller, ProviderWait, screenComments, retryDelay, responseFormat } from "./providers.js";
+import { researchCaller, ProviderWait, screenComments, retryDelay, responseFormat, providerCandidates, providerStatus } from "./providers.js";
 
 const run={id:"run",product_id:"cream",identity:{name:"Example Cream",brand:"Example"},blueprint:{dimensions:[{key:"hydration",label:"Hydration",importance:1,keywords:[]}]}};
 const record=(id:string,text="It kept my skin hydrated all day.")=>({id,sourceId:id,platform:"youtube",text,url:"https://youtube.com/watch?v=x",title:"Example Cream Review",conversationId:"x"});
@@ -80,12 +80,14 @@ test("changing product form or parent context invalidates comment reuse",async()
 
 
 test("shadow screening cannot hold primary comment assessment open",async()=>{
+ const prior=(globalThis as any).Deno;(globalThis as any).Deno={env:{get:(name:string)=>name==="RESEARCH_PROVIDER_MODE"?"shared":undefined}};
  const store=memory();let release:any;
  const waiting=new Promise(resolve=>{release=resolve;});
  const out=await assessComments(store,run,{id:"shadow-task",lease:"l",task_key:"shadow",kind:"review",attempts:1,batch:1,payload:{records:[record("a")]}},
   async()=>({data:{decisions:[rejected("a")]},model:"mock",errors:[]}),async()=>waiting);
  assert.equal(out.result.assessed,1);assert.equal(out.result.screening.background,true);
  release({data:{items:[]}});
+ (globalThis as any).Deno=prior;
 });
 test("Groq verification and identity require their supported strict output schema",()=>{
  const format:any=responseFormat("groq","openai/gpt-oss-20b","verify");
@@ -93,4 +95,22 @@ test("Groq verification and identity require their supported strict output schem
  assert.deepEqual(format.json_schema.schema.required,["keep"]);
  assert.equal(responseFormat("nvidia","nemotron","verify").type,"json_object");
  assert.equal(responseFormat("groq","openai/gpt-oss-20b","review").type,"json_object");
+});
+
+
+test("SiliconFlow-only routing never selects Groq, NVIDIA or Cloudflare",()=>{
+ const all=[{provider:"siliconflow"},{provider:"groq"},{provider:"nvidia"},{provider:"cloudflare"}];
+ for(const stage of ["review","verify","identity","facts"])assert.deepEqual(providerCandidates(all,stage,"siliconflow"),[{provider:"siliconflow"}]);
+ assert.deepEqual(providerCandidates(all,"filter","siliconflow"),[]);
+ assert.deepEqual(providerCandidates(all.slice(1),"review","siliconflow"),[]);
+ assert.throws(()=>providerCandidates(all,"review","bad_mode"),/mode_invalid/);
+});
+test("SiliconFlow uses its own endpoint and does not forward incompatible provider parameters",async()=>{
+ let sent:any;let candidates:any;
+ const call=researchCaller({rpc:async(name:string,args:any)=>{if(name==="research_provider_acquire"){candidates=args.p_candidates;return {allowed:true,provider:"siliconflow",requestId:"r"};}return null;}},run,{id:"t",kind:"review"},"review",{
+  mode:"siliconflow",providers:[{provider:"siliconflow",model:"Qwen/Qwen3-30B-A3B-Instruct-2507",key:"test-key",url:"https://api.siliconflow.com/v1/chat/completions"},{provider:"groq",model:"other",key:"unused",url:"unused"}],
+  fetch:async(url:string,init:any)=>{sent={url,body:JSON.parse(init.body)};return new Response(JSON.stringify({choices:[{message:{content:'{"ok":true}'},finish_reason:"stop"}],usage:{total_tokens:20}}),{status:200});}});
+ assert.equal((await call("Return JSON",100,1000)).data.ok,true);
+ assert.equal(sent.url,"https://api.siliconflow.com/v1/chat/completions");assert.equal(candidates.length,1);
+ assert.equal(sent.body.reasoning_effort,undefined);assert.equal(sent.body.chat_template_kwargs,undefined);assert.equal(sent.body.response_format.type,"json_object");
 });

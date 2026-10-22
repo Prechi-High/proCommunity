@@ -1,3 +1,4 @@
+import { providerConfiguration, providerCandidates, researchProviderMode } from "./providers.js";
 import { researchStore } from "./store.js";
 import { RESEARCH_VERSION, assessmentTasks, identityNeedsConfirmation } from "./logic.js";
 import { loadCommunityEvidence } from "../evidence/communityEvidence.ts";
@@ -21,6 +22,7 @@ export async function startParallelResearch(input) {
    return {cached:old.phase==="complete",profile:hit?.payload||old.profile};
   }
  }
+ if(researchProviderMode()==="siliconflow"&&!providerCandidates(providerConfiguration(),"review").length)throw Error("SiliconFlow is not configured. Add SILICONFLOW_API_KEY in Supabase Edge Function secrets.");
  const preview=(await redisService.getJson(productPreviewKey(id))).value;
  const name=cleanSelectedProductName(input.selectedName||preview?.identity?.name||input.query);
  const identity={name,brand:input.selectedBrand||preview?.identity?.brand||"",manufacturer:"",

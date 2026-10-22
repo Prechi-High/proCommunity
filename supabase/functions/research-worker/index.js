@@ -4,7 +4,7 @@ import { discoverYoutubeCandidates } from "../_shared/research/youtubeDiscovery.
 import { redisService } from "../_shared/redis/service.ts";
 import { commentPageTaskKey, researchSummary, RESEARCH_VERSION, assessmentTasks, combineDecisions, coverage, weakCategories, chooseNextVideos, normalizeThreads, logicSelfTest, rankedCandidates, discoveryName, stageTimings } from "../_shared/research/logic.js";
 import { reviewEvidence, validateReviewDecision } from "../_shared/evidence/semanticReview.ts";
-import { researchCaller, providerStatus, providerConfiguration, ProviderWait } from "../_shared/research/providers.js";
+import { researchCaller, providerStatus, providerConfiguration, ProviderWait, providerCandidates } from "../_shared/research/providers.js";
 import { assessComments, verifyComments, evidenceResults } from "../_shared/research/processing.js";
 import { buildPresentationFromProfile } from "../_shared/blueprint/build.ts";
 import { persistBlueprint } from "../_shared/blueprint/persist.ts";
@@ -293,8 +293,8 @@ Deno.serve(async req=>{
   if(!authorized)return json({error:"unauthorized"},401);
   if(body.providerStatus)return json(providerStatus());
   if(body.providerProbe){
-   if(!["nvidia","groq","cloudflare"].includes(body.provider))return json({error:"unknown_provider"},400);
-   const configs=providerConfiguration().filter(p=>p.provider===body.provider);
+   if(!["siliconflow","nvidia","groq","cloudflare"].includes(body.provider))return json({error:"unknown_provider"},400);
+   const configs=providerCandidates(providerConfiguration(),body.provider==="cloudflare"?"filter":"diagnostic").filter(p=>p.provider===body.provider);
    if(!configs.length)return json({configured:false,provider:body.provider});
    const task=await store.select("research_tasks","run_id=eq."+body.runId);
    if(!task)return json({error:"task_required"},400);
