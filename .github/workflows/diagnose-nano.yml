@@ -19,4 +19,5 @@ jobs:
           python-version: '3.12'
       - run: pip install modal
       - run: modal app list --json
-      - run: timeout 50 modal app logs unmask-nano-candidate || test "$?" = 124
+      - run: modal container list --app-id ap-aGOn3CjHdEawMmNWKnpEev --json
+      - run: timeout 40 modal app logs unmask-nano-optimized || test "$?" = 124
