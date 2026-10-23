@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: deploy-nano-modal
+  group: deploy-nano-modal-v2
   cancel-in-progress: true
 jobs:
   deploy:
