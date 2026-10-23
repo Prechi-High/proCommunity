@@ -166,8 +166,13 @@ async function publish(store,run,tasks,phase,loading){
  const providerUsage=await store.rpc("research_usage_summary",{p_run:run.id});
  const fact=taskResults(tasks,"facts")[0]||{}, discovered=taskResults(tasks,"discover")[0]||{};
  const videos=taskResults(tasks,"identity").flatMap(x=>x.videos||[]);
- const profile={...run.profile,...(fact.patch||{}),unexpectedExperiences:reviewResults.flatMap(r=>r.observations||[]),conversationEvidence:[...raw.values()],
-  semanticReview:{version:"semantic-review-v1",decisions:semantic.decisions,rows:semantic.rows,pending,
+ // Raw comments and rejection audit remain in research_tasks/research_comments.
+ // Publish only supported evidence, rather than copying the entire corpus on every preview.
+ const acceptedDecisions=Object.fromEntries(Object.entries(semantic.decisions).filter(([,d])=>d.status==="accepted"));
+ const displayIds=new Set(Object.keys(acceptedDecisions));
+ for(const result of reviewResults)for(const observation of result.observations||[])displayIds.add(observation.recordId);
+ const profile={...run.profile,...(fact.patch||{}),unexpectedExperiences:reviewResults.flatMap(r=>r.observations||[]),conversationEvidence:[...raw.values()].filter(r=>displayIds.has(r.id)),
+  semanticReview:{version:"semantic-review-v1",decisions:acceptedDecisions,rejectedCount:Object.values(semantic.decisions).filter(d=>d.status==="rejected").length,rows:semantic.rows,pending,
    complete:pending===0,calls:providerUsage.assessmentCalls,failedCalls:failed.filter(t=>["review","verify"].includes(t.kind)).length,
    usage:reviewResults.flatMap(x=>x.usage||[])},
   evidenceQueries:discovered.queries||[],validatedVideos:videos,
@@ -231,7 +236,7 @@ async function coordinate(store,run,task){
  const tasks=await store.allTasks(run.id);
  if(task.payload.stage==="preview"){
   const publishedAt=Date.parse(run.created_at)+(run.profile?.parallelResearch?.timings?.elapsedMs||0);
-  if(Date.parse(task.created_at)<=publishedAt)return {result:{skipped:true,reason:"superseded_preview"}};
+  if(Date.parse(task.created_at)<=publishedAt||Date.parse(task.created_at)<Date.now()-60000)return {result:{skipped:true,reason:"superseded_preview"}};
   const rows=combineDecisions(evidenceResults(tasks)).rows;
   if(!rows.length)return {result:{skipped:true}};
   const profile=await publish(store,run,tasks,run.phase,weakCategories(rows,run.blueprint.dimensions));
