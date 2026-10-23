@@ -6,7 +6,7 @@ import subprocess
 import time
 import modal
 
-app = modal.App('unmask-nano-candidate')
+app = modal.App('unmask-nano-optimized')
 image = (modal.Image.from_registry('nvidia/cuda:12.9.0-devel-ubuntu22.04',add_python='3.12')
          .entrypoint([]).add_local_file(Path(__file__).with_name('evidence-schemas.json'),'/opt/evidence-schemas.json',copy=True).uv_pip_install('vllm==0.21.0','fastapi==0.135.1','httpx==0.28.1','requests==2.32.5'))
 weights = modal.Volume.from_name('unmask-nano-model-cache',create_if_missing=True)
@@ -14,7 +14,7 @@ weights = modal.Volume.from_name('unmask-nano-model-cache',create_if_missing=Tru
 @app.cls(image=image,gpu='H100',cpu=8,memory=16384,max_containers=2,min_containers=0,
          scaledown_window=600,timeout=600,volumes={'/root/.cache/huggingface':weights},
          enable_memory_snapshot=True,experimental_options={'enable_gpu_snapshot':True},
-         secrets=[modal.Secret.from_name(os.environ.get('UNMASK_NANO_SECRET_NAME','unmask-nano-auth'))])
+         secrets=[modal.Secret.from_name('unmask-nano-candidate-auth-v1')])
 @modal.concurrent(max_inputs=64,target_inputs=16)
 class Inference:
     @modal.enter(snap=True)
@@ -65,7 +65,7 @@ class Inference:
         from fastapi.responses import Response
         service=FastAPI(docs_url=None,redoc_url=None,openapi_url=None)
         @service.get('/health')
-        async def health():return {'ready':True}
+        async def health():return {'ready':True,'revision':'one-minute-v3'}
         @service.post('/v1/chat/completions')
         async def completions(request:Request):
             expected='Bearer '+os.environ['UNMASK_NANO_API_KEY']

@@ -32,7 +32,7 @@ else:
     print("::add-mask::"+key,flush=True)
 os.environ["UNMASK_NANO_SECRET_NAME"] = name
 subprocess.run(["modal", "deploy", "services/nano-modal/candidate_app.py"], check=True)
-url = modal.Cls.from_name("unmask-nano-candidate", "Inference")().api.get_web_url()
+url = modal.Cls.from_name("unmask-nano-optimized", "Inference")().api.get_web_url()
 public = serialization.load_pem_public_key(Path("services/nano-modal/bootstrap-public.pem").read_bytes())
 encrypted = public.encrypt(key.encode(), padding.OAEP(mgf=padding.MGF1(hashes.SHA256()), algorithm=hashes.SHA256(), label=None))
 print("UNMASK_MODAL_CANDIDATE_BOOTSTRAP=" + json.dumps({"url": url, "encrypted_key": base64.b64encode(encrypted).decode(), "model": "unmask-nano"}))
