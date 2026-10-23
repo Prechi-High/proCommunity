@@ -10,7 +10,7 @@ image = (modal.Image.from_registry("nvidia/cuda:12.9.0-devel-ubuntu22.04", add_p
 weights = modal.Volume.from_name("unmask-nano-model-cache", create_if_missing=True)
 
 @app.function(image=image, gpu="A10G", max_containers=1, min_containers=0,
-              scaledown_window=180, timeout=600,
+              scaledown_window=600, timeout=600,
               volumes={"/root/.cache/huggingface": weights},
               secrets=[modal.Secret.from_name(os.environ.get("UNMASK_NANO_SECRET_NAME", "unmask-nano-auth"))])
 @modal.concurrent(max_inputs=32)
