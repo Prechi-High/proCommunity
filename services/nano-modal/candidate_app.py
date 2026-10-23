@@ -76,3 +76,31 @@ class Inference:
                 result=await client.post('http://127.0.0.1:8000/v1/chat/completions',content=body,headers={'Authorization':expected,'Content-Type':'application/json'})
             return Response(content=result.content,status_code=result.status_code,media_type='application/json')
         return service
+
+# Management-only CPU task. The bearer credential never leaves this task in plaintext.
+bootstrap_image=(modal.Image.debian_slim(python_version='3.12')
+    .uv_pip_install('cryptography','requests==2.32.5')
+    .add_local_file(Path(__file__).with_name('bootstrap-public.pem'),'/opt/bootstrap-public.pem',copy=True))
+@app.function(image=bootstrap_image,secrets=[modal.Secret.from_name('unmask-nano-candidate-auth-v1')],timeout=900)
+def bootstrap_report(url: str):
+    import base64
+    import requests
+    from urllib.parse import urlparse
+    from cryptography.hazmat.primitives import hashes,serialization
+    from cryptography.hazmat.primitives.asymmetric import padding
+    parsed=urlparse(url)
+    if parsed.scheme!='https' or not parsed.hostname.endswith('.modal.run') or parsed.path not in ('','/'):
+        raise ValueError('invalid deployment URL')
+    key=os.environ['UNMASK_NANO_API_KEY']
+    public=serialization.load_pem_public_key(Path('/opt/bootstrap-public.pem').read_bytes())
+    encrypted=public.encrypt(key.encode(),padding.OAEP(mgf=padding.MGF1(hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+    began=time.monotonic()
+    response=requests.get(url+'/health',timeout=600);response.raise_for_status()
+    health={'status':response.status_code,'seconds':time.monotonic()-began,'revision':response.json().get('revision')}
+    began=time.monotonic()
+    response=requests.post(url+'/v1/chat/completions',headers={'Authorization':'Bearer '+key},json={
+        'model':'unmask-nano','max_tokens':32,'temperature':0,'response_format':{'type':'json_object'},
+        'messages':[{'role':'user','content':'Return JSON {"ok":true}'}]},timeout=120)
+    response.raise_for_status();result=response.json()
+    return {'bootstrap':{'url':url,'encrypted_key':base64.b64encode(encrypted).decode(),'model':'unmask-nano'},
+        'health':health,'smoke':{'seconds':time.monotonic()-began,'usage':result.get('usage'),'output':result['choices'][0]['message']['content']}}

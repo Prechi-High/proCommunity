@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: deploy-nano-candidate-v3
+  group: deploy-nano-candidate-v4
   cancel-in-progress: true
 jobs:
   deploy:
