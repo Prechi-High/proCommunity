@@ -27,6 +27,13 @@ These are model judgments, not a human-labeled accuracy score. Faster sparse for
 - H100 serving is limited to two containers and retains the ten-minute idle shutdown.
 - Candidate deployment credentials are made stable across subsequent deployments.
 
+## Additional measurements
+
+- Miss Dior Comforting Body Cream: complete, 19.83 seconds from durable run creation, 24 comments, zero failed tasks. Initial API request was 12.01 seconds; this small case is not representative of a large evidence set.
+- CeraVe after background-claim fix: 64.99 seconds internally, interrupted by two truncated assessment groups. No stranded collectors remained.
+- Reproduced truncation on a failed group: 3,000 output tokens, 7,834 consecutive whitespace characters. The corrected serving configuration explicitly selects xgrammar and disables optional JSON whitespace.
+- Rendering payload: 1,859,436 to 582,463 JSON bytes (68.7% reduction); displayed evidence, category bundles and accepted counts compared equal. Compressed transfer: 454,418 to 170,904 bytes. Measured retrieval 9.47 to 8.73 seconds from the test host, so payload reduction alone did not resolve the full latency.
+
 ## Remaining acceptance criteria
 
 Fresh end-to-end runs must finish with zero unresolved groups, preserve category evidence, publish a readable UI contract, and include initial API latency in the one-minute measurement. Warm and restored-GPU tests must be reported separately. No universal one-minute guarantee has been established.

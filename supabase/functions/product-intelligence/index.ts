@@ -1,3 +1,4 @@
+import { clientProductProfile } from "../_shared/clientProfile.ts";
 import { startParallelResearch } from "../_shared/research/start.js";
 import { selectedIdentityDetail, cleanSelectedProductName } from "../_shared/investigation/selectedIdentity.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -2457,7 +2458,7 @@ Deno.serve(async (req) => {
         ...payload, semanticReviewRequired: true, presentation: undefined, dimensionExperience: undefined,
         uiContract: undefined, findings: undefined, voices: [], researchStatus: "researching",
       } });
-      return json({ success: true, profile: payload });
+      return json({ success: true, profile: clientProductProfile(payload) });
     }
 
     if (action === "compare_aspects" || action === "compare_focus") {
