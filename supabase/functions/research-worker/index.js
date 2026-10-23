@@ -1,3 +1,4 @@
+import { requireInferenceHealth } from "../_shared/research/inferenceHealth.js";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { researchStore } from "../_shared/research/store.js";
 import { discoverYoutubeCandidates } from "../_shared/research/youtubeDiscovery.js";
@@ -195,15 +196,24 @@ async function publish(store,run,tasks,phase,loading,publisherTask){
   sources:(profile.sources||[]).map(s=>({n:s.n,domain:s.domain,kind:s.kind}))
  });
  delete profile.presentation; delete profile.uiContract;delete profile.dimensionExperience;
- const presentation=["complete","interrupted"].includes(phase)?await atomicBlueprintWrites(store,publisherTask,buffer=>persistBlueprint(buffer,run.product_id,profile.query,profile,run.blueprint)):buildPresentationFromProfile(run.product_id,profile.query,profile,run.blueprint.blueprintId,run.blueprint.version,undefined,{
-  classification:run.blueprint.classification,factSections:run.blueprint.factSections,dimensions:run.blueprint.dimensions,cacheSource:"fresh"});
- profile.presentation=presentation;
- profile.dimensionExperience={algorithmVersion:presentation.dimensionExperience.algorithmVersion,byKey:presentation.dimensionExperience.byKey};
- profile.uiContract=buildProductUIContractV1(run.product_id,profile,presentation);
- profile.people={voices:semantic.rows.length,commenters:new Set(semantic.rows.map(r=>r.reportKey)).size,ratings:0,discussions:usedVideos(tasks).length};
- await store.upsert("product_intel",{id:run.product_id,query:profile.query,name:run.identity.name,brand:run.identity.brand,
-  category:run.identity.category,hero_image_url:profile.images[0]||null,payload:profile,confidence:0,
-  verified_at:new Date().toISOString(),refresh_after:new Date(Date.now()+7*86400000).toISOString()});
+ const finishPresentation=async(destination,presentation)=>{
+  profile.presentation=presentation;
+  profile.dimensionExperience={algorithmVersion:presentation.dimensionExperience.algorithmVersion,byKey:presentation.dimensionExperience.byKey};
+  profile.uiContract=buildProductUIContractV1(run.product_id,profile,presentation);
+  profile.people={voices:semantic.rows.length,commenters:new Set(semantic.rows.map(r=>r.reportKey)).size,ratings:0,discussions:usedVideos(tasks).length};
+  await destination.upsert("product_intel",{id:run.product_id,query:profile.query,name:run.identity.name,brand:run.identity.brand,
+   category:run.identity.category,hero_image_url:profile.images[0]||null,payload:profile,confidence:0,
+   verified_at:new Date().toISOString(),refresh_after:new Date(Date.now()+7*86400000).toISOString()});
+ };
+ if(["complete","interrupted"].includes(phase)){
+  await atomicBlueprintWrites(store,publisherTask,async buffer=>{
+   const presentation=await persistBlueprint(buffer,run.product_id,profile.query,profile,run.blueprint);
+   await finishPresentation(buffer,presentation);
+  });
+ }else{
+  await finishPresentation(store,buildPresentationFromProfile(run.product_id,profile.query,profile,run.blueprint.blueprintId,run.blueprint.version,undefined,{
+   classification:run.blueprint.classification,factSections:run.blueprint.factSections,dimensions:run.blueprint.dimensions,cacheSource:"fresh"}));
+ }
  const continuing=["discovering","validating","batch1","batch2"].includes(phase);
  await writeUnmaskJob(run.product_id,{progress:{...progressForState(continuing?"researching":"ready",["details"],continuing?[phase]:[]),
   milestones:{identified:true,videosFound:videos.length,rawComments:raw.size,validEvidence:semantic.rows.length,
@@ -262,7 +272,7 @@ async function coordinate(store,run,task){
  const failed=tasks.some(t=>!(t.kind==="coordinate"&&t.payload.stage==="preview")&&(t.state==="failed"||t.result?.unresolvedRecords||t.result?.unresolvedVideos));
  const phase=continuing?"batch2":failed?"interrupted":"complete";
  const profile=await publish(store,run,tasks,phase,continuing?weak:[],task);
- return {result:{weak,selected:selected.map(v=>v.id)},children:[...selected.map(v=>videoTask(v,2)),...identityChildren],phase,profile};
+ return {result:{weak,selected:selected.map(v=>v.id)},children:[...selected.map(v=>videoTask(v,2)),...identityChildren],phase,profile:continuing?profile:null};
 }
 // The scheduler coalesces preview work; comment workers never enqueue report writes.
 async function queuePreview() {}
@@ -280,7 +290,7 @@ async function execute(store,run,task){
    const config=providerCandidates(providerConfiguration(),"review").find(p=>p.provider==="modal");
    if(!config)throw Error("modal_configuration_missing");
    const began=Date.now();const response=await fetch(config.url.replace(/\/v1\/chat\/completions$/,"/health"),{signal:AbortSignal.timeout(110000)});
-   if(!response.ok)throw Error("modal_startup_http_"+response.status);
+   await requireInferenceHealth(response);
    out={result:{ready:true,provider:"modal",durationMs:Date.now()-began}};
   }
   else if(task.kind==="verify")out=await verifyComments(store,run,task,researchCaller(store,run,task));
@@ -296,15 +306,18 @@ async function execute(store,run,task){
   await queuePreview(store,run,task,out.result);
  }catch(error){
   console.warn("research_task_failed",task.kind,task.id,String(error).slice(0,200));
-  await store.rpc("research_retry",{p_task:task.id,p_lease:task.lease,p_error:String(error)});
+  if(task.kind==="warmup"&&error.permanent){
+   await store.patch("research_tasks","id=eq."+task.id+"&lease=eq."+task.lease+"&state=eq.running",{
+    state:"failed",lease:null,error:String(error),finished_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+  }else await store.rpc("research_retry",{p_task:task.id,p_lease:task.lease,p_error:String(error)});
   if(["review","verify"].includes(task.kind)){
    const saved=(await store.rows("research_tasks?select=result&id=eq."+task.id+"&limit=1"))[0];
    await queuePreview(store,run,task,saved?.result);
   }
   if(error instanceof ProviderWait)await new Promise(resolve=>setTimeout(resolve,Math.min(5000,error.ms+100)));
-  if(task.kind==="warmup"&&task.attempts>=2){
+  if(task.kind==="warmup"&&(task.attempts>=2||error.permanent)){
    await store.patch("research_runs","id=eq."+run.id,{phase:"interrupted",updated_at:new Date().toISOString()});
-   await writeUnmaskJob(run.product_id,{progress:{...progressForState("failed",[],[]),failureReason:"The research model could not start. Please retry."}},store);
+   await writeUnmaskJob(run.product_id,{progress:{...progressForState("failed",[],[]),failureReason:error.permanent?"Product research is temporarily unavailable. Please try again later.":"The research model could not start. Please retry."}},store);
   }
   if(task.kind==="coordinate" && task.payload.stage!=="preview" && task.attempts>=2) {
     await store.patch("research_runs","id=eq."+run.id,{phase:"interrupted",updated_at:new Date().toISOString()});
@@ -336,11 +349,11 @@ Deno.serve(async req=>{
   if(body.providerStatus)return json(providerStatus());
   if(body.providerProbe){
    if(!["modal","siliconflow","nvidia","groq","cloudflare"].includes(body.provider))return json({error:"unknown_provider"},400);
-   const configs=providerCandidates(providerConfiguration(),body.provider==="cloudflare"?"filter":"diagnostic").filter(p=>p.provider===body.provider);
+   const configs=providerConfiguration().filter(p=>p.provider===body.provider);
    if(!configs.length)return json({configured:false,provider:body.provider});
    const task=await store.select("research_tasks","run_id=eq."+body.runId);
    if(!task)return json({error:"task_required"},400);
-   const result=await researchCaller(store,{id:body.runId},task,body.provider==="cloudflare"?"filter":"diagnostic",{providers:configs})('Return JSON {"ok":true}',50,15000);
+   const result=await researchCaller(store,{id:body.runId},task,body.provider==="cloudflare"?"filter":"diagnostic",{providers:configs,mode:["modal","siliconflow"].includes(body.provider)?body.provider:"shared"})('Return JSON {"ok":true}',50,15000);
    return json({configured:true,provider:body.provider,success:result.data?.ok===true,model:result.model,errors:result.errors});
   }
   if(body.selfTest){

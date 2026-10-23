@@ -34,6 +34,34 @@ These are model judgments, not a human-labeled accuracy score. Faster sparse for
 - Reproduced truncation on a failed group: 3,000 output tokens, 7,834 consecutive whitespace characters. The corrected serving configuration explicitly selects xgrammar and disables optional JSON whitespace.
 - Rendering payload: 1,859,436 to 582,463 JSON bytes (68.7% reduction); displayed evidence, category bundles and accepted counts compared equal. Compressed transfer: 454,418 to 170,904 bytes. Measured retrieval 9.47 to 8.73 seconds from the test host, so payload reduction alone did not resolve the full latency.
 
+## Full optimized run and current blocker
+
+A fresh CeraVe run (`minute-cerave-20261023-v4`) completed without any failed tasks:
+
+| Measurement | Result |
+|---|---:|
+| Initial public API response | 10.294 s |
+| Ready observed through the public status API | 56.313 s |
+| Final report retrieval | 4.103 s |
+| Entire client-visible test flow | **60.416 s** |
+| Exact-product videos collected | 20 |
+| Unique comments retrieved | 1,392 |
+| Accepted, verified reports | 263 |
+| Total inference requests | 332 |
+| Inference tokens | 426,607 |
+
+Category report counts: hydration 114, skin comfort 88, texture 67, absorption 18, fragrance 5. All categories reached the five-report trigger threshold, so no second collection batch was required in this run. Quote, attribution and independent verification remained enabled. This is not a human-labeled accuracy benchmark.
+
+The subsequent final-publication optimization stores the product payload in the same transaction as its presentation and avoids mirroring a final large profile into the run row. Its persistence was replay-tested successfully against the completed test dataset without inference; its end-to-end latency benefit has **not** been verified. Replay duration was 7.84 s and should not be mistaken for a fresh-product speed result.
+
+Modal then began returning HTTP 404 with the explicit body `modal-http: workspace … is disabled`. Both Modal endpoints rejected requests. This is an account refusal, not a product with no evidence. The exact billing/account cause was not available through the connected credentials. Cold restore and another complete speed test are blocked. Do not claim the one-minute target is achieved.
+
+One bounded probe each: NVIDIA and Groq responded successfully; SiliconFlow returned HTTP 402 with an insufficient-balance message. Normal production routing was not changed to these providers. Their present throughput has not been qualified for the one-minute target.
+
+The worker now recognizes a disabled workspace as permanent, stops automatic retrying of that startup attempt and shows temporary unavailability rather than a prolonged spinner. A public API retry test returned the terminal state in 8.82 seconds. No GPU or API credentials appear in this report.
+
 ## Remaining acceptance criteria
 
 Fresh end-to-end runs must finish with zero unresolved groups, preserve category evidence, publish a readable UI contract, and include initial API latency in the one-minute measurement. Warm and restored-GPU tests must be reported separately. No universal one-minute guarantee has been established.
+
+The compiled H100 service uses up to two containers, min zero and a 600-second idle window. Initial deployment preparation was 267.31 seconds; snapshot restoration latency has not yet been measured. GPU cost differs from the former A10 deployment.

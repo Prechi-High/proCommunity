@@ -1,0 +1,572 @@
+{
+  "productId": "minute-cerave-20261023-v4",
+  "name": "CeraVe Moisturizing Cream",
+  "requestStartedAt": "2026-10-23T16:27:41.088Z",
+  "initialResponseMs": 10294,
+  "readyObservedMs": 56313,
+  "reportReadMs": 4103,
+  "visibleTotalMs": 60416,
+  "terminal": true,
+  "researchStatus": "complete",
+  "phase": "complete",
+  "complete": true,
+  "acceptedReports": 263,
+  "diagnostics": {
+    "uniqueVideos": 21,
+    "stoppedBecause": [],
+    "videosHarvested": 20,
+    "videosDiscovered": 103,
+    "finalScoreEvidence": 263,
+    "rawCommentsRetrieved": 1392
+  },
+  "coverage": {
+    "texture": 67,
+    "fragrance": 5,
+    "hydration": 114,
+    "absorption": 18,
+    "skin_comfort": 88
+  },
+  "providerUsage": {
+    "tokens": 426607,
+    "activity": {
+      "queuedTasks": 0,
+      "runningWorkers": 1,
+      "capacityDeferredTasks": 0,
+      "inferenceReservationsInFlight": 0
+    },
+    "providers": [
+      {
+        "calls": 332,
+        "tokens": 426607,
+        "provider": "modal",
+        "throttled": 0,
+        "verification_calls": 134
+      }
+    ],
+    "totalCalls": 332,
+    "failedCalls": 0,
+    "requestTimings": [
+      {
+        "calls": 1,
+        "stage": "facts",
+        "http_p95_ms": 1822,
+        "http_mean_ms": 1822,
+        "reservation_mean_ms": 48
+      },
+      {
+        "calls": 5,
+        "stage": "identity",
+        "http_p95_ms": 2594.4,
+        "http_mean_ms": 2222.2,
+        "reservation_mean_ms": 108.8
+      },
+      {
+        "calls": 192,
+        "stage": "review",
+        "http_p95_ms": 7649.1,
+        "http_mean_ms": 4722.8,
+        "reservation_mean_ms": 115.1
+      },
+      {
+        "calls": 134,
+        "stage": "verify",
+        "http_p95_ms": 1776.9,
+        "http_mean_ms": 915.4,
+        "reservation_mean_ms": 49.1
+      }
+    ],
+    "reservedTokens": 1263099,
+    "assessmentCalls": 326
+  },
+  "timings": {
+    "stages": {
+      "facts": {
+        "done": 1,
+        "tasks": 1,
+        "failed": 0,
+        "pending": 0,
+        "queueMs": 2740,
+        "deferrals": 0,
+        "storageMs": 0,
+        "processingMs": 5834,
+        "firstStartedMs": 2740,
+        "lastFinishedMs": 8574,
+        "providerWaitMs": 0,
+        "storageRequests": 0
+      },
+      "review": {
+        "done": 191,
+        "tasks": 191,
+        "failed": 0,
+        "pending": 0,
+        "queueMs": 2272301,
+        "deferrals": 0,
+        "storageMs": 70094,
+        "processingMs": 967756,
+        "firstStartedMs": 8019,
+        "lastFinishedMs": 36936,
+        "providerWaitMs": 0,
+        "storageRequests": 955
+      },
+      "verify": {
+        "done": 134,
+        "tasks": 134,
+        "failed": 0,
+        "pending": 0,
+        "queueMs": 459550,
+        "deferrals": 0,
+        "storageMs": 17264,
+        "processingMs": 138581,
+        "firstStartedMs": 13876,
+        "lastFinishedMs": 41767,
+        "providerWaitMs": 0,
+        "storageRequests": 536
+      },
+      "warmup": {
+        "done": 1,
+        "tasks": 1,
+        "failed": 0,
+        "pending": 0,
+        "queueMs": 2122,
+        "deferrals": 0,
+        "storageMs": 0,
+        "processingMs": 423,
+        "firstStartedMs": 2122,
+        "lastFinishedMs": 2545,
+        "providerWaitMs": 0,
+        "storageRequests": 0
+      },
+      "collect": {
+        "done": 30,
+        "tasks": 30,
+        "failed": 0,
+        "pending": 0,
+        "queueMs": 30239,
+        "deferrals": 0,
+        "storageMs": 0,
+        "processingMs": 15423,
+        "firstStartedMs": 6954,
+        "lastFinishedMs": 13985,
+        "providerWaitMs": 0,
+        "storageRequests": 0
+      },
+      "discover": {
+        "done": 1,
+        "tasks": 1,
+        "failed": 0,
+        "pending": 0,
+        "queueMs": 2119,
+        "deferrals": 0,
+        "storageMs": 0,
+        "processingMs": 1214,
+        "firstStartedMs": 2119,
+        "lastFinishedMs": 3332,
+        "providerWaitMs": 0,
+        "storageRequests": 0
+      },
+      "identity": {
+        "done": 5,
+        "tasks": 5,
+        "failed": 0,
+        "pending": 0,
+        "queueMs": 8591,
+        "deferrals": 0,
+        "storageMs": 0,
+        "processingMs": 12738,
+        "firstStartedMs": 4423,
+        "lastFinishedMs": 9280,
+        "providerWaitMs": 0,
+        "storageRequests": 0
+      },
+      "coordinate": {
+        "done": 1,
+        "tasks": 2,
+        "failed": 0,
+        "pending": 1,
+        "queueMs": 542,
+        "deferrals": 0,
+        "storageMs": 0,
+        "processingMs": 923,
+        "firstStartedMs": 15023,
+        "lastFinishedMs": 15946,
+        "providerWaitMs": 0,
+        "storageRequests": 0
+      }
+    },
+    "elapsedMs": 43048
+  },
+  "videoTimings": {
+    "-XHj98Pd9Ew": {
+      "assessed": 200,
+      "retrieved": 200,
+      "first100AssessedMs": 28337,
+      "first200AssessedMs": 29665,
+      "first100RetrievedMs": 9078,
+      "first200RetrievedMs": 9078
+    },
+    "0Wz53r_RZJ4": {
+      "assessed": 11,
+      "retrieved": 11,
+      "first100AssessedMs": null,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": null,
+      "first200RetrievedMs": null
+    },
+    "6UspEWBiHBo": {
+      "assessed": 10,
+      "retrieved": 10,
+      "first100AssessedMs": null,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": null,
+      "first200RetrievedMs": null
+    },
+    "A5Q8XrZ5pq8": {
+      "assessed": 200,
+      "retrieved": 200,
+      "first100AssessedMs": 16951,
+      "first200AssessedMs": 19824,
+      "first100RetrievedMs": 7397,
+      "first200RetrievedMs": 7397
+    },
+    "BLb9W6wafXY": {
+      "assessed": 5,
+      "retrieved": 5,
+      "first100AssessedMs": null,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": null,
+      "first200RetrievedMs": null
+    },
+    "DrECEyooQ_s": {
+      "assessed": 200,
+      "retrieved": 200,
+      "first100AssessedMs": 35332,
+      "first200AssessedMs": 36909,
+      "first100RetrievedMs": 9233,
+      "first200RetrievedMs": 9233
+    },
+    "EP58itTTa3E": {
+      "assessed": 58,
+      "retrieved": 58,
+      "first100AssessedMs": null,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": null,
+      "first200RetrievedMs": null
+    },
+    "H7ksWIRj7tA": {
+      "assessed": 114,
+      "retrieved": 114,
+      "first100AssessedMs": 17017,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": 7240,
+      "first200RetrievedMs": null
+    },
+    "OTnF686AhHU": {
+      "assessed": 9,
+      "retrieved": 9,
+      "first100AssessedMs": null,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": null,
+      "first200RetrievedMs": null
+    },
+    "TfzzEH9fsxQ": {
+      "assessed": 0,
+      "retrieved": 0,
+      "first100AssessedMs": null,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": null,
+      "first200RetrievedMs": null
+    },
+    "W0SM7zkeoQY": {
+      "assessed": 5,
+      "retrieved": 5,
+      "first100AssessedMs": null,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": null,
+      "first200RetrievedMs": null
+    },
+    "WjoELsGROUQ": {
+      "assessed": 140,
+      "retrieved": 140,
+      "first100AssessedMs": 31384,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": 9093,
+      "first200RetrievedMs": null
+    },
+    "cvBhOk27TDw": {
+      "assessed": 100,
+      "retrieved": 100,
+      "first100AssessedMs": 35721,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": 13980,
+      "first200RetrievedMs": null
+    },
+    "ecL1fHU3fPU": {
+      "assessed": 174,
+      "retrieved": 174,
+      "first100AssessedMs": 23487,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": 8994,
+      "first200RetrievedMs": null
+    },
+    "ggHwwQGUhJg": {
+      "assessed": 5,
+      "retrieved": 5,
+      "first100AssessedMs": null,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": null,
+      "first200RetrievedMs": null
+    },
+    "iwwp-4S6FYs": {
+      "assessed": 82,
+      "retrieved": 82,
+      "first100AssessedMs": null,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": null,
+      "first200RetrievedMs": null
+    },
+    "jryg2C3cWPE": {
+      "assessed": 18,
+      "retrieved": 18,
+      "first100AssessedMs": null,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": null,
+      "first200RetrievedMs": null
+    },
+    "oyfJqfV8l2I": {
+      "assessed": 27,
+      "retrieved": 27,
+      "first100AssessedMs": null,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": null,
+      "first200RetrievedMs": null
+    },
+    "rcwVWoqDJKk": {
+      "assessed": 29,
+      "retrieved": 29,
+      "first100AssessedMs": null,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": null,
+      "first200RetrievedMs": null
+    },
+    "sdJ5GkML7TM": {
+      "assessed": 5,
+      "retrieved": 5,
+      "first100AssessedMs": null,
+      "first200AssessedMs": null,
+      "first100RetrievedMs": null,
+      "first200RetrievedMs": null
+    }
+  },
+  "polls": [
+    {
+      "ms": 10470,
+      "requestMs": 176,
+      "state": "researching",
+      "milestones": {}
+    },
+    {
+      "ms": 13188,
+      "requestMs": 215,
+      "state": "researching",
+      "milestones": {}
+    },
+    {
+      "ms": 15876,
+      "requestMs": 186,
+      "state": "researching",
+      "milestones": {}
+    },
+    {
+      "ms": 18538,
+      "requestMs": 160,
+      "state": "researching",
+      "milestones": {
+        "identified": true
+      }
+    },
+    {
+      "ms": 21266,
+      "requestMs": 227,
+      "state": "researching",
+      "milestones": {
+        "identified": true
+      }
+    },
+    {
+      "ms": 23975,
+      "requestMs": 207,
+      "state": "researching",
+      "milestones": {
+        "identified": true
+      }
+    },
+    {
+      "ms": 26630,
+      "requestMs": 153,
+      "state": "researching",
+      "milestones": {
+        "identified": true,
+        "videosFound": 21,
+        "rawComments": 1392,
+        "validEvidence": 9,
+        "youtubeComplete": false,
+        "evidenceMappingComplete": false,
+        "scorecardComplete": false
+      }
+    },
+    {
+      "ms": 29337,
+      "requestMs": 206,
+      "state": "researching",
+      "milestones": {
+        "identified": true,
+        "videosFound": 21,
+        "rawComments": 1392,
+        "validEvidence": 9,
+        "youtubeComplete": false,
+        "evidenceMappingComplete": false,
+        "scorecardComplete": false
+      }
+    },
+    {
+      "ms": 32053,
+      "requestMs": 214,
+      "state": "researching",
+      "milestones": {
+        "identified": true,
+        "videosFound": 21,
+        "rawComments": 1392,
+        "validEvidence": 9,
+        "youtubeComplete": false,
+        "evidenceMappingComplete": false,
+        "scorecardComplete": false
+      }
+    },
+    {
+      "ms": 34755,
+      "requestMs": 200,
+      "state": "researching",
+      "milestones": {
+        "identified": true,
+        "videosFound": 21,
+        "rawComments": 1392,
+        "validEvidence": 9,
+        "youtubeComplete": false,
+        "evidenceMappingComplete": false,
+        "scorecardComplete": false
+      }
+    },
+    {
+      "ms": 37447,
+      "requestMs": 190,
+      "state": "researching",
+      "milestones": {
+        "identified": true,
+        "videosFound": 21,
+        "rawComments": 1392,
+        "validEvidence": 9,
+        "youtubeComplete": false,
+        "evidenceMappingComplete": false,
+        "scorecardComplete": false
+      }
+    },
+    {
+      "ms": 40185,
+      "requestMs": 237,
+      "state": "researching",
+      "milestones": {
+        "identified": true,
+        "videosFound": 21,
+        "rawComments": 1392,
+        "validEvidence": 9,
+        "youtubeComplete": false,
+        "evidenceMappingComplete": false,
+        "scorecardComplete": false
+      }
+    },
+    {
+      "ms": 42900,
+      "requestMs": 213,
+      "state": "researching",
+      "milestones": {
+        "identified": true,
+        "videosFound": 21,
+        "rawComments": 1392,
+        "validEvidence": 9,
+        "youtubeComplete": false,
+        "evidenceMappingComplete": false,
+        "scorecardComplete": false
+      }
+    },
+    {
+      "ms": 45589,
+      "requestMs": 188,
+      "state": "researching",
+      "milestones": {
+        "identified": true,
+        "videosFound": 21,
+        "rawComments": 1392,
+        "validEvidence": 9,
+        "youtubeComplete": false,
+        "evidenceMappingComplete": false,
+        "scorecardComplete": false
+      }
+    },
+    {
+      "ms": 48249,
+      "requestMs": 159,
+      "state": "researching",
+      "milestones": {
+        "identified": true,
+        "videosFound": 21,
+        "rawComments": 1392,
+        "validEvidence": 9,
+        "youtubeComplete": false,
+        "evidenceMappingComplete": false,
+        "scorecardComplete": false
+      }
+    },
+    {
+      "ms": 50958,
+      "requestMs": 207,
+      "state": "researching",
+      "milestones": {
+        "identified": true,
+        "videosFound": 21,
+        "rawComments": 1392,
+        "validEvidence": 9,
+        "youtubeComplete": false,
+        "evidenceMappingComplete": false,
+        "scorecardComplete": false
+      }
+    },
+    {
+      "ms": 53662,
+      "requestMs": 202,
+      "state": "researching",
+      "milestones": {
+        "identified": true,
+        "videosFound": 21,
+        "rawComments": 1392,
+        "validEvidence": 9,
+        "youtubeComplete": false,
+        "evidenceMappingComplete": false,
+        "scorecardComplete": false
+      }
+    },
+    {
+      "ms": 56313,
+      "requestMs": 149,
+      "state": "ready",
+      "milestones": {
+        "identified": true,
+        "videosFound": 21,
+        "rawComments": 1392,
+        "validEvidence": 263,
+        "youtubeComplete": true,
+        "evidenceMappingComplete": true,
+        "scorecardComplete": true
+      }
+    }
+  ]
+}

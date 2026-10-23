@@ -1,0 +1,32 @@
+name: Prepare controlled Unmask cold-start benchmark
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stop_idle_benchmark_containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install modal
+      - name: Stop only the optimized inference containers for the agreed cold-start test
+        run: |
+          python - <<'PY'
+          import subprocess,json,re,datetime
+          app_id='ap-S6BI6e2euPkLUQ7xtdGGdN'
+          apps=json.loads(subprocess.check_output(['modal','app','list','--json'],text=True))
+          assert any(a['app_id']==app_id and a['description']=='unmask-nano-optimized' for a in apps)
+          containers=json.loads(subprocess.check_output(['modal','container','list','--app-id',app_id,'--json'],text=True))
+          stopped=[]
+          for c in containers:
+              assert c['app_id']==app_id and re.fullmatch(r'ta-[A-Za-z0-9]+',c['container_id'])
+              subprocess.run(['modal','container','stop','--yes',c['container_id']],check=True)
+              stopped.append(c['container_id'])
+          print(json.dumps({'stopped':stopped,'at':datetime.datetime.now(datetime.timezone.utc).isoformat()}))
+          PY
