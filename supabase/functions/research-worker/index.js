@@ -230,6 +230,8 @@ async function coordinate(store,run,task){
  run=current;
  const tasks=await store.allTasks(run.id);
  if(task.payload.stage==="preview"){
+  const publishedAt=Date.parse(run.created_at)+(run.profile?.parallelResearch?.timings?.elapsedMs||0);
+  if(Date.parse(task.created_at)<=publishedAt)return {result:{skipped:true,reason:"superseded_preview"}};
   const rows=combineDecisions(evidenceResults(tasks)).rows;
   if(!rows.length)return {result:{skipped:true}};
   const profile=await publish(store,run,tasks,run.phase,weakCategories(rows,run.blueprint.dimensions));
@@ -254,7 +256,7 @@ async function coordinate(store,run,task){
 }
 async function queuePreview(store,run,task,result){
  if(["review","verify"].includes(task.kind)&&Object.values(result?.verified?.decisions||result?.reused||result?.decisions||{}).some(d=>d.status==="accepted")){
-  await store.insertMany("research_tasks",[{run_id:run.id,task_key:"coordinate:preview:"+Math.floor(Date.now()/15000),
+  await store.insertMany("research_tasks",[{run_id:run.id,task_key:"coordinate:preview:"+Math.floor(Date.now()/60000),
    kind:"coordinate",batch:task.batch,payload:{stage:"preview"}}]);
  }
 }
