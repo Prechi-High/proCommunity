@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [master]
-    paths: ['services/nano-modal/candidate_app.py', 'services/nano-modal/bootstrap_candidate.py', '.github/workflows/deploy-nano-candidate.yml']
+    paths: ['services/nano-modal/evidence-schemas.json', 'services/nano-modal/candidate_app.py', 'services/nano-modal/bootstrap_candidate.py', '.github/workflows/deploy-nano-candidate.yml']
 permissions:
   contents: read
 concurrency:
