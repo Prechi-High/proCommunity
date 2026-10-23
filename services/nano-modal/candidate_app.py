@@ -26,7 +26,7 @@ class Inference:
            '--served-model-name','unmask-nano','--host','127.0.0.1','--port','8000',
            '--dtype','half','--max-model-len','8192','--max-num-seqs','64',
            '--gpu-memory-utilization','0.70','--max-cudagraph-capture-size','64','--enable-sleep-mode',
-           '--enable-prefix-caching','--no-enable-log-requests'])
+           '--enable-prefix-caching','--structured-outputs-config','{"disable_any_whitespace":true}','--no-enable-log-requests'])
         self.wait_ready()
         headers={'Authorization':'Bearer '+os.environ['UNMASK_NANO_API_KEY']}
         for _ in range(2):
