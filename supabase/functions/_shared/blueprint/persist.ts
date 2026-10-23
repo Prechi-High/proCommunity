@@ -9,6 +9,7 @@ type BuiltBlueprint = BuiltBlueprintPackage;
 type Json = Record<string, unknown>;
 
 type Store = {
+  afterCommit?(effect: () => Promise<void>): void;
   patch?(table: string, filter: string, row: Json): Promise<void>;
   upsert(table: string, row: Json): Promise<void>;
   upsertMany?(table: string, rows: Json[]): Promise<void>;
@@ -145,7 +146,8 @@ export async function persistBlueprint(
   if (dimPkg) {
     await persistDimensionEvidence(store, productId, blueprintId, dimensions.map((d) => d.key), dimPkg, evRows);
   }
-  await cacheInvalidation.invalidateBlueprint(productId, dimensions.map((d) => d.key), factSections.map((f) => f.key));
+  const invalidate = () => cacheInvalidation.invalidateBlueprint(productId, dimensions.map((d) => d.key), factSections.map((f) => f.key));
+  if(store.afterCommit)store.afterCommit(invalidate);else await invalidate();
 
   // Metadata belongs to an existing profile; a partial INSERT violates required identity columns.
   if (store.patch) await store.patch("product_intel", `id=eq.${encodeURIComponent(productId)}`, {

@@ -1,10 +1,11 @@
+import { fastAssessmentFormat } from "./fastAssessment.js";
 import { parseJsonLoose, readLlmUsage } from "../core/llmChat.ts";
 
 const env=(name)=>(globalThis.Deno?.env.get(name)||"").trim().replace(/^["']|["']$/g,"");
 let runtimeConfig=null,configLoadedAt=0;
-export async function loadResearchProviderConfig(store){
- if(Date.now()-configLoadedAt<30000)return;
- const config=await store.rpc("research_inference_config",{});
+export async function loadResearchProviderConfig(store,supplied){
+ if(supplied===undefined&&Date.now()-configLoadedAt<30000)return;
+ const config=supplied===undefined?await store.rpc("research_inference_config",{}):supplied;
  runtimeConfig=config?.mode==="modal"?config:null;configLoadedAt=Date.now();
 }
 export class ProviderWait extends Error {
@@ -49,7 +50,8 @@ export function filterMode(){
  const mode=env("RESEARCH_FILTER_MODE")||"shadow";
  return mode==="enforce"&&env("RESEARCH_FILTER_APPROVED")==="true"?"enforce":mode==="off"?"off":"shadow";
 }
-export function policyVersion(){return "research-routing-v3:"+researchProviderMode()+":"+providerCandidates(providerConfiguration(),"review").map(p=>p.provider+":"+p.model).sort().join("|");}
+export function assessmentFormat(){return runtimeConfig?.assessmentFormat||env("RESEARCH_ASSESSMENT_FORMAT")||"legacy";}
+export function policyVersion(){return "research-routing-v4:"+researchProviderMode()+":"+assessmentFormat()+":"+providerCandidates(providerConfiguration(),"review").map(p=>p.provider+":"+p.model).sort().join("|");}
 export function retryDelay(value,now=Date.now()){
  if(!value)return 60;
  const seconds=Number(value);
@@ -57,6 +59,11 @@ export function retryDelay(value,now=Date.now()){
 }
 
 export function responseFormat(provider,model,stage,prompt=""){
+ if(provider==="modal"&&stage==="review"&&prompt.includes("\nEvidence rows: ")){
+  const marker="\nEvidence rows: ";const records=JSON.parse(prompt.slice(prompt.lastIndexOf(marker)+marker.length));
+  const categoryLine=prompt.split("Categories: ")[1]?.split("\n")[0];
+  return fastAssessmentFormat(records.length,JSON.parse(categoryLine).length);
+ }
  if(provider==="modal"&&stage==="review"){
   let count=0;try{const marker="\nComments: ";count=JSON.parse(prompt.slice(prompt.lastIndexOf(marker)+marker.length)).length;}catch{}
   if(count){

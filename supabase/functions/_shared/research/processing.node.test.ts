@@ -122,15 +122,15 @@ test("SiliconFlow uses its own endpoint and does not forward incompatible provid
  assert.deepEqual(providerCandidates(all.slice(1),"review","modal"),[]);
  assert.deepEqual(providerCandidates(all,"review","shared"),[{provider:"groq"},{provider:"nvidia"}]);
  });
-test("Modal schema requires a decision for each comment instead of an empty result",()=>{
+test("Modal review schema requires exactly the supplied number of decisions",()=>{
  const f:any=responseFormat('modal','unmask-nano','review','Assess\nComments: '+JSON.stringify([{id:'1'},{id:'2'}]));
  assert.equal(f.type,'json_schema');assert.equal(f.json_schema.schema.properties.r.minItems,2);assert.equal(f.json_schema.schema.properties.r.maxItems,2);
  assert.deepEqual(f.json_schema.schema.properties.r.items.properties.id.enum,['1','2']);
 });
-test("Modal identity schema cannot omit supplied candidate judgments",()=>{
- const f:any=responseFormat('modal','unmask-nano','identity','Review\nCandidates: '+JSON.stringify([{id:'video-a'},{id:'video-b'}]));
+test("Modal identity schema reuses stable local IDs across products",()=>{
+ const f:any=responseFormat('modal','unmask-nano','identity','Review\nCandidates: '+JSON.stringify([{id:'1'},{id:'2'}]));
  assert.equal(f.json_schema.schema.properties.videos.minItems,2);
- assert.deepEqual(f.json_schema.schema.properties.videos.items.properties.id.enum,['video-a','video-b']);
+ assert.deepEqual(f.json_schema.schema.properties.videos.items.properties.id.enum,['1','2']);
 });
 
 test("successful assessment batches results and cache into one durable write",async()=>{
