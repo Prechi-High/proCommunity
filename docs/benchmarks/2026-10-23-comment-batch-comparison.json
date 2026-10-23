@@ -1,0 +1,126 @@
+{
+  "date": "2026-10-23",
+  "sourceRun": "6134cc5d-4edc-41a3-98f3-87fa8ea18b23",
+  "sampleSha256": "118528d7c15865479f84d226077c10bd0f35ab4cec7953026f73fda706ccc815",
+  "settings": {
+    "sampleSize": 96,
+    "concurrency": 4,
+    "timeoutMs": 45000,
+    "maxTokens": 3000,
+    "model": "unmask-nano",
+    "scope": "primary assessment only; no database/verification or retries"
+  },
+  "trials": [
+    {
+      "batchSize": 8,
+      "round": 1,
+      "elapsedMs": 38143,
+      "completeDecisions": 96,
+      "accepted": 20,
+      "commentsPerSecond": 2.517,
+      "totalTokens": 19499,
+      "failures": 0,
+      "requests": 12,
+      "statusAgreementWithFirst8": 96,
+      "comparableRecords": 96
+    },
+    {
+      "batchSize": 8,
+      "round": 2,
+      "elapsedMs": 39445,
+      "completeDecisions": 96,
+      "accepted": 20,
+      "commentsPerSecond": 2.434,
+      "totalTokens": 19579,
+      "failures": 0,
+      "requests": 12,
+      "statusAgreementWithFirst8": 94,
+      "comparableRecords": 96
+    },
+    {
+      "batchSize": 12,
+      "round": 1,
+      "elapsedMs": 65176,
+      "completeDecisions": 84,
+      "accepted": 21,
+      "commentsPerSecond": 1.289,
+      "totalTokens": 14961,
+      "failures": 1,
+      "requests": 8,
+      "statusAgreementWithFirst8": 74,
+      "comparableRecords": 84
+    },
+    {
+      "batchSize": 12,
+      "round": 2,
+      "elapsedMs": 42703,
+      "completeDecisions": 96,
+      "accepted": 26,
+      "commentsPerSecond": 2.248,
+      "totalTokens": 17367,
+      "failures": 0,
+      "requests": 8,
+      "statusAgreementWithFirst8": 80,
+      "comparableRecords": 96
+    },
+    {
+      "batchSize": 16,
+      "round": 1,
+      "elapsedMs": 45631,
+      "completeDecisions": 96,
+      "accepted": 21,
+      "commentsPerSecond": 2.104,
+      "totalTokens": 16156,
+      "failures": 0,
+      "requests": 6,
+      "statusAgreementWithFirst8": 85,
+      "comparableRecords": 96
+    },
+    {
+      "batchSize": 16,
+      "round": 2,
+      "elapsedMs": 48603,
+      "completeDecisions": 96,
+      "accepted": 24,
+      "commentsPerSecond": 1.975,
+      "totalTokens": 16126,
+      "failures": 0,
+      "requests": 6,
+      "statusAgreementWithFirst8": 82,
+      "comparableRecords": 96
+    },
+    {
+      "batchSize": 24,
+      "round": 1,
+      "elapsedMs": 45004,
+      "completeDecisions": 70,
+      "accepted": 16,
+      "commentsPerSecond": 1.555,
+      "totalTokens": 10911,
+      "failures": 1,
+      "requests": 4,
+      "statusAgreementWithFirst8": 63,
+      "comparableRecords": 70
+    },
+    {
+      "batchSize": 24,
+      "round": 2,
+      "elapsedMs": 37525,
+      "completeDecisions": 96,
+      "accepted": 27,
+      "commentsPerSecond": 2.558,
+      "totalTokens": 14923,
+      "failures": 0,
+      "requests": 4,
+      "statusAgreementWithFirst8": 83,
+      "comparableRecords": 96
+    }
+  ],
+  "limitations": [
+    "Primary model assessment only; no YouTube, database, scheduler or verification timings.",
+    "No independent human-labeled accuracy ground truth. Agreement measures consistency only.",
+    "Timeout requests can consume unreported tokens; incomplete trial token totals are not full-workload cost estimates.",
+    "Four concurrent requests; results are not a controlled test of production concurrency 20.",
+    "Eight/16/24 used forward and reverse order; 12 was tested afterward twice."
+  ]
+}
