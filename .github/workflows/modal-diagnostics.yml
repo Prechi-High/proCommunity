@@ -1,0 +1,30 @@
+name: Inspect Modal startup
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths: ['.github/workflows/modal-diagnostics.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install modal==1.6.2
+      - name: Inspect GPU startup
+        run: |
+          python - <<'PY'
+          import modal,re
+          f=modal.Function.from_name('unmask-nano-evaluation','serve')
+          print(f.get_current_stats())
+          for entry in f.logs.tail(entries=120):
+              line=re.sub(r'(Bearer\s+)[A-Za-z0-9_.-]+',r'\1[redacted]',entry.message)
+              print(line)
+          PY
