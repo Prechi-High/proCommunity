@@ -68,7 +68,9 @@ export function responseFormat(provider,model,stage,prompt=""){
  const props=stage==="verify"?{id:{type:"string"},type:{type:"string",enum:["experience","question","plan","hearsay","social","other"]},keys:{type:"array",items:{type:"string"}}}:
   {id:{type:"string"},exact:{type:"boolean"},confidence:{type:"number"},focus:{type:"string",enum:["single_product","comparison","collection"]}};
  const key=stage==="verify"?"keep":"videos";
- return {type:"json_schema",json_schema:{name:"research_"+stage,strict:true,schema:{type:"object",properties:{[key]:{type:"array",items:{type:"object",properties:props,required:Object.keys(props),additionalProperties:false}}},required:[key],additionalProperties:false}}};
+ let count=0;
+ if(provider==="modal")try{const marker="\nCandidates: ";const candidates=JSON.parse(prompt.slice(prompt.lastIndexOf(marker)+marker.length));count=candidates.length;props.id.enum=candidates.map(v=>String(v.id));}catch{}
+ return {type:"json_schema",json_schema:{name:"research_"+stage,strict:true,schema:{type:"object",properties:{[key]:{type:"array",...(count?{minItems:count,maxItems:count}:{}),items:{type:"object",properties:props,required:Object.keys(props),additionalProperties:false}}},required:[key],additionalProperties:false}}};
 }
 
 /** One upstream request per invocation. A durable retry may use the other provider. */
