@@ -4,7 +4,7 @@ import { discoverYoutubeCandidates } from "../_shared/research/youtubeDiscovery.
 import { redisService } from "../_shared/redis/service.ts";
 import { commentPageTaskKey, researchSummary, RESEARCH_VERSION, assessmentTasks, combineDecisions, coverage, weakCategories, chooseNextVideos, normalizeThreads, logicSelfTest, rankedCandidates, discoveryName, stageTimings } from "../_shared/research/logic.js";
 import { reviewEvidence, validateReviewDecision } from "../_shared/evidence/semanticReview.ts";
-import { researchCaller, providerStatus, providerConfiguration, ProviderWait, providerCandidates } from "../_shared/research/providers.js";
+import { researchCaller, providerStatus, providerConfiguration, ProviderWait, providerCandidates, loadResearchProviderConfig } from "../_shared/research/providers.js";
 import { assessComments, verifyComments, evidenceResults } from "../_shared/research/processing.js";
 import { buildPresentationFromProfile } from "../_shared/blueprint/build.ts";
 import { persistBlueprint } from "../_shared/blueprint/persist.ts";
@@ -291,6 +291,7 @@ Deno.serve(async req=>{
   const store=researchStore();
   const authorized=(await store.rows("research_runs?select=id&limit=1&id=eq."+body.runId+"&token=eq."+body.token))[0];
   if(!authorized)return json({error:"unauthorized"},401);
+  await loadResearchProviderConfig(store);
   if(body.providerStatus)return json(providerStatus());
   if(body.providerProbe){
    if(!["modal","siliconflow","nvidia","groq","cloudflare"].includes(body.provider))return json({error:"unknown_provider"},400);

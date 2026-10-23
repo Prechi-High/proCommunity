@@ -1,12 +1,18 @@
 import { parseJsonLoose, readLlmUsage } from "../core/llmChat.ts";
 
 const env=(name)=>(globalThis.Deno?.env.get(name)||"").trim().replace(/^["']|["']$/g,"");
+let runtimeConfig=null,configLoadedAt=0;
+export async function loadResearchProviderConfig(store){
+ if(Date.now()-configLoadedAt<30000)return;
+ const config=await store.rpc("research_inference_config",{});
+ runtimeConfig=config?.mode==="modal"?config:null;configLoadedAt=Date.now();
+}
 export class ProviderWait extends Error {
  constructor(ms){super("provider_wait:"+Math.max(1000,Math.ceil(ms||5000)));this.name="ProviderWait";this.ms=Math.max(1000,Math.ceil(ms||5000));}
 }
 export function providerConfiguration(){
  const configured=[];
- const modalKey=env("MODAL_NANO_API_KEY"),modalBase=env("MODAL_NANO_BASE_URL");
+ const modalKey=runtimeConfig?.apiKey||env("MODAL_NANO_API_KEY"),modalBase=runtimeConfig?.baseUrl||env("MODAL_NANO_BASE_URL");
  if(modalKey&&modalBase){
   const parsed=new URL(modalBase);
   if(parsed.protocol!=="https:"||!parsed.hostname.endsWith(".modal.run")||parsed.username||parsed.password||parsed.search||parsed.hash||parsed.pathname!=="/v1")throw Error("modal_base_url_invalid");
@@ -31,7 +37,7 @@ export function providerStatus(){
  return {configured:Object.fromEntries(['modal','siliconflow','nvidia','groq','cloudflare'].map(p=>[p,list.some(c=>c.provider===p)])),
   models:Object.fromEntries(list.map(c=>[c.provider,c.model])),mode:researchProviderMode(),active:providerCandidates(list,"review").map(p=>p.provider),filterMode:filterMode(),policyVersion:policyVersion()};
 }
-export function researchProviderMode(){return env("RESEARCH_PROVIDER_MODE")||"siliconflow";}
+export function researchProviderMode(){return runtimeConfig?.mode||env("RESEARCH_PROVIDER_MODE")||"siliconflow";}
 export function providerCandidates(list,stage,mode=researchProviderMode()){
  if(mode==="modal")return stage==="filter"?[]:list.filter(p=>p.provider==="modal");
  if(mode==="siliconflow")return stage==="filter"?[]:list.filter(p=>p.provider==="siliconflow");
