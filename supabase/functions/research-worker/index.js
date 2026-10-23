@@ -233,10 +233,12 @@ async function coordinate(store,run,task){
  const current=await store.select("research_runs","id=eq."+run.id);
  if(!current||["complete","interrupted"].includes(current.phase))return {result:{skipped:true}};
  run=current;
- const tasks=await store.allTasks(run.id);
  if(task.payload.stage==="preview"){
   const publishedAt=Date.parse(run.created_at)+(run.profile?.parallelResearch?.timings?.elapsedMs||0);
   if(Date.parse(task.created_at)<=publishedAt||Date.parse(task.created_at)<Date.now()-60000)return {result:{skipped:true,reason:"superseded_preview"}};
+ }
+ const tasks=await store.allTasks(run.id);
+ if(task.payload.stage==="preview"){
   const rows=combineDecisions(evidenceResults(tasks)).rows;
   if(!rows.length)return {result:{skipped:true}};
   const profile=await publish(store,run,tasks,run.phase,weakCategories(rows,run.blueprint.dimensions));
