@@ -1,0 +1,31 @@
+name: Deploy Unmask inference canary
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths: ['services/nano-modal/candidate_app.py', 'services/nano-modal/bootstrap_candidate.py', '.github/workflows/deploy-nano-candidate.yml']
+permissions:
+  contents: read
+concurrency:
+  group: deploy-nano-candidate-v1
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check deployment credentials
+        run: |
+          test -n "$MODAL_TOKEN_ID" || { echo 'Missing MODAL_TOKEN_ID'; exit 1; }
+          test -n "$MODAL_TOKEN_SECRET" || { echo 'Missing MODAL_TOKEN_SECRET'; exit 1; }
+      - name: Install deployment tools
+        run: pip install modal cryptography
+      - name: Deploy protected inference service
+        run: python services/nano-modal/bootstrap_candidate.py
