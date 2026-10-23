@@ -42,7 +42,7 @@ export async function startParallelResearch(input) {
  identity.category=blueprint.classification.domain==="beauty"?"Beauty":identity.category;
  // Community is loaded before external discovery. Private experiences never enter this pool.
  profile.communityEvidence=await loadCommunityEvidence(store,id);
- const tasks=[{key:"discover",kind:"discover",payload:{}},{key:"facts",kind:"facts",payload:{}},
+ const tasks=[...(researchProviderMode()==="modal"?[{key:"model-ready",kind:"warmup",payload:{}}]:[]),{key:"discover",kind:"discover",payload:{}},{key:"facts",kind:"facts",payload:{}},
   ...assessmentTasks(reviewRecords(profile),"community")];
  const opened=await store.rpc("research_open",{p_product:id,p_identity:identity,p_blueprint:blueprint,p_profile:profile,
   p_endpoint:Deno.env.get("SUPABASE_URL")+"/functions/v1/research-worker",p_force:!!input.force,p_tasks:tasks});

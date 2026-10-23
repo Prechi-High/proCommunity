@@ -257,6 +257,13 @@ async function execute(store,run,task){
   else if(task.kind==="collect")out=await collect(run,task);
   else if(task.kind==="review")out=await assessComments(store,run,task,
    (records,maxTokens,timeout)=>compactReview(run,records,maxTokens,timeout,researchCaller(store,run,task)),researchCaller(store,run,task,"filter"));
+  else if(task.kind==="warmup"){
+   const config=providerCandidates(providerConfiguration(),"review").find(p=>p.provider==="modal");
+   if(!config)throw Error("modal_configuration_missing");
+   const began=Date.now();const response=await fetch(config.url.replace(/\/v1\/chat\/completions$/,"/health"),{signal:AbortSignal.timeout(110000)});
+   if(!response.ok)throw Error("modal_startup_http_"+response.status);
+   out={result:{ready:true,provider:"modal",durationMs:Date.now()-began}};
+  }
   else if(task.kind==="verify")out=await verifyComments(store,run,task,researchCaller(store,run,task));
   else if(task.kind==="facts")out=await facts(run,task,researchCaller(store,run,task),store);
   else out=await coordinate(store,run,task);
@@ -276,6 +283,10 @@ async function execute(store,run,task){
    await queuePreview(store,run,task,saved?.result);
   }
   if(error instanceof ProviderWait)await new Promise(resolve=>setTimeout(resolve,Math.min(5000,error.ms+100)));
+  if(task.kind==="warmup"&&task.attempts>=2){
+   await store.patch("research_runs","id=eq."+run.id,{phase:"interrupted",updated_at:new Date().toISOString()});
+   await writeUnmaskJob(run.product_id,{progress:{...progressForState("failed",[],[]),failureReason:"The research model could not start. Please retry."}},store);
+  }
   if(task.kind==="coordinate" && task.payload.stage!=="preview" && task.attempts>=2) {
     await store.patch("research_runs","id=eq."+run.id,{phase:"interrupted",updated_at:new Date().toISOString()});
     await writeUnmaskJob(run.product_id,{progress:{...progressForState("failed",[],[]),
