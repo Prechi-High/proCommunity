@@ -214,7 +214,7 @@ function videoTimings(tasks,start){
  for(const t of tasks.filter(t=>t.kind==="collect"||t.kind==="review").sort((a,b)=>Date.parse(a.updated_at)-Date.parse(b.updated_at))){
   const id=t.payload.video?.id||t.result?.videoId;if(!id)continue;
   const s=result[id]||{retrieved:0,assessed:0,first100RetrievedMs:null,first200RetrievedMs:null,first100AssessedMs:null,first200AssessedMs:null};
-  if(t.state==="done"&&t.kind==="collect")s.retrieved+=(t.result?.topLevelCount||0);
+  if(t.state==="done"&&t.kind==="collect")s.retrieved+=(t.result?.records?.length||0);
   if(t.state==="done"&&t.kind==="review")s.assessed+=(t.result?.assessed||0);
   const ms=Date.parse(t.updated_at)-Date.parse(start);
   if(s.retrieved>=100&&s.first100RetrievedMs===null)s.first100RetrievedMs=ms;
