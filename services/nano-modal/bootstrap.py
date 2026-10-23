@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
 key = secrets.token_urlsafe(48)
+print("::add-mask::" + key, flush=True)
 name = "unmask-nano-auth-" + secrets.token_hex(6)
 modal.Secret.objects.create(name, {"UNMASK_NANO_API_KEY": key})
 os.environ["UNMASK_NANO_SECRET_NAME"] = name

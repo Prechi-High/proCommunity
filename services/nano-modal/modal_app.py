@@ -22,4 +22,4 @@ def serve():
                       "--host", "0.0.0.0", "--port", "8000", "--dtype", "half",
                       "--max-model-len", "8192", "--max-num-seqs", "32",
                       "--gpu-memory-utilization", "0.85", "--enforce-eager",
-                      "--disable-log-requests"])
+                      "--no-enable-log-requests"])
