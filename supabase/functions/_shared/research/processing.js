@@ -5,10 +5,13 @@ const emptyState=()=>({version:SEMANTIC_REVIEW_VERSION,decisions:{},rows:[],pend
 const reviewIdentity=run=>({...run.identity,assessmentPolicy:policyVersion()});
 export async function decisionHash(run,record){return digest([SEMANTIC_REVIEW_VERSION,"exact-product-form-v3",reviewIdentity(run),run.blueprint.dimensions,record]);}
 async function hashesFor(run,records){return Object.fromEntries(await Promise.all(records.map(async r=>[r.id,await decisionHash(run,r)])));}
-async function cacheDecisions(store,run,decisions){
- const entries=Object.values(decisions).filter(d=>d?.inputHash&&!d.reason?.startsWith("Filter exclusion"));
- await store.upsertOn("research_decision_cache",entries.map(d=>({input_hash:d.inputHash,product_id:run.product_id,
-  decision:d,policy_version:policyVersion(),verified:true,expires_at:new Date(Date.now()+30*86400000).toISOString(),updated_at:new Date().toISOString()})),"input_hash");
+async function commitAssessment(store,run,task,result,children,decisions,complete){
+ const cache=Object.values(decisions).filter(d=>d?.inputHash&&!d.reason?.startsWith("Filter exclusion")).map(d=>({
+  input_hash:d.inputHash,decision:d,policy_version:policyVersion()}));
+ result.storageMetrics=store.metrics?{...store.metrics,requests:store.metrics.requests+1}:undefined;
+ const saved=await store.rpc("research_commit_assessment",{p_task:task.id,p_lease:task.lease,p_result:result,
+  p_children:children,p_cache:cache,p_complete:complete});
+ if(!saved)throw Error("assessment_lease_lost");
 }
 export async function assessComments(store,run,task,assess,filter){
  const records=task.payload.records||[], hashes=await hashesFor(run,records);
@@ -33,7 +36,6 @@ export async function assessComments(store,run,task,assess,filter){
  const excluded=new Set((screening.decisions||[]).filter(d=>d.excluded).map(d=>d.id));
  for(const r of pending)if(excluded.has(r.id))previous.decisions[r.id]={inputHash:hashes[r.id],status:"rejected",reason:"Filter exclusion retained for audit"};
  const base={...snapshot,pipelineVersion:2,reused,screening:{...screening,records:undefined}};
- await store.rpc("research_checkpoint",{p_task:task.id,p_lease:task.lease,p_result:{...base,assessmentState:previous}});
  let wait=null,errors=[];const observations=[...(snapshot.observations||[])];
  const previouslyAccepted=new Set(Object.entries(previous.decisions).filter(([,d])=>d.status==="accepted").map(([id])=>id));
  const state=await reviewEvidence({identity:reviewIdentity(run),dimensions:run.blueprint.dimensions,records,
@@ -50,11 +52,11 @@ export async function assessComments(store,run,task,assess,filter){
   payload:{records:records.filter(r=>freshAccepted.some(([id])=>id===r.id)),decisions:Object.fromEntries(freshAccepted)}}]:[];
  const result={...base,assessmentState:state,observations,assessed:Object.keys(state.decisions).length,
   videoId:records[0]?.conversationId||null,errors};
- await store.rpc("research_checkpoint",{p_task:task.id,p_lease:task.lease,p_result:result,p_children:children});
- await cacheDecisions(store,run,Object.fromEntries(Object.entries(state.decisions).filter(([,d])=>d.status==="rejected")));
  const unresolved=records.filter(r=>!state.decisions[r.id]);
+ if(wait&&Object.keys(state.decisions).length===Object.keys(previous.decisions).length)throw wait;
+ await commitAssessment(store,run,task,result,children,Object.fromEntries(Object.entries(state.decisions).filter(([,d])=>d.status==="rejected")),!unresolved.length);
  if(unresolved.length){if(wait)throw wait;throw Error("comment_assessment_incomplete:"+unresolved.length+":"+errors.join(","));}
- return {result};
+ return {result,committed:true};
 }
 
 export function validateVerification(records,proposed,output,previous={}){
@@ -85,11 +87,10 @@ Candidates: ${JSON.stringify(pending.map((r,i)=>({id:String(i+1),text:r.text,par
  const decisions=validateVerification(records,proposed,output,before);
  const result={pipelineVersion:2,verified:{decisions},videoId:records[0]?.conversationId||null,
   usage:[...(task.result?.usage||[]),{model:response.model,usage:response.usage}],responseShape:response.data,errors:response.errors};
- await store.rpc("research_checkpoint",{p_task:task.id,p_lease:task.lease,p_result:result});
- await cacheDecisions(store,run,decisions);
  const unresolved=records.filter(r=>!decisions[r.id]);
+ await commitAssessment(store,run,task,result,[],decisions,!unresolved.length);
  if(unresolved.length)throw Error("evidence_verification_incomplete:"+unresolved.length+":"+(response.errors||[]).join(","));
- return {result};
+ return {result,committed:true};
 }
 
 /** New primary assessments never score before verification. Legacy completed results stay readable. */

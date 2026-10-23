@@ -1,5 +1,5 @@
 /** Pure scheduling/aggregation rules, shared by live workers and regression tests. */
-export const RESEARCH_VERSION = "parallel-two-batch-nano-200-v2";
+export const RESEARCH_VERSION = "parallel-two-batch-nano-atomic-v3";
 export const BATCH_SIZE = 20;
 export const MIN_REPORTS = 5;
 export const REVIEW_GROUP_SIZE = 8;
@@ -163,10 +163,13 @@ export function rankedCandidates(videos,identity){
 export function stageTimings(tasks,start,now=Date.now()){
  const stages={};
  for(const t of tasks){
-  const s=stages[t.kind]||{tasks:0,done:0,failed:0,pending:0,processingMs:0,queueMs:0,deferrals:0,firstStartedMs:null,lastFinishedMs:null};
+  const s=stages[t.kind]||{tasks:0,done:0,failed:0,pending:0,processingMs:0,queueMs:0,providerWaitMs:0,storageRequests:0,storageMs:0,deferrals:0,firstStartedMs:null,lastFinishedMs:null};
   s.tasks++;s[t.state==="done"?"done":t.state==="failed"?"failed":"pending"]++;
   s.processingMs+=Number(t.total_processing_ms||t.result?.durationMs||0);
   s.deferrals+=Number(t.capacity_deferrals||0);
+  s.providerWaitMs+=Number(t.provider_wait_ms||0);
+  s.storageRequests+=Number(t.result?.storageMetrics?.requests||0);
+  s.storageMs+=Number(t.result?.storageMetrics?.durationMs||0);
   if(t.first_started_at){const first=Date.parse(t.first_started_at);s.queueMs+=Math.max(0,first-Date.parse(t.created_at));s.firstStartedMs=Math.min(s.firstStartedMs??Infinity,first-Date.parse(start));}
   if(t.finished_at)s.lastFinishedMs=Math.max(s.lastFinishedMs??0,Date.parse(t.finished_at)-Date.parse(start));
   stages[t.kind]=s;

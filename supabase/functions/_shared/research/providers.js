@@ -81,11 +81,13 @@ export function researchCaller(store,run,task,stage=task.kind,dependencies={}){
   const candidates=providerCandidates(available,stage,dependencies.mode||(dependencies.providers?"shared":researchProviderMode()));
   if(!candidates.length)throw Error(stage==="filter"?"filter_unconfigured":["siliconflow","modal"].includes(researchProviderMode())?researchProviderMode()+"_key_missing":"assessment_providers_unconfigured");
   const tokens=Math.ceil(prompt.length/3)+maxTokens+128;
+  const acquiring=Date.now();
   const slot=await store.rpc("research_provider_acquire",{p_run:run.id,p_task:task.id,p_stage:stage,p_tokens:tokens,
    p_candidates:candidates.map(p=>({provider:p.provider,model:p.model}))});
   if(!slot?.allowed){if(slot?.error)throw Error(slot.error);throw new ProviderWait(slot?.retryAfterMs);}
   const config=candidates.find(p=>p.provider===slot.provider);
   if(!config)throw Error("unknown_provider_reservation");
+  const acquireMs=Date.now()-acquiring;
   const began=Date.now();let status=0,usage=null,error=null,retryAfter=null,data=null;
   try{
    const body={model:config.model,temperature:0.1,max_tokens:maxTokens,response_format:responseFormat(config.provider,config.model,stage,prompt),
@@ -102,6 +104,7 @@ export function researchCaller(store,run,task,stage=task.kind,dependencies={}){
     if(result.choices?.[0]?.finish_reason==="length")error="output_truncated";
    }else {const raw=await response.text();let details={};try{details=JSON.parse(raw);}catch{}const message=String(details.error?.message||details.errors?.[0]?.message||details.message||details.detail||raw.slice(0,200)).replaceAll(config.key,"[redacted]").slice(0,200);error="http_"+status+(message?":"+message:"");}
   }catch{error="timeout_or_transport";}
+  usage={...(usage||{}),timing:{httpMs:Date.now()-began,acquireMs}};
   await store.rpc("research_provider_finish",{p_request:slot.requestId,p_status:status,p_usage:usage,p_error:error,p_retry_after:retryAfter});
   console.info(JSON.stringify({event:"research_provider_request",runId:run.id,taskId:task.id,stage,provider:config.provider,model:config.model,status,durationMs:Date.now()-began,error,usage}));
   return {data,model:config.provider+"/"+config.model,errors:error?[config.provider+":"+error]:[],usage:readLlmUsage({usage})};

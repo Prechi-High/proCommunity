@@ -20,9 +20,9 @@ test('video ranking prioritizes exact names without treating ranking as acceptan
 });
 test('stage timings distinguish queue delay, processing and capacity deferrals',()=>{
  const start='2026-10-21T10:00:00Z';
- const t={kind:'identity',state:'done',created_at:start,first_started_at:'2026-10-21T10:00:02Z',finished_at:'2026-10-21T10:00:05Z',total_processing_ms:3000,capacity_deferrals:2};
+ const t={kind:'identity',state:'done',created_at:start,first_started_at:'2026-10-21T10:00:02Z',finished_at:'2026-10-21T10:00:05Z',total_processing_ms:3000,provider_wait_ms:400,capacity_deferrals:2};
  const s=stageTimings([t],start,Date.parse(start)+6000);
- assert.equal(s.stages.identity.queueMs,2000);assert.equal(s.stages.identity.processingMs,3000);assert.equal(s.stages.identity.deferrals,2);assert.equal(s.elapsedMs,6000);
+ assert.equal(s.stages.identity.queueMs,2000);assert.equal(s.stages.identity.processingMs,3000);assert.equal(s.stages.identity.deferrals,2);assert.equal(s.elapsedMs,6000);assert.equal(s.stages.identity.providerWaitMs,400);
 });
 
 import {boundedCommentPage,supportedVideoIdentity,assessmentTasks} from './logic.js';

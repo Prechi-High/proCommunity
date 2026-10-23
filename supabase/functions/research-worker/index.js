@@ -261,12 +261,8 @@ async function coordinate(store,run,task){
  const profile=await publish(store,run,tasks,phase,continuing?weak:[]);
  return {result:{weak,selected:selected.map(v=>v.id)},children:[...selected.map(v=>videoTask(v,2)),...identityChildren],phase,profile};
 }
-async function queuePreview(store,run,task,result){
- if(["review","verify"].includes(task.kind)&&Object.values(result?.verified?.decisions||result?.reused||result?.decisions||{}).some(d=>d.status==="accepted")){
-  await store.insertMany("research_tasks",[{run_id:run.id,task_key:"coordinate:preview:"+Math.floor(Date.now()/60000),
-   kind:"coordinate",batch:task.batch,payload:{stage:"preview"}}]);
- }
-}
+// The scheduler coalesces preview work; comment workers never enqueue report writes.
+async function queuePreview() {}
 async function execute(store,run,task){
  const started=Date.now();
  console.info(JSON.stringify({event:"research_task_start",runId:run.id,taskId:task.id,kind:task.kind,queueMs:started-Date.parse(task.created_at)}));
@@ -287,7 +283,7 @@ async function execute(store,run,task){
   else if(task.kind==="verify")out=await verifyComments(store,run,task,researchCaller(store,run,task));
   else if(task.kind==="facts")out=await facts(run,task,researchCaller(store,run,task),store);
   else out=await coordinate(store,run,task);
-  await store.rpc("research_finish",{p_task:task.id,p_lease:task.lease,
+  if(!out.committed)await store.rpc("research_finish",{p_task:task.id,p_lease:task.lease,
    p_result:{...out.result,durationMs:Date.now()-started},p_children:out.children||[],
    p_phase:out.phase||null,p_profile:out.profile||null});
   if(task.kind==="facts"){

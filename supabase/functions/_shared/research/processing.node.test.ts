@@ -10,7 +10,7 @@ function memory(){
  return {checkpoints,children,cache,
   rows:async()=>cache,
   upsertOn:async(_t:string,rows:any[])=>{for(const row of rows){const i=cache.findIndex(x=>x.input_hash===row.input_hash);if(i>=0)cache[i]=row;else cache.push(row);}},
-  rpc:async(name:string,args:any)=>{if(name==="research_checkpoint"){checkpoints.push(structuredClone(args.p_result));children.push(...(args.p_children||[]));return true;}throw Error(name);}};
+  rpc:async(name:string,args:any)=>{if(name==="research_commit_assessment"){checkpoints.push(structuredClone(args.p_result));children.push(...(args.p_children||[]));for(const row of args.p_cache||[]){const i=cache.findIndex(x=>x.input_hash===row.input_hash);if(i>=0)cache[i]=row;else cache.push(row);}return true;}throw Error(name);}};
 }
 const rejected=(id:string)=>({id,exactProduct:false,firsthand:false,confidence:.95,reason:"Unrelated social conversation",categories:[]});
 const accepted=(id:string)=>({id,exactProduct:true,firsthand:true,confidence:.96,reason:"Direct product experience",categories:[{key:"hydration",quote:"kept my skin hydrated",stance:"positive",confidence:.96,reason:"Hydration experience"}]});
@@ -131,4 +131,19 @@ test("Modal identity schema cannot omit supplied candidate judgments",()=>{
  const f:any=responseFormat('modal','unmask-nano','identity','Review\nCandidates: '+JSON.stringify([{id:'video-a'},{id:'video-b'}]));
  assert.equal(f.json_schema.schema.properties.videos.minItems,2);
  assert.deepEqual(f.json_schema.schema.properties.videos.items.properties.id.enum,['video-a','video-b']);
+});
+
+test("successful assessment batches results and cache into one durable write",async()=>{
+ const store=memory();let writes=0;const rpc=store.rpc;store.rpc=async(name:string,args:any)=>{writes++;return rpc(name,args);};
+ const out=await assessComments(store,run,{id:"t",lease:"l",task_key:"g",batch:1,attempts:1,payload:{records:[record("a"),record("b")]}},async()=>({data:{decisions:[rejected("a"),rejected("b")]},errors:[]}),skipFilter);
+ assert.equal(writes,1);assert.equal(store.cache.length,2);assert.equal(out.committed,true);
+});
+test("capacity deferral performs no empty checkpoint or cache write",async()=>{
+ const store=memory();let writes=0;store.rpc=async()=>{writes++;return true;};
+ await assert.rejects(()=>assessComments(store,run,{id:"t",lease:"l",payload:{records:[record("a")]}},async()=>{throw new ProviderWait(1000);},skipFilter),/provider_wait/);
+ assert.equal(writes,0);
+});
+test("lost lease cannot claim a successful committed assessment",async()=>{
+ const store=memory();store.rpc=async()=>false;
+ await assert.rejects(()=>assessComments(store,run,{id:"t",lease:"l",payload:{records:[record("a")]}},async()=>({data:{decisions:[rejected("a")]},errors:[]}),skipFilter),/assessment_lease_lost/);
 });
