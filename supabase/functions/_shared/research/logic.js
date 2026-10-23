@@ -1,8 +1,40 @@
 /** Pure scheduling/aggregation rules, shared by live workers and regression tests. */
-export const RESEARCH_VERSION = "parallel-two-batch-v1";
+export const RESEARCH_VERSION = "parallel-two-batch-nano-200-v2";
 export const BATCH_SIZE = 20;
 export const MIN_REPORTS = 5;
 export const REVIEW_GROUP_SIZE = 8;
+export const COMMENTS_PER_VIDEO = 200;
+
+/** One sequential collector lane per video; assessment groups run independently. */
+export function boundedCommentPage(records,previousIds=[]) {
+ const seen=new Set(previousIds),accepted=[];
+ for(const record of records){
+  if(seen.size>=COMMENTS_PER_VIDEO)break;
+  if(!record.id||!record.text?.trim()||seen.has(record.id))continue;
+  seen.add(record.id);accepted.push(record);
+ }
+ return {records:accepted,seenCommentIds:[...seen],remainingComments:Math.max(0,COMMENTS_PER_VIDEO-seen.size)};
+}
+
+/** An exact-product approval must be grounded in an actual metadata reference. */
+export function supportedVideoIdentity(video,judgment,identity){
+ if(judgment?.exact!==true||!(judgment.confidence>=.85&&judgment.confidence<=1))return false;
+ const reference=String(judgment.reference||"").trim();
+ const metadata=(video.title||"")+"\n"+(video.description||"").slice(0,1500);
+ if(reference.length<5||!metadata.includes(reference))return false;
+ const words=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim().split(/\s+/).filter(Boolean);
+ const quoted=new Set(words(reference)),target=words(identity.name),brand=words(identity.brand);
+ const metaWords=new Set(words(metadata));
+ if(brand.length&&!brand.every(w=>metaWords.has(w)))return false;
+ const forms=new Set(['cream','lotion','oil','gel','mist','cleanser','serum','soap','butter','powder','shampoo','conditioner','deodorant','sunscreen','wash']);
+ const requiredForms=target.filter(w=>forms.has(w));
+ if(requiredForms.some(w=>!quoted.has(w)))return false;
+ const generic=new Set([...brand,...forms,'body','face','facial','skin','hand','travel','size','the','and','for','with','new']);
+ const distinct=target.filter(w=>!generic.has(w));
+ if(distinct.length&&!distinct.some(w=>quoted.has(w)))return false;
+ const identifiers=target.filter(w=>/\d/.test(w)||['pro','max','plus','ultra'].includes(w));
+ return identifiers.every(w=>quoted.has(w));
+}
 
 /** Opaque YouTube cursors can exceed PostgreSQL's indexed-key size. Keep them in payload only. */
 export async function commentPageTaskKey(videoId, stream, parentId, token) {

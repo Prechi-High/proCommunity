@@ -49,7 +49,7 @@ export function filterMode(){
  const mode=env("RESEARCH_FILTER_MODE")||"shadow";
  return mode==="enforce"&&env("RESEARCH_FILTER_APPROVED")==="true"?"enforce":mode==="off"?"off":"shadow";
 }
-export function policyVersion(){return "research-routing-v2:"+researchProviderMode()+":"+providerCandidates(providerConfiguration(),"review").map(p=>p.provider+":"+p.model).sort().join("|");}
+export function policyVersion(){return "research-routing-v3:"+researchProviderMode()+":"+providerCandidates(providerConfiguration(),"review").map(p=>p.provider+":"+p.model).sort().join("|");}
 export function retryDelay(value,now=Date.now()){
  if(!value)return 60;
  const seconds=Number(value);
@@ -66,7 +66,7 @@ export function responseFormat(provider,model,stage,prompt=""){
  }
  if(!(provider==="modal"||provider==="groq"&&model.startsWith("openai/gpt-oss"))||!["verify","identity"].includes(stage))return {type:"json_object"};
  const props=stage==="verify"?{id:{type:"string"},type:{type:"string",enum:["experience","question","plan","hearsay","social","other"]},keys:{type:"array",items:{type:"string"}}}:
-  {id:{type:"string"},exact:{type:"boolean"},confidence:{type:"number"},focus:{type:"string",enum:["single_product","comparison","collection"]}};
+  {id:{type:"string"},exact:{type:"boolean"},reference:{type:"string"},confidence:{type:"number"},focus:{type:"string",enum:["single_product","comparison","collection"]}};
  const key=stage==="verify"?"keep":"videos";
  let count=0;
  if(provider==="modal")try{const marker="\nCandidates: ";const candidates=JSON.parse(prompt.slice(prompt.lastIndexOf(marker)+marker.length));count=candidates.length;props.id.enum=candidates.map(v=>String(v.id));}catch{}
