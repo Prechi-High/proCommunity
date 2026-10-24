@@ -317,7 +317,13 @@ export function Header({
     </View>
   );
 }
-export function BottomNav({ community = false }: { community?: boolean }) {
+export function BottomNav({
+  community = false,
+  selected,
+}: {
+  community?: boolean;
+  selected?: "Today" | "My Products" | "Unmask" | "Community" | "You";
+}) {
   const r = useRouter();
   return (
     <SafeAreaView
@@ -347,7 +353,8 @@ export function BottomNav({ community = false }: { community?: boolean }) {
             { name: "You", href: "/you", Icon: User },
           ] as const
         ).map(({ name, href, Icon }) => {
-          const active = name === (community ? "Community" : "Unmask");
+          const active =
+            name === (selected ?? (community ? "Community" : "Unmask"));
           return (
             <Pressable
               key={name}
