@@ -1,109 +1,130 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { useRouter, type Href } from 'expo-router';
-import { useEffect } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { Avatar, useMemberGate } from '@/components/community';
-import { ArrowLeft, BellRinging, SealCheck } from '@/components/icons';
-import { Shimmer } from '@/components/kit';
-import { useNotifications } from '@/components/social';
-import { colors, fonts } from '@/constants/theme';
-import { markNotificationsRead, timeAgo } from '@/lib/community';
-import { useAppStore } from '@/lib/store';
-
-export default function NotificationsScreen() {
-  const router = useRouter();
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter, type Href } from "expo-router";
+import { UtilityPage, SignInCard } from "@/components/utilities/Page";
+import {
+  Busy,
+  Button,
+  Card,
+  Chips,
+  Copy,
+  Heading,
+  Notice,
+  Pill,
+} from "@/components/unmask/reference/ui";
+import { useNotifications } from "@/components/social";
+import { markNotificationsRead } from "@/lib/community";
+import * as api from "@/lib/living/api";
+import { useAppStore } from "@/lib/store";
+export default function Notifications() {
+  const uid = useAppStore((s) => s.profile?.id);
+  const r = useRouter();
   const qc = useQueryClient();
-  const profile = useAppStore((s) => s.profile);
-  const { requireMember, gate } = useMemberGate();
-  const n = useNotifications();
-  const list = n.data?.notifications ?? [];
-  const unread = n.data?.unread ?? 0;
-
-  useEffect(() => {
-    if (!unread) return;
-    const t = setTimeout(() => {
-      void markNotificationsRead().then(() => qc.invalidateQueries({ queryKey: ['notifications'] }));
-    }, 1500);
-    return () => clearTimeout(t);
-  }, [unread, qc]);
-
+  const [filter, setFilter] = useState("All");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const old = useNotifications();
+  const q = useQuery({
+    queryKey: ["living", "activity", uid],
+    queryFn: api.activity,
+    enabled: !!uid,
+  });
+  const items = [
+    ...(q.data ?? []).map((n) => ({
+      id: `activity-${n.id}`,
+      title: n.title,
+      body: n.body,
+      date: n.created_at,
+      read: !!n.read_at,
+      route: n.route,
+      activityId: n.id,
+    })),
+    ...(old.data?.notifications ?? []).map((n) => ({
+      id: `thread-${n.id}`,
+      title: `${n.actor_name} replied to ${n.thread_title}`,
+      body: n.snippet,
+      date: n.created_at,
+      read: n.read,
+      route: `/thread/${n.thread_id}`,
+      activityId: null,
+    })),
+  ]
+    .filter((n) => filter !== "Unread" || !n.read)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const open = async (n: (typeof items)[number]) => {
+    setBusy(true);
+    setError("");
+    try {
+      if (n.activityId) await api.readActivity(n.activityId);
+      else await markNotificationsRead();
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["living", "activity"] }),
+        qc.invalidateQueries({ queryKey: ["notifications"] }),
+      ]);
+      if (n.route?.startsWith("/") && !n.route.startsWith("//"))
+        r.push(n.route as Href);
+    } catch {
+      setError("Could not open this update. Please retry.");
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.wine }} edges={['top', 'bottom']}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8, gap: 10 }}>
-        <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/pulse' as Href))}
-          accessibilityLabel="Back"
-          style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.lac, alignItems: 'center', justifyContent: 'center' }}
-        >
-          <ArrowLeft size={18} color={colors.bone} weight="bold" />
-        </Pressable>
-        <Text style={{ flex: 1, textAlign: 'center', fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>Updates</Text>
-        <View style={{ width: 38 }} />
-      </View>
-
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 10 }}>
-        {!profile ? (
-          <View style={{ backgroundColor: colors.lac, borderRadius: 20, padding: 20, gap: 10, alignItems: 'flex-start' }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.bone }}>Follow the conversations you care about</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 21, color: colors.bone2 }}>
-              Join, then tap the bell on any post — you’ll see every new reply here.
-            </Text>
-            <Pressable onPress={() => requireMember(() => undefined)} style={{ height: 42, paddingHorizontal: 18, borderRadius: 21, backgroundColor: colors.hi, justifyContent: 'center' }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: colors.white }}>Join the community</Text>
-            </Pressable>
-          </View>
-        ) : n.isLoading ? (
-          [0, 1, 2, 3].map((i) => <Shimmer key={i} height={76} radius={18} />)
-        ) : list.length ? (
-          list.map((item) => (
-            <Pressable
-              key={item.id}
-              onPress={() => router.push({ pathname: '/thread/[id]', params: { id: item.thread_id } } as Href)}
-              style={({ pressed }) => ({
-                flexDirection: 'row',
-                gap: 12,
-                backgroundColor: item.read ? colors.lac : colors.hiSoft,
-                borderRadius: 18,
-                padding: 14,
-                opacity: pressed ? 0.8 : 1,
-              })}
-            >
-              <Avatar name={item.actor_name} size={40} />
-              <View style={{ flex: 1, gap: 3 }}>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 20, color: colors.bone }}>
-                  <Text style={{ fontFamily: fonts.semibold }}>{item.actor_name}</Text>
-                  {item.kind === 'owner_reply' ? ' (verified owner) replied to ' : ' replied to '}
-                  <Text style={{ fontFamily: fonts.semibold }}>“{item.thread_title}”</Text>
-                </Text>
-                {item.snippet ? (
-                  <Text numberOfLines={2} style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 19, color: colors.bone2 }}>
-                    {item.snippet}
-                  </Text>
-                ) : null}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  {item.kind === 'owner_reply' ? <SealCheck size={12} color={colors.hi} weight="fill" /> : null}
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.bone3 }}>
-                    {item.product_name ? `${item.product_name} · ` : ''}
-                    {timeAgo(item.created_at)}
-                  </Text>
-                </View>
-              </View>
-              {!item.read ? <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: colors.hi, marginTop: 6 }} /> : null}
-            </Pressable>
-          ))
-        ) : (
-          <View style={{ alignItems: 'center', gap: 10, paddingTop: 60, paddingHorizontal: 20 }}>
-            <BellRinging size={36} color={colors.bone3} weight="regular" />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.bone, textAlign: 'center' }}>You’re all caught up</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 21, color: colors.bone2, textAlign: 'center' }}>
-              Tap the bell on a post to get updates when people reply. Posts you write or reply to are followed automatically.
-            </Text>
-          </View>
-        )}
-      </ScrollView>
-      {gate}
-    </SafeAreaView>
+    <UtilityPage
+      title="Your circle, in the loop."
+      sub="Replies and meaningful updates from your community."
+    >
+      {!uid ? (
+        <SignInCard />
+      ) : (
+        <>
+          <Chips
+            options={["All", "Unread"]}
+            value={filter}
+            onChange={setFilter}
+          />
+          <Busy
+            loading={q.isLoading || old.isLoading}
+            error={q.error || old.error}
+            retry={() => {
+              void q.refetch();
+              void old.refetch();
+            }}
+          />
+          {error ? <Notice>{error}</Notice> : null}
+          {items.map((n) => (
+            <Card key={n.id}>
+              <Pill>{n.read ? "Read" : "New"}</Pill>
+              <Heading>{n.title}</Heading>
+              {n.body ? <Copy>{n.body}</Copy> : null}
+              <Copy small>{new Date(n.date).toLocaleString()}</Copy>
+              <Button
+                quiet
+                disabled={busy}
+                label="Open update"
+                onPress={() => void open(n)}
+              />
+            </Card>
+          ))}
+          {!q.isLoading &&
+          !old.isLoading &&
+          !q.isError &&
+          !old.isError &&
+          items.length === 0 ? (
+            <Card>
+              <Heading>You're all caught up.</Heading>
+              <Copy>
+                Follow a product or join a conversation to see relevant updates
+                here.
+              </Copy>
+              <Button
+                label="Explore community"
+                onPress={() => r.push("/pulse")}
+              />
+            </Card>
+          ) : null}
+        </>
+      )}
+    </UtilityPage>
   );
 }

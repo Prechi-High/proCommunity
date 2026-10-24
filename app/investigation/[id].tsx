@@ -393,6 +393,15 @@ export default function Investigation() {
               Recharge payments are not connected yet. Only an existing credited
               balance can be used.
             </Copy>
+            <Button
+              quiet
+              disabled={busy}
+              label="View wallet & recharge"
+              onPress={() => {
+                setPanel(false);
+                r.push("/wallet");
+              }}
+            />
             {error ? <Notice>{error}</Notice> : null}
             <Button
               label={
