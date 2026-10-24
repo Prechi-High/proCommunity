@@ -1,5 +1,7 @@
+import { CommunityPage } from "@/components/community-v2/ui";
+import { FollowButton } from "@/components/living/FollowButton";
 import { useState } from "react";
-import { useLocalSearchParams } from "expo-router";
+import { useRouter, type Href, useLocalSearchParams } from "expo-router";
 import * as api from "@/lib/living/api";
 import {
   ActionStatus,
@@ -18,6 +20,7 @@ import {
   useLivingQuery,
 } from "@/components/living/ui";
 export default function QuestionScreen() {
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const q = useLivingQuery(["question", id], () => api.question(id));
   const answers = useLivingQuery(["answers", id], () => api.answers(id));
@@ -28,10 +31,8 @@ export default function QuestionScreen() {
   const [body, setBody] = useState("");
   const [uncertainty, setUncertainty] = useState("");
   return (
-    <Page
-      back
-      eyebrow="Ask someone who has used it"
-      title="Experience can help."
+    <CommunityPage
+      title="Product question"
       sub="Specific context makes an answer useful. Describe what happened without promising someone else the same result."
     >
       <Busy loading={q.isLoading} error={q.error} />
@@ -45,7 +46,8 @@ export default function QuestionScreen() {
           </Body>
         </Card>
       ) : null}
-      <Title>What people experienced</Title>
+      <FollowButton type="question" id={id} />
+      <Title>Replies</Title>
       <Busy loading={answers.isLoading} error={answers.error} />
       {answers.data?.map((a) => (
         <Card key={a.id}>
@@ -117,6 +119,25 @@ export default function QuestionScreen() {
         />
         <ActionStatus action={action} />
       </Card>
-    </Page>
+      {q.data?.product_id ? (
+        <Card>
+          <Title>Want us to look further?</Title>
+          <Body>Suggest this question for a creator investigation.</Body>
+          <Button
+            label="Request an Unmask"
+            onPress={() =>
+              router.push({
+                pathname: "/investigation/request",
+                params: {
+                  q: q.data!.body,
+                  product: q.data!.product_id!,
+                  question: id,
+                },
+              } as Href)
+            }
+          />
+        </Card>
+      ) : null}
+    </CommunityPage>
   );
 }
