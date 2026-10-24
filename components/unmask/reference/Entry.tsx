@@ -1,177 +1,155 @@
 import { useState } from "react";
-import {
-  ImageBackground,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, type Href } from "expo-router";
 import {
   Camera,
-  CaretRight,
-  ImageSquare,
   MagnifyingGlass,
+  Leaf,
+  Drop,
+  Package,
+  ImageSquare,
+  CaretRight,
 } from "@/components/icons";
-import { fonts } from "@/constants/theme";
 import { useAppStore } from "@/lib/store";
 import { useScan } from "@/lib/useScan";
-import { Header, Heading, Photo, Copy, ink, s } from "./ui";
+import { Header, Heading, Photo, Copy, Card, Button, ink, s } from "./ui";
 export function UnmaskEntry() {
-  const router = useRouter();
+  const r = useRouter();
   const [query, setQuery] = useState("");
   const scan = useScan();
   const recent = useAppStore((x) => x.recentProductIds);
   const known = useAppStore((x) => x.knownProducts);
-  const go = () => {
-    if (!query.trim()) return;
-    useAppStore.getState().addSearch(query.trim());
-    router.push({ pathname: "/results", params: { q: query.trim() } });
+  const search = (q = query) => {
+    if (!q.trim()) return;
+    useAppStore.getState().addSearch(q.trim());
+    r.push({ pathname: "/results", params: { q: q.trim() } });
   };
   return (
     <SafeAreaView edges={["top"]} style={s.page}>
       <ScrollView
-        showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[s.content, { paddingTop: 16, gap: 20 }]}
+        contentContainerStyle={[s.content, { gap: 22 }]}
       >
         <Header wordmarkLarge />
-        <View style={{ marginTop: 20 }}>
-          <Heading hero>What are you curious about?</Heading>
-        </View>
-        <View
-          style={[
-            s.row,
-            {
-              borderWidth: 1,
-              borderColor: ink.line,
-              borderRadius: 99,
-              minHeight: 53,
-              paddingHorizontal: 17,
-            },
-          ]}
-        >
-          <MagnifyingGlass size={24} color={ink.brand} />
+        <Text style={[s.eyebrow, { textAlign: "center", letterSpacing: 3 }]}>
+          KNOW BEFORE YOU BUY.
+        </Text>
+        <Heading hero>Search products{"\n"}or brands.</Heading>
+        <Copy muted>
+          Get clear insights from real experiences, before you buy.
+        </Copy>
+        <View style={[s.row, s.input, { borderRadius: 16 }]}>
+          <MagnifyingGlass size={25} color={ink.brand} />
           <TextInput
-            accessibilityLabel="Search product or brand"
-            placeholder="Search product or brand"
-            placeholderTextColor={ink.muted}
+            accessibilityLabel="Search products or brands"
+            placeholder="Search products or brands…"
             value={query}
             onChangeText={setQuery}
-            onSubmitEditing={go}
+            onSubmitEditing={() => search()}
             returnKeyType="search"
-            style={{
-              flex: 1,
-              fontFamily: fonts.regular,
-              fontSize: 16,
-              color: ink.text,
-              paddingVertical: 12,
-            }}
+            style={[s.body, { flex: 1, minHeight: 40 }]}
           />
-        </View>
-        <View
-          style={{
-            borderRadius: 19,
-            borderWidth: 1,
-            borderColor: ink.line,
-            minHeight: 214,
-            overflow: "hidden",
-            backgroundColor: "#FFFFFF",
-          }}
-        >
-          <ImageBackground
-            source={require("@/assets/unmask-reference/scan-product.png")}
-            resizeMode="cover"
-            style={{
-              position: "absolute",
-              top: 0,
-              right: 0,
-              bottom: 0,
-              width: "47%",
-            }}
-          />
-          <View style={{ width: "58%", padding: 19, gap: 10 }}>
-            <Heading>Scan a product</Heading>
-            <Copy muted>
-              Instantly look up ingredients and get clear, unbiased information.
-            </Copy>
-            <Pressable
-              disabled={scan.busy}
-              accessibilityRole="button"
-              onPress={scan.openCamera}
-              style={{
-                marginTop: 5,
-                paddingVertical: 12,
-                paddingHorizontal: 12,
-                borderRadius: 99,
-                flexDirection: "row",
-                gap: 8,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: ink.brand,
-              }}
-            >
-              <Camera size={22} color="#FFFFFF" />
-              <Text
-                style={{
-                  fontFamily: fonts.medium,
-                  fontSize: 13,
-                  color: "#FFFFFF",
-                }}
-              >
-                Scan a product
-              </Text>
-            </Pressable>
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Search"
+            onPress={() => search()}
+          >
+            <CaretRight size={24} color={ink.brand} />
+          </Pressable>
         </View>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Scan a product"
+          disabled={scan.busy}
+          onPress={scan.openCamera}
+          style={[
+            s.card,
+            s.row,
+            { backgroundColor: ink.brand, borderRadius: 16, padding: 22 },
+          ]}
+        >
+          <Camera size={36} color="white" />
+          <View style={{ flex: 1, gap: 8 }}>
+            <Text style={[s.heading, { color: "white" }]}>Scan a product</Text>
+            <Text style={[s.body, { color: "white" }]}>
+              Photograph the label to find the product.
+            </Text>
+          </View>
+          <CaretRight size={24} color="white" />
+        </Pressable>
+        <Button
+          quiet
+          label="Choose a photo from your gallery"
           onPress={scan.openUpload}
           disabled={scan.busy}
-          style={[s.card, s.row]}
-        >
-          <ImageSquare size={32} color={ink.brand} />
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={[s.body, { fontFamily: fonts.semibold }]}>
-              Upload a photo
-            </Text>
-            <Copy muted>
-              Use a photo from your camera roll to search a product.
-            </Copy>
+        />
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          {[
+            ["Skincare", Leaf],
+            ["Body care", Drop],
+            ["Hair care", ImageSquare],
+            ["Electronics", Package],
+          ].map(([label, Icon]) => {
+            const I = Icon as typeof Leaf;
+            return (
+              <Pressable
+                key={String(label)}
+                accessibilityRole="button"
+                onPress={() => search(String(label))}
+                style={[
+                  s.card,
+                  {
+                    flex: 1,
+                    padding: 10,
+                    alignItems: "center",
+                    backgroundColor: ink.tint,
+                  },
+                ]}
+              >
+                <I size={27} color={ink.brand} />
+                <Copy small>{String(label)}</Copy>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Heading>Recently viewed</Heading>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={s.row}>
+            {recent
+              .map((id) => known[id])
+              .filter(Boolean)
+              .slice(0, 8)
+              .map((p) => (
+                <Pressable
+                  key={p.id}
+                  accessibilityRole="button"
+                  onPress={() =>
+                    r.push({
+                      pathname: "/product/[id]",
+                      params: { id: p.id, q: p.name },
+                    } as Href)
+                  }
+                  style={[s.card, { width: 150, padding: 12 }]}
+                >
+                  <Photo uri={p.heroImageUrl} size={120} />
+                  <Copy>{p.name}</Copy>
+                </Pressable>
+              ))}
           </View>
-          <CaretRight size={20} color={ink.brand} />
-        </Pressable>
-        <Heading>Recent</Heading>
-        {recent
-          .map((id) => known[id])
-          .filter(Boolean)
-          .slice(0, 6)
-          .map((p) => (
-            <Pressable
-              key={p.id}
-              accessibilityRole="button"
-              onPress={() =>
-                router.push({
-                  pathname: "/product/[id]",
-                  params: { id: p.id, q: p.name },
-                } as Href)
-              }
-              style={[s.card, s.row, { padding: 9 }]}
-            >
-              <Photo uri={p.heroImageUrl} size={86} />
-              <Text style={[s.body, { flex: 1, fontFamily: fonts.medium }]}>
-                {p.name}
-              </Text>
-              <CaretRight size={21} color={ink.brand} />
-            </Pressable>
-          ))}
+        </ScrollView>
         {!recent.some((id) => known[id]) ? (
-          <Copy muted>
-            Your recent product investigations will appear here.
-          </Copy>
+          <Copy muted>Your recently viewed products will appear here.</Copy>
         ) : null}
+        <Card style={{ backgroundColor: ink.tint }}>
+          <Heading>Share an experience.</Heading>
+          <Copy>Help other Unmaskers understand what you have tried.</Copy>
+          <Button
+            quiet
+            label="Share your experience"
+            onPress={() => r.push("/contribute" as Href)}
+          />
+        </Card>
       </ScrollView>
       {scan.sheet}
     </SafeAreaView>

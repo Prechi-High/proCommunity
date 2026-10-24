@@ -66,7 +66,13 @@ export function NativeScanCamera({
         />
         {permission?.granted ? (
           <View
-            style={{ flex: 1, overflow: "hidden", backgroundColor: "#222" }}
+            style={{
+              flex: 1,
+              overflow: "hidden",
+              backgroundColor: "#222",
+              borderRadius: 20,
+              marginHorizontal: 16,
+            }}
           >
             <CameraView
               ref={camera}
@@ -98,7 +104,7 @@ export function NativeScanCamera({
                   color: "#FFFFFF",
                 }}
               >
-                Fit the product in the frame
+                Scan your product
               </Text>
               <Text
                 style={{
@@ -108,7 +114,7 @@ export function NativeScanCamera({
                   color: "#FFFFFF",
                 }}
               >
-                Keep the name and size visible
+                Fit the product name and label inside the frame
               </Text>
             </View>
             <View
@@ -145,7 +151,7 @@ export function NativeScanCamera({
         {error ? <Notice>{error}</Notice> : null}
         <View style={{ padding: 20, gap: 18, backgroundColor: "#FFFFFF" }}>
           <Text style={[s.small, { textAlign: "center" }]}>
-            1 of 1 · front label
+            Find the product, then confirm the variant
           </Text>
           <View
             style={{

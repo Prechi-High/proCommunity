@@ -93,8 +93,8 @@ export default function ResultsScreen() {
             </Pressable>
           </View>
         </View>
-        <Heading hero>Choose the right product</Heading>
-        <Copy muted>Check the formula and size before you continue.</Copy>
+        <Heading hero>Find your exact product</Heading>
+        <Copy muted>Check the name, formula and size before you continue.</Copy>
         <Busy
           loading={result.isLoading}
           error={result.error}
@@ -113,7 +113,6 @@ export default function ResultsScreen() {
             >
               <Photo uri={p.heroImageUrl} size={i === 0 ? 122 : 90} />
               <View style={{ flex: 1, gap: 7 }}>
-                {i === 0 ? <Pill>Closest match</Pill> : null}
                 <Text
                   style={[
                     s.body,
