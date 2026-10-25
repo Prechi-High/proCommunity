@@ -36,6 +36,7 @@ export function ActionSheet({
         <Pressable
           style={{ flex: 1 }}
           onPress={onClose}
+          accessibilityRole="button"
           accessibilityLabel="Close"
         />
         <View
@@ -85,6 +86,7 @@ export function ActionSheet({
             </Text>
             <Pressable
               onPress={onClose}
+              accessibilityRole="button"
               accessibilityLabel="Close"
               style={{
                 width: 36,

@@ -26,13 +26,14 @@ export function DiscoveryHero() {
         borderRadius: 26,
         overflow: "hidden",
         backgroundColor: "#F4EEE9",
-        minHeight: 230,
+        minHeight: 220,
       }}
     >
       <View style={{ flexDirection: "row" }}>
         <View
           style={{
-            flex: 1.3,
+            width: "61%",
+            minHeight: 220,
             padding: 22,
             gap: 12,
             justifyContent: "center",
@@ -55,23 +56,29 @@ export function DiscoveryHero() {
             accessibilityRole="header"
             style={{
               fontFamily: fonts.serifBold,
-              fontSize: 35,
-              lineHeight: 37,
+              fontSize: 32,
+              lineHeight: 35,
               color: colors.brandDeep,
               letterSpacing: -0.7,
             }}
           >
-            Less guesswork.{"\n"}More clarity.
+            Buy with{"\n"}clarity.
           </Text>
           <Text style={body}>
-            Real experiences. Better questions. A closer look at what matters to
-            you.
+            See real experiences. Ask people who’ve tried it.
           </Text>
         </View>
         <Image
           source={require("../../assets/unmask-reference/scan-product.png")}
           accessibilityLabel="Illustration of a skincare bottle, not a reviewed product"
-          style={{ flex: 1, minHeight: 250 }}
+          style={{
+            position: "absolute",
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: "39%",
+            height: "100%",
+          }}
           resizeMode="cover"
         />
       </View>
