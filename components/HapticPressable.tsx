@@ -1,13 +1,10 @@
 import { type ReactNode } from 'react';
 import { Pressable, type PressableProps } from 'react-native';
 
-import { hapticSignature, hapticTap } from '@/lib/haptics';
-import { unlockAudio } from '@/lib/sounds';
-
-let firstPress = true;
+import { hapticSelect } from '@/lib/haptics';
 
 /**
- * Pressable that always fires a short haptic (and unlocks audio on first press).
+ * Pressable that acknowledges a tap without decorative haptic tours.
  */
 export function HapticPressable({
   onPress,
@@ -20,15 +17,7 @@ export function HapticPressable({
     <Pressable
       {...rest}
       onPressIn={(e) => {
-        if (!skipHaptic) {
-          if (firstPress) {
-            firstPress = false;
-            unlockAudio();
-            hapticSignature();
-          } else {
-            hapticTap();
-          }
-        }
+        if (!skipHaptic) hapticSelect();
         onPressIn?.(e);
       }}
       onPress={onPress}

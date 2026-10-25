@@ -1,178 +1,98 @@
-import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { ProductsPage } from "@/components/my-products/Page";
-import { SignInCard } from "@/components/utilities/Page";
-import { Field } from "@/components/community-v2/ui";
+import { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
 import {
-  Button,
-  Busy,
-  Card,
-  Chips,
-  Copy,
-  Heading,
-  Notice,
-  Photo,
-} from "@/components/unmask/reference/ui";
-import * as api from "@/lib/living/api";
-import { useAppStore } from "@/lib/store";
-import type { ProductState } from "@/lib/living/types";
-export default function AddProduct() {
+  ActionButton,
+  AppShell,
+  FilterChips,
+  FocusCorners,
+  MediaFrame,
+  SearchField,
+  StatusMessage,
+} from '@/components/unmask-ui';
+import { colors, fonts } from '@/constants/theme';
+import * as api from '@/lib/living/api';
+import { hapticSaved } from '@/lib/haptics';
+import { useAppStore } from '@/lib/store';
+import type { ProductState } from '@/lib/living/types';
+
+export default function TrackProduct() {
   const { product } = useLocalSearchParams<{ product?: string }>();
-  const r = useRouter();
+  const router = useRouter();
   const qc = useQueryClient();
   const uid = useAppStore((s) => s.profile?.id);
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState(product || "");
-  const [status, setStatus] = useState("Currently using");
-  const [acquisition, setAcquisition] = useState("purchased");
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState(product || '');
+  const [status, setStatus] = useState('Currently using');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const q = useQuery({ queryKey: ["catalog"], queryFn: () => api.catalog() });
-  const exact = useQuery({
-    queryKey: ["catalog", product],
-    queryFn: () => api.catalog(product),
-    enabled: !!product,
-  });
-  const mine = useQuery({
-    queryKey: ["living", "journeys", uid],
-    queryFn: api.journeys,
-    enabled: !!uid,
-  });
-  const p =
-    q.data?.find((p) => p.id === selected) ||
-    exact.data?.find((p) => p.id === selected);
-  const existing = mine.data?.some((j) => j.product_id === selected);
+  const [error, setError] = useState('');
+  const q = useQuery({ queryKey: ['catalog'], queryFn: () => api.catalog() });
+  const exact = useQuery({ queryKey: ['catalog', product], queryFn: () => api.catalog(product), enabled: !!product });
+  const p = q.data?.find((x) => x.id === selected) || exact.data?.find((x) => x.id === selected);
+
   const save = async () => {
-    if (!p) return;
+    if (!p || !uid) {
+      router.push('/(auth)/sign-in' as Href);
+      return;
+    }
     setBusy(true);
-    setError("");
+    setError('');
     try {
       const state: ProductState =
-        status === "Currently using"
-          ? "active"
-          : status === "Paused use"
-            ? "paused"
-            : status === "Previously used"
-              ? "stopped"
-              : "purchased";
-      await api.saveJourney({
-        product_id: p.id,
-        acquisition,
-        status: state,
-        visibility: "private",
-      });
-      await qc.invalidateQueries({ queryKey: ["living", "journeys"] });
-      r.replace("/products");
+        status === 'Currently using' ? 'active' : status === 'Paused use' ? 'paused' : status === 'Previously used' ? 'stopped' : 'purchased';
+      await api.saveJourney({ product_id: p.id, acquisition: 'purchased', status: state, visibility: 'private' });
+      hapticSaved(p.id);
+      await qc.invalidateQueries({ queryKey: ['living', 'journeys'] });
+      router.replace('/products' as Href);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not add this product.");
+      setError(e instanceof Error ? e.message : 'Could not add this product. Nothing was shared.');
     } finally {
       setBusy(false);
     }
   };
+
   return (
-    <ProductsPage
-      title="Add a product you use."
-      sub="Start a private use record. Sharing an experience is a separate choice."
-    >
+    <AppShell back title="Track a product" subtitle="Private first. A name is enough to start.">
       {!uid ? (
-        <SignInCard />
-      ) : (
-        <>
-          <Busy
-            loading={q.isLoading || mine.isLoading}
-            error={q.error || mine.error}
-            retry={() => {
-              void q.refetch();
-              void mine.refetch();
-            }}
-          />
-          {p ? (
-            <>
-              <Card>
-                <Photo uri={p.image_url} size={120} />
-                <Heading>{p.name}</Heading>
-                <Copy>{p.brand}</Copy>
-                <Button
-                  quiet
-                  label="Choose another product"
-                  onPress={() => setSelected("")}
-                />
-              </Card>
-              {existing ? (
-                <Notice>This product is already in your use records.</Notice>
-              ) : (
-                <>
-                  <Chips
-                    options={[
-                      "Currently using",
-                      "Paused use",
-                      "Previously used",
-                      "Not started",
-                    ]}
-                    value={status}
-                    onChange={setStatus}
-                  />
-                  <Copy>How did you get it?</Copy>
-                  <Chips
-                    options={[
-                      "purchased",
-                      "gifted",
-                      "sample",
-                      "brand_supplied",
-                      "content_exchange",
-                      "other",
-                    ]}
-                    value={acquisition}
-                    onChange={setAcquisition}
-                  />
-                  <Button
-                    disabled={busy || mine.isLoading || mine.isError}
-                    label={busy ? "Saving…" : "Add privately to My Products"}
-                    onPress={() => void save()}
-                  />
-                </>
-              )}
-              <Button
-                quiet
-                label="View your experience timeline"
-                onPress={() =>
-                  r.push(`/products/timeline?product=${p.id}` as Href)
-                }
-              />
-            </>
-          ) : (
-            <>
-              <Field
-                label="Search the product catalog"
-                value={search}
-                onChange={setSearch}
-              />
-              {q.data
-                ?.filter((p) =>
-                  `${p.name} ${p.brand}`
-                    .toLowerCase()
-                    .includes(search.toLowerCase()),
-                )
-                .slice(0, 30)
-                .map((p) => (
-                  <Button
-                    quiet
-                    key={p.id}
-                    label={`${p.brand || ""} ${p.name}`}
-                    onPress={() => setSelected(p.id)}
-                  />
-                ))}
-            </>
-          )}
-          <Button
-            quiet
-            label="Can't find it? Search Unmask"
-            onPress={() => r.push("/unmask")}
-          />
-          {error ? <Notice>{error}</Notice> : null}
-        </>
-      )}
-    </ProductsPage>
+        <StatusMessage kind="info" title="Sign in to keep a private timeline." />
+      ) : null}
+      <SearchField value={search} onChange={setSearch} placeholder="Find the product" />
+      {!p
+        ? (q.data ?? [])
+            .filter((x) => `${x.name} ${x.brand}`.toLowerCase().includes(search.toLowerCase()))
+            .slice(0, 12)
+            .map((x) => (
+              <Pressable
+                key={x.id}
+                onPress={() => setSelected(x.id)}
+                style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}
+              >
+                <View style={{ width: 56, position: 'relative' }}>
+                  <MediaFrame uri={x.image_url} label={x.name} ratio={1} />
+                  <FocusCorners selected={selected === x.id} />
+                </View>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>{x.name}</Text>
+              </Pressable>
+            ))
+        : (
+          <View style={{ gap: 12 }}>
+            <MediaFrame uri={p.image_url} label={p.name} />
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 20, color: colors.ink }}>{p.name}</Text>
+            <FilterChips
+              options={['Currently using', 'Paused use', 'Previously used', 'Not started']}
+              value={status}
+              onChange={setStatus}
+            />
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>
+              Only you can see this until you share an experience.
+            </Text>
+            {error ? <StatusMessage kind="error" title="Not saved yet." detail={error} /> : null}
+            <ActionButton label="Save privately" pending={busy} onPress={() => void save()} />
+            <ActionButton tone="ghost" label="Choose another product" onPress={() => setSelected('')} />
+          </View>
+        )}
+    </AppShell>
   );
 }

@@ -31,7 +31,7 @@ function plusDays(iso: string, days: number): string {
   return date.toISOString();
 }
 
-export type HapticsMode = 'off' | 'subtle' | 'full';
+export type HapticsMode = 'off' | 'subtle' | 'expressive' | 'full';
 
 export interface AppState {
   hydrated: boolean;
@@ -136,7 +136,7 @@ export const useAppStore = create<AppState>()(
         if (cur.includes(id)) set({ searchCategoryIds: cur.filter((x) => x !== id) });
         else set({ searchCategoryIds: [...cur, id] });
       },
-      hapticsMode: 'full' as HapticsMode,
+      hapticsMode: 'subtle' as HapticsMode,
       saveSearchHistory: true,
       recentProductIds: [] as string[],
       knownProducts: {} as Record<string, Product>,

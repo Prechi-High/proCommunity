@@ -1,135 +1,88 @@
-import { View } from "react-native";
-import { useQuery } from "@tanstack/react-query";
-import { useRouter, type Href } from "expo-router";
-import { UtilityPage, SignInCard } from "@/components/utilities/Page";
-import {
-  Button,
-  Card,
-  Copy,
-  Heading,
-  Busy,
-  ink,
-} from "@/components/unmask/reference/ui";
-import { wallet } from "@/lib/investigations/api";
-import { history } from "@/lib/utilities/api";
-import { useAppStore } from "@/lib/store";
+import { Text, View } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
+import { useRouter, type Href } from 'expo-router';
+
+import { ActionButton, AppShell, EmptyState, StatusMessage } from '@/components/unmask-ui';
+import { COPY } from '@/constants/brand';
+import { colors, fonts } from '@/constants/theme';
+import { wallet } from '@/lib/investigations/api';
+import { history } from '@/lib/utilities/api';
+import { sparkNaira } from '@/lib/unmask/status';
+import { useAppStore } from '@/lib/store';
+
 export default function Wallet() {
-  const r = useRouter();
+  const router = useRouter();
   const uid = useAppStore((s) => s.profile?.id);
   const q = useQuery({
-    queryKey: ["spark-wallet", uid],
+    queryKey: ['spark-wallet', uid],
     queryFn: wallet,
     enabled: !!uid,
   });
   const h = useQuery({
-    queryKey: ["spark-history", uid],
+    queryKey: ['spark-history', uid],
     queryFn: history,
     enabled: !!uid,
   });
+
   return (
-    <UtilityPage
-      title="Your Sparks"
-      sub="Support the questions you care about on Unmask."
-    >
+    <AppShell back title="Sparks" subtitle={COPY.sparkTeach}>
       {!uid ? (
-        <SignInCard />
-      ) : (
         <>
-          <Busy
-            loading={q.isLoading}
-            error={q.error}
-            retry={() => void q.refetch()}
-          />
-          {q.isSuccess ? (
-            <View style={{ flexDirection: "row", gap: 12 }}>
-              {[
-                ["✦", "Sparks", q.data?.sparks ?? 0],
-                ["⚡", "Thunder Sparks", q.data?.thunder ?? 0],
-              ].map(([icon, label, value], i) => (
-                <View
-                  key={String(label)}
-                  style={{
-                    flex: 1,
-                    borderWidth: 1,
-                    borderColor: i ? "#ECD8AD" : "#E6D5DB",
-                    backgroundColor: i ? "#FFFBF2" : ink.tint,
-                    borderRadius: 14,
-                    padding: 18,
-                    gap: 8,
-                  }}
-                >
-                  <Heading>
-                    {icon} {Number(value).toLocaleString()}
-                  </Heading>
-                  <Copy>{label}</Copy>
-                  <Copy small>Your available balance</Copy>
-                </View>
-              ))}
-            </View>
-          ) : null}
-          <Button
-            label="✦ Recharge"
-            onPress={() => r.push("/wallet/recharge")}
-          />
-        </>
-      )}
-      <Card>
-        <Copy>1 Spark = ₦10</Copy>
-        <Copy>1 Thunder Spark = ₦1,000, equivalent to 100 Sparks.</Copy>
-        <Copy small>
-          Support credits are not withdrawable cash. Minimum contribution: 10
-          Sparks or 1 Thunder Spark.
-        </Copy>
-      </Card>
-      <Heading>Recent activity</Heading>
-      <Button
-        quiet
-        label="See all contributions →"
-        onPress={() => r.push("/wallet/history")}
-      />
-      {uid ? (
-        <>
-          <Busy
-            loading={h.isLoading}
-            error={h.error}
-            retry={() => void h.refetch()}
-          />
-          {h.data?.slice(0, 3).map((e) => (
-            <Card key={e.id}>
-              <Heading>Supported an investigation</Heading>
-              <Copy>{e.unmask_investigations?.title || "Investigation"}</Copy>
-              <Copy>
-                −{e.amount} {e.kind === "sparks" ? "Sparks" : "Thunder Sparks"}
-              </Copy>
-              <Copy small>{new Date(e.created_at).toLocaleString()}</Copy>
-              <Button
-                quiet
-                label="View investigation"
-                onPress={() =>
-                  r.push(`/investigation/${e.investigation_id}` as Href)
-                }
-              />
-            </Card>
-          ))}
-          {h.data?.length === 0 ? (
-            <Copy>
-              No contributions yet. Your recorded support will appear here.
-            </Copy>
-          ) : null}
+          <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.inkSoft }}>
+            Sign in to add Sparks. You’re not buying a verdict. You’re saying this cannot die here.
+          </Text>
+          <ActionButton label="Sign in" onPress={() => router.push('/(auth)/sign-in' as Href)} />
         </>
       ) : (
-        <Copy>Sign in to view private wallet activity.</Copy>
+        <>
+          {q.isError ? <StatusMessage kind="error" title="Couldn’t load your Sparks." /> : null}
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            {[
+              { label: 'Sparks', value: q.data?.sparks ?? 0, hint: sparkNaira(q.data?.sparks ?? 0) },
+              { label: 'Thunder', value: q.data?.thunder ?? 0, hint: '1 Thunder = 100 Sparks' },
+            ].map((row) => (
+              <View
+                key={row.label}
+                style={{
+                  flex: 1,
+                  backgroundColor: row.label === 'Thunder' ? colors.goldSoft : colors.hiSoft,
+                  borderRadius: 18,
+                  padding: 16,
+                  gap: 6,
+                }}
+              >
+                <Text style={{ fontFamily: fonts.serifBold, fontSize: 28, lineHeight: 32, color: colors.ink }}>
+                  {row.value}
+                </Text>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{row.label}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{row.hint}</Text>
+              </View>
+            ))}
+          </View>
+          <ActionButton tone="gold" label="Add Sparks" onPress={() => router.push('/wallet/recharge' as Href)} />
+        </>
       )}
-      <Button
-        quiet
-        label="Purchase history →"
-        onPress={() => r.push("/wallet/purchases")}
-      />
-      <Button
-        quiet
-        label="Contributions →"
-        onPress={() => r.push("/wallet/history")}
-      />
-    </UtilityPage>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 13, letterSpacing: 0.5, color: colors.inkSoft }}>RECENT</Text>
+      {uid && (h.data ?? []).length ? (
+        (h.data ?? []).slice(0, 5).map((e) => (
+          <View key={e.id} style={{ gap: 4, paddingVertical: 8 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>
+              {e.unmask_investigations?.title || 'Ultra Unmask'}
+            </Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>
+              −{e.amount} {e.kind === 'sparks' ? 'Sparks' : 'Thunder'} · you pushed this
+            </Text>
+            <ActionButton
+              tone="ghost"
+              label="See it"
+              onPress={() => router.push(`/investigation/${e.investigation_id}` as Href)}
+            />
+          </View>
+        ))
+      ) : uid ? (
+        <EmptyState title="No Sparks added yet." detail="When a story needs why, this is how you take it further." />
+      ) : null}
+      <ActionButton tone="ghost" label="All contributions" onPress={() => router.push('/wallet/history' as Href)} />
+    </AppShell>
   );
 }

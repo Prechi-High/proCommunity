@@ -1,147 +1,110 @@
-import { ReportButton } from "@/components/team/ReportButton";
-import { CommunityPage } from "@/components/community-v2/ui";
-import { FollowButton } from "@/components/living/FollowButton";
-import { useState } from "react";
-import { useRouter, type Href, useLocalSearchParams } from "expo-router";
-import * as api from "@/lib/living/api";
-import {
-  ActionStatus,
-  Body,
-  Button,
-  Busy,
-  Card,
-  Choices,
-  Empty,
-  Field,
-  Page,
-  Tag,
-  Title,
-  acquisitionOptions,
-  useAction,
-  useLivingQuery,
-} from "@/components/living/ui";
+import { useState } from 'react';
+import { Text, TextInput, View } from 'react-native';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { ActionButton, AppShell, Avatar, StatusMessage } from '@/components/unmask-ui';
+import { COPY } from '@/constants/brand';
+import { colors, fonts } from '@/constants/theme';
+import * as api from '@/lib/living/api';
+import { hapticSaved } from '@/lib/haptics';
+import { SAMPLE_REPLIES, sampleById } from '@/lib/unmask/samples';
+import { useAppStore } from '@/lib/store';
+
 export default function QuestionScreen() {
-  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const q = useLivingQuery(["question", id], () => api.question(id));
-  const answers = useLivingQuery(["answers", id], () => api.answers(id));
-  const action = useAction();
-  const [duration, setDuration] = useState("");
-  const [context, setContext] = useState("");
-  const [acquisition, setAcquisition] = useState("purchased");
-  const [body, setBody] = useState("");
-  const [uncertainty, setUncertainty] = useState("");
+  const router = useRouter();
+  const qc = useQueryClient();
+  const uid = useAppStore((s) => s.profile?.id);
+  const sample = sampleById(id);
+  const q = useQuery({ queryKey: ['question', id], queryFn: () => api.question(id), enabled: !!id && !sample });
+  const answers = useQuery({ queryKey: ['answers', id], queryFn: () => api.answers(id), enabled: !!id && !sample });
+  const [body, setBody] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const send = async () => {
+    if (!uid) {
+      router.push('/(auth)/sign-in' as Href);
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await api.addAnswer({
+        question_id: id,
+        duration: '',
+        context: '',
+        acquisition: 'not_stated',
+        body: body.trim(),
+        uncertainty: '',
+      });
+      hapticSaved(id);
+      setBody('');
+      await qc.invalidateQueries({ queryKey: ['answers', id] });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Reply didn’t send. Your text is still here.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (sample) {
+    const thread = SAMPLE_REPLIES[sample.id] ?? [];
+    return (
+      <AppShell back title="Question" subtitle={`Asked by ${sample.author}`}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>
+          Design sample · not a live member question.
+        </Text>
+        <Text style={{ fontFamily: fonts.serifBold, fontSize: 26, lineHeight: 30, color: colors.ink, letterSpacing: -0.4 }}>
+          {sample.title}
+        </Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.inkSoft }}>{sample.body}</Text>
+        {thread.map((a) => (
+          <View key={a.id} style={{ flexDirection: 'row', gap: 12, paddingVertical: 4 }}>
+            <Avatar name={a.author} uri={a.avatar} size={32} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{a.author}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink }}>{a.body}</Text>
+            </View>
+          </View>
+        ))}
+        <ActionButton label="Sign in to answer" onPress={() => router.push('/(auth)/sign-in' as Href)} />
+      </AppShell>
+    );
+  }
+
   return (
-    <CommunityPage
-      title="Product question"
-      sub="Specific context makes an answer useful. Describe what happened without promising someone else the same result."
-    >
-      <Busy loading={q.isLoading} error={q.error} />
+    <AppShell back title="Question" subtitle={q.data?.author_name ? `Asked by ${q.data.author_name}` : undefined}>
+      {q.isError ? <StatusMessage kind="error" title="This question isn’t available." /> : null}
       {q.data ? (
-        <Card tone="gold">
-          <Tag text="COMMUNITY QUESTION" />
-          <Title>{q.data.body}</Title>
-          <Body>
-            {q.data.author_name} ·{" "}
-            {q.data.context || "No additional context provided"}
-          </Body>
-        </Card>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 20, lineHeight: 26, color: colors.ink }}>{q.data.body}</Text>
       ) : null}
-      <FollowButton type="question" id={id} />
-      {q.data && !q.data.routine_id ? (
-        <ReportButton kind="question" id={id} />
-      ) : null}
-      <Title>Replies</Title>
-      <Busy loading={answers.isLoading} error={answers.error} />
-      {answers.data?.map((a) => (
-        <Card key={a.id}>
-          <Tag text="Self-reported experience" />
-          <Body>
-            {a.author_name} · {a.duration} · {a.acquisition.replace("_", " ")}
-          </Body>
-          <Body>{a.body}</Body>
-          <Body>Context: {a.context}</Body>
-          {a.uncertainty ? <Body>Still uncertain: {a.uncertainty}</Body> : null}
-        </Card>
+      {(answers.data ?? []).map((a) => (
+        <View key={a.id} style={{ gap: 4 }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{a.author_name}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink }}>{a.body}</Text>
+        </View>
       ))}
-      {answers.data?.length === 0 ? (
-        <Empty
-          title="An honest question deserves context."
-          body="There are no answers yet. Relevant users can contribute when they have useful experience."
-        />
-      ) : null}
-      <Card>
-        <Title>Share what happened to you</Title>
-        <Field
-          label="How long did you use it?"
-          value={duration}
-          onChange={setDuration}
-        />
-        <Field label="Your context" value={context} onChange={setContext} />
-        <Choices
-          label="How did you obtain it?"
-          value={acquisition}
-          onChange={setAcquisition}
-          options={acquisitionOptions}
-        />
-        <Field
-          label="What changed? What would you do differently?"
-          value={body}
-          onChange={setBody}
-          multiline
-        />
-        <Field
-          label="What are you uncertain about?"
-          value={uncertainty}
-          onChange={setUncertainty}
-        />
-        <Body>
-          Your answer inherits the question’s audience. It is self-reported
-          context, not automatically verified evidence.
-        </Body>
-        <Button
-          label="Publish my answer"
-          disabled={
-            !duration.trim() ||
-            !context.trim() ||
-            body.trim().length < 10 ||
-            action.isPending
-          }
-          onPress={() =>
-            action.run(async () => {
-              await api.addAnswer({
-                question_id: id,
-                duration,
-                context,
-                acquisition,
-                body,
-                uncertainty,
-              });
-              setBody("");
-            })
-          }
-        />
-        <ActionStatus action={action} />
-      </Card>
+      <TextInput
+        value={body}
+        onChangeText={setBody}
+        multiline
+        placeholder="Answer with what you lived. How you used it matters."
+        placeholderTextColor={colors.bone3}
+        style={{ fontFamily: fonts.regular, fontSize: 16, minHeight: 80, color: colors.ink }}
+      />
+      {error ? <StatusMessage kind="error" title="Reply didn’t send." detail={error} /> : null}
+      <ActionButton label={COPY.answerCta} pending={busy} disabled={!body.trim()} onPress={() => void send()} />
       {q.data?.product_id ? (
-        <Card>
-          <Title>Want us to look further?</Title>
-          <Body>Suggest this question for a creator investigation.</Body>
-          <Button
-            label="Request an Unmask"
-            onPress={() =>
-              router.push({
-                pathname: "/investigation/request",
-                params: {
-                  q: q.data!.body,
-                  product: q.data!.product_id!,
-                  question: id,
-                },
-              } as Href)
-            }
-          />
-        </Card>
+        <ActionButton
+          tone="ghost"
+          label={COPY.takeFurther}
+          onPress={() =>
+            router.push(`/investigation/request?question=${id}&product=${q.data?.product_id}` as Href)
+          }
+        />
       ) : null}
-    </CommunityPage>
+    </AppShell>
   );
 }

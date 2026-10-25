@@ -139,8 +139,8 @@ export default function SettingDetails() {
           </Card>
           <Heading>Haptic feedback</Heading>
           <Chips
-            options={["off", "subtle", "full"]}
-            value={s.hapticsMode}
+            options={["off", "subtle", "expressive"]}
+            value={s.hapticsMode === "full" ? "expressive" : s.hapticsMode}
             onChange={(v) => s.setHapticsMode(v as HapticsMode)}
           />
         </>

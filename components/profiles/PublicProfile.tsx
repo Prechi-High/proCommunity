@@ -1,25 +1,18 @@
-import { useState } from "react";
-import { Linking, Share } from "react-native";
-import * as ExpoLinking from "expo-linking";
-import { useQuery } from "@tanstack/react-query";
-import { useRouter, type Href } from "expo-router";
-import { UtilityPage } from "@/components/utilities/Page";
-import { ProfileIdentity } from "./Identity";
-import {
-  Button,
-  Busy,
-  Card,
-  Chips,
-  Copy,
-  Heading,
-  Notice,
-  Photo,
-  Pill,
-} from "@/components/unmask/reference/ui";
-import { FollowButton } from "@/components/living/FollowButton";
-import { useAppStore } from "@/lib/store";
-import * as api from "@/lib/profiles/api";
-import * as community from "@/lib/community-v2/api";
+import { useState } from 'react';
+import { Linking, Share, Text, View } from 'react-native';
+import * as ExpoLinking from 'expo-linking';
+import { useQuery } from '@tanstack/react-query';
+import { useRouter, type Href } from 'expo-router';
+
+import { FollowButton } from '@/components/living/FollowButton';
+import { ActionButton, AppShell, Avatar, FilterChips, StatusMessage, StoryCard } from '@/components/unmask-ui';
+import { COPY } from '@/constants/brand';
+import { colors, fonts } from '@/constants/theme';
+import { useAppStore } from '@/lib/store';
+import * as api from '@/lib/profiles/api';
+import * as community from '@/lib/community-v2/api';
+import { SAMPLE_CREATORS, SAMPLE_FEED } from '@/lib/unmask/samples';
+
 export function PublicProfile({
   id,
   creatorOnly = false,
@@ -28,266 +21,182 @@ export function PublicProfile({
   creatorOnly?: boolean;
 }) {
   const uid = useAppStore((s) => s.profile?.id);
-  const r = useRouter();
-  const [tab, setTab] = useState(
-    creatorOnly ? "Investigations" : "Experiences",
-  );
-  const [error, setError] = useState("");
+  const router = useRouter();
+  const sample = SAMPLE_CREATORS.find((c) => c.user_id === id);
+  const [tab, setTab] = useState(creatorOnly || sample ? 'Ultra Unmasks' : 'Stories');
+  const [error, setError] = useState('');
   const identity = useQuery({
-    queryKey: ["public-identity", id],
+    queryKey: ['public-identity', id],
     queryFn: () => api.identity(id),
-    enabled: !!id,
+    enabled: !!id && !sample,
   });
   const counts = useQuery({
-    queryKey: ["profile-counts", id, uid],
+    queryKey: ['profile-counts', id, uid],
     queryFn: () => api.counts(id),
-    enabled: !!id,
+    enabled: !!id && !sample,
   });
   const experiences = useQuery({
-    queryKey: ["profile-experiences", id],
+    queryKey: ['profile-experiences', id],
     queryFn: () => api.experiences(id),
-    enabled: !!id,
+    enabled: !!id && !sample,
   });
   const questions = useQuery({
-    queryKey: ["profile-questions", id],
+    queryKey: ['profile-questions', id],
     queryFn: () => api.questions(id),
-    enabled: !!id,
+    enabled: !!id && !sample,
   });
   const support = useQuery({
-    queryKey: ["profile-support", id],
+    queryKey: ['profile-support', id],
     queryFn: () => api.support(id),
-    enabled: !!id,
+    enabled: !!id && !sample,
   });
   const creators = useQuery({
-    queryKey: ["creators"],
+    queryKey: ['creators'],
     queryFn: community.creators,
+    enabled: !sample,
   });
   const videos = useQuery({
-    queryKey: ["creator-publications", id],
+    queryKey: ['creator-publications', id],
     queryFn: () => community.publications(id),
-    enabled: !!id,
+    enabled: !!id && !sample,
   });
-  const p = identity.data;
-  const c = creators.data?.find((c) => c.user_id === id);
-  const name =
-    p?.display_name ||
-    c?.display_name ||
-    experiences.data?.[0]?.author_name ||
-    "Unmasker";
-  const bio = p?.bio || c?.bio;
-  const options = c
-    ? ["Investigations", "Experiences", "About"]
-    : ["Experiences", "Questions", "Supported"];
+  const live = creators.data?.find((c) => c.user_id === id);
+  const unmasker = Boolean(live || sample);
+  const name = identity.data?.display_name || live?.display_name || sample?.display_name || 'Unmasker';
+  const handle = identity.data?.handle || live?.handle || sample?.handle;
+  const bio =
+    identity.data?.bio ||
+    live?.bio ||
+    (sample ? `${name} is an Unmasker. They take lived stories to the company and to people who know.` : '');
+  const avatar = identity.data?.avatar_url || live?.avatar_url || sample?.avatar_url;
+  const options = unmasker ? ['Ultra Unmasks', 'Stories', 'About'] : ['Stories', 'Questions', 'Sparked'];
   const active = options.includes(tab) ? tab : options[0];
+  const sampleCases = SAMPLE_FEED.filter((row) => row.kind === 'unmask' && row.creatorName === sample?.display_name);
+  const sampleStories = SAMPLE_FEED.filter((row) => row.kind === 'experience' && row.author === sample?.display_name);
+
   const share = async () => {
     try {
       await Share.share({
         message: `${name} on Unmask\n${ExpoLinking.createURL(`/member/${id}`)}`,
       });
     } catch {
-      setError("Could not share this profile. Please retry.");
+      setError('Could not share this profile.');
     }
   };
+
   return (
-    <UtilityPage title={c ? "Unmask Creator" : "Public profile"}>
-      <Busy
-        loading={identity.isLoading || creators.isLoading}
-        error={identity.error || creators.error}
-        retry={() => {
-          void identity.refetch();
-          void creators.refetch();
-        }}
-      />
-      <ProfileIdentity
-        name={name}
-        handle={p?.handle || c?.handle}
-        bio={bio}
-        avatar={p?.avatar_url || c?.avatar_url}
-      />
-      {!p && !c && identity.isSuccess && creators.isSuccess ? (
-        <Copy muted>This member has not set up a public profile yet.</Copy>
+    <AppShell back title={unmasker ? 'Unmasker' : name} subtitle={unmasker ? COPY.unmaskersTeach : undefined}>
+      <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
+        <Avatar name={name} uri={avatar} size={72} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text style={{ fontFamily: fonts.serifBold, fontSize: 26, lineHeight: 30, color: colors.ink, letterSpacing: -0.4 }}>
+            {name}
+          </Text>
+          {handle ? <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>@{handle}</Text> : null}
+        </View>
+      </View>
+      {unmasker ? (
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brandDeep }}>
+          Unmasker · they take a story further
+        </Text>
       ) : null}
-      {c ? (
-        <>
-          <Pill>Unmask Creator</Pill>
-          <Copy small>
-            This person creates content on Unmask. This label does not verify
-            expertise or credentials.
-          </Copy>
-          <Copy>{c.specialties.join(" · ")}</Copy>
-        </>
+      {bio ? <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink }}>{bio}</Text> : null}
+      {counts.data ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>
+          {counts.data.followers} followers · {counts.data.following} following
+        </Text>
+      ) : sample ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>Preview Unmasker · labeled sample</Text>
       ) : null}
       {uid === id ? (
-        <Button
-          quiet
-          label="Edit profile"
-          onPress={() => r.push("/profile/edit")}
-        />
+        <ActionButton tone="secondary" label="Edit profile" onPress={() => router.push('/profile/edit' as Href)} />
+      ) : sample ? (
+        <ActionButton tone="secondary" label="Follow this Unmasker" onPress={() => router.push('/(auth)/sign-in' as Href)} />
       ) : (
         <FollowButton type="person" id={id} />
       )}
-      <Button quiet label="Share profile" onPress={() => void share()} />
-      {error ? <Notice>{error}</Notice> : null}
-      <Busy
-        loading={counts.isLoading}
-        error={counts.error}
-        retry={() => void counts.refetch()}
-      />
-      {counts.data?.followers !== undefined ? (
-        <Copy>
-          {counts.data.followers} followers · {counts.data.following} following
-        </Copy>
+      <ActionButton tone="ghost" label="Share" onPress={() => void share()} />
+      {error ? <StatusMessage kind="error" title={error} /> : null}
+      <FilterChips options={options} value={active} onChange={setTab} />
+
+      {active === 'Ultra Unmasks' ? (
+        sample ? (
+          sampleCases.length ? (
+            sampleCases.map((item) => <StoryCard key={item.id} item={item} />)
+          ) : (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>No Ultra Unmasks in this preview yet.</Text>
+          )
+        ) : (
+          <>
+            {(videos.data ?? []).map((v) => (
+              <View key={v.id} style={{ gap: 8 }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: colors.ink }}>{v.title}</Text>
+                <ActionButton label={COPY.watchUnmask} onPress={() => void Linking.openURL(v.video_url).catch(() => setError('Could not open this video.'))} />
+              </View>
+            ))}
+            {videos.data?.length === 0 ? (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>No published Ultra Unmasks yet.</Text>
+            ) : null}
+          </>
+        )
       ) : null}
-      {p?.social_links
-        .filter((v) => api.safeLink(v))
-        .map((link) => (
-          <Button
-            quiet
-            key={link}
-            label={new URL(link).hostname}
-            onPress={() =>
-              void Linking.openURL(link).catch(() =>
-                setError("Could not open this social link."),
-              )
-            }
-          />
-        ))}
-      <Chips options={options} value={active} onChange={setTab} />
-      {active === "Investigations" ? (
-        <>
-          <Busy
-            loading={videos.isLoading}
-            error={videos.error}
-            retry={() => void videos.refetch()}
-          />
-          {videos.data?.map((v) => (
-            <Card key={v.id}>
-              {v.thumbnail_url ? (
-                <Photo uri={v.thumbnail_url} size={220} />
-              ) : null}
-              <Heading>{v.title}</Heading>
-              {v.commercial_disclosure ? (
-                <Copy small>
-                  Commercial disclosure: {v.commercial_disclosure}
-                </Copy>
-              ) : null}
-              <Button
-                label="Watch investigation"
-                onPress={() =>
-                  void Linking.openURL(v.video_url).catch(() =>
-                    setError("Could not open this video."),
-                  )
-                }
-              />
-              {v.product_id ? (
-                <Button
-                  quiet
-                  label="View product"
-                  onPress={() => r.push(`/product/${v.product_id}` as Href)}
-                />
-              ) : null}
-            </Card>
-          ))}
-          {videos.data?.length === 0 ? (
-            <Copy>No published investigations yet.</Copy>
-          ) : null}
-        </>
+
+      {active === 'Stories' ? (
+        sample ? (
+          sampleStories.length ? (
+            sampleStories.map((item) => <StoryCard key={item.id} item={item} />)
+          ) : (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>No public stories in this preview.</Text>
+          )
+        ) : (
+          <>
+            {(experiences.data ?? []).map((e) => (
+              <View key={e.id} style={{ gap: 8 }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>{e.unmask_catalog?.name || 'Lived story'}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink }}>{e.body}</Text>
+                <ActionButton tone="ghost" label={COPY.readStory} onPress={() => router.push(`/story/${e.id}` as Href)} />
+              </View>
+            ))}
+            {experiences.data?.length === 0 ? (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>No public stories yet.</Text>
+            ) : null}
+          </>
+        )
       ) : null}
-      {active === "Experiences" ? (
+
+      {active === 'Questions' ? (
         <>
-          <Busy
-            loading={experiences.isLoading}
-            error={experiences.error}
-            retry={() => void experiences.refetch()}
-          />
-          {experiences.data?.map((e) => (
-            <Card key={e.id}>
-              <Heading>
-                {e.unmask_catalog?.name || "Product experience"}
-              </Heading>
-              {e.unmask_catalog?.image_url ? (
-                <Photo uri={e.unmask_catalog.image_url} size={100} />
-              ) : null}
-              <Copy small>
-                {e.duration}
-                {e.frequency ? ` · ${e.frequency}` : ""}
-                {e.skin_type
-                  ? ` · ${e.skin_type} skin, shared voluntarily`
-                  : ""}
-              </Copy>
-              {e.outcome ? <Pill>{e.outcome} experience</Pill> : null}
-              <Copy>{e.body}</Copy>
-              <Button
-                quiet
-                label="View experience & replies"
-                onPress={() => r.push(`/contribute?experience=${e.id}` as Href)}
-              />
-            </Card>
-          ))}
-          {experiences.data?.length === 0 ? (
-            <Copy>No public experiences yet.</Copy>
-          ) : null}
-        </>
-      ) : null}
-      {active === "Questions" ? (
-        <>
-          <Busy
-            loading={questions.isLoading}
-            error={questions.error}
-            retry={() => void questions.refetch()}
-          />
-          {questions.data?.map((q) => (
-            <Card key={q.id}>
-              <Copy>{q.body}</Copy>
-              <Button
-                quiet
-                label="Join discussion"
-                onPress={() => r.push(`/question/${q.id}` as Href)}
-              />
-            </Card>
+          {(questions.data ?? []).map((q) => (
+            <View key={q.id} style={{ gap: 8 }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink }}>{q.body}</Text>
+              <ActionButton tone="ghost" label={COPY.answerCta} onPress={() => router.push(`/question/${q.id}` as Href)} />
+            </View>
           ))}
           {questions.data?.length === 0 ? (
-            <Copy>No public questions yet.</Copy>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>No public questions yet.</Text>
           ) : null}
         </>
       ) : null}
-      {active === "Supported" ? (
+
+      {active === 'Sparked' ? (
         <>
-          <Copy small>
-            Only support acknowledged publicly is shown. Contribution amounts
-            and anonymous support are private.
-          </Copy>
-          <Busy
-            loading={support.isLoading}
-            error={support.error}
-            retry={() => void support.refetch()}
-          />
-          {support.data?.map((i) => (
-            <Card key={i.id}>
-              <Pill>{i.status}</Pill>
-              <Heading>{i.title}</Heading>
-              <Button
-                quiet
-                label="View investigation"
-                onPress={() => r.push(`/investigation/${i.id}` as Href)}
-              />
-            </Card>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.inkSoft }}>
+            Only public Sparks show here. Amounts stay private.
+          </Text>
+          {(support.data ?? []).map((i) => (
+            <ActionButton key={i.id} tone="secondary" label={i.title} onPress={() => router.push(`/investigation/${i.id}` as Href)} />
           ))}
           {support.data?.length === 0 ? (
-            <Copy>No publicly acknowledged support to show.</Copy>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>No public Sparks to show.</Text>
           ) : null}
         </>
       ) : null}
-      {active === "About" ? (
-        <Card>
-          <Heading>About {name}</Heading>
-          <Copy>{bio || "No bio added yet."}</Copy>
-          <Copy>
-            Investigations bring experiences, evidence and context together.
-            Financial support does not determine findings.
-          </Copy>
-        </Card>
+
+      {active === 'About' ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.inkSoft }}>
+          {bio || 'No bio yet.'} Unmaskers ask companies and people who know. Sparks cannot buy the answer.
+        </Text>
       ) : null}
-    </UtilityPage>
+    </AppShell>
   );
 }

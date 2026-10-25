@@ -1,592 +1,246 @@
-import { ReportButton } from "@/components/team/ReportButton";
-import { BookmarkButton } from "@/components/utilities/BookmarkButton";
-import * as ImagePicker from "expo-image-picker";
-import { Field } from "@/components/community-v2/ui";
-import { useEffect, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CommunityPage } from "@/components/community-v2/ui";
+import { useEffect, useState } from 'react';
+import { Pressable, Text, TextInput, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
 import {
-  Button,
-  Busy,
-  Card,
-  Chips,
-  Copy,
-  Heading,
-  Notice,
-  Photo,
-  Pill,
-} from "@/components/unmask/reference/ui";
-import * as api from "@/lib/clarity/api";
-import * as community from "@/lib/community-v2/api";
-import * as living from "@/lib/living/api";
-import { useAppStore } from "@/lib/store";
+  ActionButton,
+  AppShell,
+  EmptyState,
+  FilterChips,
+  FocusCorners,
+  MediaFrame,
+  SearchField,
+  StatusMessage,
+} from '@/components/unmask-ui';
+import { COPY } from '@/constants/brand';
+import { colors, fonts } from '@/constants/theme';
+import * as api from '@/lib/clarity/api';
+import * as community from '@/lib/community-v2/api';
+import * as living from '@/lib/living/api';
+import { hapticSaved } from '@/lib/haptics';
+import { useAppStore } from '@/lib/store';
+
 export default function Contribute() {
-  const r = useRouter();
+  const router = useRouter();
   const qc = useQueryClient();
-  const p = useLocalSearchParams<{
-    product?: string;
-    experience?: string;
-    mine?: string;
-    update?: string;
-  }>();
+  const p = useLocalSearchParams<{ product?: string; experience?: string; mine?: string; update?: string }>();
   const uid = useAppStore((s) => s.profile?.id);
-  const [photo, setPhoto] = useState("");
-  const [step, setStep] = useState(
-    p.experience
-      ? p.update
-        ? "update"
-        : "detail"
-      : p.product
-        ? "write"
-        : p.mine
-          ? "mine"
-          : "choose",
-  );
-  const [product, setProduct] = useState(p.product || "");
-  const [search, setSearch] = useState("");
-  const [duration, setDuration] = useState("");
-  const [frequency, setFrequency] = useState("Once daily");
-  const [skin, setSkin] = useState("Not disclosed");
-  const [goal, setGoal] = useState("");
-  const [body, setBody] = useState("");
-  const [outcome, setOutcome] = useState("Mixed");
-  const [status, setStatus] = useState("Still using");
-  const [visibility, setVisibility] = useState<"private" | "public">("private");
-  const [reply, setReply] = useState("");
-  const [error, setError] = useState("");
+  const [step, setStep] = useState(p.product || p.experience ? 'write' : p.mine ? 'mine' : 'choose');
+  const [product, setProduct] = useState(p.product || '');
+  const [search, setSearch] = useState('');
+  const [body, setBody] = useState('');
+  const [duration, setDuration] = useState('');
+  const [skin, setSkin] = useState('Not disclosed');
+  const [photo, setPhoto] = useState('');
+  const [visibility, setVisibility] = useState<'private' | 'public'>('public');
+  const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [ownWords, setOwnWords] = useState(false);
-  const cat = useQuery({
-    queryKey: ["catalog"],
-    queryFn: () => living.catalog(),
-  });
-  const detail = useQuery({
-    queryKey: ["clarity-experience", p.experience],
-    queryFn: () => community.experience(p.experience!),
-    enabled: !!p.experience,
-  });
+  const [error, setError] = useState('');
+  const [done, setDone] = useState('');
+
+  const cat = useQuery({ queryKey: ['catalog'], queryFn: () => living.catalog() });
   const own = useQuery({
-    queryKey: ["my-clarity-experiences"],
+    queryKey: ['my-clarity-experiences'],
     queryFn: () => api.experiences(true),
-    enabled: !!uid && step === "mine",
-  });
-  const updates = useQuery({
-    queryKey: ["experience-followups", p.experience],
-    queryFn: () => community.entries(p.experience!, "followups"),
-    enabled: !!p.experience,
-  });
-  const replies = useQuery({
-    queryKey: ["experience-replies", p.experience],
-    queryFn: () => community.entries(p.experience!, "replies"),
-    enabled: !!p.experience,
+    enabled: !!uid && step === 'mine',
   });
   const selected = cat.data?.find((x) => x.id === product);
-  const e = detail.data;
-  const key = `unmask:experience-draft:${uid || "guest"}:${p.experience || product || "new"}`;
-  const [draftReady, setDraftReady] = useState(false);
+  const key = `unmask:experience-draft:${uid || 'guest'}:${p.experience || product || 'new'}`;
+
   useEffect(() => {
-    let active = true;
-    setDraftReady(false);
-    AsyncStorage.getItem(key)
-      .then((raw) => {
-        if (!active || !raw) return;
-        const d = JSON.parse(raw);
-        setDuration(d.duration || "");
-        setFrequency(d.frequency || "Once daily");
-        setGoal(d.goal || "");
-        setBody(d.body || "");
-        setSkin(d.skin || "Not disclosed");
-        setOutcome(d.outcome || "Mixed");
-        setStatus(d.status || "Still using");
-        setVisibility(d.visibility === "public" ? "public" : "private");
-      })
-      .catch(() => {
-        if (active) setError("Your draft could not be loaded.");
-      })
-      .finally(() => {
-        if (active) setDraftReady(true);
-      });
-    return () => {
-      active = false;
-    };
+    void AsyncStorage.getItem(key).then((raw) => {
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      setBody(d.body || '');
+      setDuration(d.duration || '');
+      setSkin(d.skin || 'Not disclosed');
+    });
   }, [key]);
-  const run = async (fn: () => Promise<void>) => {
+  useEffect(() => {
+    if (!body && !duration) return;
+    void AsyncStorage.setItem(key, JSON.stringify({ body, duration, skin }));
+  }, [body, duration, skin, key]);
+
+  const save = async () => {
     if (!uid) {
-      r.push("/(auth)/sign-in");
+      router.push('/(auth)/sign-in' as Href);
+      return;
+    }
+    if (!selected) {
+      setError('Confirm the product first.');
       return;
     }
     setBusy(true);
-    setError("");
+    setError('');
     try {
-      await fn();
-    } catch (x) {
-      setError(x instanceof Error ? x.message : "Please try again.");
+      const photoPath = photo ? await community.uploadPhoto(photo) : null;
+      await living.registerProduct({
+        id: selected.id,
+        name: selected.name,
+        brand: selected.brand || '',
+        category: selected.category || '',
+        heroImageUrl: selected.image_url,
+      });
+      const saved = await api.saveExperience({
+        photo_path: photoPath,
+        product_id: product,
+        duration,
+        frequency: 'Not stated',
+        goal: '',
+        body: body.trim(),
+        outcome: 'Mixed',
+        uncertainty: '',
+        context: '',
+        skin_type: skin === 'Not disclosed' ? null : skin,
+        acquisition: 'Prefer not to say',
+        usage_status: 'Still using',
+        would_rebuy: 'Not stated',
+        visibility,
+      });
+      await AsyncStorage.removeItem(key);
+      await qc.invalidateQueries();
+      hapticSaved(saved.id);
+      setDone(saved.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Your draft is still here. Try again.');
     } finally {
       setBusy(false);
     }
   };
-  const save = () =>
-    run(async () => {
-      const photoPath = photo ? await community.uploadPhoto(photo) : null;
-      if (step === "update-preview") {
-        await community.addEntry(
-          p.experience!,
-          body,
-          "followups",
-          duration,
-          status,
-          photoPath || "",
-        );
-      } else {
-        if (!selected) throw new Error("Select a product before publishing.");
-        await living.registerProduct({
-          id: selected.id,
-          name: selected.name,
-          brand: selected.brand || "",
-          category: selected.category || "",
-          heroImageUrl: selected.image_url,
-        });
-        await api.saveExperience({
-          photo_path: photoPath,
-          product_id: product,
-          duration,
-          frequency,
-          goal,
-          body: body.trim(),
-          outcome,
-          uncertainty: "",
-          context: "",
-          skin_type: skin === "Not disclosed" ? null : skin,
-          acquisition: "Prefer not to say",
-          usage_status: status,
-          would_rebuy: "Not stated",
-          visibility,
-        });
-      }
-      await AsyncStorage.removeItem(key);
-      await qc.invalidateQueries();
-      setStep("done");
-    });
-  const productCard = (name?: string, image?: string | null) => (
-    <Card>
-      {image ? <Photo uri={image} size={90} /> : null}
-      <Heading>{name || "Product experience"}</Heading>
-    </Card>
-  );
-  const compose = (
-    <>
-      {step === "update" ? (
-        <Notice>
-          This update stays connected to your original experience and inherits
-          its visibility.
-        </Notice>
-      ) : null}
-      <Field
-        label={
-          step === "update"
-            ? "Usage duration / time since stopping"
-            : "How long have you used it?"
-        }
-        value={duration}
-        onChange={setDuration}
-      />
-      {step !== "update" ? (
-        <>
-          <Chips
-            options={["Once daily", "Twice daily", "Occasionally", "Other"]}
-            value={frequency}
-            onChange={setFrequency}
-          />
-          <Copy>Skin type (optional)</Copy>
-          <Chips
-            options={[
-              "Not disclosed",
-              "Dry",
-              "Oily",
-              "Combination",
-              "Sensitive",
-              "Not sure",
-            ]}
-            value={skin}
-            onChange={setSkin}
-          />
-          <Field
-            label="What were you hoping for?"
-            value={goal}
-            onChange={setGoal}
-            multiline
-          />
-        </>
-      ) : null}
-      <Field
-        label={step === "update" ? "What changed?" : "What happened?"}
-        value={body}
-        onChange={setBody}
-        multiline
-      />
-      <Chips
-        options={["Still using", "Stopped using", "Finished it"]}
-        value={status}
-        onChange={setStatus}
-      />
-      {step !== "update" ? (
-        <>
-          <Chips
-            options={["Positive", "Mixed", "Negative"]}
-            value={outcome}
-            onChange={setOutcome}
-          />
-          <Copy>Choose who can see this experience</Copy>
-          <Chips
-            options={["private", "public"]}
-            value={visibility}
-            onChange={(v) =>
-              setVisibility(v === "public" ? "public" : "private")
-            }
-          />
-        </>
-      ) : null}
-      <Button
-        quiet
-        label={photo ? "Change attached photo" : "Add a photo (optional)"}
-        onPress={() =>
-          void run(async () => {
-            const out = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ["images"],
-              quality: 0.8,
-            });
-            if (!out.canceled) setPhoto(out.assets[0].uri);
-          })
-        }
-      />
-      {photo ? (
-        <>
-          <Photo uri={photo} size={160} />
-          <Button quiet label="Remove photo" onPress={() => setPhoto("")} />
-        </>
-      ) : null}
-      <Button
-        label={step === "update" ? "Preview update" : "Review experience"}
-        disabled={
-          !draftReady ||
-          !duration.trim() ||
-          body.trim().length < 10 ||
-          body.length > 4000
-        }
-        onPress={() =>
-          setStep(step === "update" ? "update-preview" : "preview")
-        }
-      />
-      <Button
-        quiet
-        label="Save draft"
-        disabled={!draftReady || busy}
-        onPress={() =>
-          void run(async () => {
-            await AsyncStorage.setItem(
-              key,
-              JSON.stringify({
-                duration,
-                frequency,
-                goal,
-                body,
-                skin,
-                outcome,
-                status,
-                visibility,
-              }),
-            );
-            setError("Draft saved privately on this device.");
-          })
-        }
-      />
-    </>
-  );
-  return (
-    <CommunityPage
-      title={
-        step === "detail"
-          ? "Experience"
-          : step === "update"
-            ? "How has it been since?"
-            : step.includes("preview")
-              ? "Ready to share?"
-              : step === "choose"
-                ? "What have you used?"
-                : step === "done"
-                  ? "Your contribution is saved."
-                  : "Your experience matters."
-      }
-    >
-      {error ? <Notice>{error}</Notice> : null}
-      {!uid && step !== "detail" ? (
-        <Button
-          label="Sign in to contribute"
-          onPress={() => r.push("/(auth)/sign-in")}
+
+  if (done) {
+    return (
+      <AppShell back title="Your story is live.">
+        <StatusMessage kind="success" title={COPY.storyLive} detail="Others can reply. If you need why, demand an Ultra Unmask." />
+        <ActionButton label="View story" onPress={() => router.replace(`/story/${done}` as Href)} />
+        <ActionButton
+          tone="secondary"
+          label={COPY.takeFurther}
+          onPress={() => router.replace(`/investigation/request?experience=${done}&product=${product}` as Href)}
         />
-      ) : null}
-      {step === "mine" ? (
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell back title={p.update ? COPY.followUpPrompt : COPY.homePrompt} subtitle="Good or bad. Start with what happened. Keep updating it.">
+      {step === 'mine' ? (
         <>
-          <Busy
-            loading={own.isLoading}
-            error={own.error}
-            retry={() => void own.refetch()}
-          />
-          {own.data?.map((x) => (
-            <Card key={x.id}>
-              <Heading>{x.unmask_catalog?.name || "Experience"}</Heading>
-              <Copy>{x.body}</Copy>
-              <Button
-                label="View experience"
-                onPress={() => r.push(`/contribute?experience=${x.id}` as Href)}
-              />
-            </Card>
+          {(own.data ?? []).map((e) => (
+            <Pressable key={e.id} onPress={() => router.push(`/story/${e.id}` as Href)}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>{e.body.slice(0, 90)}</Text>
+            </Pressable>
           ))}
-          <Button
-            label="Share another experience"
-            onPress={() => setStep("choose")}
-          />
+          {!own.data?.length ? <EmptyState title="No stories yet." action={COPY.createExperience} onAction={() => setStep('choose')} /> : null}
         </>
       ) : null}
-      {step === "choose" ? (
+
+      {step === 'choose' ? (
         <>
-          <Field label="Find a product" value={search} onChange={setSearch} />
-          <Busy
-            loading={cat.isLoading}
-            error={cat.error}
-            retry={() => void cat.refetch()}
-          />
-          {cat.data
-            ?.filter((x) =>
-              `${x.name} ${x.brand}`
-                .toLowerCase()
-                .includes(search.toLowerCase()),
-            )
-            .slice(0, 20)
+          <SearchField value={search} onChange={setSearch} placeholder="Find the product" />
+          {(cat.data ?? [])
+            .filter((x) => `${x.name} ${x.brand}`.toLowerCase().includes(search.toLowerCase()))
+            .slice(0, 12)
             .map((x) => (
-              <Card key={x.id}>
-                <Photo uri={x.image_url} size={80} />
-                <Heading>{x.name}</Heading>
-                <Button
-                  label="Share experience"
-                  onPress={() => {
-                    setProduct(x.id);
-                    setStep("write");
-                  }}
-                />
-              </Card>
+              <Pressable
+                key={x.id}
+                onPress={() => {
+                  setProduct(x.id);
+                  setStep('write');
+                }}
+                style={{ flexDirection: 'row', gap: 12, alignItems: 'center', minHeight: 64 }}
+              >
+                <View style={{ width: 56, position: 'relative' }}>
+                  <MediaFrame uri={x.image_url} label={x.name} ratio={1} />
+                  {product === x.id ? <FocusCorners selected /> : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>{x.name}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>{x.brand}</Text>
+                </View>
+              </Pressable>
             ))}
-          <Button
-            quiet
-            label="Search all products"
-            onPress={() => r.push("/unmask" as Href)}
-          />
+          <ActionButton tone="ghost" label={COPY.noMatch} onPress={() => router.push('/results' as Href)} />
         </>
       ) : null}
-      {step === "write" ? (
+
+      {step === 'write' ? (
         <>
-          {productCard(selected?.name, selected?.image_url)}
-          <Button
-            quiet
-            label="Change product"
-            onPress={() => setStep("choose")}
-          />
-          {compose}
-        </>
-      ) : null}
-      {step === "detail" || step === "update" ? (
-        <>
-          <Busy
-            loading={detail.isLoading}
-            error={detail.error}
-            retry={() => void detail.refetch()}
-          />
-          {e ? (
-            <>
-              {productCard(e.unmask_catalog?.name, e.unmask_catalog?.image_url)}
-              <Pill>
-                {e.visibility === "public"
-                  ? "Community experience"
-                  : "Only you"}
-              </Pill>
-              <Heading>{e.author_name}</Heading>
-              <BookmarkButton kind="experience" id={e.id} />
-              {e.visibility === "public" ? (
-                <ReportButton kind="experience" id={e.id} />
-              ) : null}
-              {e.moderation_status === "removed" ? (
-                <Notice>
-                  This experience has been removed from public view by
-                  moderation.
-                </Notice>
-              ) : null}
-              {e.visibility === "public" ? (
-                <Button
-                  quiet
-                  label="View Unmasker profile"
-                  onPress={() => r.push(`/member/${e.user_id}` as Href)}
-                />
-              ) : null}
-              <Copy muted>
-                {e.skin_type || "Skin type not shared"} · {e.duration} ·{" "}
-                {e.frequency || "Frequency not stated"}
-              </Copy>
-              <Copy>{e.body}</Copy>
-              <ExperiencePhoto path={e.photo_path} />
-              {step === "update" && e.user_id === uid ? compose : null}
-              {step === "detail" ? (
-                <>
-                  <Busy
-                    loading={updates.isLoading}
-                    error={updates.error}
-                    retry={() => void updates.refetch()}
-                  />
-                  {updates.data?.map((u) => (
-                    <Card key={u.id}>
-                      <Copy small>
-                        {u.duration} · {u.usage_status}
-                      </Copy>
-                      <Copy>{u.body}</Copy>
-                      <ExperiencePhoto path={u.photo_path} />
-                    </Card>
-                  ))}
-                  {e.user_id === uid ? (
-                    <Button
-                      label="Add an experience update"
-                      onPress={() => {
-                        setBody("");
-                        setDuration("");
-                        setStep("update");
-                      }}
-                    />
-                  ) : null}
-                  <Button
-                    quiet
-                    label="Ask about this product"
-                    onPress={() =>
-                      r.push(`/product/${e.product_id}/ask-community` as Href)
-                    }
-                  />
-                  {e.visibility === "public" ? (
-                    <Button
-                      quiet
-                      label="Request an Unmask"
-                      onPress={() =>
-                        r.push({
-                          pathname: "/investigation/request",
-                          params: { product: e.product_id, experience: e.id },
-                        } as Href)
-                      }
-                    />
-                  ) : null}
-                  <Heading>Replies</Heading>
-                  <Busy
-                    loading={replies.isLoading}
-                    error={replies.error}
-                    retry={() => void replies.refetch()}
-                  />
-                  {replies.data?.map((x) => (
-                    <Card key={x.id}>
-                      <Copy small>{x.author_name}</Copy>
-                      {e.visibility === "public" ? (
-                        <ReportButton kind="reply" id={x.id} />
-                      ) : null}
-                      <Copy>{x.body}</Copy>
-                    </Card>
-                  ))}
-                  <Field
-                    label="Add a reply"
-                    value={reply}
-                    onChange={setReply}
-                    multiline
-                  />
-                  <Button
-                    label="Reply"
-                    disabled={busy || !reply.trim() || reply.length > 2000}
-                    onPress={() =>
-                      void run(async () => {
-                        await community.addEntry(e.id, reply, "replies");
-                        setReply("");
-                        await replies.refetch();
-                      })
-                    }
-                  />
-                </>
-              ) : null}
-            </>
+          {selected ? (
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>
+              {selected.name}
+              <Text style={{ fontFamily: fonts.regular, color: colors.inkSoft }}> · confirmed</Text>
+            </Text>
           ) : null}
-        </>
-      ) : null}
-      {step === "preview" || step === "update-preview" ? (
-        <>
-          <Card>
-            <Pill>
-              {step === "update-preview" ? e?.visibility : visibility}
-            </Pill>
-            <Copy>
-              {duration} · {status}
-            </Copy>
-            {goal ? <Copy>{goal}</Copy> : null}
-            <Copy>{body}</Copy>
-            {step === "preview" ? (
-              <Copy>
-                {skin} · {outcome}
-              </Copy>
-            ) : null}
-          </Card>
-          <Button
-            quiet
-            label={
-              ownWords
-                ? "✓ This reflects my own experience"
-                : "Confirm: this reflects my own experience"
-            }
-            onPress={() => setOwnWords(!ownWords)}
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>What happened?</Text>
+          <TextInput
+            value={body}
+            onChangeText={setBody}
+            multiline
+            placeholder={COPY.contributePlaceholder}
+            placeholderTextColor={colors.bone3}
+            style={{
+              minHeight: 140,
+              fontFamily: fonts.regular,
+              fontSize: 16,
+              lineHeight: 24,
+              color: colors.ink,
+              textAlignVertical: 'top',
+            }}
           />
-          <Button
-            label="Save contribution"
-            disabled={busy || !ownWords || !uid}
+          <Pressable onPress={() => setMore((v) => !v)}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brandDeep }}>
+              {more ? 'Hide optional details' : 'Add how long you used it and more context'}
+            </Text>
+          </Pressable>
+          {more ? (
+            <View style={{ gap: 12 }}>
+              <TextInput
+                value={duration}
+                onChangeText={setDuration}
+                placeholder="How long have you used it? e.g. 6 weeks"
+                placeholderTextColor={colors.bone3}
+                style={{ fontFamily: fonts.regular, fontSize: 16, color: colors.ink, minHeight: 44 }}
+              />
+              <FilterChips
+                variant="chips"
+                options={['Not disclosed', 'Dry', 'Oily', 'Combination', 'Sensitive', 'I’m not sure']}
+                value={skin}
+                onChange={setSkin}
+              />
+            </View>
+          ) : null}
+          <ActionButton
+            tone="ghost"
+            label={photo ? 'Change photo' : 'Add a photo (optional)'}
+            onPress={() =>
+              void ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 }).then((out) => {
+                if (!out.canceled) setPhoto(out.assets[0]?.uri || '');
+              })
+            }
+          />
+          {photo ? <MediaFrame uri={photo} label="Selected photo" /> : null}
+          <FilterChips
+            options={['public', 'private']}
+            value={visibility}
+            onChange={(v) => setVisibility(v === 'public' ? 'public' : 'private')}
+          />
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>
+            {visibility === 'public' ? COPY.publicPreview : 'Only you can see this until you share it.'}
+          </Text>
+          {error ? <StatusMessage kind="error" title="Couldn’t post yet." detail={error} /> : null}
+          <ActionButton
+            label={busy ? 'Posting' : 'Post story'}
+            pending={busy}
+            disabled={!body.trim()}
+            explanation={!body.trim() ? 'Write what happened first.' : undefined}
             onPress={() => void save()}
           />
-          <Button
-            quiet
-            label="Edit"
-            onPress={() =>
-              setStep(step === "update-preview" ? "update" : "write")
-            }
-          />
         </>
       ) : null}
-      {step === "done" ? (
-        <>
-          <Copy>Your privacy choice has been preserved.</Copy>
-          <Button
-            label="Back to Community"
-            onPress={() => r.push("/pulse" as Href)}
-          />
-        </>
-      ) : null}
-    </CommunityPage>
+    </AppShell>
   );
-}
-
-function ExperiencePhoto({ path }: { path?: string | null }) {
-  const q = useQuery({
-    queryKey: ["experience-photo", path],
-    queryFn: () => community.photoUrl(path!),
-    enabled: !!path,
-    staleTime: 120000,
-  });
-  return path ? (
-    <>
-      <Busy
-        error={q.error}
-        loading={q.isLoading}
-        retry={() => void q.refetch()}
-      />
-      {q.data ? <Photo uri={q.data} size={220} /> : null}
-    </>
-  ) : null;
 }

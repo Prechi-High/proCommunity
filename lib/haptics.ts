@@ -4,187 +4,174 @@ import { useAppStore, type HapticsMode } from './store';
 
 export type { HapticsMode };
 
-/** Vibration patterns from sourced-v1 (2).html HP map. Even indices = buzz ms. */
-const HP: Record<string, number[]> = {
-  tap: [12],
-  select: [16],
-  soft: [8],
-  tick: [5],
-  heavy: [40],
-  open: [14, 50, 24],
-  close: [10],
-  peel: [6, 24, 10, 24, 20],
-  source: [16, 60, 28],
-  verdict: [20, 45, 26, 45, 36, 60, 64],
-  mark: [8, 22, 12, 22, 18, 22, 28],
-  chapter: [14, 44, 30],
-  presence: [10, 70, 18],
-  owner: [20, 70, 20],
-  expert: [20, 60, 20, 60, 36],
-  success: [14, 60, 14, 60, 30],
-  error: [40, 40, 40],
-  sign: [30, 90, 30, 90, 70],
-};
+type Semantic =
+  | 'selection'
+  | 'confirm'
+  | 'saved'
+  | 'support'
+  | 'error';
 
-let lastHap = 0;
-let signed = false;
+const ACK = new Set<string>();
 
 function mode(): HapticsMode {
   try {
-    return useAppStore.getState().hapticsMode ?? 'full';
+    const raw = useAppStore.getState().hapticsMode;
+    if (raw === 'full') return 'expressive';
+    return raw ?? 'subtle';
   } catch {
-    return 'full';
+    return 'subtle';
   }
 }
 
-function scale(): number {
+function allowed(kind: Semantic): boolean {
   const m = mode();
-  if (m === 'off') return 0;
-  if (m === 'subtle') return 0.6;
-  return 1.1;
+  if (m === 'off') return false;
+  if (m === 'subtle') return kind === 'selection' || kind === 'saved' || kind === 'support' || kind === 'error';
+  return true;
 }
 
-function webVibrate(pattern: number[]) {
+async function native(kind: Semantic) {
+  try {
+    const Haptics = await import('expo-haptics');
+    if (kind === 'selection') {
+      await Haptics.selectionAsync();
+      return;
+    }
+    if (kind === 'error') {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+    if (kind === 'saved' || kind === 'support') {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return;
+    }
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  } catch {
+    /* unsupported device */
+  }
+}
+
+function webPulse(kind: Semantic) {
   if (Platform.OS !== 'web') return;
   try {
     const nav = typeof navigator !== 'undefined' ? navigator : null;
-    if (nav && typeof nav.vibrate === 'function') nav.vibrate(pattern);
+    if (!nav || typeof nav.vibrate !== 'function') return;
+    const ms = kind === 'error' ? 40 : kind === 'support' ? 24 : 12;
+    nav.vibrate(ms);
   } catch {
     /* ignore */
   }
 }
 
-async function nativeBurst(pattern: number[]) {
-  try {
-    const Haptics = await import('expo-haptics');
-    let t = 0;
-    pattern.forEach((d, i) => {
-      if (i % 2 === 1) {
-        t += d;
-        return;
-      }
-      const style =
-        d >= 36
-          ? Haptics.ImpactFeedbackStyle.Heavy
-          : d >= 16
-            ? Haptics.ImpactFeedbackStyle.Medium
-            : Haptics.ImpactFeedbackStyle.Light;
-      setTimeout(() => {
-        void Haptics.impactAsync(style);
-      }, t);
-      t += Math.max(4, d);
-    });
-  } catch {
-    /* ignore */
+function fire(kind: Semantic, operationId?: string) {
+  if (operationId) {
+    if (ACK.has(operationId)) return;
+    ACK.add(operationId);
   }
-}
-
-/** Core haptic keyed like the HTML prototype. */
-export function haptic(key: keyof typeof HP | string) {
-  const f = scale();
-  if (!f) return;
-  lastHap = Date.now();
-  const raw = HP[key] ?? HP.tap;
-  const pattern = raw.map((d, i) => (i % 2 === 0 ? Math.max(4, Math.round(d * f)) : d));
+  if (!allowed(kind)) return;
   if (Platform.OS === 'web') {
-    webVibrate(pattern);
+    webPulse(kind);
     return;
   }
-  void nativeBurst(pattern);
-}
-
-/** First pointer / press of the session. */
-export function hapticSignature() {
-  if (signed) {
-    haptic('tap');
-    return;
-  }
-  signed = true;
-  haptic('sign');
-}
-
-export function hapticPeel() {
-  haptic('peel');
-}
-
-export function hapticSourceDone() {
-  haptic('source');
-}
-
-export function hapticVerdictTick() {
-  if (mode() === 'subtle') return;
-  haptic('tick');
-}
-
-export function hapticVerdictLand() {
-  haptic('verdict');
-}
-
-export function hapticMarked() {
-  haptic('mark');
-}
-
-export function hapticChapterTurn() {
-  haptic('chapter');
-}
-
-export function hapticPresence() {
-  haptic('presence');
-}
-
-export function hapticOwnerVoice() {
-  haptic('owner');
-}
-
-export function hapticExpertVoice() {
-  haptic('expert');
-}
-
-/** Generic control tap — debounce so nested presses don’t double-fire. */
-export function hapticTap() {
-  if (Date.now() - lastHap < 90) return;
-  haptic('tap');
+  void native(kind);
 }
 
 export function hapticSelect() {
-  haptic('select');
+  fire('selection');
 }
 
-export function hapticHeavy() {
-  haptic('heavy');
-}
-
-export function hapticSoft() {
-  haptic('soft');
+export function hapticTap() {
+  fire('selection');
 }
 
 export function hapticSuccess() {
-  haptic('success');
+  fire('saved');
 }
 
-/** Demo sequence for You → Feel our signature. */
+export function hapticConfirm(operationId?: string) {
+  fire('confirm', operationId);
+}
+
+export function hapticSaved(operationId?: string) {
+  fire('saved', operationId);
+}
+
+export function hapticSupportConfirmed(operationId?: string) {
+  fire('support', operationId);
+}
+
+export function hapticError() {
+  fire('error');
+}
+
+/** @deprecated decorative bursts removed — maps to a light selection. */
+export function haptic(key?: string) {
+  if (key === 'error') hapticError();
+  else if (key === 'success') hapticSuccess();
+  else hapticSelect();
+}
+
+export function hapticSignature() {
+  hapticSelect();
+}
+
+export function hapticPeel() {
+  hapticSelect();
+}
+
+export function hapticSourceDone() {
+  hapticSaved();
+}
+
+export function hapticVerdictTick() {
+  hapticSelect();
+}
+
+export function hapticVerdictLand() {
+  hapticSaved();
+}
+
+export function hapticMarked() {
+  hapticSelect();
+}
+
+export function hapticChapterTurn() {
+  hapticSelect();
+}
+
+export function hapticPresence() {}
+
+export function hapticOwnerVoice() {}
+
+export function hapticExpertVoice() {}
+
+export function hapticHeavy() {
+  hapticSelect();
+}
+
+export function hapticSoft() {
+  hapticSelect();
+}
+
 export function hapticFeelSignature() {
-  haptic('sign');
-  setTimeout(() => haptic('peel'), 220);
-  setTimeout(() => haptic('mark'), 520);
-  setTimeout(() => haptic('verdict'), 860);
+  hapticSelect();
 }
-
-const FEEL_TOUR: [keyof typeof HP, string][] = [
-  ['sign', 'Sourced signature'],
-  ['peel', 'A redaction lifts'],
-  ['source', 'A source is read'],
-  ['verdict', 'The verdict lands'],
-  ['mark', 'A highlight is marked'],
-  ['presence', 'Someone’s here'],
-  ['owner', 'A verified owner replies'],
-  ['expert', 'An expert replies'],
-];
 
 export async function playHapticTour(onLabel: (label: string) => void) {
-  for (const [key, label] of FEEL_TOUR) {
+  const steps: [Semantic, string][] = [
+    ['selection', 'A light selection'],
+    ['saved', 'A story is saved'],
+    ['support', 'Sparks land'],
+    ['error', 'Something didn’t work'],
+  ];
+  for (const [kind, label] of steps) {
     onLabel(label);
-    haptic(key);
-    await new Promise((resolve) => setTimeout(resolve, 1300));
+    fire(kind);
+    await new Promise((resolve) => setTimeout(resolve, 900));
   }
+}
+
+export function clearHapticAck(operationId?: string) {
+  if (operationId) ACK.delete(operationId);
+  else ACK.clear();
 }
