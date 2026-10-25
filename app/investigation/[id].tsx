@@ -32,6 +32,7 @@ export default function UnmaskDetail() {
   const router = useRouter();
   const uid = useAppStore((s) => s.profile?.id);
   const sample = sampleById(id);
+  const [demoSparks, setDemoSparks] = useState<Record<string, number>>({});
   const [support, setSupport] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const q = useQuery({
@@ -68,6 +69,7 @@ export default function UnmaskDetail() {
 
   if (sample) {
     const extra = SAMPLE_UNMASK_DETAIL[sample.id];
+    const demoWeight = (sample.sparks ?? 0) + (demoSparks[sample.id] ?? 0);
     const published = sample.status === "Ultra Unmasked";
     return (
       <AppShell back title={sample.title}>
@@ -143,7 +145,7 @@ export default function UnmaskDetail() {
               letterSpacing: -0.5,
             }}
           >
-            {sample.sparks ?? 0}
+            {demoWeight}
           </Text>
           <Text
             style={{
@@ -152,10 +154,10 @@ export default function UnmaskDetail() {
               color: colors.honeyInk,
             }}
           >
-            Sparks pushing this · {sparkNaira(sample.sparks ?? 0)} ·{" "}
+            Sparks pushing this · {sparkNaira(demoWeight)} ·{" "}
             {extra?.supporters ?? 0} people in
           </Text>
-          {!published ? <SparkMeter weight={sample.sparks ?? 0} /> : null}
+          {!published ? <SparkMeter weight={demoWeight} /> : null}
           <Text
             style={{
               fontFamily: fonts.regular,
@@ -167,6 +169,31 @@ export default function UnmaskDetail() {
             {COPY.sparkTeach}
           </Text>
         </View>
+        {!published ? (
+          <>
+            <ActionButton
+              label="Try adding 10 demo Sparks"
+              onPress={() =>
+                setDemoSparks((prev) => ({
+                  ...prev,
+                  [sample.id]: (prev[sample.id] ?? 0) + 10,
+                }))
+              }
+            />
+            <Text
+              accessibilityLiveRegion="polite"
+              style={{
+                fontFamily: fonts.regular,
+                fontSize: 13,
+                color: colors.inkSoft,
+              }}
+            >
+              {demoSparks[sample.id]
+                ? `${demoSparks[sample.id]} demo Sparks added. No wallet was charged.`
+                : "Preview only. These Sparks have no cash value."}
+            </Text>
+          </>
+        ) : null}
         <View style={{ gap: 12 }}>
           <Text
             style={{

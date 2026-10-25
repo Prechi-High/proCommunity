@@ -16,6 +16,10 @@ import {
   Photo,
   Pill,
 } from "@/components/unmask/reference/ui";
+import { DemoBanner } from "@/components/unmask-ui/DemoBanner";
+import { CreatorStrip } from "@/components/unmask-ui/CreatorStrip";
+import { SAMPLE_CREATORS } from "@/lib/unmask/samples";
+import { useAppStore } from "@/lib/store";
 export function Creators({
   compact = false,
   id,
@@ -24,6 +28,7 @@ export function Creators({
   id?: string;
 }) {
   const r = useRouter();
+  const demo = useAppStore((s) => s.demoCommunity);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const q = useQuery({ queryKey: ["creators"], queryFn: api.creators });
@@ -43,6 +48,16 @@ export function Creators({
     .slice(0, compact ? 2 : 100);
   return (
     <>
+      <DemoBanner />
+      {demo ? (
+        <CreatorStrip
+          creators={SAMPLE_CREATORS.filter((c) =>
+            `${c.display_name} ${c.handle}`
+              .toLowerCase()
+              .includes(search.toLowerCase()),
+          )}
+        />
+      ) : null}
       {!compact && !id ? (
         <>
           <Field label="Search creators" value={search} onChange={setSearch} />

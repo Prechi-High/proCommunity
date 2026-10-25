@@ -18,8 +18,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { colors, fonts } from "@/constants/theme";
 import { loadUnmasks } from "@/lib/unmask/feed";
 import * as community from "@/lib/community-v2/api";
+import { DemoBanner } from "@/components/unmask-ui/DemoBanner";
+import { SAMPLE_FEED, SAMPLE_CREATORS } from "@/lib/unmask/samples";
+import { useAppStore } from "@/lib/store";
 export default function Unmasks() {
   const router = useRouter();
+  const demo = useAppStore((s) => s.demoCommunity);
   const [sort, setSort] = useState<"Recent" | "Most sparked">("Most sparked");
   const [filter, setFilter] = useState("Open");
   const [q, setQ] = useState("");
@@ -32,7 +36,11 @@ export default function Unmasks() {
     queryFn: community.creators,
   });
   const rows = useMemo(() => {
-    let out = list.data ?? [];
+    let out = demo
+      ? SAMPLE_FEED.filter((i) => i.kind === "unmask")
+      : (list.data ?? []);
+    if (sort === "Most sparked")
+      out = [...out].sort((a, b) => (b.sparks ?? 0) - (a.sparks ?? 0));
     if (filter === "Open")
       out = out.filter((i) => i.status === "Open for Sparks");
     if (filter === "In progress")
@@ -48,7 +56,7 @@ export default function Unmasks() {
           .includes(q.trim().toLowerCase()),
       );
     return out;
-  }, [list.data, filter, q]);
+  }, [list.data, filter, q, demo, sort]);
   return (
     <AppShell notify flush>
       <View style={{ gap: 20, paddingTop: 10 }}>
@@ -132,6 +140,7 @@ export default function Unmasks() {
           </View>
         </LinearGradient>
         <View style={{ paddingHorizontal: 20, gap: 14 }}>
+          <DemoBanner />
           <ActionButton
             label="Request an Ultra Unmask"
             icon={<Sparkle size={20} color="#fff" />}
@@ -175,9 +184,9 @@ export default function Unmasks() {
             onChange={(v) => setSort(v as typeof sort)}
           />
         </View>
-        {list.isLoading ? (
+        {!demo && list.isLoading ? (
           <StorySkeleton />
-        ) : list.isError ? (
+        ) : !demo && list.isError ? (
           <View style={{ paddingHorizontal: 20, gap: 12 }}>
             <StatusMessage kind="error" title="Ultra Unmasks couldn’t load." />
             <ActionButton
@@ -228,7 +237,12 @@ export default function Unmasks() {
             Follow the people bringing more context to your product questions.
           </Text>
         </View>
-        <CreatorStrip creators={(creators.data ?? []).slice(0, 8)} />
+        <CreatorStrip
+          creators={(demo ? SAMPLE_CREATORS : (creators.data ?? [])).slice(
+            0,
+            8,
+          )}
+        />
         <View style={{ paddingHorizontal: 20 }}>
           <ActionButton
             tone="ghost"

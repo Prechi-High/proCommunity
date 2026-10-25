@@ -1,627 +1,297 @@
-import type { FeedItem } from './feed';
-
-const ago = (days: number, hours = 0) =>
-  new Date(Date.now() - days * 86400000 - hours * 3600000).toISOString();
-
+import type { FeedItem } from "./feed";
+const ago = (hours: number) =>
+  new Date(Date.now() - hours * 3600000).toISOString();
 const photo = (id: string) =>
-  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1400&q=80`;
-
+  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1000&q=80`;
+const cream = photo("photo-1608571423902-eed4a5ad8108");
+const serum = photo("photo-1620916566398-39f1143ab7be");
+const cleanse = photo("photo-1556229010-6c3f2c9ca5f8");
 const face = (n: number) => `https://i.pravatar.cc/128?img=${n}`;
-
-const IMG = {
-  cream: photo('photo-1570176175344-4e2d014bfba2'),
-  serum: photo('photo-1620916566398-39f1143ab7be'),
-  phone: photo('photo-1511707171634-5f897ff02aa9'),
-  buds: photo('photo-1590658268037-6bf12165a8df'),
-  cans: photo('photo-1505740420928-5e560c06d30e'),
-  cable: photo('photo-1583394838336-acd977736f90'),
-  kitchen: photo('photo-1556911220-e15b29be4c1f'),
-  noodles: photo('photo-1569718212165-3a8278d5f624'),
-  coffee: photo('photo-1495474472287-4d71bcdd2085'),
-  milk: photo('photo-1550583724-b2692b85b150'),
-  oil: photo('photo-1608571423902-eed4a5ad8108'),
-  laundry: photo('photo-1582735689369-4fe89c704199'),
-  laptop: photo('photo-1496181133206-80ce9b88a853'),
-  iron: photo('photo-1545173168-9f1947eebb7f'),
-};
-
-function item(row: FeedItem): FeedItem {
-  return { ...row, sample: true };
-}
-
-export const SAMPLE_FEED: FeedItem[] = [
-  item({
-    id: 'sample-exp-1',
-    kind: 'experience',
-    title: 'After six weeks the redness around my mouth finally settled.',
-    body: 'I used it morning and night on dry, reactive skin. The first fortnight stung a little. By week six the tightness had gone.',
-    author: 'Amaka',
-    creatorAvatar: face(32),
-    createdAt: ago(0, 3),
-    productId: 'cerave-cream',
-    productName: 'CeraVe Moisturising Cream',
-    productImage: IMG.cream,
-    photo: IMG.cream,
-    chips: ['6 weeks', 'Dry skin · self-described'],
-    replies: 18,
-    href: '/story/sample-exp-1',
-    cta: 'Read what they lived',
-  }),
-  item({
-    id: 'sample-q-1',
-    kind: 'question',
-    title: 'Has anyone used this on dry skin in harmattan?',
-    body: 'Curious before I buy the 500ml tub. Lagos harmattan is brutal this year.',
-    author: 'Tunde',
-    creatorAvatar: face(12),
-    createdAt: ago(0, 5),
-    productId: 'cerave-cream',
-    productName: 'CeraVe Moisturising Cream',
-    productImage: IMG.cream,
-    chips: [],
-    replies: 9,
-    href: '/question/sample-q-1',
-    cta: 'Answer with what you lived',
-  }),
-  item({
-    id: 'sample-exp-2',
-    kind: 'experience',
-    title: 'The power bank charged my Spark twice on a Lagos–Ibadan trip.',
-    body: 'Used the 20,000mAh pack on the road. Phone stayed at 40% after two full charges. It ran warm, not hot.',
-    author: 'Emeka',
-    creatorAvatar: face(15),
-    createdAt: ago(0, 8),
-    productId: 'oraimo-20k',
-    productName: 'Oraimo 20,000mAh Power Bank',
-    productImage: IMG.cable,
-    photo: IMG.cable,
-    chips: ['2 weeks', 'Travel'],
-    replies: 11,
-    href: '/story/sample-exp-2',
-    cta: 'Read what they lived',
-  }),
-  item({
-    id: 'sample-unmask-5',
-    kind: 'unmask',
-    title: 'Why do some Nivea shades look grey on deeper skin?',
-    body: 'Creator Chioma compared four shades under daylight and warm bulbs, and asked Nivea what “universal” means on the pack.',
-    author: 'Chioma',
-    creatorName: 'Chioma',
-    creatorAvatar: face(20),
-    createdAt: ago(1),
-    productId: 'nivea-radiant',
-    productName: 'Nivea Perfect & Radiant',
-    productImage: IMG.cream,
-    photo: IMG.cream,
-    chips: ['Ultra Unmasked'],
-    href: '/investigation/sample-unmask-5',
-    cta: 'Watch the Ultra Unmask',
-    status: 'Ultra Unmasked',
-    sparks: 890,
-  }),
-  item({
-    id: 'sample-exp-3',
-    kind: 'experience',
-    title: 'Indomie Super Pack tasted saltier this month. Same shop.',
-    body: 'I buy the chicken flavour every week. The last three packs needed less seasoning. Water and cook time were the same.',
-    author: 'Bukky',
-    creatorAvatar: face(24),
-    createdAt: ago(1, 4),
-    productId: 'indomie-super',
-    productName: 'Indomie Super Pack',
-    productImage: IMG.noodles,
-    photo: IMG.noodles,
-    chips: ['3 weeks', 'Kitchen'],
-    replies: 27,
-    href: '/story/sample-exp-3',
-    cta: 'Read what they lived',
-  }),
-  item({
-    id: 'sample-q-2',
-    kind: 'question',
-    title: 'Does the Tecno Spark 20 still drop to 15% overnight?',
-    body: 'Seeing mixed reports before I upgrade from Hot 11.',
-    author: 'Yusuf',
-    creatorAvatar: face(11),
-    createdAt: ago(1, 9),
-    productId: 'tecno-spark-20',
-    productName: 'Tecno Spark 20',
-    productImage: IMG.phone,
-    chips: [],
-    replies: 14,
-    href: '/question/sample-q-2',
-    cta: 'Answer with what you lived',
-  }),
-  item({
-    id: 'sample-exp-4',
-    kind: 'experience',
-    title: 'Simple gel cleanser didn’t strip me the way foaming ones do.',
-    body: 'Combination skin, two pumps at night. Makeup came off. No tightness. I still use a separate sunscreen in the morning.',
-    author: 'Adaeze',
-    creatorAvatar: face(45),
-    createdAt: ago(2),
-    productId: 'simple-gel',
-    productName: 'Simple Kind to Skin Gel',
-    productImage: IMG.cream,
-    photo: IMG.cream,
-    chips: ['5 weeks', 'Combination · self-described'],
-    replies: 7,
-    href: '/story/sample-exp-4',
-    cta: 'Read what they lived',
-  }),
-  item({
-    id: 'sample-unmask-1',
-    kind: 'unmask',
-    title: 'Why did this cream work so well for some people and sting for others?',
-    body: 'Open question. Sparks help it get attention; the team decides what can be taken further.',
-    author: 'Community',
-    creatorAvatar: face(33),
-    createdAt: ago(2, 6),
-    productId: 'cerave-cream',
-    productName: 'CeraVe Moisturising Cream',
-    productImage: IMG.cream,
-    photo: IMG.cream,
-    chips: ['Open for Sparks'],
-    href: '/investigation/sample-unmask-1',
-    cta: 'See the Ultra Unmask',
-    status: 'Open for Sparks',
-    sparks: 340,
-  }),
-  item({
-    id: 'sample-exp-5',
-    kind: 'experience',
-    title: 'These JBL buds survived two rainy okada rides. Left side is quieter now.',
-    body: 'Daily commute. Charging case still holds. After six weeks the left bud needs a higher volume than the right.',
-    author: 'Seyi',
-    creatorAvatar: face(8),
-    createdAt: ago(2, 11),
-    productId: 'jbl-tws',
-    productName: 'JBL Wave Buds',
-    productImage: IMG.buds,
-    photo: IMG.buds,
-    chips: ['6 weeks'],
-    replies: 6,
-    href: '/story/sample-exp-5',
-    cta: 'Read what they lived',
-  }),
-  item({
-    id: 'sample-q-3',
-    kind: 'question',
-    title: 'Is Peak milk still reconstituting smoothly, or is it clumping for you?',
-    body: 'Two tins from Shoprite this week. One mixed fine, one had bits.',
-    author: 'Halima',
-    creatorAvatar: face(26),
-    createdAt: ago(3),
-    productId: 'peak-milk',
-    productName: 'Peak Full Cream Milk',
-    productImage: IMG.milk,
-    chips: [],
-    replies: 21,
-    href: '/question/sample-q-3',
-    cta: 'Answer with what you lived',
-  }),
-  item({
-    id: 'sample-unmask-3',
-    kind: 'unmask',
-    title: 'Did Indomie change the seasoning mix, or are we tasting different batches?',
-    body: 'Ireti is gathering pack dates, shop locations and side-by-side cooks.',
-    author: 'Ireti',
-    creatorName: 'Ireti',
-    creatorAvatar: face(36),
-    createdAt: ago(3, 5),
-    productId: 'indomie-super',
-    productName: 'Indomie Super Pack',
-    productImage: IMG.noodles,
-    photo: IMG.noodles,
-    chips: ['Creator assigned'],
-    href: '/investigation/sample-unmask-3',
-    cta: 'See the Ultra Unmask',
-    status: 'Creator assigned',
-    sparks: 520,
-  }),
-  item({
-    id: 'sample-exp-6',
-    kind: 'experience',
-    title: 'Vaseline Blue Seal on my heels after two harmattans. Cracks closed.',
-    body: 'Night only, thick layer, cotton socks. Not a miracle overnight. By week three walking didn’t sting.',
-    author: 'Ngozi',
-    creatorAvatar: face(48),
-    createdAt: ago(3, 14),
-    productId: 'vaseline-blue',
-    productName: 'Vaseline Blue Seal',
-    productImage: IMG.oil,
-    photo: IMG.oil,
-    chips: ['8 weeks'],
-    replies: 15,
-    href: '/story/sample-exp-6',
-    cta: 'Read what they lived',
-  }),
-  item({
-    id: 'sample-exp-7',
-    kind: 'experience',
-    title: 'HP charger brick stayed cool. The cable that came with it frayed at the bend.',
-    body: 'Office laptop, 10 hours a day. Brick is fine. The cable jacket split after four months near the laptop end.',
-    author: 'Chinedu',
-    creatorAvatar: face(13),
-    createdAt: ago(4),
-    productId: 'hp-65w',
-    productName: 'HP 65W Charger',
-    productImage: IMG.laptop,
-    photo: IMG.laptop,
-    chips: ['4 months'],
-    replies: 8,
-    href: '/story/sample-exp-7',
-    cta: 'Read what they lived',
-  }),
-  item({
-    id: 'sample-unmask-4',
-    kind: 'unmask',
-    title: 'Why does the Tecno Spark 20 lose charge overnight for some people and not others?',
-    body: 'Femi is collecting overnight screenshots, charger type and which apps stay open.',
-    author: 'Femi',
-    creatorName: 'Femi',
-    creatorAvatar: face(14),
-    createdAt: ago(4, 7),
-    productId: 'tecno-spark-20',
-    productName: 'Tecno Spark 20',
-    productImage: IMG.phone,
-    photo: IMG.phone,
-    chips: ['In the making'],
-    href: '/investigation/sample-unmask-4',
-    cta: 'See the Ultra Unmask',
-    status: 'In the making',
-    sparks: 210,
-  }),
-  item({
-    id: 'sample-q-4',
-    kind: 'question',
-    title: 'Anyone washed Dettol into a child’s bath at the labelled dilution?',
-    body: 'The bottle says a cap in a bucket. I want to hear how people actually measure it.',
-    author: 'Fatima',
-    creatorAvatar: face(27),
-    createdAt: ago(5),
-    productId: 'dettol',
-    productName: 'Dettol Antiseptic',
-    productImage: IMG.laundry,
-    chips: [],
-    replies: 16,
-    href: '/question/sample-q-4',
-    cta: 'Answer with what you lived',
-  }),
-  item({
-    id: 'sample-exp-8',
-    kind: 'experience',
-    title: 'Local shea from Onitsha market grainy at night, smooth by morning.',
-    body: 'Unrefined, no brand sticker. I warmed a teaspoon in my hands. Smell is strong. Skin felt coated, not sticky, after ten minutes.',
-    author: 'Chioma',
-    creatorAvatar: face(20),
-    createdAt: ago(5, 8),
-    productId: 'shea-onitsha',
-    productName: 'Unrefined shea butter',
-    productImage: IMG.oil,
-    photo: IMG.oil,
-    chips: ['3 weeks', 'Dry skin · self-described'],
-    replies: 22,
-    href: '/story/sample-exp-8',
-    cta: 'Read what they lived',
-  }),
-  item({
-    id: 'sample-exp-9',
-    kind: 'experience',
-    title: 'iPhone 13 battery hit 79% health after two years of generator charging.',
-    body: 'I use a spike guard. Still drops fast after 4pm. Not unique, but I wanted a dated note for the next buyer.',
-    author: 'Kunle',
-    creatorAvatar: face(7),
-    createdAt: ago(6),
-    productId: 'iphone-13',
-    productName: 'iPhone 13',
-    productImage: IMG.phone,
-    photo: IMG.phone,
-    chips: ['2 years'],
-    replies: 31,
-    href: '/story/sample-exp-9',
-    cta: 'Read what they lived',
-  }),
-  item({
-    id: 'sample-unmask-2',
-    kind: 'unmask',
-    title: 'Is the Oraimo pack running hot because of the cells, or because of cheap cables?',
-    body: 'Open for Sparks. People have posted both “warm is normal” and “it smelled of plastic.”',
-    author: 'Community',
-    creatorAvatar: face(18),
-    createdAt: ago(6, 4),
-    productId: 'oraimo-20k',
-    productName: 'Oraimo 20,000mAh Power Bank',
-    productImage: IMG.cable,
-    photo: IMG.cable,
-    chips: ['Open for Sparks'],
-    href: '/investigation/sample-unmask-2',
-    cta: 'See the Ultra Unmask',
-    status: 'Open for Sparks',
-    sparks: 80,
-  }),
-  item({
-    id: 'sample-exp-10',
-    kind: 'experience',
-    title: 'Binatone iron spat brown water onto a white shirt on first steam.',
-    body: 'New iron, distilled water. First steam pass left spots. After three empty steams it ran clear. Shirt needed rewash.',
-    author: 'Funke',
-    creatorAvatar: face(23),
-    createdAt: ago(7),
-    productId: 'binatone-iron',
-    productName: 'Binatone Dry Iron',
-    productImage: IMG.iron,
-    photo: IMG.iron,
-    chips: ['1 week'],
-    replies: 12,
-    href: '/story/sample-exp-10',
-    cta: 'Read what they lived',
-  }),
-  item({
-    id: 'sample-q-5',
-    kind: 'question',
-    title: 'Has The Ordinary niacinamide pilled under your sunscreen?',
-    body: 'I wait ten minutes. Still getting balls on my cheeks.',
-    author: 'Ifeanyi',
-    creatorAvatar: face(17),
-    createdAt: ago(7, 6),
-    productId: 'ordinary-nia',
-    productName: 'The Ordinary Niacinamide',
-    productImage: IMG.cream,
-    chips: [],
-    replies: 19,
-    href: '/question/sample-q-5',
-    cta: 'Answer with what you lived',
-  }),
-  item({
-    id: 'sample-unmask-6',
-    kind: 'unmask',
-    title: 'What does “dilute” on a Dettol bottle actually mean in a Nigerian bucket bath?',
-    body: 'Published. Lola walked through the label maths with a 10-litre bucket and a paediatric nurse.',
-    author: 'Lola',
-    creatorName: 'Lola',
-    creatorAvatar: face(44),
-    createdAt: ago(8),
-    productId: 'dettol',
-    productName: 'Dettol Antiseptic',
-    productImage: IMG.laundry,
-    photo: IMG.laundry,
-    chips: ['Ultra Unmasked'],
-    href: '/investigation/sample-unmask-6',
-    cta: 'Watch the Ultra Unmask',
-    status: 'Ultra Unmasked',
-    sparks: 450,
-  }),
-  item({
-    id: 'sample-exp-11',
-    kind: 'experience',
-    title: 'Golden Penny semo came out lump-free when I rained it in, not dumped it.',
-    body: 'Same pot, same heat. Dumping made lumps. Raining from a cup while stirring did not. Two minutes extra.',
-    author: 'Obinna',
-    creatorAvatar: face(51),
-    createdAt: ago(8, 10),
-    productId: 'golden-penny',
-    productName: 'Golden Penny Semovita',
-    productImage: IMG.kitchen,
-    photo: IMG.kitchen,
-    chips: ['Ongoing'],
-    replies: 5,
-    href: '/story/sample-exp-11',
-    cta: 'Read what they lived',
-  }),
-  item({
-    id: 'sample-exp-12',
-    kind: 'experience',
-    title: 'Anker cable still fine after eight months. The free one from the stall died in three weeks.',
-    body: 'Same phone, same charger brick. Braided Anker at the office. Thin no-name in my bag. The thin one showed copper at the USB-C collar.',
-    author: 'Zainab',
-    creatorAvatar: face(25),
-    createdAt: ago(9),
-    productId: 'anker-cable',
-    productName: 'Anker USB-C Cable',
-    productImage: IMG.cable,
-    photo: IMG.cable,
-    chips: ['8 months'],
-    replies: 10,
-    href: '/story/sample-exp-12',
-    cta: 'Read what they lived',
-  }),
-  item({
-    id: 'sample-q-6',
-    kind: 'question',
-    title: 'Loved a product? What changed on your skin or in the house after a month?',
-    body: 'Collecting ordinary wins, not ads.',
-    author: 'Blessing',
-    creatorAvatar: face(29),
-    createdAt: ago(10),
-    productName: 'Community',
-    chips: [],
-    replies: 34,
-    href: '/question/sample-q-6',
-    cta: 'Answer with what you lived',
-  }),
-  item({
-    id: 'sample-unmask-7',
-    kind: 'unmask',
-    title: 'Why is unrefined shea smooth for some people and grainy for others?',
-    body: 'Open. Temperature, storage and how it was whipped may all matter.',
-    author: 'Community',
-    creatorAvatar: face(38),
-    createdAt: ago(11),
-    productId: 'shea-onitsha',
-    productName: 'Unrefined shea butter',
-    productImage: IMG.oil,
-    photo: IMG.oil,
-    chips: ['Open for Sparks'],
-    href: '/investigation/sample-unmask-7',
-    cta: 'See the Ultra Unmask',
-    status: 'Open for Sparks',
-    sparks: 45,
-  }),
-  item({
-    id: 'sample-exp-13',
-    kind: 'experience',
-    title: 'Nivea Perfect & Radiant looked ashy on me in office light, fine at home.',
-    body: 'Shade Compact Natural. Bathroom mirror is warm. Office LEDs made my jaw grey. Same face, same day.',
-    author: 'Maryam',
-    creatorAvatar: face(49),
-    createdAt: ago(12),
-    productId: 'nivea-radiant',
-    productName: 'Nivea Perfect & Radiant',
-    productImage: IMG.cream,
-    photo: IMG.cream,
-    chips: ['3 weeks', 'Deep skin · self-described'],
-    replies: 24,
-    href: '/story/sample-exp-13',
-    cta: 'Read what they lived',
-  }),
-  item({
-    id: 'sample-exp-14',
-    kind: 'experience',
-    title: 'Dano milk in tea: no skin on top if I pour the water first.',
-    body: 'Tiny thing. Powder into hot water clumped. Water into a paste of powder mixed clean. Kids stopped complaining.',
-    author: 'Aisha',
-    creatorAvatar: face(31),
-    createdAt: ago(13),
-    productId: 'dano-milk',
-    productName: 'Dano Full Cream',
-    productImage: IMG.coffee,
-    photo: IMG.coffee,
-    chips: ['Ongoing'],
-    replies: 4,
-    href: '/story/sample-exp-14',
-    cta: 'Read what they lived',
-  }),
-].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
-
 export const SAMPLE_CREATORS = [
-  { user_id: 'sample-c-chioma', display_name: 'Chioma', handle: 'chioma.unmask', avatar_url: face(20) },
-  { user_id: 'sample-c-ireti', display_name: 'Ireti', handle: 'ireti', avatar_url: face(36) },
-  { user_id: 'sample-c-femi', display_name: 'Femi', handle: 'femi.explains', avatar_url: face(14) },
-  { user_id: 'sample-c-lola', display_name: 'Lola', handle: 'lola', avatar_url: face(44) },
-  { user_id: 'sample-c-seyi', display_name: 'Seyi', handle: 'seyi.tech', avatar_url: face(8) },
-  { user_id: 'sample-c-adaeze', display_name: 'Adaeze', handle: 'adaeze.skin', avatar_url: face(45) },
-  { user_id: 'sample-c-yusuf', display_name: 'Yusuf', handle: 'yusuf', avatar_url: face(11) },
-  { user_id: 'sample-c-obinna', display_name: 'Obinna', handle: 'obinna.eats', avatar_url: face(51) },
-];
-
-export const SAMPLE_SHELF = [
-  { id: 'cerave-cream', name: 'CeraVe Moisturising Cream', brand: 'CeraVe', image: IMG.cream, note: 'Week 6 · still using', href: '/story/sample-exp-1' },
-  { id: 'oraimo-20k', name: 'Oraimo 20,000mAh Power Bank', brand: 'Oraimo', image: IMG.cable, note: 'Last charged yesterday', href: '/story/sample-exp-2' },
-  { id: 'indomie-super', name: 'Indomie Super Pack', brand: 'Indomie', image: IMG.noodles, note: 'Kitchen staple', href: '/story/sample-exp-3' },
-  { id: 'tecno-spark-20', name: 'Tecno Spark 20', brand: 'Tecno', image: IMG.phone, note: 'Following the Unmask', href: '/investigation/sample-unmask-4' },
-  { id: 'jbl-tws', name: 'JBL Wave Buds', brand: 'JBL', image: IMG.buds, note: 'Left bud quieter', href: '/story/sample-exp-5' },
-  { id: 'vaseline-blue', name: 'Vaseline Blue Seal', brand: 'Vaseline', image: IMG.oil, note: 'Heels · night', href: '/story/sample-exp-6' },
-  { id: 'simple-gel', name: 'Simple Kind to Skin Gel', brand: 'Simple', image: IMG.cream, note: 'Evening cleanse', href: '/story/sample-exp-4' },
-  { id: 'anker-cable', name: 'Anker USB-C Cable', brand: 'Anker', image: IMG.cable, note: '8 months in', href: '/story/sample-exp-12' },
-];
-
-export const SAMPLE_OFFERS = [
   {
-    id: 'sample-offer-1',
-    sponsor: 'Beauty Mart Ikeja',
-    title: 'CeraVe cream — in stock this week',
-    product_id: 'cerave-cream',
-    kind: 'In-store',
-    description: 'The same tub people keep logging. Unmask it before you pay.',
-    disclosure: 'Paid placement. Lived stories stay independent.',
-    unmask_catalog: { name: 'CeraVe Moisturising Cream', brand: 'CeraVe', category: 'Skin', image_url: IMG.cream },
-    experience_count: 24,
+    user_id: "sample-c-chioma",
+    display_name: "Chioma",
+    handle: "chioma.explains",
+    avatar_url: face(20),
   },
   {
-    id: 'sample-offer-2',
-    sponsor: 'Computer Village Hub',
-    title: 'Oraimo 20,000mAh — weekend stall',
-    product_id: 'oraimo-20k',
-    kind: 'Stall',
-    description: 'People have posted heat and charge-time stories. Read those first.',
-    disclosure: 'Paid placement. We do not authenticate stock.',
-    unmask_catalog: { name: 'Oraimo 20,000mAh Power Bank', brand: 'Oraimo', category: 'Electronics', image_url: IMG.cable },
-    experience_count: 11,
+    user_id: "sample-c-adaeze",
+    display_name: "Adaeze",
+    handle: "adaeze.skin",
+    avatar_url: face(45),
   },
   {
-    id: 'sample-offer-3',
-    sponsor: 'Simple Kind to Skin',
-    title: 'Try the gel with people who already logged it',
-    product_id: 'simple-gel',
-    kind: 'Brand',
-    description: 'If it worked — or didn’t — the stories are on the product page.',
-    disclosure: 'Brand placement. Findings are not bought.',
-    unmask_catalog: { name: 'Simple Kind to Skin Gel', brand: 'Simple', category: 'Skin', image_url: IMG.cream },
-    experience_count: 9,
+    user_id: "sample-c-ireti",
+    display_name: "Ireti",
+    handle: "ireti.unmasks",
+    avatar_url: face(36),
   },
 ];
-
-export type SampleReply = { id: string; author: string; body: string; createdAt: string; avatar?: string };
-
-export const SAMPLE_REPLIES: Record<string, SampleReply[]> = {
-  'sample-exp-1': [
-    { id: 'r1', author: 'Chioma', body: 'Same sting in week one on my chin. I used a pea-size, not a smear. It settled.', createdAt: ago(0, 1), avatar: face(20) },
-    { id: 'r2', author: 'Tunde', body: 'Did you keep niacinamide in the same routine? That’s when mine flared.', createdAt: ago(0, 2), avatar: face(12) },
-    { id: 'r3', author: 'Ngozi', body: 'Harmattan and this cream is the only combination that didn’t crack my hands.', createdAt: ago(0, 4), avatar: face(48) },
+const products = [
+  { id: "demo-dew", name: "Dew Days Daily Cream", image: cream },
+  { id: "demo-sun", name: "Sunroom Daily SPF", image: serum },
+  { id: "demo-cleanse", name: "Soft Start Gel Cleanser", image: cleanse },
+];
+function story(
+  id: string,
+  kind: FeedItem["kind"],
+  title: string,
+  body: string,
+  author: string,
+  product: number,
+  hours: number,
+  extra: Partial<FeedItem> = {},
+): FeedItem {
+  const p = products[product];
+  return {
+    id,
+    kind,
+    title,
+    body,
+    author,
+    createdAt: ago(hours),
+    productId: p.id,
+    productName: p.name,
+    productImage: p.image,
+    photo: kind === "question" ? undefined : p.image,
+    creatorAvatar: face(
+      author === "Amaka"
+        ? 32
+        : author === "Chioma"
+          ? 20
+          : author === "Adaeze"
+            ? 45
+            : 24,
+    ),
+    chips: [],
+    sample: true,
+    href: `/${kind === "question" ? "question" : kind === "unmask" ? "investigation" : "story"}/${id}`,
+    cta:
+      kind === "question"
+        ? "Join the conversation"
+        : kind === "unmask"
+          ? "See the story"
+          : "Read the experience",
+    ...extra,
+  };
+}
+export const SAMPLE_FEED: FeedItem[] = [
+  story(
+    "sample-exp-1",
+    "experience",
+    "Week six. My skin feels less tight after washing.",
+    "I wanted something simple for my dry skin. I use a small amount each evening. Week one: no obvious change. Week three: less tightness. Week six: still using it. This is an imagined experience for the design preview, not a recommendation.",
+    "Amaka",
+    0,
+    2,
+    { chips: ["6 weeks", "Dry skin"], replies: 3 },
+  ),
+  story(
+    "sample-unmask-1",
+    "unmask",
+    "Same cream. Two very different experiences. Why?",
+    "Amaka liked the feel. Libati noticed stinging. The community wants a closer look at how they used it and what else was in their routines.",
+    "Libati",
+    0,
+    3,
+    { chips: ["Open for Sparks"], status: "Open for Sparks", sparks: 340 },
+  ),
+  story(
+    "sample-q-1",
+    "question",
+    "Does this sunscreen sit well under makeup?",
+    "Combination skin here. I’m looking for experiences from people who wear it through a full workday. What was it like by lunchtime?",
+    "Tunde",
+    1,
+    4,
+    { replies: 2, chips: ["Before I buy"] },
+  ),
+  story(
+    "sample-exp-2",
+    "experience",
+    "It felt good at first. Then my cheeks started stinging.",
+    "I added this cream and a new serum in the same week. I stopped when the stinging started. I don’t know which change caused it — that’s what I want to understand. Fictional demo story.",
+    "Libati",
+    0,
+    5,
+    { chips: ["2 weeks", "Sensitive skin"], replies: 2 },
+  ),
+  story(
+    "sample-unmask-2",
+    "unmask",
+    "Why does my sunscreen roll up when I layer it?",
+    "Chioma is gathering routines and checking the product directions. This preview shows what a story looks like after a creator is assigned.",
+    "Chioma",
+    1,
+    7,
+    {
+      creatorName: "Chioma",
+      authorId: "sample-c-chioma",
+      status: "Creator assigned",
+      sparks: 520,
+      chips: ["Creator assigned"],
+    },
+  ),
+  story(
+    "sample-exp-3",
+    "experience",
+    "One wash each evening. Here’s my month so far.",
+    "Week one: easy to rinse. Week two: I reduced the amount. Week four: I’m keeping the same routine so I can compare. My notes matter more than a star rating. Fictional demo experience.",
+    "Adaeze",
+    2,
+    10,
+    {
+      authorId: "sample-c-adaeze",
+      chips: ["4 weeks", "Combination skin"],
+      replies: 2,
+    },
+  ),
+  story(
+    "sample-q-2",
+    "question",
+    "What do you record when you start a new product?",
+    "I want my updates to be useful. How often do you take a photo, and what changes do you write down?",
+    "Bukky",
+    2,
+    14,
+    { replies: 2 },
+  ),
+  story(
+    "sample-unmask-3",
+    "unmask",
+    "A cleanser that feels gentler — what should we look at?",
+    "Adaeze is preparing a comparison of the routines people shared. No company or expert has actually been contacted for this demo.",
+    "Adaeze",
+    2,
+    18,
+    {
+      authorId: "sample-c-adaeze",
+      creatorName: "Adaeze",
+      status: "In the making",
+      sparks: 680,
+      chips: ["In the making"],
+    },
+  ),
+  story(
+    "sample-unmask-4",
+    "unmask",
+    "What a finished Ultra Unmask could look like.",
+    "An example of a creator bringing the community’s questions, usage context and remaining unknowns together.",
+    "Ireti",
+    0,
+    24,
+    {
+      authorId: "sample-c-ireti",
+      creatorName: "Ireti",
+      status: "Ultra Unmasked",
+      sparks: 890,
+      chips: ["Example answer"],
+    },
+  ),
+];
+export const SAMPLE_REPLIES: Record<
+  string,
+  {
+    id: string;
+    author: string;
+    body: string;
+    createdAt: string;
+    avatar: string;
+  }[]
+> = {
+  "sample-exp-1": [
+    {
+      id: "demo-r1",
+      author: "Bukky",
+      body: "The week-by-week notes make this so much easier to understand.",
+      createdAt: ago(1),
+      avatar: face(24),
+    },
+    {
+      id: "demo-r2",
+      author: "Amaka",
+      body: "I’m keeping the rest of my routine the same for my next update.",
+      createdAt: ago(0.5),
+      avatar: face(32),
+    },
   ],
-  'sample-exp-3': [
-    { id: 'r4', author: 'Obinna', body: 'Bought from two different shops this week. One pack needed half the seasoning, the other was the old taste.', createdAt: ago(1), avatar: face(51) },
-    { id: 'r5', author: 'Bukky', body: 'I photographed the batch code. Ending 24N. Anyone else?', createdAt: ago(1, 2), avatar: face(24) },
-  ],
-  'sample-exp-9': [
-    { id: 'r6', author: 'Seyi', body: 'Mine is 81% after 22 months. Also generator + surge protector.', createdAt: ago(5), avatar: face(8) },
-    { id: 'r7', author: 'Emeka', body: 'Optimized Battery Charging off? That changed the drop for me.', createdAt: ago(5, 3), avatar: face(15) },
-  ],
-  'sample-q-1': [
-    { id: 'a1', author: 'Amaka', body: 'Yes. I used it through last harmattan on dry cheeks. Sting for a week, then it behaved.', createdAt: ago(0, 4), avatar: face(32) },
-    { id: 'a2', author: 'Fatima', body: 'Too heavy under sunscreen for me. Fine at night.', createdAt: ago(0, 6), avatar: face(27) },
-  ],
-  'sample-q-2': [
-    { id: 'a3', author: 'Kunle', body: 'Overnight drop stopped when I turned off 5G and auto-brightness.', createdAt: ago(1, 2), avatar: face(7) },
-    { id: 'a4', author: 'Femi', body: 'I’m collecting overnight screens for the Unmask. Send yours if you can.', createdAt: ago(1, 3), avatar: face(14) },
-  ],
-  'sample-q-3': [
-    { id: 'a5', author: 'Aisha', body: 'Clumps if the water is off the boil. Let it sit 20 seconds, then whisk.', createdAt: ago(2), avatar: face(31) },
+  "sample-q-1": [
+    {
+      id: "demo-a1",
+      author: "Adaeze",
+      body: "Could you share what you layer underneath? That context would help people reply.",
+      createdAt: ago(2),
+      avatar: face(45),
+    },
+    {
+      id: "demo-a2",
+      author: "Tunde",
+      body: "Just moisturiser at the moment. I’ll include that in my question.",
+      createdAt: ago(1),
+      avatar: face(12),
+    },
   ],
 };
-
+for (const row of SAMPLE_FEED)
+  row.replies = SAMPLE_REPLIES[row.id]?.length ?? 0;
 export const SAMPLE_UNMASK_DETAIL: Record<
   string,
-  { findings?: string; uncertainty?: string; supporters: number; thunder: number }
+  {
+    findings?: string;
+    uncertainty?: string;
+    supporters: number;
+    thunder: number;
+  }
 > = {
-  'sample-unmask-5': {
-    findings:
-      'Shade names did not map reliably across lighting. Four testers with deeper skin saw grey cast under cool office LEDs and a closer match in warm home light. The pack word “universal” is a marketing claim, not a measured match.',
-    uncertainty: 'We did not lab-test pigment load. Results are from agreed photos and the testers’ own lighting.',
+  "sample-unmask-1": { supporters: 28, thunder: 1 },
+  "sample-unmask-2": { supporters: 47, thunder: 2 },
+  "sample-unmask-3": { supporters: 56, thunder: 3 },
+  "sample-unmask-4": {
     supporters: 64,
-    thunder: 2,
-  },
-  'sample-unmask-6': {
+    thunder: 4,
     findings:
-      'The labelled cap-to-bucket ratio is easy to overshoot in a 10-litre bath. A paediatric nurse walked through a measurable dilution. Silence from the company by publication is noted, not treated as proof of harm.',
-    uncertainty: 'Household buckets vary. This is not medical advice.',
-    supporters: 41,
-    thunder: 1,
+      "A finished story would separate what users reported, what a company or expert actually said, and what remains unknown. This is a layout example; no testing, expert interview or brand response took place.",
+    uncertainty:
+      "All products, people and findings in this preview are fictional.",
   },
-  'sample-unmask-1': { supporters: 28, thunder: 1 },
-  'sample-unmask-2': { supporters: 9, thunder: 0 },
-  'sample-unmask-3': { supporters: 47, thunder: 1 },
-  'sample-unmask-4': { supporters: 19, thunder: 0 },
-  'sample-unmask-7': { supporters: 6, thunder: 0 },
 };
-
+export const SAMPLE_SHELF = products.map((p, i) => ({
+  ...p,
+  brand: "Fictional demo product",
+  note: ["Week 6 · evening", "Week 2 · morning", "Week 4 · evening"][i],
+  href: `/story/${["sample-exp-1", "sample-exp-2", "sample-exp-3"][i]}`,
+}));
+export const SAMPLE_OFFERS = products.map((p, i) => ({
+  id: `sample-offer-${i + 1}`,
+  sponsor: "Demo Beauty Store",
+  title: `Discover ${p.name}`,
+  product_id: p.id,
+  kind: "Demo placement",
+  description:
+    "An illustration of an offer connected to community experiences.",
+  disclosure: "Fictional offer. No purchase or paid placement took place.",
+  unmask_catalog: {
+    name: p.name,
+    brand: "Demo",
+    category: "Skin",
+    image_url: p.image,
+  },
+  experience_count: SAMPLE_FEED.filter(
+    (r) => r.kind === "experience" && r.productId === p.id,
+  ).length,
+}));
 export function sampleById(id?: string | null) {
-  if (!id) return undefined;
-  return SAMPLE_FEED.find((row) => row.id === id || row.id === `sample-${id}` || row.href.endsWith(`/${id}`));
+  return SAMPLE_FEED.find((r) => r.id === id);
 }
-
-/** Use live community when it is already dense; otherwise show the labeled preview. */
 export function previewFeed(live: FeedItem[]): FeedItem[] {
-  if (live.length >= 12) return live;
-  const seen = new Set(live.map((row) => row.id));
-  return [...live, ...SAMPLE_FEED.filter((row) => !seen.has(row.id))].sort(
-    (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
-  );
+  return [...live, ...SAMPLE_FEED];
 }
-
-export function previewUnmasks(live: FeedItem[], sort: 'Recent' | 'Most sparked'): FeedItem[] {
-  const rows = previewFeed(live).filter((row) => row.kind === 'unmask');
-  if (sort === 'Most sparked') return [...rows].sort((a, b) => (b.sparks || 0) - (a.sparks || 0));
-  return rows;
+export function previewUnmasks(
+  live: FeedItem[],
+  sort: "Recent" | "Most sparked",
+) {
+  const rows = previewFeed(live).filter((r) => r.kind === "unmask");
+  return sort === "Most sparked"
+    ? rows.sort((a, b) => (b.sparks ?? 0) - (a.sparks ?? 0))
+    : rows;
 }

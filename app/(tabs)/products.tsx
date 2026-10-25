@@ -1,3 +1,5 @@
+import { DemoBanner } from "@/components/unmask-ui/DemoBanner";
+import { SAMPLE_SHELF } from "@/lib/unmask/samples";
 import { Lock } from "@/components/icons";
 import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -23,6 +25,7 @@ import { useAppStore } from "@/lib/store";
 
 export default function MyProducts() {
   const router = useRouter();
+  const demo = useAppStore((s) => s.demoCommunity);
   const uid = useAppStore((s) => s.profile?.id);
   const [tab, setTab] = useState("I use");
   const [search, setSearch] = useState("");
@@ -96,7 +99,14 @@ export default function MyProducts() {
 
   const liveRows =
     tab === "I use" ? useRows : tab === "Following" ? following : favorites;
-  const rows = liveRows.filter((p) =>
+  const rows = (
+    demo
+      ? SAMPLE_SHELF.filter(
+          (_, i) =>
+            tab === "I use" || (tab === "Following" ? i === 0 : i === 1),
+        )
+      : liveRows
+  ).filter((p) =>
     `${p.name} ${p.brand ?? ""}`.toLowerCase().includes(search.toLowerCase()),
   );
 
@@ -107,6 +117,7 @@ export default function MyProducts() {
       notify
       subtitle={COPY.productTabSubtitle}
     >
+      <DemoBanner />
       <View
         style={{
           padding: 20,
@@ -149,14 +160,15 @@ export default function MyProducts() {
         value={tab}
         onChange={setTab}
       />
-      {journeys.isError || experiences.isError || subs.isError ? (
+      {!demo && (journeys.isError || experiences.isError || subs.isError) ? (
         <StatusMessage
           kind="error"
           title="Some of your products couldn’t load."
           detail="Refresh before adding the same product again."
         />
       ) : null}
-      {uid &&
+      {!demo &&
+      uid &&
       (journeys.isLoading || experiences.isLoading || subs.isLoading) ? (
         <StorySkeleton />
       ) : rows.length ? (
@@ -193,7 +205,7 @@ export default function MyProducts() {
                 }}
               >
                 {p.brand ? `${p.brand} · ` : ""}
-                {COPY.addUpdate}
+                {demo ? p.note : COPY.addUpdate}
               </Text>
             </Pressable>
           ))}

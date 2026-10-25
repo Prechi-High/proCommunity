@@ -49,6 +49,8 @@ export interface AppState {
   flaggedPostIds: string[];
   userThreads: DiscussionThread[];
   hapticsMode: HapticsMode;
+  demoCommunity: boolean;
+  setDemoCommunity: (on: boolean) => void;
   interfaceSounds: boolean;
   setInterfaceSounds: (on: boolean) => void;
   saveSearchHistory: boolean;
@@ -145,6 +147,8 @@ export const useAppStore = create<AppState>()(
         else set({ searchCategoryIds: [...cur, id] });
       },
       hapticsMode: "subtle" as HapticsMode,
+      demoCommunity: true,
+      setDemoCommunity: (on) => set({ demoCommunity: on }),
       interfaceSounds: false,
       setInterfaceSounds: (on) => set({ interfaceSounds: on }),
       saveSearchHistory: true,

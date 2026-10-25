@@ -24,11 +24,13 @@ import { colors, fonts } from "@/constants/theme";
 import { subscriptions } from "@/lib/living/api";
 import { entrySeen } from "@/lib/entry/api";
 import { loadHomeFeed } from "@/lib/unmask/feed";
+import { DemoBanner } from "@/components/unmask-ui/DemoBanner";
 import { SAMPLE_FEED } from "@/lib/unmask/samples";
 import { useAppStore } from "@/lib/store";
 export default function Home() {
   const router = useRouter();
   const scan = useScan();
+  const demo = useAppStore((s) => s.demoCommunity);
   const uid = useAppStore((s) => s.profile?.id);
   const [seen, setSeen] = useState<boolean | null>(null);
   const [filter, setFilter] = useState("All stories");
@@ -49,7 +51,7 @@ export default function Home() {
     enabled: !!uid,
   });
   const rows = useMemo(() => {
-    let list = feed.data ?? [];
+    let list = demo ? SAMPLE_FEED : (feed.data ?? []);
     if (filter === "Questions")
       list = list.filter((x) => x.kind === "question");
     if (filter === "Following")
@@ -61,7 +63,7 @@ export default function Home() {
         ),
       );
     return list;
-  }, [feed.data, filter, subs.data]);
+  }, [feed.data, filter, subs.data, demo]);
   if (!uid && seen !== true) return null;
   return (
     <AppShell notify flush>
@@ -104,13 +106,14 @@ export default function Home() {
             </Text>
             <UsersThree size={24} color={colors.brand} />
           </View>
+          <DemoBanner />
           <FilterChips
             options={["All stories", "Questions", "Following"]}
             value={filter}
             onChange={setFilter}
           />
         </View>
-        {feed.isError ? (
+        {!demo && feed.isError ? (
           <View style={{ paddingHorizontal: 20, gap: 10 }}>
             <StatusMessage
               kind="error"
@@ -132,7 +135,8 @@ export default function Home() {
               onAction={() => router.push("/(auth)/sign-in")}
             />
           </View>
-        ) : feed.isLoading || (filter === "Following" && subs.isLoading) ? (
+        ) : (!demo && feed.isLoading) ||
+          (filter === "Following" && subs.isLoading) ? (
           <StorySkeleton />
         ) : rows.length ? (
           rows.map((i) => <StoryCard key={i.id} item={i} flush />)

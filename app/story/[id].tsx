@@ -146,7 +146,7 @@ export default function Story() {
         <ActionButton
           label={COPY.takeFurther}
           tone="secondary"
-          onPress={() => router.push("/investigation/request" as Href)}
+          onPress={() => router.push("/investigation/sample-unmask-1" as Href)}
         />
         <Text
           style={{
