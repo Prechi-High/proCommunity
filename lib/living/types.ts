@@ -109,6 +109,7 @@ export interface Answer {
   user_id: string;
   author_name: string;
   question_id: string;
+  attached_experience_id?: string | null;
   duration: string;
   context: string;
   acquisition: string;

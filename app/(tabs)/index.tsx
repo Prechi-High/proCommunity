@@ -15,6 +15,7 @@ import {
 } from '@/components/unmask-ui';
 import { COPY } from '@/constants/brand';
 import { colors, fonts } from '@/constants/theme';
+import { subscriptions } from '@/lib/living/api';
 import { entrySeen } from '@/lib/entry/api';
 import { loadHomeFeed, type FeedItem } from '@/lib/unmask/feed';
 import { previewFeed } from '@/lib/unmask/samples';
@@ -36,6 +37,7 @@ export default function Home() {
   }, [seen, uid, router]);
 
   const feed = useQuery({ queryKey: ['home-feed'], queryFn: loadHomeFeed });
+  const subscriptionsQuery = useQuery({ queryKey: ['subscriptions', uid], queryFn: subscriptions, enabled: !!uid });
   const following = useAppStore((s) => s.favorites);
   const followedIds = useMemo(() => new Set(following.map((f) => f.productId)), [following]);
 
@@ -43,14 +45,15 @@ export default function Home() {
     const source = previewFeed(feed.data ?? []);
     let list = source;
     if (filter === 'Following') {
-      list = source.filter((i) => i.productId && followedIds.has(i.productId));
+      const subscriptions = subscriptionsQuery.data ?? [];
+      list = source.filter(i => (i.productId && followedIds.has(i.productId)) || subscriptions.some(s => s.target_type === 'product' && s.target_id === i.productId || s.target_type === 'person' && s.target_id === i.authorId));
     }
     if (q.trim()) {
       const n = q.trim().toLowerCase();
       list = list.filter((i) => `${i.title} ${i.productName} ${i.body}`.toLowerCase().includes(n));
     }
     return list;
-  }, [feed.data, filter, followedIds, q]);
+  }, [feed.data, filter, followedIds, q, subscriptionsQuery.data]);
 
   const featured = rows.find((i) => i.kind === 'unmask' && i.status === 'Ultra Unmasked');
   const usingSamples = rows.some((i) => i.sample);
@@ -81,6 +84,7 @@ export default function Home() {
             if (q.trim().length > 1) router.push({ pathname: '/results', params: { q: q.trim() } } as Href);
           }}
         />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}><View style={{ flex: 1, minWidth: 135 }}><ActionButton tone="secondary" label="Share an experience" onPress={() => router.push('/contribute' as Href)} /></View><View style={{ flex: 1, minWidth: 135 }}><ActionButton tone="ghost" label="Ask the community" onPress={() => router.push('/ask-community' as Href)} /></View></View>
         <FilterChips options={['For you', 'Following', 'Latest']} value={filter} onChange={setFilter} />
         {usingSamples && !feed.isLoading ? (
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.inkSoft }}>

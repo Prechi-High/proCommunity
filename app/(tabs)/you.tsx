@@ -105,10 +105,10 @@ export default function You() {
             </GroupedList>
             {wallet.isError ? <StatusMessage kind="error" title="Couldn’t load balance." /> : null}
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.inkSoft }}>
-              Sparks push a story toward an Unmasker. 10 Sparks = ₦100. They cannot buy the answer.
+              Sparks support a creator investigation. 10 Sparks = ₦100. They cannot buy the answer.
             </Text>
           </View>
-          {creator.data ? <ActionButton label="Unmasker desk" onPress={() => go('/creator')} /> : null}
+          {creator.data ? <ActionButton label="Creator workspace" onPress={() => go('/creator')} /> : null}
           <GroupedList>
             <GroupedRow label="Settings" onPress={() => go('/settings')} />
             <GroupedRow label="Notifications" onPress={() => go('/notifications')} />

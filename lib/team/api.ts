@@ -9,6 +9,7 @@ export async function read<T>(
 }
 export const access = () => read<boolean>(db().rpc("cw_admin"));
 export type QueueItem = {
+  spark_goal?: number;
   id: string;
   title: string;
   concern: string;

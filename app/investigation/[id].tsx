@@ -28,8 +28,9 @@ export default function UnmaskDetail() {
   const sample = sampleById(id);
   const [support, setSupport] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  const q = useQuery({ queryKey: ['investigation', id], queryFn: () => api.get(id), enabled: !!id && !sample });
-  const summary = useQuery({ queryKey: ['investigation-support', id], queryFn: () => api.summary(id), enabled: !!id && !sample });
+  const q = useQuery({ queryKey: ['investigation', id], queryFn: () => api.get(id), enabled: !!id && !sample, refetchInterval: 15000 });
+  const summary = useQuery({ queryKey: ['investigation-support', id], queryFn: () => api.summary(id), enabled: !!id && !sample, refetchInterval: 15000 });
+  const progressUpdates = useQuery({ queryKey: ['investigation-updates', id], queryFn: () => api.updates(id), enabled: !!id && !sample, refetchInterval: 15000 });
   const creators = useQuery({ queryKey: ['creators'], queryFn: community.creators });
   const products = useQuery({ queryKey: ['catalog'], queryFn: () => living.catalog() });
   const item = q.data;
@@ -105,7 +106,7 @@ export default function UnmaskDetail() {
 
   return (
     <AppShell back title={item?.title || 'Unmask'}>
-      {product ? <MediaFrame uri={product.image_url} label={product.name} play={stage === 'unmasked'} overlay /> : null}
+      {product ? <MediaFrame uri={product.image_url} label={product.name} ratio={16 / 10} overlay /> : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.gold }} />
         <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.brand }}>{publicUnmaskLabel(stage)}</Text>
@@ -127,20 +128,20 @@ export default function UnmaskDetail() {
         <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.honeyInk }}>
           Sparks pushing this · {sparkNaira(weight)} · {summary.data?.supporters ?? 0} people in
         </Text>
-        <SparkMeter weight={weight} />
+        <SparkMeter weight={weight} goal={item?.spark_goal} />
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.honeyInk }}>
           {summary.data?.thunder
             ? `Includes ${summary.data.thunder} Thunder Spark${summary.data.thunder === 1 ? '' : 's'} (100 Sparks each).`
             : COPY.sparkTeach}
         </Text>
-        {stage === 'open' || stage === 'picked' || stage === 'making' ? (
+        {stage === 'open' ? (
           <ActionButton
             tone="gold"
             label={stage === 'open' ? COPY.addSparks : 'Keep this moving'}
             onPress={() => setSupport(true)}
           />
         ) : (
-          <StatusMessage kind="info" title="This Ultra Unmask is out." detail="Sparking has stopped. Watch what we found." />
+          <StatusMessage kind="info" title="Support is closed for this investigation." detail="Follow the progress and read findings when they are published." />
         )}
       </View>
 
@@ -165,6 +166,7 @@ export default function UnmaskDetail() {
         ) : null}
       </View>
 
+      {progressUpdates.data?.length ? <View style={{ gap: 16 }}><Text accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 18, color: colors.ink }}>Investigation updates</Text>{progressUpdates.data.map(update => <View key={update.id} style={{ paddingLeft: 16, borderLeftWidth: 2, borderColor: colors.line, gap: 6 }}><Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>{new Date(update.created_at).toLocaleDateString('en-NG')}</Text><Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink }}>{update.body}</Text></View>)}</View> : null}
       {item?.status === 'published' && (item.findings || item.video_url) ? (
         <View style={{ gap: 12 }}>
           <Text style={{ fontFamily: fonts.serifBold, fontSize: 26, lineHeight: 30, color: colors.ink }}>{COPY.answer}</Text>
@@ -196,6 +198,9 @@ export default function UnmaskDetail() {
         <StatusMessage kind="info" title={COPY.noAnswer} />
       )}
 
+      {item?.company_response && item.status === 'published' ? <View style={{ gap: 8 }}><Text accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 18, color: colors.ink }}>What the company said</Text><Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.inkSoft }}>{item.company_response}</Text><Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>Attributed company response · separate from independent findings</Text></View> : null}
+      {item?.commercial_disclosure ? <StatusMessage kind="info" title="Funding and relationships" detail={item.commercial_disclosure} /> : null}
+      {item?.question_id ? <ActionButton tone="ghost" label="Read the original community question" onPress={() => router.push(`/question/${item.question_id}` as Href)} /> : null}
       {item?.experience_id ? (
         <ActionButton
           tone="ghost"

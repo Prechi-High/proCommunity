@@ -80,14 +80,14 @@ export default function RequestUnmask() {
         style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, minHeight: 72, color: colors.ink }}
       />
       <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.inkSoft }}>
-        This Ultra Unmask opens for Sparks after a check. Sparks say this cannot die here. The team assigns an Unmasker. Choosing one yourself is coming later.
+        Your question opens for community support. The team reviews its scope and assigns an Unmask Creator. Support does not guarantee a company response or a particular conclusion. Choosing a creator is coming later.
       </Text>
       {error ? <StatusMessage kind="error" title="Request didn’t open." detail={error} /> : null}
       <ActionButton
         label="Start an Ultra Unmask"
         pending={busy}
-        disabled={title.trim().length < 8}
-        explanation={title.trim().length < 8 ? 'Write a slightly fuller question.' : undefined}
+        disabled={title.trim().length < 10}
+        explanation={title.trim().length < 10 ? 'Write a slightly fuller question.' : undefined}
         onPress={() => void submit()}
       />
     </AppShell>

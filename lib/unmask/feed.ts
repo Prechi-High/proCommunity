@@ -13,6 +13,8 @@ export type FeedItem = {
   title: string;
   body: string;
   author: string;
+  authorId?: string | null;
+  sparkGoal?: number;
   createdAt: string;
   productId?: string | null;
   productName?: string | null;
@@ -43,7 +45,8 @@ export function experienceToFeed(e: clarity.Experience): FeedItem {
     kind: 'experience',
     title: titleFromBody(e.body, 'A product experience'),
     body: e.body,
-    author: e.author_name || 'Member',
+    author: e.author_name || 'Unmasker',
+    authorId: e.user_id,
     createdAt: e.created_at,
     productId: e.product_id,
     productName: e.unmask_catalog?.name,
@@ -61,7 +64,8 @@ export function questionToFeed(q: Question, productName?: string, productImage?:
     kind: 'question',
     title: titleFromBody(q.body, 'A product question'),
     body: q.context || q.body,
-    author: q.author_name || 'Member',
+    author: q.author_name || 'Unmasker',
+    authorId: q.user_id,
     createdAt: q.created_at,
     productId: q.product_id,
     productName,
@@ -80,6 +84,8 @@ export function unmaskToFeed(row: BrowseItem): FeedItem {
     title: row.title,
     body: row.concern,
     author: row.creator_name || row.starter_name || 'Community',
+    authorId: row.creator_id || row.user_id,
+    sparkGoal: row.spark_goal,
     createdAt: row.created_at,
     productId: row.product_id,
     productName: row.product_name,

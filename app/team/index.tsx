@@ -1,3 +1,5 @@
+import { setSparkGoal } from '@/lib/investigations/api';
+import { Field } from '@/components/living/ui';
 import { useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
@@ -27,6 +29,7 @@ export default function Queue() {
 }
 function Content() {
   const r = useRouter();
+  const [goals, setGoals] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("requested");
   const [sort, setSort] = useState("Most sparked");
   const [selected, setSelected] = useState<Record<string, string>>({});
@@ -68,6 +71,7 @@ function Content() {
       />
       {q.data?.pages.flat().map((i) => (
         <Card key={i.id}>
+          {i.status === 'requested' ? <><Field label="Investigation target (Spark equivalents)" value={goals[i.id] ?? String(i.spark_goal ?? 500)} onChange={v => setGoals({ ...goals, [i.id]: v })}/><Button quiet label="Save support target" disabled={action.isPending || !/^\d+$/.test(goals[i.id] ?? String(i.spark_goal ?? 500))} onPress={() => action.mutate(() => setSparkGoal(i.id, Number(goals[i.id] ?? i.spark_goal ?? 500)))}/></> : null}
           <Heading>{i.title}</Heading>
           <Photo uri={i.product_image} size={100} />
           <Copy>{i.product_name}</Copy>

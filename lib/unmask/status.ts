@@ -16,7 +16,7 @@ export function publicUnmaskStage(status?: string | null): PublicUnmaskStage {
 export function publicUnmaskLabel(stage: PublicUnmaskStage): string {
   return {
     open: 'Open for Sparks',
-    picked: 'An Unmasker has this',
+    picked: 'Creator assigned',
     making: 'In the making',
     unmasked: 'Ultra Unmasked',
     held: 'Not going further',
@@ -27,8 +27,8 @@ export function publicUnmaskLabel(stage: PublicUnmaskStage): string {
 export const ULTRA_UNMASK_SPARK_GOAL = 500;
 
 export function sparkProgress(weight = 0, goal = ULTRA_UNMASK_SPARK_GOAL) {
-  const safeGoal = Math.max(1, goal);
-  const clamped = Math.max(0, weight);
+  const safeGoal = Number.isFinite(goal) && goal > 0 ? goal : ULTRA_UNMASK_SPARK_GOAL;
+  const clamped = Number.isFinite(weight) ? Math.max(0, weight) : 0;
   return {
     weight: clamped,
     goal: safeGoal,

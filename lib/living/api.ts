@@ -327,6 +327,7 @@ export async function answers(id: string) {
 }
 export async function addAnswer(row: {
   question_id: string;
+  attached_experience_id?: string | null;
   duration: string;
   context: string;
   acquisition: string;

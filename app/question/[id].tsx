@@ -1,3 +1,4 @@
+import { ExperienceAttachment, AttachedExperienceLink } from '@/components/unmask-ui/ExperienceAttachment';
 import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
@@ -19,6 +20,7 @@ export default function QuestionScreen() {
   const sample = sampleById(id);
   const q = useQuery({ queryKey: ['question', id], queryFn: () => api.question(id), enabled: !!id && !sample });
   const answers = useQuery({ queryKey: ['answers', id], queryFn: () => api.answers(id), enabled: !!id && !sample });
+  const [attachment, setAttachment] = useState('');
   const [body, setBody] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -33,6 +35,7 @@ export default function QuestionScreen() {
     try {
       await api.addAnswer({
         question_id: id,
+        attached_experience_id: attachment || null,
         duration: '',
         context: '',
         acquisition: 'not_stated',
@@ -40,7 +43,7 @@ export default function QuestionScreen() {
         uncertainty: '',
       });
       hapticSaved(id);
-      setBody('');
+      setBody(''); setAttachment('');
       await qc.invalidateQueries({ queryKey: ['answers', id] });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Reply didn’t send. Your text is still here.');
@@ -66,6 +69,7 @@ export default function QuestionScreen() {
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{a.author}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink }}>{a.body}</Text>
+
             </View>
           </View>
         ))}
@@ -84,8 +88,10 @@ export default function QuestionScreen() {
         <View key={a.id} style={{ gap: 4 }}>
           <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{a.author_name}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink }}>{a.body}</Text>
+          <AttachedExperienceLink id={a.attached_experience_id} />
         </View>
       ))}
+      <ExperienceAttachment productId={q.data?.product_id} value={attachment} onChange={setAttachment} />
       <TextInput
         value={body}
         onChangeText={setBody}

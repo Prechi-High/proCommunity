@@ -17,6 +17,7 @@ export type Investigation = {
   sources: string;
   video_url: string | null;
   commercial_disclosure?: string;
+  spark_goal?: number;
   created_at: string;
 };
 export type Summary = {
@@ -110,4 +111,10 @@ export function validAmount(kind: string, raw: string) {
   return (
     Number.isSafeInteger(n) && n >= (kind === "sparks" ? 10 : 1) && n <= 1000000
   );
+}
+
+export async function setSparkGoal(id: string, goal: number) {
+  if (!Number.isSafeInteger(goal) || goal < 10 || goal > 1000000) throw new Error('Choose a target between 10 and 1,000,000 Sparks.');
+  await userId();
+  return read(db().from('unmask_investigations').update({ spark_goal: goal }).eq('id', id).select('id').single());
 }

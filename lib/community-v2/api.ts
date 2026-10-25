@@ -25,6 +25,7 @@ export type Publication = {
 export type Entry = {
   id: string;
   experience_id: string;
+  attached_experience_id?: string | null;
   body: string;
   created_at: string;
   photo_path?: string | null;
@@ -81,6 +82,7 @@ export async function addEntry(
   duration = "",
   usage_status = "",
   photo_path = "",
+  attachedExperience?: string,
 ) {
   const uid = await userId();
   const row: Record<string, string> = {
@@ -88,6 +90,7 @@ export async function addEntry(
     user_id: uid,
     body: body.trim(),
   };
+  if (kind === "replies" && attachedExperience) row.attached_experience_id = attachedExperience;
   if (kind === "followups") {
     if (photo_path) row.photo_path = photo_path;
     row.duration = duration;

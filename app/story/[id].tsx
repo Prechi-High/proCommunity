@@ -1,3 +1,4 @@
+import { ExperienceAttachment, AttachedExperienceLink } from '@/components/unmask-ui/ExperienceAttachment';
 import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
@@ -23,6 +24,7 @@ export default function Story() {
   const qc = useQueryClient();
   const uid = useAppStore((s) => s.profile?.id);
   const sample = sampleById(id);
+  const [attachment, setAttachment] = useState('');
   const [reply, setReply] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
@@ -50,8 +52,8 @@ export default function Story() {
     setPending(true);
     setError('');
     try {
-      await community.addEntry(id, reply.trim(), 'replies');
-      setReply('');
+      await community.addEntry(id, reply.trim(), 'replies', '', '', '', attachment || undefined);
+      setReply(''); setAttachment('');
       await qc.invalidateQueries({ queryKey: ['experience-replies', id] });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Reply didn’t send. Your text is still here.');
@@ -165,7 +167,7 @@ export default function Story() {
               <Avatar name={r.author_name || 'Member'} size={32} />
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{r.author_name || 'Member'}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink }}>{r.body}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink }}>{r.body}</Text><AttachedExperienceLink id={r.attached_experience_id} />
               </View>
             </View>
           ))}
@@ -179,6 +181,7 @@ export default function Story() {
               ))}
             </>
           ) : null}
+          <ExperienceAttachment productId={e.product_id} value={attachment} onChange={setAttachment} />
           <TextInput
             value={reply}
             onChangeText={setReply}

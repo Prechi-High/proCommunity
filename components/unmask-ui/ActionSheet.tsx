@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { X } from '@/components/icons';
@@ -24,6 +24,10 @@ export function ActionSheet({
         <View
           style={{
             backgroundColor: colors.white,
+            maxHeight: '90%',
+            width: '100%',
+            maxWidth: 620,
+            alignSelf: 'center',
             borderTopLeftRadius: radii.sheet,
             borderTopRightRadius: radii.sheet,
             paddingHorizontal: 20,
@@ -64,7 +68,7 @@ export function ActionSheet({
               <X size={16} color={colors.ink} />
             </Pressable>
           </View>
-          {children}
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 16, paddingBottom: 8 }}>{children}</ScrollView>
         </View>
       </View>
     </Modal>

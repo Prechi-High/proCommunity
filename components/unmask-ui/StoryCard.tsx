@@ -14,11 +14,12 @@ import { MediaFrame } from './MediaFrame';
 import { SparkMeter } from './SparkMeter';
 
 function Byline({ item }: { item: FeedItem }) {
+  const router = useRouter();
   const when = relativeTime(item.createdAt);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <Avatar name={item.author} uri={item.creatorAvatar} size={28} />
-      <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, color: colors.inkSoft }} numberOfLines={1}>
+      <Text accessibilityRole={item.authorId ? "link" : undefined} onPress={item.authorId ? (event) => { event.stopPropagation(); router.push(`/member/${item.authorId}` as Href); } : undefined} style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, color: colors.inkSoft }} numberOfLines={1}>
         {item.author}
         {when ? `  ·  ${when}` : ''}
         {item.sample ? '  ·  Sample' : ''}
@@ -138,7 +139,7 @@ export function StoryCard({ item, featured, flush }: { item: FeedItem; featured?
           </Text>
           <Byline item={item} />
           <Meta item={item} />
-          {typeof item.sparks === 'number' ? <SparkMeter weight={item.sparks} compact /> : null}
+          {typeof item.sparks === 'number' ? <SparkMeter weight={item.sparks} goal={item.sparkGoal} compact /> : null}
           <Cta label={item.cta} />
         </View>
       </Pressable>

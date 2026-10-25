@@ -29,7 +29,7 @@ export default function Wallet() {
       {!uid ? (
         <>
           <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.inkSoft }}>
-            Sign in to add Sparks. You’re not buying a verdict. You’re saying this cannot die here.
+            Sign in to add Sparks. You’re not buying a verdict. You’re saying this question deserves investigation.
           </Text>
           <ActionButton label="Sign in" onPress={() => router.push('/(auth)/sign-in' as Href)} />
         </>

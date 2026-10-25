@@ -50,6 +50,7 @@ export function ActionButton({
         onPress={onPress}
         style={{
           minHeight: 52,
+          paddingVertical: 14,
           borderRadius: radii.button,
           backgroundColor: t.bg,
           borderWidth: t.border ? 1 : 0,
@@ -72,7 +73,7 @@ export function ActionButton({
             letterSpacing: 0.2,
           }}
         >
-          {pending ? 'Working…' : label}
+          {pending ? 'Please wait…' : label}
         </Text>
       </Pressable>
       {locked && explanation ? (

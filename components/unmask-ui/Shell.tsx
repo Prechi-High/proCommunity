@@ -66,6 +66,7 @@ export function AppShell({
       {title ? (
         <View style={{ gap: 6, paddingTop: 8, paddingBottom: 8 }}>
           <Text
+            accessibilityRole="header"
             style={{
               fontFamily: serif ? fonts.serifBold : fonts.semibold,
               fontSize: serif ? 32 : 22,
@@ -87,7 +88,7 @@ export function AppShell({
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, width: "100%", maxWidth: 820, alignSelf: "center", backgroundColor: colors.white }} edges={['top']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {header}
         {scroll ? (
