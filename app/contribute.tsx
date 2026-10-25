@@ -410,6 +410,7 @@ export default function Contribute() {
                   : "Only you"}
               </Pill>
               <Heading>{e.author_name}</Heading>
+              {e.visibility === "public" ? <Button quiet label="View Unmasker profile" onPress={() => r.push(`/member/${e.user_id}` as Href)} /> : null}
               <Copy muted>
                 {e.skin_type || "Skin type not shared"} · {e.duration} ·{" "}
                 {e.frequency || "Frequency not stated"}
