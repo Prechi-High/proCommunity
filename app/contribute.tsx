@@ -1,3 +1,4 @@
+import { BookmarkButton } from "@/components/utilities/BookmarkButton";
 import * as ImagePicker from "expo-image-picker";
 import { Field } from "@/components/community-v2/ui";
 import { useEffect, useState } from "react";
@@ -410,7 +411,14 @@ export default function Contribute() {
                   : "Only you"}
               </Pill>
               <Heading>{e.author_name}</Heading>
-              {e.visibility === "public" ? <Button quiet label="View Unmasker profile" onPress={() => r.push(`/member/${e.user_id}` as Href)} /> : null}
+              <BookmarkButton kind="experience" id={e.id} />
+              {e.visibility === "public" ? (
+                <Button
+                  quiet
+                  label="View Unmasker profile"
+                  onPress={() => r.push(`/member/${e.user_id}` as Href)}
+                />
+              ) : null}
               <Copy muted>
                 {e.skin_type || "Skin type not shared"} · {e.duration} ·{" "}
                 {e.frequency || "Frequency not stated"}

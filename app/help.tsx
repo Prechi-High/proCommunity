@@ -1,4 +1,9 @@
 import { useState } from "react";
+import { useRef } from "react";
+import { View } from "react-native";
+import { sendSupport } from "@/lib/utilities/api";
+import { useAppStore } from "@/lib/store";
+import { Chips } from "@/components/unmask/reference/ui";
 import { useRouter } from "expo-router";
 import { UtilityPage } from "@/components/utilities/Page";
 import { Field } from "@/components/community-v2/ui";
@@ -10,6 +15,10 @@ import {
   Notice,
 } from "@/components/unmask/reference/ui";
 const faqs = [
+  {
+    q: "How are creators assigned?",
+    a: "Unmask’s editorial team assigns creators. Requests for a particular creator are not available yet. Creator status does not verify professional credentials.",
+  },
   {
     q: "What does it mean to unmask a product?",
     a: "Unmask brings together user experiences, questions, evidence, and creator investigations to create clarity. It is not a product certification.",
@@ -46,16 +55,52 @@ const faqs = [
 export default function Help() {
   const r = useRouter();
   const [query, setQuery] = useState("");
+  const uid = useAppStore((s) => s.profile?.id);
+  const [topic, setTopic] = useState("All");
+  const [subject, setSubject] = useState("Payment question");
+  const [reference, setReference] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const lock = useRef(false);
+  const [ticket, setTicket] = useState("");
+  const [error, setError] = useState("");
+
   const [open, setOpen] = useState<string | null>(null);
   const matches = faqs.filter((f) =>
     `${f.q} ${f.a}`.toLowerCase().includes(query.toLowerCase()),
   );
   return (
     <UtilityPage
-      title="A little clarity, right here."
-      sub="Answers about your account, support credits, and community."
+      title="How can we help?"
+      sub="Search for help articles or choose a topic below."
     >
       <Field label="Search help" value={query} onChange={setQuery} />
+      <Heading>Browse by topic</Heading>
+      <Chips
+        options={[
+          "All",
+          "Sparks and payments",
+          "Investigations",
+          "Experiences and privacy",
+          "Creator accounts",
+        ]}
+        value={topic}
+        onChange={(v) => {
+          setTopic(v);
+          setQuery(
+            v === "All"
+              ? ""
+              : v === "Sparks and payments"
+                ? "Spark"
+                : v === "Experiences and privacy"
+                  ? "experience"
+                  : v === "Creator accounts"
+                    ? "creator"
+                    : "investigation",
+          );
+        }}
+      />
+      <Heading>Frequently asked questions</Heading>
       {matches.map((f) => (
         <Card key={f.q}>
           <Button
@@ -82,10 +127,75 @@ export default function Help() {
           onPress={() => r.push("/wallet/history")}
         />
       </Card>
-      <Notice>
-        A private support contact channel has not been connected yet. Do not
-        post payment or personal account details in Community.
-      </Notice>
+      <Heading>Contact support</Heading>
+      <Copy>
+        Send a private request. Do not include passwords, card PINs or OTPs.
+      </Copy>
+      <Card>
+        <Chips
+          options={[
+            "Payment question",
+            "Investigation question",
+            "Account & privacy",
+            "Other",
+          ]}
+          value={subject}
+          onChange={setSubject}
+        />
+        <Field
+          label="Transaction reference (optional)"
+          value={reference}
+          onChange={setReference}
+        />
+        <Field
+          label="Message"
+          value={message}
+          onChange={setMessage}
+          multiline
+        />
+        <Copy small>{message.length}/500 characters</Copy>
+        {ticket ? <Notice>Request saved. Reference: {ticket}</Notice> : null}
+        {error ? <Notice>{error}</Notice> : null}
+        <Button
+          disabled={
+            busy ||
+            (!!uid &&
+              (message.trim().length < 10 ||
+                message.length > 500 ||
+                reference.length > 100))
+          }
+          label={
+            !uid
+              ? "Sign in to contact support"
+              : busy
+                ? "Saving request…"
+                : "Send support request"
+          }
+          onPress={() => {
+            if (!uid) {
+              r.push("/(auth)/sign-in");
+              return;
+            }
+            if (lock.current) return;
+            lock.current = true;
+            setBusy(true);
+            setError("");
+            void sendSupport(subject, reference.trim(), message.trim())
+              .then((id) => {
+                setTicket(id);
+                setMessage("");
+                setReference("");
+              })
+              .catch(() =>
+                setError("Could not save your request. Please retry."),
+              )
+              .finally(() => {
+                lock.current = false;
+                setBusy(false);
+              });
+          }}
+        />
+      </Card>
     </UtilityPage>
   );
 }

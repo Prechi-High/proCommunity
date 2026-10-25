@@ -9,48 +9,35 @@ import {
   Chips,
   Copy,
   Heading,
+  Photo,
   Pill,
 } from "@/components/unmask/reference/ui";
-import { db } from "@/lib/clarity/api";
+import { history } from "@/lib/utilities/api";
 import { useAppStore } from "@/lib/store";
-type Entry = {
-  id: string;
-  investigation_id: string;
-  kind: string;
-  amount: number;
-  public_ack: boolean;
-  created_at: string;
-  unmask_investigations: { title: string } | null;
-};
 export default function History() {
   const uid = useAppStore((s) => s.profile?.id);
   const r = useRouter();
   const [filter, setFilter] = useState("All");
+  const [dates, setDates] = useState("All dates");
+  const [status, setStatus] = useState("All statuses");
   const q = useQuery({
     queryKey: ["spark-history", uid],
+    queryFn: history,
     enabled: !!uid,
-    queryFn: async () => {
-      const { data, error } = await db()
-        .from("unmask_spark_contributions")
-        .select(
-          "id,investigation_id,kind,amount,public_ack,created_at,unmask_investigations(title)",
-        )
-        .eq("user_id", uid!)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return data as unknown as Entry[];
-    },
   });
+  const days =
+    dates === "Last 7 days" ? 7 : dates === "Last 30 days" ? 30 : null;
   const entries = q.data?.filter(
     (e) =>
-      filter === "All" ||
-      e.kind === (filter === "Sparks" ? "sparks" : "thunder"),
+      (filter === "All" ||
+        e.kind === (filter === "Sparks" ? "sparks" : "thunder")) &&
+      (!days || Date.parse(e.created_at) >= Date.now() - days * 86400000) &&
+      (status === "All statuses" || e.unmask_investigations?.status === status),
   );
   return (
     <UtilityPage
-      title="Every Spark has a story."
-      sub="Your recorded support, newest first. Showing up to 100 contributions."
+      title="What you helped move forward."
+      sub="A history of the questions you supported. Your contributions help fund investigations and independent video reviews."
     >
       {!uid ? (
         <SignInCard />
@@ -61,6 +48,23 @@ export default function History() {
             value={filter}
             onChange={setFilter}
           />
+          <Chips
+            options={["All dates", "Last 7 days", "Last 30 days"]}
+            value={dates}
+            onChange={setDates}
+          />
+          <Chips
+            options={[
+              "All statuses",
+              "requested",
+              "selected",
+              "investigating",
+              "published",
+            ]}
+            value={status}
+            onChange={setStatus}
+          />
+          <Copy small>Showing up to 100 most recent contributions.</Copy>
           <Busy
             loading={q.isLoading}
             error={q.error}
@@ -68,21 +72,35 @@ export default function History() {
           />
           {entries?.map((e) => (
             <Card key={e.id}>
-              <Pill>
-                {e.kind === "sparks" ? "✦ Sparks" : "⚡ Thunder Sparks"}
-              </Pill>
-              <Heading>{e.amount} added</Heading>
-              <Copy>{e.unmask_investigations?.title ?? "Investigation"}</Copy>
-              <Copy small>
-                {new Date(e.created_at).toLocaleString()} ·{" "}
-                {e.public_ack
-                  ? "Public acknowledgment"
-                  : "Anonymous acknowledgment"}
+              {e.unmask_investigations?.unmask_catalog?.image_url ? (
+                <Photo
+                  uri={e.unmask_investigations.unmask_catalog.image_url}
+                  size={90}
+                />
+              ) : null}
+              <Heading>
+                {e.unmask_investigations?.title ?? "Investigation"}
+              </Heading>
+              <Copy>
+                {e.kind === "sparks" ? "✦" : "⚡"} {e.amount}{" "}
+                {e.kind === "sparks" ? "Sparks" : "Thunder Sparks"} · ₦
+                {(
+                  e.amount * (e.kind === "sparks" ? 10 : 1000)
+                ).toLocaleString()}{" "}
+                equivalent
               </Copy>
-              <Copy small>Receipt: {e.id}</Copy>
+              <Copy>
+                {e.public_ack ? "Public acknowledgment" : "Anonymous"}
+              </Copy>
+              {e.unmask_investigations ? (
+                <Pill>{e.unmask_investigations.status}</Pill>
+              ) : null}
+              <Copy small>
+                {new Date(e.created_at).toLocaleString()} · Receipt: {e.id}
+              </Copy>
               <Button
                 quiet
-                label="Open investigation"
+                label="View investigation →"
                 onPress={() =>
                   r.push(`/investigation/${e.investigation_id}` as Href)
                 }
@@ -90,17 +108,7 @@ export default function History() {
             </Card>
           ))}
           {entries?.length === 0 ? (
-            <Card>
-              <Heading>No contributions here yet.</Heading>
-              <Copy>
-                When you support an investigation, your receipt will appear
-                here.
-              </Copy>
-              <Button
-                label="Explore investigations"
-                onPress={() => r.push("/investigation")}
-              />
-            </Card>
+            <Copy>No contributions match these filters.</Copy>
           ) : null}
         </>
       )}

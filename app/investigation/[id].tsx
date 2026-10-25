@@ -1,3 +1,4 @@
+import { BookmarkButton } from "@/components/utilities/BookmarkButton";
 import { useRef, useState } from "react";
 import { Linking, Modal, ScrollView, Share, View } from "react-native";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
@@ -169,6 +170,7 @@ export default function Investigation() {
             </Card>
           ) : null}
           <Pill>{item.status}</Pill>
+          <BookmarkButton kind="investigation" id={item.id} />
           {item.concern ? <Copy>{item.concern}</Copy> : null}
           {creator ? (
             <Card>
