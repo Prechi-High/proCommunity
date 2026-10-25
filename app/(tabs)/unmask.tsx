@@ -1,12 +1,10 @@
-import { useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
-import { useRouter, type Href } from 'expo-router';
-
+import { useMemo, useState } from "react";
+import { Text, View } from "react-native";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import {
   ActionButton,
   AppShell,
-  ClarityLayers,
   CreatorStrip,
   EmptyState,
   FilterChips,
@@ -14,100 +12,229 @@ import {
   StatusMessage,
   StoryCard,
   StorySkeleton,
-} from '@/components/unmask-ui';
-import { COPY } from '@/constants/brand';
-import { colors, fonts } from '@/constants/theme';
-import { loadUnmasks } from '@/lib/unmask/feed';
-import { previewUnmasks, SAMPLE_CREATORS } from '@/lib/unmask/samples';
-import * as community from '@/lib/community-v2/api';
-
+} from "@/components/unmask-ui";
+import { Sparkle, UsersThree, ArrowRight } from "@/components/icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { colors, fonts } from "@/constants/theme";
+import { loadUnmasks } from "@/lib/unmask/feed";
+import * as community from "@/lib/community-v2/api";
 export default function Unmasks() {
   const router = useRouter();
-  const [sort, setSort] = useState<'Recent' | 'Most sparked'>('Recent');
-  const [filter, setFilter] = useState('All');
-  const [q, setQ] = useState('');
+  const [sort, setSort] = useState<"Recent" | "Most sparked">("Most sparked");
+  const [filter, setFilter] = useState("Open");
+  const [q, setQ] = useState("");
   const list = useQuery({
-    queryKey: ['unmasks', sort],
+    queryKey: ["unmasks", sort],
     queryFn: () => loadUnmasks(sort),
   });
-  const creators = useQuery({ queryKey: ['creators'], queryFn: community.creators });
+  const creators = useQuery({
+    queryKey: ["creators"],
+    queryFn: community.creators,
+  });
   const rows = useMemo(() => {
-    let out = previewUnmasks(list.data ?? [], sort);
-    if (filter === 'Open')
-      out = out.filter((i) => i.status === 'Open for Sparks' || i.chips.includes('Open for Sparks'));
-    if (filter === 'Ultra')
-      out = out.filter((i) => i.status === 'Ultra Unmasked' || i.cta.includes('Watch'));
-    if (q.trim()) {
-      const n = q.trim().toLowerCase();
-      out = out.filter((i) => `${i.title} ${i.productName}`.toLowerCase().includes(n));
-    }
+    let out = list.data ?? [];
+    if (filter === "Open")
+      out = out.filter((i) => i.status === "Open for Sparks");
+    if (filter === "In progress")
+      out = out.filter(
+        (i) => i.status === "Creator assigned" || i.status === "In the making",
+      );
+    if (filter === "Answers")
+      out = out.filter((i) => i.status === "Ultra Unmasked");
+    if (q.trim())
+      out = out.filter((i) =>
+        `${i.title} ${i.productName}`
+          .toLowerCase()
+          .includes(q.trim().toLowerCase()),
+      );
     return out;
-  }, [filter, list.data, q, sort]);
-  const creatorRows = (creators.data && creators.data.length ? creators.data : SAMPLE_CREATORS).slice(0, 8);
-  const usingSamples = rows.some((i) => i.sample);
-
+  }, [list.data, filter, q]);
   return (
-    <AppShell title="Unmask" serif notify flush subtitle={COPY.unmaskTabSubtitle}>
-      <View style={{ paddingHorizontal: 20, paddingBottom: 12, gap: 12 }}>
-        <SearchField
-          value={q}
-          onChange={setQ}
-          placeholder="Find an Ultra Unmask"
-          onSubmit={() => {
-            if (q.trim().length > 1) router.push({ pathname: '/results', params: { q: q.trim() } } as Href);
-          }}
-        />
-        <FilterChips options={['All', 'Open', 'Ultra']} value={filter} onChange={setFilter} />
-        <FilterChips
-          options={['Recent', 'Most sparked']}
-          value={sort}
-          onChange={(v) => setSort(v as 'Recent' | 'Most sparked')}
-        />
-        {usingSamples && !list.isLoading ? (
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.inkSoft }}>
-            Preview community · labeled samples. Live Ultra Unmasks join this list when people demand why.
-          </Text>
-        ) : null}
-        {filter === 'All' && !q ? <ClarityLayers /> : null}
-      </View>
-      {list.isError ? (
-        <View style={{ paddingHorizontal: 20, paddingVertical: 8 }}>
-          <StatusMessage kind="error" title="Couldn’t load Ultra Unmasks." detail="Try again in a moment." />
-        </View>
-      ) : null}
-      {list.isLoading ? (
-        <StorySkeleton />
-      ) : rows.length ? (
-        rows.map((item) => <StoryCard key={item.id} item={item} flush />)
-      ) : (
-        <View style={{ paddingHorizontal: 20 }}>
-          <EmptyState
-            title="Nothing in this view yet."
-            detail="Share what happened. If you need why, start an Ultra Unmask and add Sparks."
-            action={COPY.createQuestion}
-            onAction={() => router.push('/ask-community' as Href)}
-          />
-        </View>
-      )}
-      <View style={{ paddingTop: 28, paddingBottom: 12, gap: 16 }}>
-        <Text
+    <AppShell notify flush>
+      <View style={{ gap: 20, paddingTop: 10 }}>
+        <LinearGradient
+          colors={["#55202D", "#311019"]}
           style={{
-            fontFamily: fonts.semibold,
-            fontSize: 13,
-            letterSpacing: 0.6,
-            color: colors.inkSoft,
-            paddingHorizontal: 20,
-            textTransform: 'uppercase',
+            marginHorizontal: 20,
+            padding: 24,
+            borderRadius: 26,
+            gap: 12,
           }}
         >
-          {COPY.unmaskersTitle}
-        </Text>
-        <CreatorStrip creators={creatorRows} />
-        <View style={{ paddingHorizontal: 20, paddingTop: 8, gap: 10 }}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.inkSoft }}>
-            {COPY.unmaskersTeach}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Sparkle size={22} color="#E8CD89" weight="fill" />
+            <Text
+              style={{
+                fontFamily: fonts.semibold,
+                fontSize: 12,
+                letterSpacing: 1,
+                color: "#E8CD89",
+              }}
+            >
+              ULTRA UNMASK
+            </Text>
+          </View>
+          <Text
+            accessibilityRole="header"
+            style={{
+              fontFamily: fonts.serifBold,
+              fontSize: 34,
+              lineHeight: 37,
+              color: "#fff",
+            }}
+          >
+            Don’t stop at{"\n"}“good” or “bad.”
           </Text>
-          <ActionButton tone="ghost" label="See offers · unmask first" onPress={() => router.push('/offers' as Href)} />
+          <Text
+            style={{
+              fontFamily: fonts.regular,
+              fontSize: 15,
+              lineHeight: 23,
+              color: "#ECDADF",
+            }}
+          >
+            Bring your question. Add Sparks. Help a creator explore why — and
+            share what they find.
+          </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              paddingTop: 5,
+            }}
+          >
+            {["Your story", "Community Sparks", "Creator answers"].map(
+              (t, i) => (
+                <View key={t} style={{ flex: 1, gap: 7 }}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.semibold,
+                      fontSize: 12,
+                      color: "#D5B878",
+                    }}
+                  >
+                    0{i + 1}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: fonts.medium,
+                      fontSize: 13,
+                      lineHeight: 18,
+                      color: "#fff",
+                    }}
+                  >
+                    {t}
+                  </Text>
+                </View>
+              ),
+            )}
+          </View>
+        </LinearGradient>
+        <View style={{ paddingHorizontal: 20, gap: 14 }}>
+          <ActionButton
+            label="Request an Ultra Unmask"
+            icon={<Sparkle size={20} color="#fff" />}
+            onPress={() => router.push("/investigation/request")}
+          />
+          <SearchField
+            value={q}
+            onChange={setQ}
+            placeholder="Find a product story"
+          />
+          <FilterChips
+            options={["Open", "In progress", "Answers"]}
+            value={filter}
+            onChange={setFilter}
+          />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.semibold,
+                fontSize: 18,
+                color: colors.ink,
+              }}
+            >
+              {filter === "Answers"
+                ? "What we found"
+                : filter === "In progress"
+                  ? "Taking shape"
+                  : "Ready for a closer look"}
+            </Text>
+          </View>
+          <FilterChips
+            variant="chips"
+            options={["Most sparked", "Recent"]}
+            value={sort}
+            onChange={(v) => setSort(v as typeof sort)}
+          />
+        </View>
+        {list.isLoading ? (
+          <StorySkeleton />
+        ) : list.isError ? (
+          <View style={{ paddingHorizontal: 20, gap: 12 }}>
+            <StatusMessage kind="error" title="Ultra Unmasks couldn’t load." />
+            <ActionButton
+              label="Try again"
+              tone="secondary"
+              onPress={() => void list.refetch()}
+            />
+          </View>
+        ) : rows.length ? (
+          rows.map((i) => <StoryCard key={i.id} item={i} flush />)
+        ) : (
+          <View style={{ paddingHorizontal: 20 }}>
+            <EmptyState
+              title={
+                q
+                  ? "No matching stories yet."
+                  : filter === "Answers"
+                    ? "The next answer starts with a question."
+                    : "What deserves a closer look?"
+              }
+              detail="A great result, a disappointment or something you can’t explain. It all belongs here."
+              action="Ask your question"
+              onAction={() => router.push("/investigation/request")}
+            />
+          </View>
+        )}
+        <View style={{ paddingHorizontal: 20, gap: 12, paddingTop: 4 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <UsersThree size={23} color={colors.brand} />
+            <Text
+              style={{
+                fontFamily: fonts.semibold,
+                fontSize: 21,
+                color: colors.ink,
+              }}
+            >
+              Meet your creators
+            </Text>
+          </View>
+          <Text
+            style={{
+              fontFamily: fonts.regular,
+              fontSize: 14,
+              lineHeight: 21,
+              color: colors.inkSoft,
+            }}
+          >
+            Follow the people bringing more context to your product questions.
+          </Text>
+        </View>
+        <CreatorStrip creators={(creators.data ?? []).slice(0, 8)} />
+        <View style={{ paddingHorizontal: 20 }}>
+          <ActionButton
+            tone="ghost"
+            label="Explore all creators"
+            onPress={() => router.push("/creators")}
+          />
         </View>
       </View>
     </AppShell>

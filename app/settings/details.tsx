@@ -137,6 +137,15 @@ export default function SettingDetails() {
               onPress={() => r.push("/settings/whatsapp")}
             />
           </Card>
+          <Heading>Interface sounds</Heading>
+          <Copy>
+            Optional, quiet feedback. Video sound is controlled separately.
+          </Copy>
+          <Switch
+            accessibilityLabel="Interface sounds"
+            value={s.interfaceSounds}
+            onValueChange={s.setInterfaceSounds}
+          />
           <Heading>Haptic feedback</Heading>
           <Chips
             options={["off", "subtle", "expressive"]}

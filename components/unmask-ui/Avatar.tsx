@@ -1,7 +1,8 @@
-import { Image, Text, View } from 'react-native';
+import { useEffect, useState } from "react";
+import { Image, Text, View } from "react-native";
 
-import { colors, fonts } from '@/constants/theme';
-import { avatarTone, initials } from '@/lib/unmask/time';
+import { colors, fonts } from "@/constants/theme";
+import { avatarTone, initials } from "@/lib/unmask/time";
 
 export function Avatar({
   name,
@@ -13,6 +14,8 @@ export function Avatar({
   size?: number;
 }) {
   const bg = avatarTone(name);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [uri]);
   return (
     <View
       style={{
@@ -20,14 +23,18 @@ export function Avatar({
         height: size,
         borderRadius: size / 2,
         backgroundColor: bg,
-        overflow: 'hidden',
-        alignItems: 'center',
-        justifyContent: 'center',
+        overflow: "hidden",
+        alignItems: "center",
+        justifyContent: "center",
       }}
-      accessibilityLabel={name || 'Person'}
+      accessibilityLabel={name || "Person"}
     >
-      {uri ? (
-        <Image source={{ uri }} style={{ width: size, height: size }} />
+      {uri && !failed ? (
+        <Image
+          onError={() => setFailed(true)}
+          source={{ uri }}
+          style={{ width: size, height: size }}
+        />
       ) : (
         <Text
           style={{

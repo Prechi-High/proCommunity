@@ -1,8 +1,11 @@
-import { ExperienceAttachment, AttachedExperienceLink } from '@/components/unmask-ui/ExperienceAttachment';
-import { useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
-import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  ExperienceAttachment,
+  AttachedExperienceLink,
+} from "@/components/unmask-ui/ExperienceAttachment";
+import { useState } from "react";
+import { Text, TextInput, View } from "react-native";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   ActionButton,
@@ -10,13 +13,13 @@ import {
   Avatar,
   MediaFrame,
   StatusMessage,
-} from '@/components/unmask-ui';
-import { COPY } from '@/constants/brand';
-import { colors, fonts } from '@/constants/theme';
-import * as community from '@/lib/community-v2/api';
-import { SAMPLE_REPLIES, sampleById } from '@/lib/unmask/samples';
-import { relativeTime } from '@/lib/unmask/time';
-import { useAppStore } from '@/lib/store';
+} from "@/components/unmask-ui";
+import { COPY } from "@/constants/brand";
+import { colors, fonts } from "@/constants/theme";
+import * as community from "@/lib/community-v2/api";
+import { SAMPLE_REPLIES, sampleById } from "@/lib/unmask/samples";
+import { relativeTime } from "@/lib/unmask/time";
+import { useAppStore } from "@/lib/store";
 
 export default function Story() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,39 +27,52 @@ export default function Story() {
   const qc = useQueryClient();
   const uid = useAppStore((s) => s.profile?.id);
   const sample = sampleById(id);
-  const [attachment, setAttachment] = useState('');
-  const [reply, setReply] = useState('');
-  const [error, setError] = useState('');
+  const [attachment, setAttachment] = useState("");
+  const [reply, setReply] = useState("");
+  const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const story = useQuery({
-    queryKey: ['clarity-experience', id],
+    queryKey: ["clarity-experience", id],
     queryFn: () => community.experience(id),
     enabled: !!id && !sample,
   });
   const replies = useQuery({
-    queryKey: ['experience-replies', id],
-    queryFn: () => community.entries(id, 'replies'),
+    queryKey: ["experience-replies", id],
+    queryFn: () => community.entries(id, "replies"),
     enabled: !!id && !sample,
   });
   const updates = useQuery({
-    queryKey: ['experience-followups', id],
-    queryFn: () => community.entries(id, 'followups'),
+    queryKey: ["experience-followups", id],
+    queryFn: () => community.entries(id, "followups"),
     enabled: !!id && !sample,
   });
   const send = async () => {
     if (!uid) {
-      router.push('/(auth)/sign-in' as Href);
+      router.push("/(auth)/sign-in" as Href);
       return;
     }
     if (sample) return;
     setPending(true);
-    setError('');
+    setError("");
     try {
-      await community.addEntry(id, reply.trim(), 'replies', '', '', '', attachment || undefined);
-      setReply(''); setAttachment('');
-      await qc.invalidateQueries({ queryKey: ['experience-replies', id] });
+      await community.addEntry(
+        id,
+        reply.trim(),
+        "replies",
+        "",
+        "",
+        "",
+        attachment || undefined,
+      );
+      setReply("");
+      setAttachment("");
+      await qc.invalidateQueries({ queryKey: ["experience-replies", id] });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Reply didn’t send. Your text is still here.');
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Reply didn’t send. Your text is still here.",
+      );
     } finally {
       setPending(false);
     }
@@ -65,49 +81,126 @@ export default function Story() {
   if (sample) {
     const thread = SAMPLE_REPLIES[sample.id] ?? [];
     return (
-      <AppShell back title={sample.productName || 'Story'}>
+      <AppShell back title={sample.productName || "Story"}>
         {sample.sample ? (
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>
+          <Text
+            style={{
+              fontFamily: fonts.regular,
+              fontSize: 13,
+              color: colors.inkSoft,
+            }}
+          >
             Design sample · not a live member post.
           </Text>
         ) : null}
-        <MediaFrame uri={sample.photo || sample.productImage} label={sample.productName || sample.title} overlay />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <MediaFrame
+          uri={sample.photo || sample.productImage}
+          label={sample.productName || sample.title}
+          overlay
+        />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <Avatar name={sample.author} uri={sample.creatorAvatar} size={40} />
           <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{sample.author}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>
+            <Text
+              style={{
+                fontFamily: fonts.semibold,
+                fontSize: 15,
+                color: colors.ink,
+              }}
+            >
+              {sample.author}
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.regular,
+                fontSize: 13,
+                color: colors.inkSoft,
+              }}
+            >
               {relativeTime(sample.createdAt)}
-              {sample.chips[0] ? `  ·  ${sample.chips[0]}` : ''}
+              {sample.chips[0] ? `  ·  ${sample.chips[0]}` : ""}
             </Text>
           </View>
         </View>
-        <Text style={{ fontFamily: fonts.serifBold, fontSize: 26, lineHeight: 30, color: colors.ink, letterSpacing: -0.4 }}>
+        <Text
+          style={{
+            fontFamily: fonts.serifBold,
+            fontSize: 26,
+            lineHeight: 30,
+            color: colors.ink,
+            letterSpacing: -0.4,
+          }}
+        >
           {sample.title}
         </Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 17, lineHeight: 26, color: colors.ink }}>{sample.body}</Text>
+        <Text
+          style={{
+            fontFamily: fonts.regular,
+            fontSize: 17,
+            lineHeight: 26,
+            color: colors.ink,
+          }}
+        >
+          {sample.body}
+        </Text>
         <ActionButton
           label={COPY.takeFurther}
           tone="secondary"
-          onPress={() => router.push('/investigation/request' as Href)}
+          onPress={() => router.push("/investigation/request" as Href)}
         />
-        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.inkSoft }}>
+        <Text
+          style={{
+            fontFamily: fonts.regular,
+            fontSize: 14,
+            lineHeight: 20,
+            color: colors.inkSoft,
+          }}
+        >
           {COPY.supportPrompt}
         </Text>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 13, letterSpacing: 0.5, color: colors.inkSoft }}>REPLIES</Text>
+        <Text
+          style={{
+            fontFamily: fonts.semibold,
+            fontSize: 13,
+            letterSpacing: 0.5,
+            color: colors.inkSoft,
+          }}
+        >
+          REPLIES
+        </Text>
         {thread.map((r) => (
-          <View key={r.id} style={{ flexDirection: 'row', gap: 12, paddingVertical: 4 }}>
+          <View
+            key={r.id}
+            style={{ flexDirection: "row", gap: 12, paddingVertical: 4 }}
+          >
             <Avatar name={r.author} uri={r.avatar} size={32} />
             <View style={{ flex: 1, gap: 4 }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{r.author}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink }}>{r.body}</Text>
+              <Text
+                style={{
+                  fontFamily: fonts.semibold,
+                  fontSize: 14,
+                  color: colors.ink,
+                }}
+              >
+                {r.author}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: fonts.regular,
+                  fontSize: 16,
+                  lineHeight: 24,
+                  color: colors.ink,
+                }}
+              >
+                {r.body}
+              </Text>
             </View>
           </View>
         ))}
         <TextInput
           value={reply}
           onChangeText={setReply}
-          placeholder="Reply with what you lived. You can attach how you used it."
+          placeholder="Share what you know. You can attach your product experience."
           placeholderTextColor={colors.bone3}
           multiline
           style={{
@@ -120,7 +213,10 @@ export default function Story() {
             padding: 14,
           }}
         />
-        <ActionButton label="Sign in to reply" onPress={() => router.push('/(auth)/sign-in' as Href)} />
+        <ActionButton
+          label="Sign in to reply"
+          onPress={() => router.push("/(auth)/sign-in" as Href)}
+        />
       </AppShell>
     );
   }
@@ -128,64 +224,156 @@ export default function Story() {
   if (story.isError) {
     return (
       <AppShell back title="Story">
-        <StatusMessage kind="error" title="This story isn’t available." detail="It may be private or still loading." />
+        <StatusMessage
+          kind="error"
+          title="This story isn’t available."
+          detail="It may be private or still loading."
+        />
       </AppShell>
     );
   }
 
   const e = story.data;
   return (
-    <AppShell back title={e?.unmask_catalog?.name || 'Story'}>
+    <AppShell back title={e?.unmask_catalog?.name || "Story"}>
       {e ? (
         <>
-          <MediaFrame uri={e.photo_path || e.unmask_catalog?.image_url} label={e.unmask_catalog?.name || 'Story'} overlay />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <MediaFrame
+            uri={e.photo_path || e.unmask_catalog?.image_url}
+            experiencePath={e.photo_path}
+            label={e.unmask_catalog?.name || "Story"}
+            overlay
+          />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <Avatar name={e.author_name} size={40} />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{e.author_name}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>
+              <Text
+                style={{
+                  fontFamily: fonts.semibold,
+                  fontSize: 15,
+                  color: colors.ink,
+                }}
+              >
+                {e.author_name}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: fonts.regular,
+                  fontSize: 13,
+                  color: colors.inkSoft,
+                }}
+              >
                 {relativeTime(e.created_at)}
-                {e.duration ? `  ·  ${e.duration}` : ''}
-                {e.skin_type ? `  ·  ${e.skin_type}` : ''}
+                {e.duration ? `  ·  ${e.duration}` : ""}
+                {e.skin_type ? `  ·  ${e.skin_type}` : ""}
               </Text>
             </View>
           </View>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 17, lineHeight: 26, color: colors.ink }}>{e.body}</Text>
+          <Text
+            style={{
+              fontFamily: fonts.regular,
+              fontSize: 17,
+              lineHeight: 26,
+              color: colors.ink,
+            }}
+          >
+            {e.body}
+          </Text>
           <ActionButton
             label={COPY.takeFurther}
             tone="secondary"
             onPress={() =>
-              router.push(`/investigation/request?experience=${e.id}&product=${e.product_id}` as Href)
+              router.push(
+                `/investigation/request?experience=${e.id}&product=${e.product_id}` as Href,
+              )
             }
           />
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.inkSoft }}>
+          <Text
+            style={{
+              fontFamily: fonts.regular,
+              fontSize: 14,
+              lineHeight: 20,
+              color: colors.inkSoft,
+            }}
+          >
             {COPY.supportPrompt}
           </Text>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 13, letterSpacing: 0.5, color: colors.inkSoft }}>REPLIES</Text>
+          <Text
+            style={{
+              fontFamily: fonts.semibold,
+              fontSize: 13,
+              letterSpacing: 0.5,
+              color: colors.inkSoft,
+            }}
+          >
+            REPLIES
+          </Text>
           {(replies.data ?? []).map((r) => (
-            <View key={r.id} style={{ flexDirection: 'row', gap: 12, paddingVertical: 4 }}>
-              <Avatar name={r.author_name || 'Member'} size={32} />
+            <View
+              key={r.id}
+              style={{ flexDirection: "row", gap: 12, paddingVertical: 4 }}
+            >
+              <Avatar name={r.author_name || "Member"} size={32} />
               <View style={{ flex: 1, gap: 4 }}>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{r.author_name || 'Member'}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink }}>{r.body}</Text><AttachedExperienceLink id={r.attached_experience_id} />
+                <Text
+                  style={{
+                    fontFamily: fonts.semibold,
+                    fontSize: 14,
+                    color: colors.ink,
+                  }}
+                >
+                  {r.author_name || "Member"}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.regular,
+                    fontSize: 16,
+                    lineHeight: 24,
+                    color: colors.ink,
+                  }}
+                >
+                  {r.body}
+                </Text>
+                <AttachedExperienceLink id={r.attached_experience_id} />
               </View>
             </View>
           ))}
           {(updates.data ?? []).length ? (
             <>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 13, letterSpacing: 0.5, color: colors.inkSoft }}>UPDATES</Text>
+              <Text
+                style={{
+                  fontFamily: fonts.semibold,
+                  fontSize: 13,
+                  letterSpacing: 0.5,
+                  color: colors.inkSoft,
+                }}
+              >
+                UPDATES
+              </Text>
               {updates.data!.map((u) => (
-                <Text key={u.id} style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink }}>
+                <Text
+                  key={u.id}
+                  style={{
+                    fontFamily: fonts.regular,
+                    fontSize: 16,
+                    lineHeight: 24,
+                    color: colors.ink,
+                  }}
+                >
                   {u.body}
                 </Text>
               ))}
             </>
           ) : null}
-          <ExperienceAttachment productId={e.product_id} value={attachment} onChange={setAttachment} />
+          <ExperienceAttachment
+            productId={e.product_id}
+            value={attachment}
+            onChange={setAttachment}
+          />
           <TextInput
             value={reply}
             onChangeText={setReply}
-            placeholder="Reply with what you lived. You can attach how you used it."
+            placeholder="Share what you know. You can attach your product experience."
             placeholderTextColor={colors.bone3}
             multiline
             style={{
@@ -198,11 +386,24 @@ export default function Story() {
               padding: 14,
             }}
           />
-          {error ? <StatusMessage kind="error" title="Reply didn’t send." detail={error} /> : null}
-          <ActionButton label="Post reply" pending={pending} disabled={!reply.trim()} onPress={() => void send()} />
+          {error ? (
+            <StatusMessage
+              kind="error"
+              title="Reply didn’t send."
+              detail={error}
+            />
+          ) : null}
+          <ActionButton
+            label="Post reply"
+            pending={pending}
+            disabled={!reply.trim()}
+            onPress={() => void send()}
+          />
         </>
       ) : (
-        <Text style={{ fontFamily: fonts.regular, color: colors.inkSoft }}>Loading story…</Text>
+        <Text style={{ fontFamily: fonts.regular, color: colors.inkSoft }}>
+          Loading story…
+        </Text>
       )}
     </AppShell>
   );

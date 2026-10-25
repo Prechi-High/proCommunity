@@ -3,9 +3,9 @@
  * Web: procedural noise. Native: assets/sounds/peel.wav via expo-av.
  */
 
-import { Platform } from 'react-native';
+import { Platform } from "react-native";
 
-import { useAppStore } from './store';
+import { useAppStore } from "./store";
 
 let unlocked = false;
 let nativeSound: {
@@ -16,20 +16,22 @@ let loadingNative = false;
 
 function soundsAllowed() {
   try {
-    return useAppStore.getState().hapticsMode !== 'off';
+    return useAppStore.getState().interfaceSounds === true;
   } catch {
-    return true;
+    return false;
   }
 }
 
 /** Call once from a user gesture so browsers allow audio. */
 export function unlockAudio() {
+  if (!soundsAllowed()) return;
   unlocked = true;
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     try {
       const Ctx =
         window.AudioContext ||
-        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
       if (!Ctx) return;
       const ctx = new Ctx();
       void ctx.resume();
@@ -51,7 +53,8 @@ function playWebPeel() {
   try {
     const Ctx =
       window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
     if (!Ctx) return;
     const ctx = new Ctx();
     const duration = 0.38;
@@ -66,7 +69,9 @@ function playWebPeel() {
       const env = Math.exp(-t * 7.5) * (1 - t / duration);
       const white = Math.random() * 2 - 1;
       last = last * 0.72 + white * 0.28;
-      const crackle = (Math.random() > 0.92 ? (Math.random() * 2 - 1) * 0.55 : 0) * Math.exp(-t * 14);
+      const crackle =
+        (Math.random() > 0.92 ? (Math.random() * 2 - 1) * 0.55 : 0) *
+        Math.exp(-t * 14);
       const pitch = Math.sin(2 * Math.PI * (420 - t * 680) * t) * 0.08 * env;
       data[i] = (last * 0.55 + crackle + pitch) * env * 0.85;
     }
@@ -74,9 +79,9 @@ function playWebPeel() {
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     const gain = ctx.createGain();
-    gain.gain.value = 0.55;
+    gain.gain.value = 0.12;
     const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
+    filter.type = "bandpass";
     filter.frequency.value = 1800;
     filter.Q.value = 0.7;
     src.connect(filter);
@@ -92,19 +97,19 @@ function playWebPeel() {
 }
 
 async function ensureNative() {
-  if (nativeSound || loadingNative || Platform.OS === 'web') return;
+  if (nativeSound || loadingNative || Platform.OS === "web") return;
   loadingNative = true;
   try {
-    const { Audio } = await import('expo-av');
+    const { Audio } = await import("expo-av");
     await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
+      playsInSilentModeIOS: false,
       allowsRecordingIOS: false,
       staysActiveInBackground: false,
     });
     const { sound } = await Audio.Sound.createAsync(
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require('../assets/sounds/peel.wav'),
-      { volume: 0.75, shouldPlay: false },
+      require("../assets/sounds/peel.wav"),
+      { volume: 0.18, shouldPlay: false },
     );
     nativeSound = sound;
   } catch {
@@ -118,7 +123,7 @@ async function ensureNative() {
 export function playPeelSound() {
   if (!soundsAllowed()) return;
   unlocked = true;
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     playWebPeel();
     return;
   }

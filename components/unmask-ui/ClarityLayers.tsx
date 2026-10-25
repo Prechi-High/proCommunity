@@ -1,32 +1,61 @@
-import { Text, View } from 'react-native';
-
-import { COPY } from '@/constants/brand';
-import { colors, fonts } from '@/constants/theme';
-
+import { Text, View } from "react-native";
+import { ChatCircle, Sparkle } from "@/components/icons";
+import { colors, fonts } from "@/constants/theme";
 export function ClarityLayers() {
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: 12, paddingVertical: 8 }}>
       {[
-        { n: '1', title: COPY.layerOneTitle, body: COPY.layerOneBody },
-        { n: '2', title: COPY.layerTwoTitle, body: COPY.layerTwoBody },
-      ].map((row) => (
+        {
+          title: "Real people. Real experiences.",
+          body: "Ask the community and see how products worked over time.",
+          Icon: ChatCircle,
+          bg: "#EDF2EC",
+          fg: "#365D41",
+        },
+        {
+          title: "A closer look. Together.",
+          body: "Spark an Ultra Unmask. A creator can explore the question behind your story.",
+          Icon: Sparkle,
+          bg: "#F5E9DC",
+          fg: "#865B17",
+        },
+      ].map(({ title, body, Icon, bg, fg }) => (
         <View
-          key={row.n}
-          style={{
-            flexDirection: 'row',
-            gap: 14,
-            padding: 16,
-            borderRadius: 18,
-            backgroundColor: colors.stage,
-            alignItems: 'flex-start',
-          }}
+          key={title}
+          style={{ flexDirection: "row", gap: 13, alignItems: "flex-start" }}
         >
-          <Text style={{ fontFamily: fonts.serifBold, fontSize: 22, lineHeight: 26, color: colors.brandDeep, width: 22 }}>
-            {row.n}
-          </Text>
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>{row.title}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.inkSoft }}>{row.body}</Text>
+          <View
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 14,
+              backgroundColor: bg,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon size={23} color={fg} />
+          </View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text
+              style={{
+                fontFamily: fonts.semibold,
+                fontSize: 15,
+                color: colors.ink,
+              }}
+            >
+              {title}
+            </Text>
+            <Text
+              style={{
+                fontFamily: fonts.regular,
+                fontSize: 14,
+                lineHeight: 21,
+                color: colors.inkSoft,
+              }}
+            >
+              {body}
+            </Text>
           </View>
         </View>
       ))}

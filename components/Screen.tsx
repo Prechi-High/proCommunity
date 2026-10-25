@@ -1,8 +1,14 @@
-import { type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View, type ViewStyle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { type ReactNode } from "react";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  View,
+  type ViewStyle,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { colors, elevation } from '@/constants/theme';
+import { colors, elevation } from "@/constants/theme";
 
 export function Screen({
   children,
@@ -15,13 +21,27 @@ export function Screen({
   padded?: boolean;
   footer?: ReactNode;
 }) {
-  const bodyStyle: ViewStyle = { flex: 1, backgroundColor: colors.white, paddingHorizontal: padded ? 20 : 0, paddingTop: 4 };
+  const bodyStyle: ViewStyle = {
+    flex: 1,
+    backgroundColor: colors.white,
+    paddingHorizontal: padded ? 20 : 0,
+    paddingTop: 4,
+  };
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }} edges={['top']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.white }}
+      edges={["top"]}
+    >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         {scroll ? (
           <ScrollView
-            contentContainerStyle={[{ ...bodyStyle, flex: undefined }, { flexGrow: 1, paddingBottom: footer ? 24 : 32 }]}
+            contentContainerStyle={[
+              { ...bodyStyle, flex: undefined },
+              { flexGrow: 1, paddingBottom: footer ? 24 : 32 },
+            ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
@@ -34,7 +54,7 @@ export function Screen({
           <View
             style={{
               paddingHorizontal: 16,
-              paddingBottom: Platform.OS === 'web' ? 14 : 8,
+              paddingBottom: Platform.OS === "web" ? 14 : 8,
               paddingTop: 12,
               backgroundColor: colors.white,
               borderTopWidth: 1,
@@ -51,16 +71,23 @@ export function Screen({
 }
 
 export function WebShell({ children }: { children: ReactNode }) {
-  if (Platform.OS !== 'web') return <>{children}</>;
+  if (Platform.OS !== "web") return <>{children}</>;
   return (
-    <View style={{ flex: 1, width: '100%', backgroundColor: colors.webShell, alignItems: 'center' }}>
+    <View
+      style={{
+        flex: 1,
+        width: "100%",
+        backgroundColor: "#F0EDE9",
+        alignItems: "center",
+      }}
+    >
       <View
         style={{
           flex: 1,
-          width: '100%',
-          maxWidth: 430,
+          width: "100%",
+          maxWidth: 1040,
           backgroundColor: colors.white,
-          overflow: 'hidden',
+          overflow: "hidden",
           ...elevation.lifted,
         }}
       >

@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -6,14 +6,12 @@ import {
   ScrollView,
   Text,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Image } from 'react-native';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 
-import { ArrowLeft, Bell } from '@/components/icons';
-import { brandAssets } from '@/constants/brand';
-import { colors, fonts } from '@/constants/theme';
+import { ArrowLeft, Bell, Sparkle } from "@/components/icons";
+import { colors, fonts } from "@/constants/theme";
 
 export function AppShell({
   children,
@@ -38,24 +36,75 @@ export function AppShell({
 }) {
   const router = useRouter();
   const header = (
-    <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: title ? 8 : 4 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }}>
+    <View
+      style={{
+        paddingHorizontal: 20,
+        paddingTop: 4,
+        paddingBottom: title ? 8 : 4,
+      }}
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          minHeight: 44,
+        }}
+      >
         {back ? (
           <Pressable
             accessibilityLabel="Back"
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-            style={{ minWidth: 44, minHeight: 44, justifyContent: 'center' }}
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace("/")
+            }
+            style={{ minWidth: 44, minHeight: 44, justifyContent: "center" }}
           >
             <ArrowLeft size={22} color={colors.ink} />
           </Pressable>
         ) : (
-          <Image source={brandAssets.wordmarkInk} style={{ width: 96, height: 24 }} resizeMode="contain" accessibilityLabel="Unmask" />
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Unmask home"
+            onPress={() => router.replace("/")}
+            style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+          >
+            <View
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 10,
+                backgroundColor: colors.brandDeep,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Sparkle size={17} color="#F0D99C" />
+            </View>
+            <Text
+              style={{
+                fontFamily: fonts.serifBold,
+                fontSize: 30,
+                color: colors.brandDeep,
+                letterSpacing: -1,
+              }}
+            >
+              Unmask
+            </Text>
+          </Pressable>
         )}
         {notify ? (
           <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Notifications"
-            onPress={() => router.push('/notifications')}
-            style={{ minWidth: 44, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' }}
+            onPress={() => router.push("/notifications")}
+            style={{
+              minWidth: 44,
+              minHeight: 44,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 14,
+              backgroundColor: "#F5F0EC",
+            }}
           >
             <Bell size={22} color={colors.ink} />
           </Pressable>
@@ -78,7 +127,14 @@ export function AppShell({
             {title}
           </Text>
           {subtitle ? (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.inkSoft }}>
+            <Text
+              style={{
+                fontFamily: fonts.regular,
+                fontSize: 15,
+                lineHeight: 22,
+                color: colors.inkSoft,
+              }}
+            >
               {subtitle}
             </Text>
           ) : null}
@@ -88,8 +144,20 @@ export function AppShell({
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, width: "100%", maxWidth: 820, alignSelf: "center", backgroundColor: colors.white }} edges={['top']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <SafeAreaView
+      style={{
+        flex: 1,
+        width: "100%",
+        maxWidth: 780,
+        alignSelf: "center",
+        backgroundColor: colors.white,
+      }}
+      edges={["top"]}
+    >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         {header}
         {scroll ? (
           <ScrollView
@@ -104,14 +172,16 @@ export function AppShell({
             {children}
           </ScrollView>
         ) : (
-          <View style={{ flex: 1, paddingHorizontal: flush ? 0 : 20 }}>{children}</View>
+          <View style={{ flex: 1, paddingHorizontal: flush ? 0 : 20 }}>
+            {children}
+          </View>
         )}
         {footer ? (
           <View
             style={{
               paddingHorizontal: 20,
               paddingTop: 12,
-              paddingBottom: Platform.OS === 'web' ? 16 : 10,
+              paddingBottom: Platform.OS === "web" ? 16 : 10,
               borderTopWidth: 1,
               borderTopColor: colors.line,
               backgroundColor: colors.white,

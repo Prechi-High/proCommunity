@@ -1,8 +1,9 @@
-import { Text, View } from 'react-native';
+import { CheckCircle, Warning, Info, Clock } from "@/components/icons";
+import { Text, View } from "react-native";
 
-import { colors, fonts, radii } from '@/constants/theme';
+import { colors, fonts, radii } from "@/constants/theme";
 
-type Kind = 'info' | 'success' | 'error' | 'pending';
+type Kind = "info" | "success" | "error" | "pending";
 
 const STYLES: Record<Kind, { bg: string; fg: string; bar: string }> = {
   info: { bg: colors.mist, fg: colors.ink, bar: colors.brand },
@@ -12,7 +13,7 @@ const STYLES: Record<Kind, { bg: string; fg: string; bar: string }> = {
 };
 
 export function StatusMessage({
-  kind = 'info',
+  kind = "info",
   title,
   detail,
 }: {
@@ -21,6 +22,14 @@ export function StatusMessage({
   detail?: string;
 }) {
   const s = STYLES[kind];
+  const Icon =
+    kind === "success"
+      ? CheckCircle
+      : kind === "error"
+        ? Warning
+        : kind === "pending"
+          ? Clock
+          : Info;
   return (
     <View
       accessibilityLiveRegion="polite"
@@ -31,14 +40,32 @@ export function StatusMessage({
         padding: 16,
         paddingLeft: 14,
         gap: 4,
-        flexDirection: 'row',
+        flexDirection: "row",
       }}
     >
-      <View style={{ width: 3, borderRadius: 2, backgroundColor: s.bar, marginRight: 12 }} />
+      <Icon size={22} color={s.fg} style={{ marginRight: 10 }} />
       <View style={{ flex: 1, gap: 4 }}>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: s.fg }}>{title}</Text>
+        <Text
+          style={{
+            fontFamily: fonts.semibold,
+            fontSize: 15,
+            lineHeight: 20,
+            color: s.fg,
+          }}
+        >
+          {title}
+        </Text>
         {detail ? (
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: s.fg }}>{detail}</Text>
+          <Text
+            style={{
+              fontFamily: fonts.regular,
+              fontSize: 14,
+              lineHeight: 20,
+              color: s.fg,
+            }}
+          >
+            {detail}
+          </Text>
         ) : null}
       </View>
     </View>

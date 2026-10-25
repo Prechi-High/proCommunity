@@ -1,11 +1,11 @@
-import { Platform } from 'react-native';
-import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { Platform } from "react-native";
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
-import { track } from './analytics';
-import type { SearchCategoryId } from '@/constants/searchHome';
+import { track } from "./analytics";
+import type { SearchCategoryId } from "@/constants/searchHome";
 
-import { communityPosts } from './seed';
+import { communityPosts } from "./seed";
 import type {
   AppNotification,
   CommunityPost,
@@ -16,7 +16,7 @@ import type {
   Profile,
   ScanRecord,
   SearchHistoryItem,
-} from './types';
+} from "./types";
 
 const OWNERSHIP_WAIT_DAYS = 14;
 const KNOWN_PRODUCTS_MAX = 80;
@@ -31,7 +31,7 @@ function plusDays(iso: string, days: number): string {
   return date.toISOString();
 }
 
-export type HapticsMode = 'off' | 'subtle' | 'expressive' | 'full';
+export type HapticsMode = "off" | "subtle" | "expressive" | "full";
 
 export interface AppState {
   hydrated: boolean;
@@ -49,6 +49,8 @@ export interface AppState {
   flaggedPostIds: string[];
   userThreads: DiscussionThread[];
   hapticsMode: HapticsMode;
+  interfaceSounds: boolean;
+  setInterfaceSounds: (on: boolean) => void;
   saveSearchHistory: boolean;
   recentProductIds: string[];
   knownProducts: Record<string, Product>;
@@ -70,9 +72,14 @@ export interface AppState {
   toggleFavorite: (productId: string) => void;
   setPriceAlert: (productId: string, enabled: boolean) => void;
   markPurchased: (productId: string) => void;
-  addPost: (post: Omit<CommunityPost, 'id' | 'createdAt' | 'helpfulCount' | 'status' | 'parentPostId'> & {
-    parentPostId?: string | null;
-  }) => void;
+  addPost: (
+    post: Omit<
+      CommunityPost,
+      "id" | "createdAt" | "helpfulCount" | "status" | "parentPostId"
+    > & {
+      parentPostId?: string | null;
+    },
+  ) => void;
   voteHelpful: (postId: string) => void;
   addSearch: (query: string) => void;
   clearSearchHistory: () => void;
@@ -114,10 +121,10 @@ let asyncStorage: {
 
 // Web routes are rendered in Node first, where AsyncStorage's web backend
 // reaches for window.localStorage and throws.
-if (Platform.OS !== 'web' || typeof window !== 'undefined') {
+if (Platform.OS !== "web" || typeof window !== "undefined") {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    asyncStorage = require('@react-native-async-storage/async-storage').default;
+    asyncStorage = require("@react-native-async-storage/async-storage").default;
   } catch {
     asyncStorage = memoryStorage();
   }
@@ -133,10 +140,13 @@ export const useAppStore = create<AppState>()(
       searchCategoryIds: [] as SearchCategoryId[],
       toggleSearchCategory: (id) => {
         const cur = get().searchCategoryIds;
-        if (cur.includes(id)) set({ searchCategoryIds: cur.filter((x) => x !== id) });
+        if (cur.includes(id))
+          set({ searchCategoryIds: cur.filter((x) => x !== id) });
         else set({ searchCategoryIds: [...cur, id] });
       },
-      hapticsMode: 'subtle' as HapticsMode,
+      hapticsMode: "subtle" as HapticsMode,
+      interfaceSounds: false,
+      setInterfaceSounds: (on) => set({ interfaceSounds: on }),
       saveSearchHistory: true,
       recentProductIds: [] as string[],
       knownProducts: {} as Record<string, Product>,
@@ -166,12 +176,20 @@ export const useAppStore = create<AppState>()(
       },
       addRecentProduct: (productId) => {
         set({
-          recentProductIds: [productId, ...get().recentProductIds.filter((id) => id !== productId)].slice(0, 12),
+          recentProductIds: [
+            productId,
+            ...get().recentProductIds.filter((id) => id !== productId),
+          ].slice(0, 12),
         });
       },
       clearRecentProducts: () => set({ recentProductIds: [] }),
       deleteMyData: () => {
-        set({ searchHistory: [], favorites: [], recentProductIds: [], knownProducts: {} });
+        set({
+          searchHistory: [],
+          favorites: [],
+          recentProductIds: [],
+          knownProducts: {},
+        });
       },
       signIn: (email, displayName) => {
         const normalized = email.trim().toLowerCase();
@@ -180,11 +198,11 @@ export const useAppStore = create<AppState>()(
         set({
           ...emptyUserSlice,
           profile: {
-            id: uid('user'),
+            id: uid("user"),
             email: normalized,
-            displayName: displayName?.trim() || normalized.split('@')[0],
+            displayName: displayName?.trim() || normalized.split("@")[0],
             onboardingComplete: true,
-            isAdmin: normalized.endsWith('@sourced.local'),
+            isAdmin: normalized.endsWith("@sourced.local"),
           },
         });
       },
@@ -198,18 +216,19 @@ export const useAppStore = create<AppState>()(
         }
         set({
           profile: {
-            id: uid('member'),
-            email: '',
+            id: uid("member"),
+            email: "",
             displayName: name,
             onboardingComplete: true,
           },
         });
-        track('community_joined', {});
+        track("community_joined", {});
       },
       signOut: () => set({ ...emptyUserSlice }),
       setAuthProfile: (profile) => {
         const existing = get().profile;
-        if (existing?.id === profile.id) set({ profile: { ...existing, ...profile } });
+        if (existing?.id === profile.id)
+          set({ profile: { ...existing, ...profile } });
         else set({ ...emptyUserSlice, favorites: get().favorites, profile });
       },
       clearProfile: () => set({ profile: null }),
@@ -222,7 +241,7 @@ export const useAppStore = create<AppState>()(
       toggleFavorite: (productId) => {
         const favorites = get().favorites;
         const found = favorites.find((item) => item.productId === productId);
-        if (!found) track('product_saved', { productId });
+        if (!found) track("product_saved", { productId });
         set({
           favorites: found
             ? favorites.filter((item) => item.productId !== productId)
@@ -232,17 +251,24 @@ export const useAppStore = create<AppState>()(
       setPriceAlert: (productId, enabled) => {
         set({
           favorites: get().favorites.map((item) =>
-            item.productId === productId ? { ...item, priceAlertEnabled: enabled } : item,
+            item.productId === productId
+              ? { ...item, priceAlertEnabled: enabled }
+              : item,
           ),
         });
       },
       markPurchased: (productId) => {
-        if (get().ownerships.some((item) => item.productId === productId)) return;
+        if (get().ownerships.some((item) => item.productId === productId))
+          return;
         const now = new Date().toISOString();
         set({
           ownerships: [
             ...get().ownerships,
-            { productId, markedPurchasedAt: now, eligibleToPostAt: plusDays(now, OWNERSHIP_WAIT_DAYS) },
+            {
+              productId,
+              markedPurchasedAt: now,
+              eligibleToPostAt: plusDays(now, OWNERSHIP_WAIT_DAYS),
+            },
           ],
         });
       },
@@ -252,10 +278,10 @@ export const useAppStore = create<AppState>()(
         set({
           userPosts: [
             {
-              id: uid('post'),
+              id: uid("post"),
               createdAt: new Date().toISOString(),
               helpfulCount: 0,
-              status: 'visible',
+              status: "visible",
               parentPostId: post.parentPostId ?? null,
               ...post,
               userId: profile.id,
@@ -274,8 +300,10 @@ export const useAppStore = create<AppState>()(
         if (!trimmed || !get().saveSearchHistory) return;
         set({
           searchHistory: [
-            { id: uid('search'), query: trimmed, at: new Date().toISOString() },
-            ...get().searchHistory.filter((item) => item.query.toLowerCase() !== trimmed.toLowerCase()),
+            { id: uid("search"), query: trimmed, at: new Date().toISOString() },
+            ...get().searchHistory.filter(
+              (item) => item.query.toLowerCase() !== trimmed.toLowerCase(),
+            ),
           ].slice(0, 20),
         });
       },
@@ -283,7 +311,9 @@ export const useAppStore = create<AppState>()(
       markNotificationRead: (id) => {
         set({
           notifications: get().notifications.map((item) =>
-            item.id === id ? { ...item, readAt: new Date().toISOString() } : item,
+            item.id === id
+              ? { ...item, readAt: new Date().toISOString() }
+              : item,
           ),
         });
       },
@@ -292,10 +322,12 @@ export const useAppStore = create<AppState>()(
         set({ flaggedPostIds: [...get().flaggedPostIds, postId] });
       },
       resolveFlag: (postId) => {
-        set({ flaggedPostIds: get().flaggedPostIds.filter((id) => id !== postId) });
+        set({
+          flaggedPostIds: get().flaggedPostIds.filter((id) => id !== postId),
+        });
       },
       addThread: (productId, title) => {
-        const id = uid('thread');
+        const id = uid("thread");
         const profile = get().profile;
         set({
           userThreads: [
@@ -303,21 +335,25 @@ export const useAppStore = create<AppState>()(
               id,
               productId,
               title: title.trim(),
-              createdBy: profile?.id ?? 'you',
+              createdBy: profile?.id ?? "you",
               createdAt: new Date().toISOString(),
             },
             ...get().userThreads,
           ],
         });
-        track('thread_started', { productId, threadId: id });
+        track("thread_started", { productId, threadId: id });
         return id;
       },
     }),
     {
-      name: 'sourced-v2',
+      name: "sourced-v2",
       storage: createJSONStorage(() => asyncStorage),
       partialize: (state) => {
-        const { hydrated: _hydrated, setHydrated: _setHydrated, ...rest } = state;
+        const {
+          hydrated: _hydrated,
+          setHydrated: _setHydrated,
+          ...rest
+        } = state;
         return rest;
       },
       onRehydrateStorage: () => (state) => {
@@ -327,12 +363,17 @@ export const useAppStore = create<AppState>()(
   ),
 );
 
-export function isVerifiedForProduct(ownerships: Ownership[], productId: string): boolean {
+export function isVerifiedForProduct(
+  ownerships: Ownership[],
+  productId: string,
+): boolean {
   const row = ownerships.find((item) => item.productId === productId);
   if (!row) return false;
   return +new Date() >= +new Date(row.eligibleToPostAt);
 }
 
 export function allVisiblePosts(userPosts: CommunityPost[]): CommunityPost[] {
-  return [...userPosts, ...communityPosts].filter((post) => post.status === 'visible');
+  return [...userPosts, ...communityPosts].filter(
+    (post) => post.status === "visible",
+  );
 }

@@ -1,192 +1,227 @@
-import { Pressable, Text, View } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-
-import { CaretRight } from '@/components/icons';
-import { COPY } from '@/constants/brand';
-import { colors, fonts } from '@/constants/theme';
-import { hapticSelect } from '@/lib/haptics';
-import type { FeedItem } from '@/lib/unmask/feed';
-import { relativeTime } from '@/lib/unmask/time';
-
-import { Avatar } from './Avatar';
-import { MediaFrame } from './MediaFrame';
-import { SparkMeter } from './SparkMeter';
-
-function Byline({ item }: { item: FeedItem }) {
-  const router = useRouter();
-  const when = relativeTime(item.createdAt);
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Avatar name={item.author} uri={item.creatorAvatar} size={28} />
-      <Text accessibilityRole={item.authorId ? "link" : undefined} onPress={item.authorId ? (event) => { event.stopPropagation(); router.push(`/member/${item.authorId}` as Href); } : undefined} style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, color: colors.inkSoft }} numberOfLines={1}>
-        {item.author}
-        {when ? `  ·  ${when}` : ''}
-        {item.sample ? '  ·  Sample' : ''}
-      </Text>
-    </View>
-  );
-}
-
-function Meta({ item }: { item: FeedItem }) {
-  const bits = [
-    item.productName,
-    ...item.chips.filter((c) => c !== 'Sample' && c !== item.status),
-    item.replies ? `${item.replies} ${item.replies === 1 ? 'reply' : 'replies'}` : '',
-  ].filter(Boolean);
-  if (!bits.length) return null;
-  return (
-    <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.inkSoft }} numberOfLines={1}>
-      {bits.join('  ·  ')}
-    </Text>
-  );
-}
-
-function Cta({ label }: { label: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 2 }}>
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: colors.brandDeep }}>{label}</Text>
-      <CaretRight size={14} color={colors.brandDeep} weight="bold" />
-    </View>
-  );
-}
-
-export function StoryCard({ item, featured, flush }: { item: FeedItem; featured?: boolean; flush?: boolean }) {
-  const router = useRouter();
+import { Pressable, Text, View } from "react-native";
+import { useRouter, type Href } from "expo-router";
+import {
+  ArrowRight,
+  ChatCircle,
+  Sparkle,
+  Clock,
+  Play,
+} from "@/components/icons";
+import { colors, fonts } from "@/constants/theme";
+import { hapticSelect } from "@/lib/haptics";
+import type { FeedItem } from "@/lib/unmask/feed";
+import { relativeTime } from "@/lib/unmask/time";
+import { Avatar } from "./Avatar";
+import { MediaFrame } from "./MediaFrame";
+import { SparkMeter } from "./SparkMeter";
+export function StoryCard({
+  item,
+  featured,
+  flush,
+}: {
+  item: FeedItem;
+  featured?: boolean;
+  flush?: boolean;
+}) {
+  const r = useRouter();
+  const ultra = item.kind === "unmask";
+  const question = item.kind === "question";
+  const published = item.status === "Ultra Unmasked";
   const media = item.photo || item.productImage;
-  const pad = flush ? 20 : 0;
-  const rule = flush ? 1 : 0;
+  const tone = ultra ? "#8C6319" : question ? "#386247" : colors.brand;
+  const Icon = ultra ? Sparkle : question ? ChatCircle : Clock;
+  const kind = ultra
+    ? "Ultra Unmask"
+    : question
+      ? "Community question"
+      : "Product experience";
   const go = () => {
     hapticSelect();
-    router.push(item.href as Href);
+    r.push(item.href as Href);
   };
-
-  if (item.kind === 'question') {
-    return (
-      <Pressable
-        onPress={go}
-        accessibilityRole="link"
-        accessibilityLabel={`${item.title}. ${item.cta}`}
-        style={{ paddingHorizontal: pad, paddingVertical: 20, gap: 14, borderBottomWidth: rule, borderBottomColor: colors.line }}
+  return (
+    <View
+      style={{
+        marginHorizontal: flush ? 20 : 0,
+        marginBottom: 18,
+        borderRadius: 24,
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: "#EAE3DE",
+        overflow: "hidden",
+      }}
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 9,
+          padding: 16,
+        }}
       >
-        <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
-          <View style={{ width: 88, height: 88 }}>
-            <MediaFrame uri={item.productImage} label={item.productName || 'Product'} ratio={1} corners={false} />
-          </View>
+        <Avatar name={item.author} uri={item.creatorAvatar} size={34} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Pressable
+            disabled={!item.authorId}
+            accessibilityRole="link"
+            accessibilityLabel={`View ${item.author}'s profile`}
+            onPress={() => r.push(`/member/${item.authorId}` as Href)}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.semibold,
+                fontSize: 14,
+                color: colors.ink,
+              }}
+            >
+              {item.author}
+            </Text>
+          </Pressable>
           <Text
             style={{
-              flex: 1,
-              fontFamily: fonts.serifBold,
-              fontSize: 22,
-              lineHeight: 26,
-              color: colors.ink,
-              letterSpacing: -0.4,
+              fontFamily: fonts.regular,
+              fontSize: 12,
+              color: colors.inkSoft,
             }}
           >
-            {item.title}
+            {relativeTime(item.createdAt)}
+            {item.sample ? " · Design example" : ""}
           </Text>
         </View>
-        <Byline item={item} />
-        <Meta item={item} />
-        <Cta label={COPY.answerCta} />
-      </Pressable>
-    );
-  }
-
-  if (item.kind === 'unmask') {
-    return (
+        <View
+          style={{
+            padding: 7,
+            borderRadius: 12,
+            backgroundColor: ultra
+              ? "#F7EED8"
+              : question
+                ? "#EDF2EC"
+                : "#F6ECEF",
+          }}
+        >
+          <Icon size={18} color={tone} />
+        </View>
+      </View>
       <Pressable
-        onPress={go}
         accessibilityRole="link"
-        accessibilityLabel={`${item.title}. ${item.cta}`}
-        style={{ paddingBottom: 8, borderBottomWidth: rule, borderBottomColor: colors.line }}
+        accessibilityLabel={`${item.title}. ${published ? "Watch the Ultra Unmask" : question ? "Answer this question" : "Read the story"}`}
+        onPress={go}
+        style={({ pressed }) => ({ opacity: pressed ? 0.83 : 1 })}
       >
-        <View style={{ paddingHorizontal: pad, paddingTop: flush ? 8 : 0 }}>
-          <View style={{ position: 'relative' }}>
-            <MediaFrame uri={media} label={item.productName || item.title} ratio={16 / 10} play overlay={!!media} />
-            {item.status ? (
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 14,
-                  left: 14,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  backgroundColor: 'rgba(28,25,23,0.72)',
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
-                  borderRadius: 999,
-                }}
-              >
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.gold }} />
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.white }}>{item.status}</Text>
+        {media && !question ? (
+          <View style={{ paddingHorizontal: 12 }}>
+            <MediaFrame
+              uri={media}
+              experiencePath={
+                item.kind === "experience" ? item.photo : undefined
+              }
+              label={item.productName || item.title}
+              ratio={ultra ? 16 / 9 : 4 / 3}
+              play={published}
+              corners={false}
+            />
+          </View>
+        ) : null}
+        <View style={{ padding: 18, gap: 11 }}>
+          <Text
+            style={{
+              fontFamily: fonts.semibold,
+              fontSize: 11,
+              letterSpacing: 0.7,
+              color: tone,
+            }}
+          >
+            {kind.toUpperCase()}
+          </Text>
+          <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+            <Text
+              style={{
+                fontFamily: ultra ? fonts.serifBold : fonts.semibold,
+                fontSize: featured ? 26 : 21,
+                lineHeight: featured ? 31 : 27,
+                color: colors.ink,
+                flex: 1,
+              }}
+            >
+              {item.title}
+            </Text>
+            {question && item.productImage ? (
+              <View style={{ width: 64 }}>
+                <MediaFrame
+                  uri={item.productImage}
+                  label={item.productName || "Product"}
+                  ratio={1}
+                  corners={false}
+                />
               </View>
             ) : null}
           </View>
-        </View>
-        <View style={{ paddingHorizontal: pad, paddingTop: 16, paddingBottom: 20, gap: 10 }}>
-          <Text
+          {item.productName ? (
+            <Text
+              style={{
+                fontFamily: fonts.medium,
+                fontSize: 13,
+                color: colors.inkSoft,
+              }}
+            >
+              {item.productName}
+            </Text>
+          ) : null}
+          {item.chips.length ? (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {item.chips.map((c, i) => (
+                <View
+                  key={i}
+                  style={{
+                    paddingHorizontal: 9,
+                    paddingVertical: 5,
+                    borderRadius: 8,
+                    backgroundColor: "#F5F1EE",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.medium,
+                      fontSize: 12,
+                      color: colors.inkSoft,
+                    }}
+                  >
+                    {c}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+          {ultra && typeof item.sparks === "number" && !published ? (
+            <SparkMeter weight={item.sparks} goal={item.sparkGoal} compact />
+          ) : null}
+          <View
             style={{
-              fontFamily: fonts.serifBold,
-              fontSize: featured ? 26 : 22,
-              lineHeight: featured ? 30 : 26,
-              color: colors.ink,
-              letterSpacing: -0.45,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingTop: 3,
             }}
           >
-            {item.title}
-          </Text>
-          <Byline item={item} />
-          <Meta item={item} />
-          {typeof item.sparks === 'number' && item.status !== 'Ultra Unmasked' ? <SparkMeter weight={item.sparks} goal={item.sparkGoal} compact /> : null}
-          <Cta label={item.cta} />
+            <Text
+              style={{
+                fontFamily: fonts.semibold,
+                fontSize: 14,
+                color: colors.brandDeep,
+              }}
+            >
+              {published
+                ? "Watch the Ultra Unmask"
+                : ultra
+                  ? "See the story & add Sparks"
+                  : question
+                    ? "Share what you know"
+                    : "Read the experience"}
+            </Text>
+            <ArrowRight size={19} color={colors.brand} />
+          </View>
         </View>
       </Pressable>
-    );
-  }
-
-  return (
-    <Pressable
-      onPress={go}
-      accessibilityRole="link"
-      accessibilityLabel={`${item.title}. ${item.cta}`}
-      style={{ borderBottomWidth: rule, borderBottomColor: colors.line, paddingBottom: 8 }}
-    >
-      <View style={{ paddingHorizontal: pad, paddingTop: flush ? 8 : 0 }}>
-        <View style={{ position: 'relative' }}>
-          <MediaFrame
-            uri={media}
-            label={item.productName || item.title}
-            overlay={!!media}
-            ratio={media ? 4 / 5 : 5 / 4}
-          />
-          {media && item.productName ? (
-            <LinearGradient
-              colors={['rgba(28,25,23,0)', 'rgba(28,25,23,0.55)']}
-              style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, justifyContent: 'flex-end', height: 88 }}
-            >
-              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.92)' }}>{item.productName}</Text>
-            </LinearGradient>
-          ) : null}
-        </View>
-      </View>
-      <View style={{ paddingHorizontal: pad, paddingTop: 16, paddingBottom: 20, gap: 10 }}>
-        <Text
-          style={{
-            fontFamily: fonts.semibold,
-            fontSize: 20,
-            lineHeight: 26,
-            color: colors.ink,
-            letterSpacing: -0.3,
-          }}
-        >
-          {item.title}
-        </Text>
-        <Byline item={item} />
-        <Meta item={item} />
-        <Cta label={COPY.readStory} />
-      </View>
-    </Pressable>
+    </View>
   );
 }

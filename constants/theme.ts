@@ -1,58 +1,58 @@
-import { Platform, type ViewStyle } from 'react-native';
+import { Platform, type ViewStyle } from "react-native";
 
-import { BRAND_COPY } from './brand';
+import { BRAND_COPY } from "./brand";
 
 /**
  * Unmask visual system — white reading surface, wine actions, gold Sparks.
  * Spec ch.03 / ch.08. Craft: Apple hierarchy, Airbnb photography, creator energy.
  */
 export const colors = {
-  wine: '#FFFFFF',
-  wineDeep: '#F6F3F1',
-  lac: '#FFFFFF',
-  lac2: '#F6F0F2',
-  redact: '#1C1917',
-  bone: '#1C1917',
-  bone2: '#5C534F',
-  bone3: '#8A7F7A',
-  line: '#E8E2DF',
-  sage: '#236044',
-  honey: '#7A4B00',
-  coral: '#A52323',
-  brand: '#70323E',
-  brandDeep: '#3D0F15',
-  gold: '#C9A227',
-  goldSoft: '#F7EED4',
-  headerBg: '#FFFFFF',
-  hi: '#3D0F15',
-  hiSoft: '#F4EBED',
-  hiInk: '#3D0F15',
-  stage: '#F6F3F1',
-  shell: '#FFFFFF',
-  ink: '#1C1917',
-  inkSoft: '#5C534F',
-  rosewood: '#70323E',
-  rosewoodSoft: '#F4EBED',
-  honeySoft: '#FFF6E8',
-  honeyInk: '#7A4B00',
-  honeyBadge: '#7A4B00',
-  sageSoft: '#E8F3ED',
-  sageInk: '#236044',
-  coralSoft: '#FBEAEA',
-  mist: '#F3F0EE',
-  white: '#FFFFFF',
-  black: '#1C1917',
-  webShell: '#E8E2DF',
-  mark: '#F5E9C8',
-  markInk: '#1C1917',
-  markDark: '#70323E',
-  markGood: '#D8EDE3',
-  markGoodInk: '#236044',
-  markBad: '#F5DEDE',
-  markBadInk: '#A52323',
-  marker: '#C9A227',
-  markerInk: '#1C1917',
-  markerConcern: '#C45C4A',
+  wine: "#FFFFFF",
+  wineDeep: "#F6F3F1",
+  lac: "#FFFFFF",
+  lac2: "#F6F0F2",
+  redact: "#1C1917",
+  bone: "#1C1917",
+  bone2: "#5C534F",
+  bone3: "#746B66",
+  line: "#E8E2DF",
+  sage: "#236044",
+  honey: "#7A4B00",
+  coral: "#A52323",
+  brand: "#70323E",
+  brandDeep: "#3D0F15",
+  gold: "#C9A227",
+  goldSoft: "#F7EED4",
+  headerBg: "#FFFFFF",
+  hi: "#3D0F15",
+  hiSoft: "#F4EBED",
+  hiInk: "#3D0F15",
+  stage: "#F6F3F1",
+  shell: "#FFFFFF",
+  ink: "#1C1917",
+  inkSoft: "#5C534F",
+  rosewood: "#70323E",
+  rosewoodSoft: "#F4EBED",
+  honeySoft: "#FFF6E8",
+  honeyInk: "#7A4B00",
+  honeyBadge: "#7A4B00",
+  sageSoft: "#E8F3ED",
+  sageInk: "#236044",
+  coralSoft: "#FBEAEA",
+  mist: "#F3F0EE",
+  white: "#FFFFFF",
+  black: "#1C1917",
+  webShell: "#E8E2DF",
+  mark: "#F5E9C8",
+  markInk: "#1C1917",
+  markDark: "#70323E",
+  markGood: "#D8EDE3",
+  markGoodInk: "#236044",
+  markBad: "#F5DEDE",
+  markBadInk: "#A52323",
+  marker: "#C9A227",
+  markerInk: "#1C1917",
+  markerConcern: "#C45C4A",
 } as const;
 
 export const radii = {
@@ -99,60 +99,71 @@ export const motion = {
   reveal: 220,
   sheet: 280,
   signature: 400,
-  ease: 'cubic-bezier(0.2, 0, 0, 1)',
+  ease: "cubic-bezier(0.2, 0, 0, 1)",
 } as const;
 
 export const elevation = Platform.select({
   web: {
     flat: {},
-    raised: { boxShadow: '0 1px 2px rgba(28,25,23,0.04), 0 10px 28px rgba(61,15,21,0.08)' },
-    lifted: { boxShadow: '0 18px 50px rgba(61,15,21,0.16)' },
-    fab: { boxShadow: '0 8px 24px rgba(61,15,21,0.32)' },
+    raised: {
+      boxShadow:
+        "0 1px 2px rgba(28,25,23,0.04), 0 10px 28px rgba(61,15,21,0.08)",
+    },
+    lifted: { boxShadow: "0 18px 50px rgba(61,15,21,0.16)" },
+    fab: { boxShadow: "0 8px 24px rgba(61,15,21,0.32)" },
   },
   default: {
     flat: { shadowOpacity: 0, elevation: 0 },
     raised: {
-      shadowColor: '#3D0F15',
+      shadowColor: "#3D0F15",
       shadowOpacity: 0.1,
       shadowRadius: 18,
       shadowOffset: { width: 0, height: 8 },
       elevation: 4,
     },
     lifted: {
-      shadowColor: '#3D0F15',
+      shadowColor: "#3D0F15",
       shadowOpacity: 0.18,
       shadowRadius: 32,
       shadowOffset: { width: 0, height: 16 },
       elevation: 10,
     },
     fab: {
-      shadowColor: '#3D0F15',
+      shadowColor: "#3D0F15",
       shadowOpacity: 0.35,
       shadowRadius: 16,
       shadowOffset: { width: 0, height: 8 },
       elevation: 8,
     },
   },
-}) as Record<'flat' | 'raised' | 'lifted' | 'fab', ViewStyle>;
+}) as Record<"flat" | "raised" | "lifted" | "fab", ViewStyle>;
 
 export const scrim = {
-  soft: 'rgba(28,25,23,0.18)',
-  strong: 'rgba(28,25,23,0.55)',
-  onLight: 'rgba(255,255,255,0.72)',
+  soft: "rgba(28,25,23,0.18)",
+  strong: "rgba(28,25,23,0.55)",
+  onLight: "rgba(255,255,255,0.72)",
 } as const;
 
 export const scrimGradient = {
-  soft: ['rgba(246,243,241,0)', 'rgba(246,243,241,0.5)', 'rgba(246,243,241,0.96)'] as const,
-  strong: ['rgba(28,25,23,0)', 'rgba(28,25,23,0.35)', 'rgba(28,25,23,0.78)'] as const,
+  soft: [
+    "rgba(246,243,241,0)",
+    "rgba(246,243,241,0.5)",
+    "rgba(246,243,241,0.96)",
+  ] as const,
+  strong: [
+    "rgba(28,25,23,0)",
+    "rgba(28,25,23,0.35)",
+    "rgba(28,25,23,0.78)",
+  ] as const,
 } as const;
 
 export const fonts = {
-  regular: 'GeneralSans-Regular',
-  medium: 'GeneralSans-Medium',
-  semibold: 'GeneralSans-Semibold',
-  bold: 'GeneralSans-Bold',
-  serif: 'Boska-Medium',
-  serifBold: 'Boska-Bold',
+  regular: "GeneralSans-Regular",
+  medium: "GeneralSans-Medium",
+  semibold: "GeneralSans-Semibold",
+  bold: "GeneralSans-Bold",
+  serif: "Boska-Medium",
+  serifBold: "Boska-Bold",
 } as const;
 
 export const DISCLAIMER = BRAND_COPY.disclaimer;
