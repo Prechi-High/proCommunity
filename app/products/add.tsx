@@ -1,3 +1,4 @@
+import { getKnownProduct } from '@/lib/products';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
@@ -30,7 +31,8 @@ export default function TrackProduct() {
   const [error, setError] = useState('');
   const q = useQuery({ queryKey: ['catalog'], queryFn: () => api.catalog() });
   const exact = useQuery({ queryKey: ['catalog', product], queryFn: () => api.catalog(product), enabled: !!product });
-  const p = q.data?.find((x) => x.id === selected) || exact.data?.find((x) => x.id === selected);
+  const known = getKnownProduct(selected);
+  const p = q.data?.find(x => x.id === selected) || exact.data?.find(x => x.id === selected) || (known ? { id: known.id, name: known.name, brand: known.brand, category: known.category, image_url: known.heroImageUrl } : undefined);
 
   const save = async () => {
     if (!p || !uid) {
@@ -42,6 +44,7 @@ export default function TrackProduct() {
     try {
       const state: ProductState =
         status === 'Currently using' ? 'active' : status === 'Paused use' ? 'paused' : status === 'Previously used' ? 'stopped' : 'purchased';
+      await api.registerProduct({ id: p.id, name: p.name, brand: p.brand || '', category: p.category || 'skincare', heroImageUrl: p.image_url });
       await api.saveJourney({ product_id: p.id, acquisition: 'purchased', status: state, visibility: 'private' });
       hapticSaved(p.id);
       await qc.invalidateQueries({ queryKey: ['living', 'journeys'] });

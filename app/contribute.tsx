@@ -1,3 +1,4 @@
+import { getKnownProduct } from '@/lib/products';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -47,7 +48,9 @@ export default function Contribute() {
     queryFn: () => api.experiences(true),
     enabled: !!uid && step === 'mine',
   });
-  const selected = cat.data?.find((x) => x.id === product);
+  const exact = useQuery({ queryKey: ['catalog', product], queryFn: () => living.catalog(product), enabled: !!product });
+  const known = getKnownProduct(product);
+  const selected = cat.data?.find(x => x.id === product) || exact.data?.[0] || (known ? { id: known.id, name: known.name, brand: known.brand, category: known.category, image_url: known.heroImageUrl } : undefined);
   const key = `unmask:experience-draft:${uid || 'guest'}:${p.experience || product || 'new'}`;
 
   useEffect(() => {
