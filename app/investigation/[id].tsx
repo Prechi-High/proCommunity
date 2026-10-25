@@ -63,7 +63,7 @@ export default function UnmaskDetail() {
           <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.honeyInk }}>
             Sparks pushing this · {sparkNaira(sample.sparks ?? 0)} · {extra?.supporters ?? 0} people in
           </Text>
-          <SparkMeter weight={sample.sparks ?? 0} />
+          {!published ? <SparkMeter weight={sample.sparks ?? 0} /> : null}
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.honeyInk }}>{COPY.sparkTeach}</Text>
         </View>
         <View style={{ gap: 12 }}>
@@ -128,7 +128,7 @@ export default function UnmaskDetail() {
         <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.honeyInk }}>
           Sparks pushing this · {sparkNaira(weight)} · {summary.data?.supporters ?? 0} people in
         </Text>
-        <SparkMeter weight={weight} goal={item?.spark_goal} />
+        {stage === 'open' ? <SparkMeter weight={weight} goal={item?.spark_goal} /> : null}
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.honeyInk }}>
           {summary.data?.thunder
             ? `Includes ${summary.data.thunder} Thunder Spark${summary.data.thunder === 1 ? '' : 's'} (100 Sparks each).`

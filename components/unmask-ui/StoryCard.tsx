@@ -139,7 +139,7 @@ export function StoryCard({ item, featured, flush }: { item: FeedItem; featured?
           </Text>
           <Byline item={item} />
           <Meta item={item} />
-          {typeof item.sparks === 'number' ? <SparkMeter weight={item.sparks} goal={item.sparkGoal} compact /> : null}
+          {typeof item.sparks === 'number' && item.status !== 'Ultra Unmasked' ? <SparkMeter weight={item.sparks} goal={item.sparkGoal} compact /> : null}
           <Cta label={item.cta} />
         </View>
       </Pressable>

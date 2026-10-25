@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Image, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -23,6 +24,9 @@ export function MediaFrame({
   overlay?: boolean;
   corners?: boolean;
 }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [uri]);
+  const hasImage = !!uri && !failed;
   const r = compact ? 5 / 4 : ratio;
   return (
     <View
@@ -35,11 +39,11 @@ export function MediaFrame({
         backgroundColor: colors.mist,
       }}
     >
-      {uri ? (
-        <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+      {hasImage ? (
+        <Image onError={() => setFailed(true)} source={{ uri: uri! }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
       ) : (
         <LinearGradient
-          colors={['#F7F1F2', '#EBD6DA', '#D9B4BA']}
+          colors={['#FAFAFA', '#F2F2F2', '#E8E8E8']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ flex: 1, padding: 22, justifyContent: 'space-between' }}
@@ -52,7 +56,7 @@ export function MediaFrame({
               color: colors.brand,
             }}
           >
-            PRODUCT
+            PRODUCT IMAGE UNAVAILABLE
           </Text>
           <Text
             numberOfLines={3}
@@ -68,13 +72,13 @@ export function MediaFrame({
           </Text>
         </LinearGradient>
       )}
-      {overlay || play ? (
+      {hasImage && (overlay || play) ? (
         <LinearGradient
           colors={['rgba(28,25,23,0)', 'rgba(28,25,23,0.55)']}
           style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '48%' }}
         />
       ) : null}
-      {corners ? <FocusCorners selected ink={!uri} /> : null}
+      {corners ? <FocusCorners selected ink={!hasImage} /> : null}
       {play ? (
         <View
           style={{
