@@ -29,7 +29,7 @@ export default function Community() {
     queryFn: () => living.questions(),
   });
   const follows = useQuery({
-    queryKey: ["subscriptions"],
+    queryKey: ["subscriptions", uid],
     queryFn: living.subscriptions,
     enabled: !!uid,
   });
@@ -94,7 +94,7 @@ export default function Community() {
         .map((q) => (
           <Card key={q.id}>
             <Heading>{q.body}</Heading>
-            <Copy muted>{q.author_name}</Copy>
+            <Button quiet label={q.author_name} onPress={() => r.push(`/member/${q.user_id}` as Href)} />
             {q.context ? <Copy>{q.context}</Copy> : null}
             <Button
               quiet
