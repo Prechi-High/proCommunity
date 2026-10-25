@@ -68,7 +68,9 @@ export async function journeys() {
   return unwrap<Journey[]>(
     await db()
       .from("unmask_journeys")
-      .select("*,unmask_catalog(*)")
+      .select(
+        "*,unmask_catalog:unmask_catalog!unmask_journeys_product_id_fkey(*)",
+      )
       .eq("user_id", await userId())
       .order("updated_at", { ascending: false }),
   );
@@ -77,7 +79,9 @@ export async function journey(id: string) {
   return unwrap<Journey>(
     await db()
       .from("unmask_journeys")
-      .select("*,unmask_catalog(*)")
+      .select(
+        "*,unmask_catalog:unmask_catalog!unmask_journeys_product_id_fkey(*)",
+      )
       .eq("id", id)
       .single(),
   );
@@ -214,7 +218,9 @@ export async function routineItems(id: string) {
   return unwrap<RoutineItem[]>(
     await db()
       .from("unmask_routine_items")
-      .select("*,unmask_catalog(*)")
+      .select(
+        "*,unmask_catalog(*)",
+      )
       .eq("routine_id", id)
       .order("step_order"),
   );
