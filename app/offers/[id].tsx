@@ -129,7 +129,7 @@ export default function OfferDetail() {
             onPress={() =>
               router.push(
                 (sample
-                  ? `/story/${["sample-exp-1", "sample-exp-2", "sample-exp-3"][Number(sample.id.slice(-1)) - 1]}`
+                  ? ["/story/sample-exp-1", "/investigation/sample-unmask-2", "/story/sample-exp-3"][Number(sample.id.slice(-1)) - 1]
                   : `/product/${o.product_id}`) as Href,
               )
             }

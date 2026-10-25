@@ -259,7 +259,7 @@ export const SAMPLE_SHELF = products.map((p, i) => ({
   ...p,
   brand: "Fictional demo product",
   note: ["Week 6 · evening", "Week 2 · morning", "Week 4 · evening"][i],
-  href: `/story/${["sample-exp-1", "sample-exp-2", "sample-exp-3"][i]}`,
+  href: ["/story/sample-exp-1", "/investigation/sample-unmask-2", "/story/sample-exp-3"][i],
 }));
 export const SAMPLE_OFFERS = products.map((p, i) => ({
   id: `sample-offer-${i + 1}`,
