@@ -1,3 +1,4 @@
+import { membership } from "@/lib/creator/api";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import { UtilityPage, SignInCard } from "@/components/utilities/Page";
@@ -34,6 +35,11 @@ export default function You() {
   const experiences = useQuery({
     queryKey: ["my-clarity-experiences", p?.id],
     queryFn: () => clarity.experiences(true),
+    enabled: !!p,
+  });
+  const creator = useQuery({
+    queryKey: ["creator-membership", p?.id],
+    queryFn: membership,
     enabled: !!p,
   });
   const q = identity.data;
@@ -117,6 +123,16 @@ export default function You() {
           </Card>
         </>
       )}
+      {creator.data ? (
+        <Card>
+          <Heading>Creator workspace</Heading>
+          <Copy>Assignments, video submissions and earnings.</Copy>
+          <Button
+            label="Open creator workspace"
+            onPress={() => go("/creator")}
+          />
+        </Card>
+      ) : null}
       <Card>
         <Heading>Your product context</Heading>
         <Copy>Private until you choose to share.</Copy>

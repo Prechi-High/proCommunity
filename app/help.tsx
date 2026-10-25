@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { useRef } from "react";
 import { View } from "react-native";
@@ -54,11 +55,12 @@ const faqs = [
 ];
 export default function Help() {
   const r = useRouter();
+  const { assignment } = useLocalSearchParams<{ assignment?: string }>();
   const [query, setQuery] = useState("");
   const uid = useAppStore((s) => s.profile?.id);
   const [topic, setTopic] = useState("All");
   const [subject, setSubject] = useState("Payment question");
-  const [reference, setReference] = useState("");
+  const [reference, setReference] = useState(assignment || "");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
