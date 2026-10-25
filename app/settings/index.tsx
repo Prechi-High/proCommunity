@@ -14,6 +14,11 @@ const groups = [
   {
     title: "Account",
     rows: [
+      [
+        "Interests & optional context",
+        "Update your private setup",
+        "/onboarding/interests",
+      ],
       ["Profile", "Manage your profile and preferences", "/profile/edit"],
       [
         "Sign-in and security",

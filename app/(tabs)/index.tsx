@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Image, Linking, Pressable, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
@@ -9,6 +9,7 @@ import { FollowButton } from "@/components/living/FollowButton";
 import { Field } from "@/components/community-v2/ui";
 import {
   Button,
+  Chips,
   Busy,
   Card,
   Copy,
@@ -19,10 +20,26 @@ import {
 import * as community from "@/lib/community-v2/api";
 import * as living from "@/lib/living/api";
 import * as api from "@/lib/today/api";
+import { entrySeen, setup } from "@/lib/entry/api";
 import { useAppStore } from "@/lib/store";
 export default function Today() {
   const r = useRouter();
   const uid = useAppStore((s) => s.profile?.id);
+  const [seen, setSeen] = useState<boolean | null>(null);
+  useEffect(() => {
+    void entrySeen()
+      .then(setSeen)
+      .catch(() => setSeen(true));
+  }, []);
+  useEffect(() => {
+    if (seen === false && !uid) r.replace("/welcome");
+  }, [seen, uid, r]);
+  const prefs = useQuery({
+    queryKey: ["entry-setup", uid],
+    queryFn: setup,
+    enabled: !!uid,
+  });
+  const [interest, setInterest] = useState("All");
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const videos = useQuery({
@@ -34,8 +51,8 @@ export default function Today() {
     queryFn: community.creators,
   });
   const requests = useQuery({
-    queryKey: ["today-requests", uid],
-    queryFn: () => api.browse("", "All", "Most sparked"),
+    queryKey: ["today-requests", uid, interest],
+    queryFn: () => api.browse("", interest, "Most sparked"),
   });
   const subscriptions = useQuery({
     queryKey: ["subscriptions", uid],
@@ -55,6 +72,7 @@ export default function Today() {
   const creator = creators.data?.find(
     (c) => c.user_id === featured?.creator_id,
   );
+  if (!uid && seen !== true) return null;
   return (
     <TodayPage
       root
@@ -74,6 +92,16 @@ export default function Today() {
           r.push({ pathname: "/results", params: { q: search.trim() } } as Href)
         }
       />
+      {prefs.data?.interests.length ? (
+        <>
+          <Copy small>Your investigation interests</Copy>
+          <Chips
+            options={["All", ...prefs.data.interests]}
+            value={interest}
+            onChange={setInterest}
+          />
+        </>
+      ) : null}
       <Busy
         loading={videos.isLoading}
         error={videos.error}
