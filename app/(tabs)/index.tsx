@@ -1,12 +1,271 @@
-import { useState } from 'react';
-import { Text, View } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
-import { Body, Button, Busy, Card, Choices, Empty, Page, ProductTile, Tag, Title, design, useLivingQuery } from '@/components/living/ui';
-import { ExperienceCard } from '@/components/clarity/ExperienceCard';
-import { TogetherInvite } from '@/components/clarity/TogetherInvite';
-import * as api from '@/lib/clarity/api';
-import * as living from '@/lib/living/api';
-import { useAppStore } from '@/lib/store';
-import { useScan } from '@/lib/useScan';
-import { colors, fonts } from '@/constants/theme';
-export default function Today() { const r = useRouter(); const scan = useScan(); const uid = useAppStore(s => s.profile?.id); const [category, setCategory] = useState('All'); const [period, setPeriod] = useState('all'); const stats = useLivingQuery(['clarity-stats'], api.activity); const completed = useLivingQuery(['completed'], api.completedProducts); const feed = useLivingQuery(['clarity-feed'], () => api.experiences()); const mine = useLivingQuery(['journeys'], living.journeys, !!uid); const qs = useLivingQuery(['questions'], () => living.questions()); const routines = useLivingQuery(['public-routines'], () => living.routines()); const categories = ['All', ...new Set((completed.data || []).map(p => p.category).filter(Boolean))].slice(0, 8); const list = (completed.data || []).filter(p => (category === 'All' || p.category === category) && (period === 'all' || (p.first_completed_at && Date.parse(p.first_completed_at) > Date.now() - 7 * 86400000))); return <Page eyebrow="TODAY" title={'Look a little\ncloser.'} sub="Clarity for what you buy. Context for what you already use."><View style={[design.row, { flexWrap: 'wrap' }]}><Button label="Unmask a product" onPress={scan.start}/><Button quiet label="Search products" onPress={() => r.push('/unmask' as Href)}/></View><Body>{mine.data?.length ? `${mine.data.length} product ${mine.data.length === 1 ? 'story' : 'stories'} in your private shelf.` : 'Investigate privately. Share only when you choose.'}</Body><Card><Tag text="A CLEARER PICTURE, TOGETHER"/><Busy loading={stats.isLoading} error={stats.error} retry={() => void stats.refetch()}/>{stats.data ? <><Text style={{ fontFamily: fonts.medium, fontSize: 58, letterSpacing: -3, color: colors.ink }}>{stats.data.unique_products.toLocaleString()}</Text><Title>unique products investigated</Title><Body>{stats.data.new_this_week} first completions recorded this week.</Body><Button quiet label="What counts as investigated?" onPress={() => r.push('/activity' as Href)}/></> : null}</Card><Title>What people are looking into.</Title><Choices options={categories.map(id => ({ id, label: id }))} value={category} onChange={setCategory}/><Choices options={[{ id: 'all', label: 'Since launch' }, { id: 'week', label: 'New this week' }]} value={period} onChange={setPeriod}/><Busy loading={completed.isLoading} error={completed.error} retry={() => void completed.refetch()}/>{list.slice(0, 5).map(p => <ProductTile key={p.product_id} name={p.name} brand={p.brand} image={p.image_url} detail="Completed investigation · not a quality ranking" onPress={() => r.push({ pathname: '/product/[id]', params: { id: p.product_id, q: p.name } } as Href)}/>)}{completed.data && !list.length ? <Empty title="No completed investigations in this view." body="New results will appear after identity and evidence processing complete."/> : null}<Text style={design.small}>Ordered by recorded completion date. We do not present views or searches as completed investigations.</Text><Title>Product stories that changed.</Title><Busy loading={feed.isLoading} error={feed.error} retry={() => void feed.refetch()}/>{feed.data?.slice(0, 2).map(e => <ExperienceCard key={e.id} item={e}/>)}{feed.data?.length === 0 ? <Empty title="The longer view is still developing." body="Intentionally shared experiences will appear here as people contribute."/> : null}<Title action="My products" onPress={() => r.push('/products' as Href)}>Your private product history.</Title>{mine.data?.slice(0, 2).map(j => <ProductTile key={j.id} name={j.unmask_catalog?.name || j.product_id} image={j.unmask_catalog?.image_url} detail={`${j.status} · ${j.visibility}`} onPress={() => r.push(`/journey/${j.id}` as Href)}/>)}<Button quiet label="Saved products & recently viewed" onPress={() => r.push('/saved' as Href)}/><TogetherInvite /><Card><Tag text="UNMASK TONIGHT"/><Title>A little context from someone’s day.</Title><Body>{routines.data?.length ? 'Explore routines people have chosen to make public.' : 'Public routines are still growing. Your own routine can stay private.'}</Body>{routines.data?.slice(0, 2).map(x => <Button key={x.id} quiet label={x.name} onPress={() => r.push(`/routine/${x.id}` as Href)}/>)}<Button quiet label="Explore Community" onPress={() => r.push('/pulse' as Href)}/></Card><Title>Questions people are asking.</Title>{qs.data?.slice(0, 2).map(q => <Card key={q.id}><Body>{q.body}</Body><Button quiet label="Open conversation" onPress={() => r.push(`/question/${q.id}` as Href)}/></Card>)}<Busy loading={qs.isLoading} error={qs.error} retry={() => void qs.refetch()}/>{qs.data?.length === 0 ? <Body>No public questions yet.</Body> : null}<Button quiet label="Request a product investigation" onPress={() => r.push('/products?section=requests' as Href)}/>{scan.sheet}</Page>; }
+import { useState } from "react";
+import { Image, Linking, Pressable, View } from "react-native";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter, type Href } from "expo-router";
+import { TodayPage } from "@/components/today/Page";
+import { InvestigationCard } from "@/components/today/InvestigationCard";
+import { ProfileIdentity } from "@/components/profiles/Identity";
+import { FollowButton } from "@/components/living/FollowButton";
+import { Field } from "@/components/community-v2/ui";
+import {
+  Button,
+  Busy,
+  Card,
+  Copy,
+  Heading,
+  Notice,
+  Pill,
+} from "@/components/unmask/reference/ui";
+import * as community from "@/lib/community-v2/api";
+import * as living from "@/lib/living/api";
+import * as api from "@/lib/today/api";
+import { useAppStore } from "@/lib/store";
+export default function Today() {
+  const r = useRouter();
+  const uid = useAppStore((s) => s.profile?.id);
+  const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
+  const videos = useQuery({
+    queryKey: ["creator-publications", undefined],
+    queryFn: () => community.publications(),
+  });
+  const creators = useQuery({
+    queryKey: ["creators"],
+    queryFn: community.creators,
+  });
+  const requests = useQuery({
+    queryKey: ["today-requests", uid],
+    queryFn: () => api.browse("", "All", "Most sparked"),
+  });
+  const subscriptions = useQuery({
+    queryKey: ["subscriptions", uid],
+    queryFn: living.subscriptions,
+    enabled: !!uid,
+  });
+  const products = (subscriptions.data ?? [])
+    .filter((s) => s.target_type === "product")
+    .map((s) => s.target_id)
+    .sort();
+  const updates = useQuery({
+    queryKey: ["today-followed-updates", uid, products],
+    queryFn: () => api.followedUpdates(products),
+    enabled: !!uid && subscriptions.isSuccess,
+  });
+  const featured = videos.data?.[0];
+  const creator = creators.data?.find(
+    (c) => c.user_id === featured?.creator_id,
+  );
+  return (
+    <TodayPage
+      root
+      title="A little clarity for today."
+      sub="Experiences, questions and investigations worth your attention."
+    >
+      <Field
+        label="Search products, ingredients or topics"
+        value={search}
+        onChange={setSearch}
+      />
+      <Button
+        quiet
+        disabled={search.trim().length < 2}
+        label="Search Unmask"
+        onPress={() =>
+          r.push({ pathname: "/results", params: { q: search.trim() } } as Href)
+        }
+      />
+      <Busy
+        loading={videos.isLoading}
+        error={videos.error}
+        retry={() => void videos.refetch()}
+      />
+      {featured ? (
+        <Card>
+          {featured.thumbnail_url ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Play ${featured.title}`}
+              onPress={() =>
+                void Linking.openURL(featured.video_url).catch(() =>
+                  setError("Could not open this video."),
+                )
+              }
+            >
+              <Image
+                source={{ uri: featured.thumbnail_url }}
+                style={{ width: "100%", aspectRatio: 16 / 9, borderRadius: 12 }}
+                resizeMode="cover"
+              />
+            </Pressable>
+          ) : null}
+          <Heading>{featured.title}</Heading>
+          <Pill>Published</Pill>
+          <Button
+            label="▶ Watch investigation"
+            onPress={() =>
+              void Linking.openURL(featured.video_url).catch(() =>
+                setError("Could not open this video."),
+              )
+            }
+          />
+          {creator ? (
+            <Button
+              quiet
+              label={`Unmasked by ${creator.display_name} · View creator`}
+              onPress={() => r.push(`/creators?id=${creator.user_id}` as Href)}
+            />
+          ) : null}
+          {featured.product_id ? (
+            <Button
+              quiet
+              label="Explore this product"
+              onPress={() => r.push(`/product/${featured.product_id}` as Href)}
+            />
+          ) : null}
+        </Card>
+      ) : videos.isSuccess ? (
+        <Card>
+          <Heading>The first stories are taking shape.</Heading>
+          <Copy>
+            Published creator investigations will appear here. Explore the
+            community’s questions while we build.
+          </Copy>
+          <Button
+            label="Browse investigation requests"
+            onPress={() => r.push("/investigation")}
+          />
+        </Card>
+      ) : null}
+      {error ? <Notice>{error}</Notice> : null}
+      <Card>
+        <Heading>From products you follow</Heading>
+        {!uid ? (
+          <>
+            <Copy>
+              Sign in and follow products to keep up with public experience
+              updates.
+            </Copy>
+            <Button
+              quiet
+              label="Sign in"
+              onPress={() => r.push("/(auth)/sign-in")}
+            />
+          </>
+        ) : (
+          <>
+            <Busy
+              loading={subscriptions.isLoading || updates.isLoading}
+              error={subscriptions.error || updates.error}
+              retry={() => {
+                void subscriptions.refetch();
+                void updates.refetch();
+              }}
+            />
+            {updates.data?.map((u) => (
+              <Card key={u.id}>
+                <Heading>
+                  {u.clarity_experiences.author_name} added an experience update
+                </Heading>
+                <Copy muted>
+                  {u.clarity_experiences.unmask_catalog?.name ||
+                    "Product experience"}
+                </Copy>
+                <Copy>{u.body}</Copy>
+                <Copy small>{new Date(u.created_at).toLocaleDateString()}</Copy>
+                <Button
+                  quiet
+                  label="Read the experience"
+                  onPress={() =>
+                    r.push(
+                      `/contribute?experience=${u.clarity_experiences.id}` as Href,
+                    )
+                  }
+                />
+              </Card>
+            ))}
+            {updates.data?.length === 0 ? (
+              <Copy>
+                {products.length
+                  ? "No public updates from these products yet."
+                  : "Follow a product to see its experience updates here."}
+              </Copy>
+            ) : null}
+            <Button
+              quiet
+              label="Explore products"
+              onPress={() => r.push("/unmask")}
+            />
+          </>
+        )}
+      </Card>
+      <Card>
+        <Heading>Questions gaining support</Heading>
+        <Button
+          quiet
+          label="Browse requests"
+          onPress={() => r.push("/investigation")}
+        />
+        <Busy
+          loading={requests.isLoading}
+          error={requests.error}
+          retry={() => void requests.refetch()}
+        />
+        {requests.data
+          ?.filter((i) => i.status !== "published")
+          .slice(0, 2)
+          .map((i) => (
+            <InvestigationCard compact key={i.id} item={i} />
+          ))}
+        {requests.isSuccess &&
+        !requests.data?.some((i) => i.status !== "published") ? (
+          <Copy>
+            No open requests in this selection yet. Bring a question to the
+            community.
+          </Copy>
+        ) : null}
+        <Copy small>
+          Ordered by combined Spark support. Support does not determine
+          findings.
+        </Copy>
+      </Card>
+      <Card>
+        <Heading>Meet the Unmask Creators</Heading>
+        <Busy
+          loading={creators.isLoading}
+          error={creators.error}
+          retry={() => void creators.refetch()}
+        />
+        {creators.data?.slice(0, 2).map((c) => (
+          <Card key={c.user_id}>
+            <ProfileIdentity name={c.display_name} avatar={c.avatar_url} />
+            <Copy small>{c.specialties.join(" · ")}</Copy>
+            <Button
+              quiet
+              label="View creator"
+              onPress={() => r.push(`/creators?id=${c.user_id}` as Href)}
+            />
+            {uid !== c.user_id ? (
+              <FollowButton type="person" id={c.user_id} />
+            ) : null}
+          </Card>
+        ))}
+        {creators.data?.length === 0 ? (
+          <Copy>Creator profiles will appear here when published.</Copy>
+        ) : null}
+        <Button
+          quiet
+          label="See all creators"
+          onPress={() => r.push("/creators")}
+        />
+      </Card>
+      <Card>
+        <Heading>Have a product experience?</Heading>
+        <Copy>Share what happened. Help someone else find clarity.</Copy>
+        <Button
+          label="Share your experience"
+          onPress={() => r.push("/contribute")}
+        />
+      </Card>
+    </TodayPage>
+  );
+}
