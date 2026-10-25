@@ -79,7 +79,7 @@ export const COPY = {
   unmaskerHasThis: 'is taking this further',
   contributePlaceholder: 'Day one it stung. Week six it settled. Keep writing as it changes.',
   todaySubtitle: 'Lived stories, questions, and Ultra Unmasks.',
-  unmaskTabSubtitle: 'Investigate this question. Spark it. An Unmasker can take it to the company.',
+  unmaskTabSubtitle: 'Explore investigations. Support the questions you want examined.',
   productTabSubtitle: 'Track it over time. Share only what you choose.',
 } as const;
 

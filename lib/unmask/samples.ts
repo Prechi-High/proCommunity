@@ -213,10 +213,10 @@ export const SAMPLE_FEED: FeedItem[] = [
     productName: 'Indomie Super Pack',
     productImage: IMG.noodles,
     photo: IMG.noodles,
-    chips: ['An Unmasker has this'],
+    chips: ['Creator assigned'],
     href: '/investigation/sample-unmask-3',
     cta: 'See the Ultra Unmask',
-    status: 'An Unmasker has this',
+    status: 'Creator assigned',
     sparks: 520,
   }),
   item({
