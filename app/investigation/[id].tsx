@@ -27,11 +27,14 @@ function key() {
   });
 }
 export default function Investigation() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, support: openSupport } = useLocalSearchParams<{
+    id: string;
+    support?: string;
+  }>();
   const r = useRouter();
   const qc = useQueryClient();
   const uid = useAppStore((s) => s.profile?.id);
-  const [panel, setPanel] = useState(false);
+  const [panel, setPanel] = useState(openSupport === "1");
   const [kind, setKind] = useState<"sparks" | "thunder">("sparks");
   const [amount, setAmount] = useState("10");
   const [publicAck, setPublic] = useState(false);
@@ -90,6 +93,11 @@ export default function Investigation() {
       setPanel(false);
       await qc.invalidateQueries({ queryKey: ["investigation-support", id] });
       await wallet.refetch();
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["investigation-browse"] }),
+        qc.invalidateQueries({ queryKey: ["today-requests"] }),
+        qc.invalidateQueries({ queryKey: ["spark-history"] }),
+      ]);
     } catch (x) {
       setError(
         x instanceof Error

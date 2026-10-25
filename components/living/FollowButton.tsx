@@ -22,6 +22,7 @@ export function FollowButton({
       qc.invalidateQueries({ queryKey: ["profile-people"] }),
       qc.invalidateQueries({ queryKey: ["profile-counts"] }),
       qc.invalidateQueries({ queryKey: ["subscriptions"] }),
+      qc.invalidateQueries({ queryKey: ["investigation-browse"] }),
     ]);
   };
   const sub = q.data?.find((s) => s.target_type === type && s.target_id === id);
