@@ -2264,6 +2264,10 @@ Deno.serve(async (req) => {
   if (!secret("SERPER_API_KEY")) return json({ error: "missing_serper_key" }, 503);
 
   const action = str(body.action, 20);
+  // Community-first release: legacy clients cannot start paid automated research.
+  if ((action === "start_unmask" || action === "investigate") && secret("ENABLE_AUTOMATED_RESEARCH") !== "true") {
+    return json({ error: "automated_research_paused", message: "Automatic research is paused. Read community experiences or request a creator investigation." }, 409);
+  }
   const query = str(body.query, 160);
   const country = (str(body.country, 4) || "ng").toLowerCase();
 

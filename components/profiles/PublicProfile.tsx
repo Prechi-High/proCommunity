@@ -67,7 +67,7 @@ export function PublicProfile({
   const bio =
     identity.data?.bio ||
     live?.bio ||
-    (sample ? `${name} is an Unmasker. They take lived stories to the company and to people who know.` : '');
+    (sample ? `${name} is an Unmask Creator. They take lived stories to the company and to people who know.` : '');
   const avatar = identity.data?.avatar_url || live?.avatar_url || sample?.avatar_url;
   const options = unmasker ? ['Ultra Unmasks', 'Stories', 'About'] : ['Stories', 'Questions', 'Sparked'];
   const active = options.includes(tab) ? tab : options[0];
@@ -85,7 +85,7 @@ export function PublicProfile({
   };
 
   return (
-    <AppShell back title={unmasker ? 'Unmasker' : name} subtitle={unmasker ? COPY.unmaskersTeach : undefined}>
+    <AppShell back title={unmasker ? 'Unmask Creator' : name} subtitle={unmasker ? COPY.unmaskersTeach : undefined}>
       <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
         <Avatar name={name} uri={avatar} size={72} />
         <View style={{ flex: 1, gap: 4 }}>
@@ -97,7 +97,7 @@ export function PublicProfile({
       </View>
       {unmasker ? (
         <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brandDeep }}>
-          Unmasker · they take a story further
+          Unmask Creator · product investigations
         </Text>
       ) : null}
       {bio ? <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.ink }}>{bio}</Text> : null}
@@ -106,12 +106,12 @@ export function PublicProfile({
           {counts.data.followers} followers · {counts.data.following} following
         </Text>
       ) : sample ? (
-        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>Preview Unmasker · labeled sample</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>Preview creator · labeled sample</Text>
       ) : null}
       {uid === id ? (
         <ActionButton tone="secondary" label="Edit profile" onPress={() => router.push('/profile/edit' as Href)} />
       ) : sample ? (
-        <ActionButton tone="secondary" label="Follow this Unmasker" onPress={() => router.push('/(auth)/sign-in' as Href)} />
+        <ActionButton tone="secondary" label="Follow this creator" onPress={() => router.push('/(auth)/sign-in' as Href)} />
       ) : (
         <FollowButton type="person" id={id} />
       )}
@@ -194,7 +194,7 @@ export function PublicProfile({
 
       {active === 'About' ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.inkSoft }}>
-          {bio || 'No bio yet.'} Unmaskers ask companies and people who know. Sparks cannot buy the answer.
+          {bio || 'No bio yet.'} Unmask Creators gather experiences and seek company or expert responses. Sparks cannot buy the answer.
         </Text>
       ) : null}
     </AppShell>
