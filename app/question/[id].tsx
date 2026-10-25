@@ -1,3 +1,4 @@
+import { ReportButton } from "@/components/team/ReportButton";
 import { CommunityPage } from "@/components/community-v2/ui";
 import { FollowButton } from "@/components/living/FollowButton";
 import { useState } from "react";
@@ -47,6 +48,9 @@ export default function QuestionScreen() {
         </Card>
       ) : null}
       <FollowButton type="question" id={id} />
+      {q.data && !q.data.routine_id ? (
+        <ReportButton kind="question" id={id} />
+      ) : null}
       <Title>Replies</Title>
       <Busy loading={answers.isLoading} error={answers.error} />
       {answers.data?.map((a) => (

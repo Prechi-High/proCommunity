@@ -20,6 +20,7 @@ export type Publication = {
   product_id: string | null;
   video_url: string;
   thumbnail_url: string | null;
+  commercial_disclosure: string;
 };
 export type Entry = {
   id: string;
@@ -49,7 +50,9 @@ export const creators = () =>
 export const publications = (id?: string) => {
   let q = db()
     .from("unmask_creator_publications")
-    .select("id,creator_id,title,product_id,video_url,thumbnail_url")
+    .select(
+      "id,creator_id,title,product_id,video_url,thumbnail_url,commercial_disclosure",
+    )
     .eq("published", true)
     .order("created_at", { ascending: false });
   if (id) q = q.eq("creator_id", id);

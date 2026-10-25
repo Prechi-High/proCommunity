@@ -170,6 +170,9 @@ export default function Investigation() {
             </Card>
           ) : null}
           <Pill>{item.status}</Pill>
+          {item.commercial_disclosure ? (
+            <Notice>Commercial disclosure: {item.commercial_disclosure}</Notice>
+          ) : null}
           <BookmarkButton kind="investigation" id={item.id} />
           {item.concern ? <Copy>{item.concern}</Copy> : null}
           {creator ? (

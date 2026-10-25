@@ -1,3 +1,4 @@
+import { ReportButton } from "@/components/team/ReportButton";
 import { BookmarkButton } from "@/components/utilities/BookmarkButton";
 import * as ImagePicker from "expo-image-picker";
 import { Field } from "@/components/community-v2/ui";
@@ -413,6 +414,15 @@ export default function Contribute() {
               <Heading>{e.author_name}</Heading>
               <BookmarkButton kind="experience" id={e.id} />
               {e.visibility === "public" ? (
+                <ReportButton kind="experience" id={e.id} />
+              ) : null}
+              {e.moderation_status === "removed" ? (
+                <Notice>
+                  This experience has been removed from public view by
+                  moderation.
+                </Notice>
+              ) : null}
+              {e.visibility === "public" ? (
                 <Button
                   quiet
                   label="View Unmasker profile"
@@ -480,6 +490,9 @@ export default function Contribute() {
                   {replies.data?.map((x) => (
                     <Card key={x.id}>
                       <Copy small>{x.author_name}</Copy>
+                      {e.visibility === "public" ? (
+                        <ReportButton kind="reply" id={x.id} />
+                      ) : null}
                       <Copy>{x.body}</Copy>
                     </Card>
                   ))}

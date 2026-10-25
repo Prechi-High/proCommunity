@@ -16,6 +16,7 @@ export type Investigation = {
   uncertainty: string;
   sources: string;
   video_url: string | null;
+  commercial_disclosure?: string;
   created_at: string;
 };
 export type Summary = {

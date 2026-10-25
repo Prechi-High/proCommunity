@@ -40,6 +40,7 @@ export async function followedUpdates(products: string[]) {
       "id,body,created_at,clarity_experiences!inner(*,unmask_catalog(name,brand,image_url))",
     )
     .eq("clarity_experiences.visibility", "public")
+    .eq("clarity_experiences.moderation_status", "visible")
     .in("clarity_experiences.product_id", products)
     .order("created_at", { ascending: false })
     .limit(3);
