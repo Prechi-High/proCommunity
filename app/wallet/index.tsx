@@ -1,5 +1,6 @@
+import { View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { UtilityPage, SignInCard } from "@/components/utilities/Page";
 import {
   Button,
@@ -7,9 +8,10 @@ import {
   Copy,
   Heading,
   Busy,
-  Pill,
+  ink,
 } from "@/components/unmask/reference/ui";
 import { wallet } from "@/lib/investigations/api";
+import { history } from "@/lib/utilities/api";
 import { useAppStore } from "@/lib/store";
 export default function Wallet() {
   const r = useRouter();
@@ -19,10 +21,15 @@ export default function Wallet() {
     queryFn: wallet,
     enabled: !!uid,
   });
+  const h = useQuery({
+    queryKey: ["spark-history", uid],
+    queryFn: history,
+    enabled: !!uid,
+  });
   return (
     <UtilityPage
-      title="A little Spark. More clarity."
-      sub="Your support helps bring community questions into focus."
+      title="Your Sparks"
+      sub="Support the questions you care about on Unmask."
     >
       {!uid ? (
         <SignInCard />
@@ -34,49 +41,94 @@ export default function Wallet() {
             retry={() => void q.refetch()}
           />
           {q.isSuccess ? (
-            <>
-              <Card>
-                <Pill>Spark balance</Pill>
-                <Heading hero>
-                  {(q.data?.sparks ?? 0).toLocaleString()} ✦
-                </Heading>
-                <Copy>
-                  ₦{((q.data?.sparks ?? 0) * 10).toLocaleString()} purchase
-                  equivalent
-                </Copy>
-              </Card>
-              <Card>
-                <Pill>Thunder Spark balance</Pill>
-                <Heading>{q.data?.thunder ?? 0} ⚡</Heading>
-                <Copy>1 Thunder Spark = 100 Sparks = ₦1,000</Copy>
-              </Card>
-            </>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              {[
+                ["✦", "Sparks", q.data?.sparks ?? 0],
+                ["⚡", "Thunder Sparks", q.data?.thunder ?? 0],
+              ].map(([icon, label, value], i) => (
+                <View
+                  key={String(label)}
+                  style={{
+                    flex: 1,
+                    borderWidth: 1,
+                    borderColor: i ? "#ECD8AD" : "#E6D5DB",
+                    backgroundColor: i ? "#FFFBF2" : ink.tint,
+                    borderRadius: 14,
+                    padding: 18,
+                    gap: 8,
+                  }}
+                >
+                  <Heading>
+                    {icon} {Number(value).toLocaleString()}
+                  </Heading>
+                  <Copy>{label}</Copy>
+                  <Copy small>Your available balance</Copy>
+                </View>
+              ))}
+            </View>
           ) : null}
           <Button
-            label="Recharge wallet"
+            label="✦ Recharge"
             onPress={() => r.push("/wallet/recharge")}
-          />
-          <Button
-            quiet
-            label="Contribution history"
-            onPress={() => r.push("/wallet/history")}
           />
         </>
       )}
       <Card>
-        <Heading>Support the question. Keep the answer independent.</Heading>
-        <Copy>
-          Minimum support: 10 Sparks or 1 Thunder Spark. Support does not
-          guarantee selection or a particular finding.
-        </Copy>
+        <Copy>1 Spark = ₦10</Copy>
+        <Copy>1 Thunder Spark = ₦1,000, equivalent to 100 Sparks.</Copy>
         <Copy small>
-          These are support credits, not a cash balance for withdrawal.
+          Support credits are not withdrawable cash. Minimum contribution: 10
+          Sparks or 1 Thunder Spark.
         </Copy>
       </Card>
+      <Heading>Recent activity</Heading>
       <Button
         quiet
-        label="Explore investigations"
-        onPress={() => r.push("/investigation")}
+        label="See all contributions →"
+        onPress={() => r.push("/wallet/history")}
+      />
+      {uid ? (
+        <>
+          <Busy
+            loading={h.isLoading}
+            error={h.error}
+            retry={() => void h.refetch()}
+          />
+          {h.data?.slice(0, 3).map((e) => (
+            <Card key={e.id}>
+              <Heading>Supported an investigation</Heading>
+              <Copy>{e.unmask_investigations?.title || "Investigation"}</Copy>
+              <Copy>
+                −{e.amount} {e.kind === "sparks" ? "Sparks" : "Thunder Sparks"}
+              </Copy>
+              <Copy small>{new Date(e.created_at).toLocaleString()}</Copy>
+              <Button
+                quiet
+                label="View investigation"
+                onPress={() =>
+                  r.push(`/investigation/${e.investigation_id}` as Href)
+                }
+              />
+            </Card>
+          ))}
+          {h.data?.length === 0 ? (
+            <Copy>
+              No contributions yet. Your recorded support will appear here.
+            </Copy>
+          ) : null}
+        </>
+      ) : (
+        <Copy>Sign in to view private wallet activity.</Copy>
+      )}
+      <Button
+        quiet
+        label="Purchase history →"
+        onPress={() => r.push("/wallet/purchases")}
+      />
+      <Button
+        quiet
+        label="Contributions →"
+        onPress={() => r.push("/wallet/history")}
       />
     </UtilityPage>
   );

@@ -1,3 +1,4 @@
+import { readAllActivity } from "@/lib/utilities/api";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
@@ -38,6 +39,14 @@ export default function Notifications() {
       read: !!n.read_at,
       route: n.route,
       activityId: n.id,
+      category:
+        n.kind === "investigation"
+          ? "Investigations"
+          : n.kind === "person"
+            ? "People"
+            : ["answer", "reply"].includes(n.kind)
+              ? "Replies"
+              : "Other",
     })),
     ...(old.data?.notifications ?? []).map((n) => ({
       id: `thread-${n.id}`,
@@ -47,9 +56,14 @@ export default function Notifications() {
       read: n.read,
       route: `/thread/${n.thread_id}`,
       activityId: null,
+      category: "Replies",
     })),
   ]
-    .filter((n) => filter !== "Unread" || !n.read)
+    .filter(
+      (n) =>
+        filter === "All" ||
+        (filter === "Unread" ? !n.read : n.category === filter),
+    )
     .sort((a, b) => b.date.localeCompare(a.date));
   const open = async (n: (typeof items)[number]) => {
     setBusy(true);
@@ -71,15 +85,40 @@ export default function Notifications() {
   };
   return (
     <UtilityPage
-      title="Your circle, in the loop."
-      sub="Replies and meaningful updates from your community."
+      title="Your updates"
+      sub="Activity from people, investigations and conversations you care about."
     >
       {!uid ? (
         <SignInCard />
       ) : (
         <>
+          <Button
+            quiet
+            label="Notification settings"
+            onPress={() => r.push("/settings/details?section=notifications")}
+          />
+          <Button
+            quiet
+            disabled={busy}
+            label="Mark all read"
+            onPress={() => {
+              setBusy(true);
+              setError("");
+              void Promise.all([readAllActivity(), markNotificationsRead()])
+                .then(() =>
+                  Promise.all([
+                    qc.invalidateQueries({ queryKey: ["living", "activity"] }),
+                    qc.invalidateQueries({ queryKey: ["notifications"] }),
+                  ]),
+                )
+                .catch(() =>
+                  setError("Some updates could not be marked read. Retry."),
+                )
+                .finally(() => setBusy(false));
+            }}
+          />
           <Chips
-            options={["All", "Unread"]}
+            options={["All", "Investigations", "Replies", "People", "Unread"]}
             value={filter}
             onChange={setFilter}
           />

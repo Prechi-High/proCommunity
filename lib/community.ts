@@ -57,7 +57,7 @@ export async function fetchNotifications(): Promise<{ notifications: CommunityNo
 
 export async function markNotificationsRead(): Promise<void> {
   const m = me();
-  if (m) await callIntel({ action: 'notifications_read', memberId: m.id }, 8000).catch(() => undefined);
+  if (m) await callIntel({ action: 'notifications_read', memberId: m.id }, 8000);
 }
 
 export async function fetchRoom(productId: string): Promise<ProductRoom | null> {
