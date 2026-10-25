@@ -17,6 +17,7 @@ async function read<T>(
   return data as T;
 }
 export type Experience = {
+  moderation_status?: "visible" | "removed";
   photo_path?: string | null;
   goal?: string;
   frequency?: string;
@@ -47,7 +48,7 @@ export const experiences = (own = false, productId?: string) => {
     .select("*,unmask_catalog(name,brand,image_url)")
     .order("created_at", { ascending: false })
     .limit(60);
-  if (!own) q = q.eq("visibility", "public");
+  if (!own) q = q.eq("visibility", "public").eq("moderation_status", "visible");
   if (productId) q = q.eq("product_id", productId);
   return own
     ? userId().then((id) => read<Experience[]>(q.eq("user_id", id)))

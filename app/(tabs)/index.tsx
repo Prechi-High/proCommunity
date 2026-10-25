@@ -100,6 +100,11 @@ export default function Today() {
           ) : null}
           <Heading>{featured.title}</Heading>
           <Pill>Published</Pill>
+          {featured.commercial_disclosure ? (
+            <Copy small>
+              Commercial disclosure: {featured.commercial_disclosure}
+            </Copy>
+          ) : null}
           <Button
             label="▶ Watch investigation"
             onPress={() =>
@@ -258,6 +263,11 @@ export default function Today() {
           onPress={() => r.push("/creators")}
         />
       </Card>
+      <Button
+        quiet
+        label="Explore sponsored offers"
+        onPress={() => r.push("/offers")}
+      />
       <Card>
         <Heading>Have a product experience?</Heading>
         <Copy>Share what happened. Help someone else find clarity.</Copy>

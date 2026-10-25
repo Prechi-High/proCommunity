@@ -74,6 +74,7 @@ export async function followedActivity(ids: string[]) {
       .from("clarity_experiences")
       .select("id,product_id,author_name,body,created_at")
       .eq("visibility", "public")
+      .eq("moderation_status", "visible")
       .in("product_id", ids)
       .order("created_at", { ascending: false })
       .limit(40),
@@ -83,6 +84,7 @@ export async function followedActivity(ids: string[]) {
         "id,body,created_at,clarity_experiences!inner(id,product_id,author_name)",
       )
       .eq("clarity_experiences.visibility", "public")
+      .eq("clarity_experiences.moderation_status", "visible")
       .in("clarity_experiences.product_id", ids)
       .order("created_at", { ascending: false })
       .limit(40),

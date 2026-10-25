@@ -50,6 +50,7 @@ export const experiences = (id: string) =>
       .select("*,unmask_catalog(name,brand,image_url)")
       .eq("user_id", id)
       .eq("visibility", "public")
+      .eq("moderation_status", "visible")
       .order("created_at", { ascending: false })
       .limit(100),
   );

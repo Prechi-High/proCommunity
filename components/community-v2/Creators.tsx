@@ -95,6 +95,11 @@ export function Creators({
                   <Photo uri={v.thumbnail_url} size={180} />
                 ) : null}
                 <Heading>{v.title}</Heading>
+                {v.commercial_disclosure ? (
+                  <Copy small>
+                    Commercial disclosure: {v.commercial_disclosure}
+                  </Copy>
+                ) : null}
                 <Button
                   label="Watch investigation"
                   onPress={() => void Linking.openURL(v.video_url)}
