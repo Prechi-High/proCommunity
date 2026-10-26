@@ -42,7 +42,11 @@ export function MainNav() {
       >
         {routes.map(({ label, href, Icon }) => {
           const active =
-            href === "/" ? path === "/" : !!href && path.startsWith(href);
+            href === "/"
+              ? path === "/"
+              : href === "/products"
+                ? path.startsWith("/products") || path.startsWith("/journey")
+                : !!href && path.startsWith(href);
           const create = !href;
           return (
             <Pressable

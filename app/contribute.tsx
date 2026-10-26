@@ -216,7 +216,7 @@ export default function Contribute() {
               : usageStatus === "Finished"
                 ? "finished"
                 : "stopped",
-        duration: duration || "Week 1",
+        duration: duration,
         frequency,
         skin: skin === "Not disclosed" ? "" : skin,
         body,
@@ -466,7 +466,7 @@ export default function Contribute() {
                       step: 1,
                       product,
                       status: "active",
-                      duration: duration || "Week 1",
+                      duration: duration,
                       frequency,
                       skin: skin === "Not disclosed" ? "" : skin,
                       body,
