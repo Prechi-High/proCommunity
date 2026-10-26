@@ -276,8 +276,8 @@ export function TimelineView({ id }: { id: string }) {
             <>
               <Label>Your chapters</Label>
               <Note>
-                This is your product record. No likes, comments or social
-                feed—just the context you choose to keep.
+                Your product notes, dated updates and routine context stay
+                together here.
               </Note>
               {history.isLoading && !demo ? <ContentSkeleton /> : null}
               {history.isError && !demo ? (

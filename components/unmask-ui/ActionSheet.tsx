@@ -1,5 +1,5 @@
 import { useReducedMotion } from "react-native-reanimated";
-import { type ReactNode } from "react";
+import { type ReactNode, useRef, useEffect } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -11,16 +11,23 @@ export function ActionSheet({
   title,
   onClose,
   children,
+  resetKey,
 }: {
   open: boolean;
   title: string;
   onClose: () => void;
   children: ReactNode;
+  resetKey?: string | number;
 }) {
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    if (open) scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [resetKey, open]);
   const reduced = useReducedMotion();
   return (
     <Modal
+      onShow={() => scrollRef.current?.scrollTo({ y: 0, animated: false })}
       visible={open}
       animationType={reduced ? "none" : "slide"}
       transparent
@@ -101,6 +108,7 @@ export function ActionSheet({
             </Pressable>
           </View>
           <ScrollView
+            ref={scrollRef}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ gap: 16, paddingBottom: 8 }}
           >

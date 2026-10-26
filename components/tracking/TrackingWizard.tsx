@@ -378,6 +378,7 @@ export function TrackingWizard({
     <AppShell
       back
       navigation
+      scrollResetKey={d.step}
       title={journeyId ? "Add a new chapter." : "Make it your product story."}
       subtitle="One small step at a time. Your draft saves as you go."
     >

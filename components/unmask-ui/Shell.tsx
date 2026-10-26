@@ -1,5 +1,5 @@
 import { MainNav } from "./MainNav";
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -25,6 +25,7 @@ export function AppShell({
   scroll = true,
   flush,
   navigation,
+  scrollResetKey,
 }: {
   children: ReactNode;
   title?: string;
@@ -36,8 +37,14 @@ export function AppShell({
   scroll?: boolean;
   flush?: boolean;
   navigation?: boolean;
+  scrollResetKey?: string | number;
 }) {
   const router = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    if (scrollResetKey !== undefined)
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [scrollResetKey]);
   const header = (
     <View
       style={{
@@ -164,6 +171,7 @@ export function AppShell({
         {header}
         {scroll ? (
           <ScrollView
+            ref={scrollRef}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{

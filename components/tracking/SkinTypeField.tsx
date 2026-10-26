@@ -72,6 +72,7 @@ export function SkinTypeField({
         </Note>
       ) : null}
       <ActionSheet
+        resetKey={step}
         open={open}
         onClose={() => setOpen(false)}
         title="Get to know your skin"
@@ -91,14 +92,14 @@ export function SkinTypeField({
                 borderRadius: 22,
                 overflow: "hidden",
                 backgroundColor: journal.mint,
-                height: 200,
+                aspectRatio: 1.6,
               }}
             >
               <Image
                 key={q.key}
                 accessibilityLabel={q.imageDescription}
                 source={pictures[step]}
-                style={{ width: "100%", height: 200 }}
+                style={{ width: "100%", height: "100%" }}
                 resizeMode="cover"
                 onLoad={() => setLoaded(step)}
                 onError={() => setLoaded(step)}
@@ -108,7 +109,7 @@ export function SkinTypeField({
                   pointerEvents="none"
                   style={{ position: "absolute", inset: 0 }}
                 >
-                  <Skeleton height={200} radius={22} />
+                  <Skeleton height={600} radius={22} />
                 </View>
               ) : null}
             </View>
