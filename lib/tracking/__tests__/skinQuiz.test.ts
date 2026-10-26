@@ -1,4 +1,37 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {estimateSkin} from '../skinQuiz';
-test('uses consistent self-observations as tentative skin context',()=>{assert.equal(estimateSkin(['tight','none','rarely']).type,'Dry');assert.equal(estimateSkin(['oily','all','rarely']).type,'Oily');assert.equal(estimateSkin(['mixed','tzone','rarely']).type,'Combination');assert.equal(estimateSkin(['comfortable','none','rarely']).type,'Normal')});
-test('leaves uncertain or contradictory answers unclassified',()=>{assert.equal(estimateSkin(['unsure','all','unsure']).type,null);assert.equal(estimateSkin(['tight','all','often']).type,null);assert.equal(estimateSkin([]).type,null)});
-test('keeps sensitivity separate from the oil/dryness estimate',()=>{assert.deepEqual(estimateSkin(['oily','all','often']),{type:'Oily',sensitive:true});assert.deepEqual(estimateSkin(['tight','none','rarely']),{type:'Dry',sensitive:false})});
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { estimateSkin } from "../skinQuiz";
+test("uses consistent self-observations as tentative skin context", () => {
+  assert.equal(estimateSkin(["tight", "none", "rarely"]).type, "Dry");
+  assert.equal(estimateSkin(["oily", "all", "rarely"]).type, "Oily");
+  assert.equal(estimateSkin(["mixed", "tzone", "rarely"]).type, "Combination");
+  assert.equal(estimateSkin(["comfortable", "none", "rarely"]).type, "Normal");
+});
+test("leaves uncertain or contradictory answers unclassified", () => {
+  assert.equal(estimateSkin(["unsure", "all", "unsure"]).type, "Oily");
+  assert.equal(estimateSkin(["tight", "all", "often"]).type, null);
+  assert.equal(estimateSkin([]).type, null);
+});
+test("keeps sensitivity separate from the oil/dryness estimate", () => {
+  assert.deepEqual(estimateSkin(["oily", "all", "often"]), {
+    type: "Oily",
+    sensitive: true,
+  });
+  assert.deepEqual(estimateSkin(["tight", "none", "rarely"]), {
+    type: "Dry",
+    sensitive: false,
+  });
+});
+
+test("uses usual-week pattern to resolve post-cleansing contradictions", () => {
+  assert.equal(
+    estimateSkin(["tight", "all", "often", "combination"]).type,
+    "Combination",
+  );
+  assert.equal(estimateSkin(["tight", "all", "rarely", "oily"]).type, "Oily");
+  assert.equal(estimateSkin(["unsure", "unsure", "rarely", "dry"]).type, "Dry");
+  assert.equal(
+    estimateSkin(["unsure", "unsure", "often", "unsure"]).type,
+    null,
+  );
+});

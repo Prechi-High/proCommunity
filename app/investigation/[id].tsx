@@ -1,3 +1,4 @@
+import { AttachedEvidence } from "@/components/tracking/AttachedEvidence";
 import { UltraCaseHeader } from "@/components/unmask-ui/UltraCaseHeader";
 import { PostActions } from "@/components/unmask-ui/PostActions";
 import { ProgressTrail } from "@/components/unmask-ui/ProgressTrail";
@@ -637,6 +638,10 @@ export default function UnmaskDetail() {
           detail={item.commercial_disclosure}
         />
       ) : null}
+      <AttachedEvidence
+        journeyId={item?.attached_journey_id}
+        experienceId={item?.attached_experience_id}
+      />
       {item?.question_id ? (
         <ActionButton
           tone="ghost"

@@ -25,6 +25,9 @@ export type EvidenceSelection = {
   detail: string;
   author?: string;
   visibility: string;
+  image?: string | null;
+  productId?: string;
+  owner?: boolean;
 };
 export async function updates(id: string): Promise<UsageUpdate[]> {
   const { data, error } = await db()
@@ -161,18 +164,22 @@ export async function attachmentOptions(): Promise<EvidenceSelection[]> {
     db()
       .from("unmask_journeys")
       .select(
-        "id,visibility,usage_duration,frequency,unmask_catalog!unmask_journeys_product_id_fkey(name)",
+        "id,visibility,usage_duration,frequency,product_id,unmask_catalog!unmask_journeys_product_id_fkey(name,image_url)",
       )
       .eq("user_id", uid)
       .order("updated_at", { ascending: false }),
     db()
       .from("clarity_experiences")
-      .select("id,body,duration,author_name,visibility")
+      .select(
+        "id,body,duration,author_name,visibility,user_id,product_id,unmask_catalog(name,image_url)",
+      )
       .eq("user_id", uid)
       .order("created_at", { ascending: false }),
     db()
       .from("unmask_bookmarks")
-      .select("clarity_experiences(id,body,duration,author_name,visibility)")
+      .select(
+        "clarity_experiences(id,body,duration,author_name,visibility,user_id,product_id,unmask_catalog(name,image_url))",
+      )
       .eq("user_id", uid)
       .not("experience_id", "is", null),
   ]);
@@ -181,6 +188,9 @@ export async function attachmentOptions(): Promise<EvidenceSelection[]> {
     kind: "journey",
     id: j.id,
     title: j.unmask_catalog?.name || "My timeline",
+    image: j.unmask_catalog?.image_url,
+    productId: j.product_id,
+    owner: true,
     detail:
       [j.usage_duration, j.frequency].filter(Boolean).join(" · ") ||
       "Usage timeline",
@@ -197,11 +207,27 @@ export async function attachmentOptions(): Promise<EvidenceSelection[]> {
       result.push({
         kind: "experience",
         id: e.id,
-        title: e.body.slice(0, 85),
+        title: e.unmask_catalog?.name || e.body.slice(0, 85),
+        image: e.unmask_catalog?.image_url,
+        productId: e.product_id,
+        owner: e.user_id === uid,
         detail: e.duration || "Shared experience",
         author: e.author_name,
         visibility: e.visibility,
       });
   }
   return result;
+}
+
+/** Explicitly confirmed by the owner in EvidencePicker; atomically publishes journal chapters. */
+export async function shareAttachment(
+  source: EvidenceSelection,
+): Promise<EvidenceSelection> {
+  await userId();
+  const { error } = await db().rpc("unmask_share_attachment", {
+    p_kind: source.kind,
+    p_id: source.id,
+  });
+  if (error) throw error;
+  return { ...source, visibility: "public" };
 }

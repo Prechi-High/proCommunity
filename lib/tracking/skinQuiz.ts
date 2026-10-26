@@ -41,18 +41,49 @@ export const skinQuestions = [
       ["unsure", "I’m not sure"],
     ],
   },
+  {
+    key: "usual",
+    title: "Across a usual week, which pattern fits your skin best?",
+    hint: "Think about most days, rather than straight after washing or applying a product. This helps when your earlier answers differ.",
+    imageDescription:
+      "A person looking closely at their cheek and forehead in a mirror to consider their usual skin pattern.",
+    options: [
+      ["dry", "Mostly dry, tight or flaky"],
+      ["oily", "Mostly oily across my face"],
+      ["combination", "Oily in some areas, dry or comfortable in others"],
+      ["normal", "Mostly comfortable, without much dryness or oil"],
+      ["unsure", "It changes too much to tell"],
+    ],
+  },
 ] as const;
 export function estimateSkin(answers: string[]): {
   type: SkinEstimate | null;
   sensitive: boolean;
 } {
-  const [feel, shine, sensitivity] = answers;
-  let type: SkinEstimate | null = null;
-  if (feel === "mixed" && shine === "tzone") type = "Combination";
-  else if (shine === "tzone" && ["tight", "comfortable"].includes(feel))
-    type = "Combination";
-  else if (feel === "tight" && shine === "none") type = "Dry";
-  else if (feel === "oily" && shine === "all") type = "Oily";
-  else if (feel === "comfortable" && shine === "none") type = "Normal";
+  const [feel, shine, sensitivity, usual] = answers;
+  // A direct description of the usual pattern resolves temporary post-cleansing contradictions.
+  const patterns: Record<string, SkinEstimate> = {
+    dry: "Dry",
+    oily: "Oily",
+    combination: "Combination",
+    normal: "Normal",
+  };
+  let type: SkinEstimate | null = patterns[usual] || null;
+  if (!type) {
+    if (feel === "mixed" || shine === "tzone") type = "Combination";
+    else if (feel === "tight" && shine === "none") type = "Dry";
+    else if (feel === "oily" && shine === "all") type = "Oily";
+    else if (feel === "comfortable" && shine === "none") type = "Normal";
+    // A clear observation is still useful if the other answer is unknown.
+    else if (!feel || feel === "unsure") type = shine === "all" ? "Oily" : null;
+    else if (!shine || shine === "unsure")
+      type =
+        (
+          { tight: "Dry", oily: "Oily", comfortable: "Normal" } as Record<
+            string,
+            SkinEstimate
+          >
+        )[feel] || null;
+  }
   return { type, sensitive: ["often", "sometimes"].includes(sensitivity) };
 }

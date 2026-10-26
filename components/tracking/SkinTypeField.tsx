@@ -14,6 +14,7 @@ const pictures = [
   require("@/assets/journal/cleansing.webp"),
   require("@/assets/journal/shine.webp"),
   require("@/assets/journal/sensitivity.webp"),
+  require("@/assets/journal/cleansing.webp"),
 ];
 export function SkinTypeField({
   value,
@@ -81,11 +82,11 @@ export function SkinTypeField({
           A short self-observation guide, not a diagnosis. Choose what is
           usually true for you. You can skip or change your answers.
         </Note>
-        {step < 3 ? (
+        {step < skinQuestions.length ? (
           <>
             <JournalProgress
               step={step}
-              labels={["Feel", "Shine", "Sensitivity"]}
+              labels={["Feel", "Shine", "Sensitivity", "Usual pattern"]}
             />
             <View
               style={{
@@ -137,7 +138,11 @@ export function SkinTypeField({
               }
             />
             <ActionButton
-              label={step === 2 ? "See my estimate" : "Next question"}
+              label={
+                step === skinQuestions.length - 1
+                  ? "See my estimate"
+                  : "Next question"
+              }
               disabled={!answers[step]}
               onPress={() => {
                 setLoaded(-1);
@@ -182,8 +187,8 @@ export function SkinTypeField({
               </Text>
               <Note>
                 {result.type
-                  ? "This is a starting point for sharing your context, not a medical assessment. Skin can change with weather, products and time."
-                  : "Your answers are mixed or uncertain. Keep the type unstated, observe your usual pattern, or ask a dermatologist if you need help."}
+                  ? "We compared your cleansing feel, daytime shine and usual weekly pattern. Your usual pattern helps resolve answers that differ. This is an editable estimate, not a medical assessment. Skin can change with weather, products and time."
+                  : "There isn’t enough clear information to choose one type yet. You can select your best fit below, or keep it unstated."}
               </Note>
               {result.sensitive ? (
                 <Note>

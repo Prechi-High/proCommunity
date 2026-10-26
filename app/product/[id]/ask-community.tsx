@@ -48,7 +48,7 @@ export default function AskAboutProduct() {
     body: q || "",
     skin: "",
     context: "",
-    audience: "none",
+    audience: "everyone",
   });
   const d = draft.value;
   const set = (patch: Partial<typeof d>) =>
@@ -195,35 +195,22 @@ export default function AskAboutProduct() {
                 style={{
                   padding: 18,
                   borderRadius: 22,
-                  backgroundColor: "#EDF2EB",
+                  backgroundColor: "#F6F3EF",
                   gap: 12,
                 }}
               >
-                <Label>Bring the right people into the conversation</Label>
-                <Note>
-                  Invite an audience, rather than guessing who might know.
-                  Private product use can help us deliver invitations, but you
-                  won’t see who owns a private timeline.
-                </Note>
+                <Label>Who should we ask?</Label>
                 <FilterChips
-                  options={[
-                    "No invitation",
-                    "This product",
-                    "Similar products",
-                  ]}
+                  options={["Everyone", "People who use this product"]}
                   value={
-                    d.audience === "none"
-                      ? "No invitation"
-                      : d.audience.startsWith("same_product")
-                        ? "This product"
-                        : "Similar products"
+                    d.audience.startsWith("same_product") ||
+                    d.audience.startsWith("similar_products")
+                      ? "People who use this product"
+                      : "Everyone"
                   }
                   onChange={(v) =>
                     set({
-                      audience:
-                        v === "No invitation"
-                          ? "none"
-                          : `${v === "This product" ? "same_product" : "similar_products"}${d.audience.endsWith("_skin") && d.skin ? "_skin" : ""}`,
+                      audience: `${v === "Everyone" ? "everyone" : "same_product"}${d.audience.endsWith("_skin") && d.skin ? "_skin" : ""}`,
                     })
                   }
                 />
@@ -236,21 +223,21 @@ export default function AskAboutProduct() {
                     }}
                   >
                     <View style={{ flex: 1 }}>
-                      <Label>Match my skin type too</Label>
+                      <Label>Only people with my skin type</Label>
                       <Note>
                         {d.skin
-                          ? `Invite people with ${d.skin.toLowerCase()} skin.`
+                          ? `Match ${d.skin.toLowerCase()} skin.`
                           : "Add your skin type above to use this filter."}
                       </Note>
                     </View>
                     <Switch
                       accessibilityLabel="Match invited users by skin type"
-                      disabled={!d.skin || d.audience === "none"}
+                      disabled={!d.skin}
                       value={d.audience.endsWith("_skin")}
                       onValueChange={(v) =>
                         set({
                           audience: v
-                            ? `${d.audience}_skin`
+                            ? `${["none", "everyone"].includes(d.audience) ? "everyone" : d.audience.replace("_skin", "")}_skin`
                             : d.audience.replace("_skin", ""),
                         })
                       }
@@ -258,9 +245,9 @@ export default function AskAboutProduct() {
                   </View>
                 ) : null}
                 <Note>
-                  Similar products means the same brand and category.
-                  Invitations are limited to protect members from spam. Members
-                  can turn them off in notification settings.
+                  Your question stays public. These choices guide who we notify.
+                  Private product records are never shown to you. Members can
+                  turn invitations off.
                 </Note>
               </View>
               {error ? (

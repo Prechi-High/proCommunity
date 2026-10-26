@@ -1,16 +1,59 @@
-import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { useQuery } from "@tanstack/react-query";
-import { useRouter, type Href } from "expo-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { useAppStore } from "@/lib/store";
 import * as tracking from "@/lib/tracking/api";
 import {
   ActionSheet,
   ActionButton,
   StatusMessage,
+  MediaFrame,
+  ContentSkeleton,
 } from "@/components/unmask-ui";
 import { colors, fonts } from "@/constants/theme";
+import { Note } from "./Fields";
+function Preview({ source }: { source: tracking.EvidenceSelection }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+      <View style={{ width: 64 }}>
+        <MediaFrame
+          uri={source.image}
+          label={source.title}
+          ratio={1}
+          corners={false}
+        />
+      </View>
+      <View style={{ flex: 1, gap: 5 }}>
+        <Text
+          style={{
+            fontFamily: fonts.semibold,
+            fontSize: 15,
+            color: colors.ink,
+          }}
+        >
+          {source.title}
+        </Text>
+        <Note>
+          {source.detail}
+          {source.author ? ` · ${source.author}` : ""}
+        </Note>
+        <Text
+          style={{
+            fontFamily: fonts.medium,
+            fontSize: 11,
+            color: colors.inkSoft,
+          }}
+        >
+          {source.kind === "journey"
+            ? "PRODUCT TIMELINE"
+            : "PRODUCT EXPERIENCE"}{" "}
+          · {source.visibility === "public" ? "Public" : "Private"}
+        </Text>
+      </View>
+    </View>
+  );
+}
 export function EvidencePicker({
   value,
   onChange,
@@ -20,14 +63,56 @@ export function EvidencePicker({
   onChange: (v: tracking.EvidenceSelection | null) => void;
   publicPost?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const uid = useAppStore((s) => s.profile?.id);
-  const r = useRouter();
+  const [open, setOpen] = useState(false),
+    [confirm, setConfirm] = useState<tracking.EvidenceSelection | null>(null),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const uid = useAppStore((s) => s.profile?.id),
+    r = useRouter(),
+    qc = useQueryClient();
   const q = useQuery({
     queryKey: ["evidence-options", uid],
     queryFn: tracking.attachmentOptions,
     enabled: open && !!uid,
   });
+  function choose(x: tracking.EvidenceSelection) {
+    setError("");
+    if (publicPost && x.visibility !== "public") {
+      if (!x.owner) {
+        setError(
+          "Only the author can make this experience public. Choose a public experience instead.",
+        );
+        return;
+      }
+      setConfirm(x);
+      return;
+    }
+    onChange(x);
+    setOpen(false);
+  }
+  async function share() {
+    if (!confirm || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const shared = await tracking.shareAttachment(confirm);
+      onChange(shared);
+      setConfirm(null);
+      setOpen(false);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["evidence-options", uid] }),
+        qc.invalidateQueries({ queryKey: ["tracking-journey", shared.id] }),
+        qc.invalidateQueries({ queryKey: ["tracking-updates", shared.id] }),
+      ]);
+    } catch (e) {
+      setError(
+        (e as Error).message ||
+          "Couldn’t share yet. Your attachment is still here.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <View style={{ gap: 10 }}>
       <ActionButton
@@ -35,39 +120,24 @@ export function EvidencePicker({
         label={
           value
             ? "Change attached experience"
-            : "Attach an experience or usage timeline"
+            : "Attach an experience or product timeline"
         }
-        onPress={() => setOpen(true)}
+        onPress={() => {
+          setConfirm(null);
+          setError("");
+          setOpen(true);
+        }}
       />
       {value ? (
         <View
           style={{
             padding: 14,
-            borderRadius: 16,
-            backgroundColor: "#EEF2EC",
-            gap: 6,
+            borderRadius: 18,
+            backgroundColor: "#F6F3EF",
+            gap: 8,
           }}
         >
-          <Text
-            style={{
-              fontFamily: fonts.semibold,
-              fontSize: 14,
-              color: colors.ink,
-            }}
-          >
-            {value.title}
-          </Text>
-          <Text
-            style={{
-              fontFamily: fonts.regular,
-              fontSize: 12,
-              lineHeight: 18,
-              color: colors.inkSoft,
-            }}
-          >
-            {value.detail}
-            {value.author ? ` · Shared by ${value.author}` : ""}
-          </Text>
+          <Preview source={value} />
           <ActionButton
             tone="ghost"
             label="Remove attachment"
@@ -77,128 +147,104 @@ export function EvidencePicker({
       ) : null}
       <ActionSheet
         open={open}
-        onClose={() => setOpen(false)}
-        title="Bring the experience with you"
+        onClose={() => {
+          if (!busy) {
+            setOpen(false);
+            setConfirm(null);
+          }
+        }}
+        title={
+          confirm
+            ? "Share this with the conversation?"
+            : "Bring your experience"
+        }
       >
-        <Text
-          style={{
-            fontFamily: fonts.regular,
-            fontSize: 14,
-            lineHeight: 22,
-            color: colors.inkSoft,
-          }}
-        >
-          Choose a product timeline, your own experience, or a saved experience.
-          The original author keeps the credit.
-        </Text>
-        {!uid ? (
-          <ActionButton
-            label="Sign in to see your experiences"
-            onPress={() => {
-              setOpen(false);
-              r.push("/(auth)/sign-in");
-            }}
-          />
-        ) : null}
-        {q.isLoading ? <ContentSkeleton /> : null}
-        {q.isError ? (
-          <ActionButton
-            label="Retry experiences"
-            onPress={() => void q.refetch()}
-          />
-        ) : null}
-        {(q.data ?? []).map((x) => {
-          const privateSource = publicPost && x.visibility !== "public";
-          return (
-            <View key={`${x.kind}-${x.id}`} style={{ gap: 4 }}>
-              <Pressable
-                accessibilityRole="button"
-                disabled={privateSource}
-                accessibilityLabel={`${x.title}${privateSource ? ", private source cannot be shared publicly" : ""}`}
+        {confirm ? (
+          <>
+            <Preview source={confirm} />
+            <Note>
+              {confirm.kind === "journey"
+                ? "This timeline is private. Confirming makes the journal, its existing notes, routine and progress photos public so people can open it from your answer. Your ownership proof photo stays private."
+                : "This experience is private. Confirming makes the experience and its attached public content visible to everyone."}
+            </Note>
+            <Note>
+              You can change its privacy later. People may already have seen
+              what you shared.
+            </Note>
+            <ActionButton
+              label="Make public & attach"
+              pending={busy}
+              pendingLabel="Sharing…"
+              onPress={() => void share()}
+            />
+            <ActionButton
+              tone="ghost"
+              label="Keep private"
+              disabled={busy}
+              onPress={() => {
+                setConfirm(null);
+                setError("");
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <Note>
+              Choose your product timeline, your experience, or an experience
+              you saved. The original author keeps the credit.
+            </Note>
+            {!uid ? (
+              <ActionButton
+                label="Sign in to see your experiences"
                 onPress={() => {
-                  onChange(x);
                   setOpen(false);
+                  r.push("/(auth)/sign-in");
                 }}
+              />
+            ) : null}
+            {q.isLoading ? <ContentSkeleton /> : null}
+            {q.isError ? (
+              <ActionButton
+                label="Retry experiences"
+                onPress={() => void q.refetch()}
+              />
+            ) : null}
+            {(q.data ?? []).map((x) => (
+              <Pressable
+                key={`${x.kind}-${x.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={`Attach ${x.title}${x.visibility !== "public" ? ", private" : ""}`}
+                onPress={() => choose(x)}
                 style={({ pressed }) => ({
-                  padding: 16,
-                  borderRadius: 16,
-                  backgroundColor: pressed ? "#EDE1DC" : "#F5F0EB",
-                  opacity: privateSource ? 0.6 : 1,
-                  gap: 6,
+                  padding: 14,
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  borderColor: colors.line,
+                  backgroundColor: pressed ? "#EEE8E2" : "#fff",
                 })}
               >
-                <Text
-                  style={{
-                    fontFamily: fonts.medium,
-                    fontSize: 11,
-                    color: colors.brand,
-                  }}
-                >
-                  {x.kind === "journey"
-                    ? "TRACKED PRODUCT TIMELINE"
-                    : x.author
-                      ? `EXPERIENCE · ${x.author}`
-                      : "MY EXPERIENCE"}
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: fonts.semibold,
-                    fontSize: 15,
-                    lineHeight: 22,
-                    color: colors.ink,
-                  }}
-                >
-                  {x.title}
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: fonts.regular,
-                    fontSize: 13,
-                    color: colors.inkSoft,
-                  }}
-                >
-                  {x.detail}
-                </Text>
-                {privateSource ? (
-                  <Text
-                    style={{
-                      fontFamily: fonts.regular,
-                      fontSize: 12,
-                      color: colors.inkSoft,
-                    }}
-                  >
-                    Private. Make the source public before attaching to this
-                    conversation.
-                  </Text>
-                ) : null}
+                <Preview source={x} />
               </Pressable>
-              {privateSource && x.kind === "journey" ? (
-                <ActionButton
-                  tone="ghost"
-                  label="Open privacy settings"
-                  onPress={() => {
-                    setOpen(false);
-                    r.push(`/journey/${x.id}` as Href);
-                  }}
-                />
-              ) : null}
-            </View>
-          );
-        })}
-        {uid && q.isSuccess && !q.data.length ? (
-          <StatusMessage
-            title="No experiences to attach yet."
-            detail="Track a product, publish your experience, or save someone’s public experience first."
-          />
+            ))}
+            {uid && q.isSuccess && !q.data.length ? (
+              <StatusMessage
+                title="No experiences yet"
+                detail="Track a product, share an experience, or save a public experience to attach it here."
+              />
+            ) : null}
+            <ActionButton
+              tone="ghost"
+              label="Start a product timeline"
+              onPress={() => {
+                setOpen(false);
+                r.push("/products/add");
+              }}
+            />
+          </>
+        )}
+        {error ? (
+          <StatusMessage kind="error" title="Not attached yet" detail={error} />
         ) : null}
-        <ActionButton
-          tone="ghost"
-          label="Start a product timeline"
-          onPress={() => {
-            setOpen(false);
-            r.push("/products/add");
-          }}
-        />
       </ActionSheet>
     </View>
   );

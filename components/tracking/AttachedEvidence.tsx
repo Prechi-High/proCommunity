@@ -6,7 +6,7 @@ import { db } from "@/lib/clarity/api";
 import * as living from "@/lib/living/api";
 import * as community from "@/lib/community-v2/api";
 import * as tracking from "@/lib/tracking/api";
-import { ActionButton } from "@/components/unmask-ui";
+import { ActionButton, MediaFrame } from "@/components/unmask-ui";
 import { colors, fonts } from "@/constants/theme";
 export function AttachedEvidence({
   journeyId,
@@ -28,6 +28,7 @@ export function AttachedEvidence({
         const publicUpdates = updates.filter((u) => u.visibility === "public");
         return {
           title: j.unmask_catalog?.name || "Product timeline",
+          image: j.unmask_catalog?.image_url,
           detail: [
             j.usage_duration,
             j.frequency,
@@ -46,6 +47,7 @@ export function AttachedEvidence({
       const e = await community.experience(experienceId!);
       return {
         title: `${e.author_name}’s experience`,
+        image: e.unmask_catalog?.image_url,
         detail: e.duration || "Original experience",
         body: e.body,
         label: "Attached experience · credit stays with its author",
@@ -63,7 +65,7 @@ export function AttachedEvidence({
         borderRadius: 18,
         borderWidth: 1,
         borderColor: "#D9E1D6",
-        backgroundColor: "#F2F5EE",
+        backgroundColor: "#F8F6F3",
         gap: 8,
       }}
     >
@@ -80,11 +82,19 @@ export function AttachedEvidence({
         </Text>
       ) : q.data ? (
         <>
+          <View style={{ width: 80 }}>
+            <MediaFrame
+              uri={q.data.image}
+              label={q.data.title}
+              ratio={1}
+              corners={false}
+            />
+          </View>
           <Text
             style={{
               fontFamily: fonts.medium,
               fontSize: 11,
-              color: colors.sage,
+              color: colors.ink,
             }}
           >
             {q.data.label}
@@ -124,7 +134,7 @@ export function AttachedEvidence({
               style={{
                 fontFamily: fonts.semibold,
                 fontSize: 12,
-                color: colors.sage,
+                color: colors.ink,
               }}
             >
               Ownership verified · not a safety endorsement

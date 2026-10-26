@@ -6,6 +6,8 @@ export type Investigation = {
   product_id: string | null;
   question_id: string | null;
   experience_id: string | null;
+  attached_journey_id?: string | null;
+  attached_experience_id?: string | null;
   title: string;
   concern: string;
   supporting_links: string;
@@ -64,7 +66,8 @@ export async function create(
     | "question_id"
     | "experience_id"
     | "supporting_links"
-  >,
+  > &
+    Pick<Investigation, "attached_journey_id" | "attached_experience_id">,
 ) {
   await userId();
   return read<Investigation>(
@@ -114,7 +117,15 @@ export function validAmount(kind: string, raw: string) {
 }
 
 export async function setSparkGoal(id: string, goal: number) {
-  if (!Number.isSafeInteger(goal) || goal < 10 || goal > 1000000) throw new Error('Choose a target between 10 and 1,000,000 Sparks.');
+  if (!Number.isSafeInteger(goal) || goal < 10 || goal > 1000000)
+    throw new Error("Choose a target between 10 and 1,000,000 Sparks.");
   await userId();
-  return read(db().from('unmask_investigations').update({ spark_goal: goal }).eq('id', id).select('id').single());
+  return read(
+    db()
+      .from("unmask_investigations")
+      .update({ spark_goal: goal })
+      .eq("id", id)
+      .select("id")
+      .single(),
+  );
 }
