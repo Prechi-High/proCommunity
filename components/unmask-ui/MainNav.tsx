@@ -8,8 +8,10 @@ import { hapticSelect } from "@/lib/haptics";
 import { CreateSheet } from "./CreateSheet";
 export function MainNav() {
   const r = useRouter(),
-    path = usePathname(),
+    rawPath = usePathname(),
     insets = useSafeAreaInsets();
+  const path =
+    rawPath.replace(/\/\([^/]+\)/g, "").replace(/\/index$/, "/") || "/";
   const [open, setOpen] = useState(false);
   const routes = [
     { label: "Today", href: "/", Icon: House },

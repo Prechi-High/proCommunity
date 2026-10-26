@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Text, View } from "react-native";
+import { Text, View, useWindowDimensions } from "react-native";
 import {
   AppShell,
   SearchField,
@@ -13,6 +13,7 @@ import { DemoBanner } from "@/components/unmask-ui/DemoBanner";
 import { useOffers } from "@/lib/unmask/offers";
 import { colors, fonts } from "@/constants/theme";
 export default function Offers() {
+  const { width } = useWindowDimensions();
   const [search, setSearch] = useState(""),
     [category, setCategory] = useState("All");
   const q = useOffers();
@@ -61,9 +62,11 @@ export default function Offers() {
           detail="You can still open a product and read its conversations."
         />
       ) : null}
-      <View style={{ gap: 20 }}>
+      <View style={{ gap: 20, flexDirection: "row", flexWrap: "wrap" }}>
         {rows.map((o) => (
-          <OfferCard key={o.id} offer={o} />
+          <View key={o.id} style={{ width: width >= 700 ? "48%" : "100%" }}>
+            <OfferCard offer={o} />
+          </View>
         ))}
       </View>
       {!q.isLoading && !q.error && !rows.length ? (
