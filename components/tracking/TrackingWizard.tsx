@@ -407,7 +407,6 @@ export function TrackingWizard({
                   "Combination",
                   "Normal",
                   "Sensitive",
-                  "Not sure",
                 ]}
                 value={d.skin || "Not stated"}
                 onChange={(v) => set({ skin: v === "Not stated" ? "" : v })}

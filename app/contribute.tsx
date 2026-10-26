@@ -107,6 +107,9 @@ export default function Contribute() {
       setBody(d.body || "");
       setDuration(d.duration || "");
       setSkin(d.skin || "Not disclosed");
+      if (d.attachment) setAttachment(d.attachment);
+      if (d.usageStatus) setUsageStatus(d.usageStatus);
+      if (d.frequency) setFrequency(d.frequency);
     });
   }, [key]);
   useEffect(() => {
