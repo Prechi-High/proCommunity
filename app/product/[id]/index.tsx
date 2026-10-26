@@ -173,6 +173,7 @@ export default function ProductPage() {
             style={{
               fontFamily: fonts.semibold,
               fontSize: 21,
+              flex: 1,
               color: colors.ink,
             }}
           >

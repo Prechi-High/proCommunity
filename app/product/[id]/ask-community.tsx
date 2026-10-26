@@ -18,13 +18,6 @@ import { getKnownProduct } from "@/lib/products";
 import { hapticSaved } from "@/lib/haptics";
 import { useAppStore } from "@/lib/store";
 import { fonts, colors } from "@/constants/theme";
-const audiences = [
-  ["none", "Let the community find it"],
-  ["same_product", "People who use this product"],
-  ["same_product_skin", "Same product + my skin type"],
-  ["similar_products", "People who use similar products"],
-  ["similar_products_skin", "Similar products + my skin type"],
-] as const;
 export default function AskAboutProduct() {
   const { id, q, name } = useLocalSearchParams<{
     id: string;
@@ -170,6 +163,7 @@ export default function AskAboutProduct() {
                     This choice will be visible with your question.
                   </Note>
                   <FilterChips
+                    variant="chips"
                     options={[
                       "Not stated",
                       "Dry",
