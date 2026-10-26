@@ -14,6 +14,15 @@ do $$declare denied boolean:=false;begin
  denied:=false;begin insert into public.clarity_experiences(product_id,duration,body,visibility,attached_journey_id) values('rollback-tracking-test','Week 1','Should not publish a private attachment.','public',current_setting('test.journey')::uuid);exception when others then denied:=true;end;if not denied then raise exception 'Private timeline was attached publicly';end if;
 end$$;
 insert into public.clarity_experiences(id,product_id,duration,body,visibility) values(current_setting('test.post')::uuid,'rollback-tracking-test','Week 1','Private user experience fixture.','private');
+reset role;
+insert into storage.objects(bucket_id,name) values('ownership-proofs',current_setting('test.uid')||'/rollback-proof.jpg');
+set local role authenticated;
+insert into public.unmask_ownership_proofs(journey_id,photo_path) values(current_setting('test.journey')::uuid,current_setting('test.uid')||'/rollback-proof.jpg');
+do $$begin if (select ownership_verified from public.unmask_journeys where id=current_setting('test.journey')::uuid) then raise exception 'Pending proof already verified';end if;end$$;
+reset role;
+update public.unmask_ownership_proofs set status='verified' where journey_id=current_setting('test.journey')::uuid;
+do $$begin if not (select ownership_verified from public.unmask_journeys where id=current_setting('test.journey')::uuid) then raise exception 'Reviewed ownership badge missing';end if;end$$;
+set local role authenticated;
 select set_config('request.jwt.claim.sub',current_setting('test.other'),true);
 do $$begin
  if exists(select 1 from public.unmask_journeys where id=current_setting('test.journey')::uuid) or exists(select 1 from public.unmask_experience_updates where id=current_setting('test.update')::uuid) or exists(select 1 from public.clarity_experiences where id=current_setting('test.post')::uuid) then raise exception 'Private tracking data leaked';end if;

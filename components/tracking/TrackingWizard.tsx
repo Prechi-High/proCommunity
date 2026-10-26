@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Pressable, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -30,9 +31,11 @@ import type { ProductState } from "@/lib/living/types";
 export function TrackingWizard({
   productId = "",
   journeyId,
+  resumeGuest,
 }: {
   productId?: string;
   journeyId?: string;
+  resumeGuest?: string;
 }) {
   const uid = useAppStore((s) => s.profile?.id);
   const r = useRouter();
@@ -59,6 +62,7 @@ export function TrackingWizard({
       time: "19:00",
       updateId: tracking.operationId(),
     },
+    uid && resumeGuest ? `unmask:tracking:guest:${resumeGuest}` : undefined,
   );
   const d = draft.value;
   const set = (patch: Partial<typeof d>) =>
@@ -144,12 +148,16 @@ export function TrackingWizard({
   async function save() {
     if (busy) return;
     if (!uid) {
+      await AsyncStorage.setItem(
+        `unmask:tracking:guest:${journeyId || productId || "new"}`,
+        JSON.stringify(d),
+      );
       r.push({
         pathname: "/(auth)/sign-in",
         params: {
           returnTo: journeyId
             ? `/journey/${journeyId}/update`
-            : "/products/add",
+            : `/products/add?product=${encodeURIComponent(productId)}&resumeGuest=${encodeURIComponent(productId || "new")}`,
         },
       } as Href);
       return;
