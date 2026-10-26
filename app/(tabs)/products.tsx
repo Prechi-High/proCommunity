@@ -80,7 +80,7 @@ export default function MyProducts() {
         brand: e.unmask_catalog?.brand,
         image: e.unmask_catalog?.image_url,
         note: e.body.slice(0, 80),
-        href: `/contribute?experience=${e.id}&update=1`,
+        href: `/products/experience/${e.id}`,
       }));
     return [...fromJ, ...extra];
   }, [experiences.data, journeys.data]);
@@ -95,7 +95,9 @@ export default function MyProducts() {
         brand: p?.brand,
         image: p?.image_url,
         note: "Following",
-        href: `/product/${s.target_id}`,
+        href: journeys.data?.find((j) => j.product_id === s.target_id)?.id
+          ? `/journey/${journeys.data.find((j) => j.product_id === s.target_id)!.id}`
+          : `/products/item/${s.target_id}`,
       };
     });
 
@@ -105,14 +107,16 @@ export default function MyProducts() {
     brand: known[s.productId]?.brand,
     image: known[s.productId]?.heroImageUrl,
     note: "Saved",
-    href: `/product/${s.productId}`,
+    href: journeys.data?.find((j) => j.product_id === s.productId)?.id
+      ? `/journey/${journeys.data.find((j) => j.product_id === s.productId)!.id}`
+      : `/products/item/${s.productId}`,
   }));
 
   const liveRows =
     tab === "I use" ? useRows : tab === "Following" ? following : favorites;
   const rows = (
     demo
-      ? SAMPLE_SHELF.filter(
+      ? SAMPLE_SHELF.map((p) => ({ ...p, href: `/journey/${p.id}` })).filter(
           (_, i) =>
             tab === "I use" || (tab === "Following" ? i === 0 : i === 1),
         )
@@ -123,27 +127,27 @@ export default function MyProducts() {
 
   return (
     <AppShell
-      title="My products"
+      title="My Products"
       serif
       notify
       subtitle={COPY.productTabSubtitle}
     >
       <DemoBanner />
       <LinearGradient
-        colors={["#542030", "#2A0E16"]}
+        colors={["#245B4C", "#173A30"]}
         style={{ padding: 24, borderRadius: 28, gap: 16 }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Clock color="#E8C87C" size={20} />
+          <Clock color="#CBE6CC" size={20} />
           <Text
             style={{
               fontFamily: fonts.medium,
               fontSize: 12,
               letterSpacing: 1,
-              color: "#E8C87C",
+              color: "#CBE6CC",
             }}
           >
-            LITTLE NOTES. A CLEARER PICTURE.
+            YOUR OWN PRODUCT JOURNALS
           </Text>
         </View>
         <Text
@@ -154,7 +158,7 @@ export default function MyProducts() {
             color: "#fff",
           }}
         >
-          Your shelf. Your story.
+          Keep the changes. Find your pattern.
         </Text>
         <Text
           style={{

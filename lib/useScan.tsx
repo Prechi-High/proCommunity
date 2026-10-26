@@ -54,7 +54,8 @@ import {
   type VisionAsset,
   type VisionResult,
 } from "./productVision";
-import { rememberProduct, slugify } from "./products";
+import type { Product } from "./types";
+import { getKnownProduct, rememberProduct, slugify } from "./products";
 import { useAppStore } from "./store";
 
 export const MAX_COMPARE = 3;
@@ -92,7 +93,9 @@ function hasWebCamera(): boolean {
 }
 
 /** Photo → identity → full profile. Offers a live camera or an upload, on web and native. */
-export function useScan() {
+export function useScan(options?: {
+  onSelect: (product: Product, photo: string) => void;
+}) {
   const router = useRouter();
   const addSearch = useAppStore((s) => s.addSearch);
   const [stage, setStage] = useState<ScanStage>("idle");
@@ -129,7 +132,8 @@ export function useScan() {
       brand: p.brand ?? "",
       category: p.category || "Product",
       heroImageUrl:
-        extra?.matches?.find((m) => m.exact && m.image)?.image ?? null,
+        extra?.matches?.find((m) => m.exact && m.image)?.image ??
+        (options?.onSelect ? photo : null),
     });
     useAppStore.getState().rememberScan(id, {
       photo,
@@ -148,6 +152,11 @@ export function useScan() {
     hapticTap();
     const id = adopt(p, photo);
     addSearch(p.label);
+    if (options?.onSelect) {
+      const picked = getKnownProduct(id);
+      if (picked) options.onSelect(picked, photo);
+      return;
+    }
     router.push({
       pathname: "/product/[id]",
       params: { id, q: p.searchQuery || p.label, from: "scan" },
@@ -302,6 +311,11 @@ export function useScan() {
         )
       : pendingMatch.id;
     setPendingMatch(null);
+    if (options?.onSelect) {
+      const picked = getKnownProduct(id);
+      if (picked) options.onSelect(picked, photo);
+      return;
+    }
     router.push({
       pathname: "/product/[id]",
       params: {

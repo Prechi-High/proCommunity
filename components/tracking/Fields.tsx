@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Image, Platform, Switch, Text, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { colors, fonts } from "@/constants/theme";
-import { ActionButton, FilterChips } from "@/components/unmask-ui";
+import { ActionButton, FilterChips, MediaFrame } from "@/components/unmask-ui";
 export const durationOptions = [
   "Just started",
   "Week 1",
@@ -137,11 +137,7 @@ export function PhotoField({
       ) : null}
       {value ? (
         <>
-          <Image
-            source={{ uri: value }}
-            style={{ width: "100%", height: 180, borderRadius: 18 }}
-            resizeMode="cover"
-          />
+          <MediaFrame uri={value} label={label} ratio={1.6} corners={false} />
           <ActionButton
             tone="ghost"
             label="Remove photo"

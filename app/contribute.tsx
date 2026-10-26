@@ -1,3 +1,11 @@
+import {
+  DurationPicker,
+  JournalProgress,
+  JournalProduct,
+  JournalCard,
+} from "@/components/tracking/JournalUI";
+import { SkinTypeField } from "@/components/tracking/SkinTypeField";
+import { useScan } from "@/lib/useScan";
 import { ProductIdentity } from "@/components/community/ProductIdentity";
 import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { EvidencePicker } from "@/components/tracking/EvidencePicker";
@@ -67,6 +75,12 @@ export default function Contribute() {
   const [duration, setDuration] = useState("");
   const [skin, setSkin] = useState("Not disclosed");
   const [photo, setPhoto] = useState("");
+  const scan = useScan({
+    onSelect: (product) => {
+      setProduct(product.id);
+      setStep("write");
+    },
+  });
   const [visibility, setVisibility] = useState<"private" | "public">("public");
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -150,7 +164,10 @@ export default function Contribute() {
         name: selected.name,
         brand: selected.brand || "",
         category: selected.category || "",
-        heroImageUrl: selected.image_url,
+        heroImageUrl:
+          selected.image_url && /^https?:/.test(selected.image_url)
+            ? selected.image_url
+            : null,
       });
       const saved = await api.saveExperience({
         photo_path: photoPath,
@@ -185,6 +202,29 @@ export default function Contribute() {
     }
   };
 
+  async function openProductJournal() {
+    await AsyncStorage.setItem(
+      `unmask:tracking:${uid || "guest"}:${product}`,
+      JSON.stringify({
+        step: 1,
+        product,
+        status:
+          usageStatus === "Still using"
+            ? "active"
+            : usageStatus === "Paused"
+              ? "paused"
+              : usageStatus === "Finished"
+                ? "finished"
+                : "stopped",
+        duration: duration || "Week 1",
+        frequency,
+        skin: skin === "Not disclosed" ? "" : skin,
+        body,
+        visibility: "private",
+      }),
+    );
+    router.push(`/products/add?product=${encodeURIComponent(product)}` as Href);
+  }
   if (done) {
     return (
       <AppShell back navigation title="Your experience is saved.">
@@ -221,6 +261,11 @@ export default function Contribute() {
       title={p.update ? COPY.followUpPrompt : COPY.homePrompt}
       subtitle="Good or bad. Start with what happened. Keep updating it."
     >
+      {scan.sheet}
+      <JournalProgress
+        step={step === "choose" ? 0 : done ? 2 : 1}
+        labels={["Product", "Your experience", "Shared"]}
+      />
       {step === "mine" ? (
         <>
           {(own.data ?? []).map((e) => (
@@ -256,6 +301,12 @@ export default function Contribute() {
             value={search}
             onChange={setSearch}
             placeholder="Find the product"
+            onCamera={scan.openCamera}
+          />
+          <ActionButton
+            tone="secondary"
+            label="Identify a product with a photo"
+            onPress={scan.openCamera}
           />
           {(cat.data ?? [])
             .filter((x) =>
@@ -315,21 +366,11 @@ export default function Contribute() {
       {step === "write" ? (
         <>
           {selected ? (
-            <Text
-              style={{
-                fontFamily: fonts.semibold,
-                fontSize: 16,
-                color: colors.ink,
-              }}
-            >
-              {selected.name}
-              <Text
-                style={{ fontFamily: fonts.regular, color: colors.inkSoft }}
-              >
-                {" "}
-                · confirmed
-              </Text>
-            </Text>
+            <JournalProduct
+              name={selected.name}
+              brand={selected.brand}
+              image={selected.image_url}
+            />
           ) : null}
           <Text
             style={{
@@ -355,16 +396,21 @@ export default function Contribute() {
               textAlignVertical: "top",
             }}
           />
-          <ProductIdentity
-            name={selected?.name || "Your product"}
-            brand={selected?.brand}
-            image={selected?.image_url}
-          />
           <EvidencePicker
             value={attachment}
             onChange={setAttachment}
             publicPost={visibility === "public"}
           />
+          <JournalCard
+            title="Give your experience an ownership marker."
+            detail="Add a photo of the product you own in a product journal. After review, its verified marker can stand out when you attach that journal to an answer. Your proof photo stays private."
+          >
+            <ActionButton
+              tone="secondary"
+              label="Add product proof & keep my experience"
+              onPress={() => void openProductJournal()}
+            />
+          </JournalCard>
           <FilterChips
             options={["Still using", "Used before", "Paused", "Finished"]}
             value={usageStatus}
@@ -376,7 +422,7 @@ export default function Contribute() {
               "Once a day",
               "Twice a day",
               "A few times a week",
-              "As needed",
+              "Once a week",
             ]}
             value={frequency}
             onChange={setFrequency}
@@ -448,31 +494,16 @@ export default function Contribute() {
           </Pressable>
           {more ? (
             <View style={{ gap: 12 }}>
-              <TextInput
-                value={duration}
-                onChangeText={setDuration}
-                placeholder="How long have you used it? e.g. 6 weeks"
-                placeholderTextColor={colors.bone3}
-                style={{
-                  fontFamily: fonts.regular,
-                  fontSize: 16,
-                  color: colors.ink,
-                  minHeight: 44,
-                }}
-              />
-              <FilterChips
-                variant="chips"
-                options={[
-                  "Not disclosed",
-                  "Dry",
-                  "Oily",
-                  "Combination",
-                  "Sensitive",
-                  "I’m not sure",
-                ]}
-                value={skin}
-                onChange={setSkin}
-              />
+              <DurationPicker value={duration} onChange={setDuration} />
+              {/skin|beauty|cosmetic|body|hair|cream|serum|cleanser/i.test(
+                `${selected?.category || ""} ${selected?.name || ""}`,
+              ) ? (
+                <SkinTypeField
+                  value={skin === "Not disclosed" ? "" : skin}
+                  profileSkin={pref.data?.skin_type}
+                  onChange={(v) => setSkin(v || "Not disclosed")}
+                />
+              ) : null}
             </View>
           ) : null}
           <ActionButton

@@ -17,7 +17,7 @@ export function MainNav() {
     { label: "Today", href: "/", Icon: House },
     { label: "Unmask", href: "/unmask", Icon: Play },
     { label: "Create", href: null, Icon: Plus },
-    { label: "Product", href: "/products", Icon: Package },
+    { label: "My Products", href: "/products", Icon: Package },
     { label: "You", href: "/you", Icon: User },
   ];
   return (
