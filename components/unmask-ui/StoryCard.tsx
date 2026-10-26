@@ -13,6 +13,8 @@ import type { FeedItem } from "@/lib/unmask/feed";
 import { relativeTime } from "@/lib/unmask/time";
 import { Avatar } from "./Avatar";
 import { MediaFrame } from "./MediaFrame";
+import { useAppStore } from "@/lib/store";
+import { PostActions } from "./PostActions";
 import { SparkMeter } from "./SparkMeter";
 export function StoryCard({
   item,
@@ -24,6 +26,12 @@ export function StoryCard({
   flush?: boolean;
 }) {
   const r = useRouter();
+  const added = useAppStore((s) =>
+    item.sample
+      ? (s.demoSparkAdds[item.sparkTargetId || item.href.split("/").pop()!] ??
+        0)
+      : 0,
+  );
   const ultra = item.kind === "unmask";
   const question = item.kind === "question";
   const published = item.status === "Ultra Unmasked";
@@ -193,7 +201,11 @@ export function StoryCard({
             </View>
           ) : null}
           {ultra && typeof item.sparks === "number" && !published ? (
-            <SparkMeter weight={item.sparks} goal={item.sparkGoal} compact />
+            <SparkMeter
+              weight={item.sparks + added}
+              goal={item.sparkGoal}
+              compact
+            />
           ) : null}
           <View
             style={{
@@ -222,6 +234,7 @@ export function StoryCard({
           </View>
         </View>
       </Pressable>
+      <PostActions item={item} />
     </View>
   );
 }

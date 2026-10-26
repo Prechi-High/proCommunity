@@ -15,6 +15,8 @@ export type FeedItem = {
   author: string;
   authorId?: string | null;
   sparkGoal?: number;
+  sparkTargetId?: string;
+  likes?: number;
   createdAt: string;
   productId?: string | null;
   productName?: string | null;
@@ -125,6 +127,19 @@ export async function loadHomeFeed(): Promise<FeedItem[]> {
     ),
     ...unmasks.map(unmaskToFeed),
   ];
+  for (const item of items) {
+    if (item.kind === "unmask") continue;
+    const id = item.href.split("/").pop();
+    const linked = unmasks.find((u) =>
+      item.kind === "experience"
+        ? u.experience_id === id
+        : u.question_id === id,
+    );
+    if (linked) {
+      item.sparkTargetId = linked.id;
+      item.sparks = (linked.sparks ?? 0) + (linked.thunder ?? 0) * 100;
+    }
+  }
   items.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
   return items;
 }

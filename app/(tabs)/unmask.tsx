@@ -1,3 +1,4 @@
+import { CreatorUpdates } from "@/components/unmask-ui/CreatorUpdates";
 import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
@@ -5,7 +6,6 @@ import { useRouter } from "expo-router";
 import {
   ActionButton,
   AppShell,
-  CreatorStrip,
   EmptyState,
   FilterChips,
   SearchField,
@@ -13,13 +13,12 @@ import {
   StoryCard,
   StorySkeleton,
 } from "@/components/unmask-ui";
-import { Sparkle, UsersThree, ArrowRight } from "@/components/icons";
+import { Sparkle } from "@/components/icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, fonts } from "@/constants/theme";
 import { loadUnmasks } from "@/lib/unmask/feed";
-import * as community from "@/lib/community-v2/api";
 import { DemoBanner } from "@/components/unmask-ui/DemoBanner";
-import { SAMPLE_FEED, SAMPLE_CREATORS } from "@/lib/unmask/samples";
+import { SAMPLE_FEED } from "@/lib/unmask/samples";
 import { useAppStore } from "@/lib/store";
 export default function Unmasks() {
   const router = useRouter();
@@ -30,10 +29,6 @@ export default function Unmasks() {
   const list = useQuery({
     queryKey: ["unmasks", sort],
     queryFn: () => loadUnmasks(sort),
-  });
-  const creators = useQuery({
-    queryKey: ["creators"],
-    queryFn: community.creators,
   });
   const rows = useMemo(() => {
     let out = demo
@@ -60,6 +55,7 @@ export default function Unmasks() {
   return (
     <AppShell notify flush>
       <View style={{ gap: 20, paddingTop: 10 }}>
+        <CreatorUpdates />
         <LinearGradient
           colors={["#55202D", "#311019"]}
           style={{
@@ -213,43 +209,6 @@ export default function Unmasks() {
             />
           </View>
         )}
-        <View style={{ paddingHorizontal: 20, gap: 12, paddingTop: 4 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <UsersThree size={23} color={colors.brand} />
-            <Text
-              style={{
-                fontFamily: fonts.semibold,
-                fontSize: 21,
-                color: colors.ink,
-              }}
-            >
-              Meet your creators
-            </Text>
-          </View>
-          <Text
-            style={{
-              fontFamily: fonts.regular,
-              fontSize: 14,
-              lineHeight: 21,
-              color: colors.inkSoft,
-            }}
-          >
-            Follow the people bringing more context to your product questions.
-          </Text>
-        </View>
-        <CreatorStrip
-          creators={(demo ? SAMPLE_CREATORS : (creators.data ?? [])).slice(
-            0,
-            8,
-          )}
-        />
-        <View style={{ paddingHorizontal: 20 }}>
-          <ActionButton
-            tone="ghost"
-            label="Explore all creators"
-            onPress={() => router.push("/creators")}
-          />
-        </View>
       </View>
     </AppShell>
   );

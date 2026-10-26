@@ -49,6 +49,12 @@ export interface AppState {
   flaggedPostIds: string[];
   userThreads: DiscussionThread[];
   hapticsMode: HapticsMode;
+  demoLikes: Record<string, boolean>;
+  toggleDemoLike: (id: string) => void;
+  demoSparkAdds: Record<string, number>;
+  addDemoSparks: (id: string, amount: number) => void;
+  creatorUpdatesSeen: Record<string, string>;
+  seeCreatorUpdate: (key: string, version: string) => void;
   demoCommunity: boolean;
   setDemoCommunity: (on: boolean) => void;
   interfaceSounds: boolean;
@@ -147,6 +153,27 @@ export const useAppStore = create<AppState>()(
         else set({ searchCategoryIds: [...cur, id] });
       },
       hapticsMode: "subtle" as HapticsMode,
+      demoLikes: {},
+      toggleDemoLike: (id) =>
+        set((s) => ({ demoLikes: { ...s.demoLikes, [id]: !s.demoLikes[id] } })),
+      demoSparkAdds: {},
+      addDemoSparks: (id, amount) =>
+        set((s) => ({
+          demoSparkAdds: {
+            ...s.demoSparkAdds,
+            [id]: (s.demoSparkAdds[id] ?? 0) + amount,
+          },
+        })),
+      creatorUpdatesSeen: {},
+      seeCreatorUpdate: (key, version) =>
+        set((s) => ({
+          creatorUpdatesSeen: Object.fromEntries([
+            ...Object.entries(s.creatorUpdatesSeen)
+              .filter(([k]) => k !== key)
+              .slice(-199),
+            [key, version],
+          ]),
+        })),
       demoCommunity: true,
       setDemoCommunity: (on) => set({ demoCommunity: on }),
       interfaceSounds: false,

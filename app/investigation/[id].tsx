@@ -32,7 +32,8 @@ export default function UnmaskDetail() {
   const router = useRouter();
   const uid = useAppStore((s) => s.profile?.id);
   const sample = sampleById(id);
-  const [demoSparks, setDemoSparks] = useState<Record<string, number>>({});
+  const demoSparks = useAppStore((s) => s.demoSparkAdds);
+  const addDemoSparks = useAppStore((s) => s.addDemoSparks);
   const [support, setSupport] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const q = useQuery({
@@ -173,12 +174,7 @@ export default function UnmaskDetail() {
           <>
             <ActionButton
               label="Try adding 10 demo Sparks"
-              onPress={() =>
-                setDemoSparks((prev) => ({
-                  ...prev,
-                  [sample.id]: (prev[sample.id] ?? 0) + 10,
-                }))
-              }
+              onPress={() => addDemoSparks(sample.id, 10)}
             />
             <Text
               accessibilityLiveRegion="polite"

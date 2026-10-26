@@ -1,3 +1,4 @@
+import { CreatorUpdates } from "@/components/unmask-ui/CreatorUpdates";
 import { useScan } from "@/lib/useScan";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -68,6 +69,7 @@ export default function Home() {
   return (
     <AppShell notify flush>
       <View style={{ gap: 20, paddingTop: 10 }}>
+        <CreatorUpdates />
         <DiscoveryHero />
         <View style={{ paddingHorizontal: 20 }}>
           <SearchField
