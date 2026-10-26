@@ -260,8 +260,8 @@ export function TrackingWizard({
             acquisition: "purchased",
             status: d.status as ProductState,
             visibility: d.visibility as "public" | "private",
-            frequency: d.frequency,
-            usage_duration: d.duration,
+            frequency: d.status === "purchased" ? "" : d.frequency,
+            usage_duration: d.status === "purchased" ? "" : d.duration,
             skin_type: d.skin || null,
           } as Partial<tracking.TrackedJourney> & {
             product_id: string;
@@ -303,7 +303,7 @@ export function TrackingWizard({
               ? "Starting photo saved before first use."
               : d.body.trim(),
           duration: d.status === "purchased" ? "Not started" : d.duration,
-          frequency: d.frequency,
+          frequency: d.status === "purchased" ? "" : d.frequency,
           skin_type: d.skin,
           status: d.status,
           reason: d.reason,
@@ -313,6 +313,7 @@ export function TrackingWizard({
       } else if (journeyId)
         await living.patchJourney(j.id, {
           status: "purchased",
+          frequency: "",
           visibility: d.visibility as "private" | "public",
         });
       if (!journeyId)
