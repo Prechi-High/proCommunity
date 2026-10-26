@@ -103,7 +103,9 @@ export function PhotoField({
       if (take) {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
         if (!permission.granted) {
-          setError("Camera access is off. You can choose a photo instead.");
+          setError(
+            "Camera access is off. Enable it in your device settings, or continue without a photo.",
+          );
           return;
         }
       }
@@ -118,23 +120,26 @@ export function PhotoField({
           });
       if (!r.canceled) onChange(r.assets[0].uri);
     } catch {
-      setError("The photo picker couldn’t open. Try choosing another photo.");
+      setError(
+        "The camera couldn’t open. You can try again or continue without a photo.",
+      );
     }
   }
   return (
     <View style={{ gap: 10 }}>
       <ActionButton
         tone="secondary"
-        label={value ? `Change ${label.toLowerCase()}` : label}
-        onPress={() => void pick()}
+        label={
+          camera
+            ? value
+              ? "Retake photo"
+              : "Take a photo now"
+            : value
+              ? `Change ${label.toLowerCase()}`
+              : label
+        }
+        onPress={() => void pick(camera)}
       />
-      {camera ? (
-        <ActionButton
-          tone="ghost"
-          label="Take a photo now"
-          onPress={() => void pick(true)}
-        />
-      ) : null}
       {value ? (
         <>
           <MediaFrame uri={value} label={label} ratio={1.6} corners={false} />

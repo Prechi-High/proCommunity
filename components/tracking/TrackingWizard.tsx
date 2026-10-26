@@ -78,6 +78,7 @@ export function TrackingWizard({
       reason: "",
       visibility: "private",
       ownership: "",
+      capturedProduct: "",
       skinPhoto: "",
       logOn: false,
       routineOn: false,
@@ -100,6 +101,8 @@ export function TrackingWizard({
           ) || product;
       } catch {}
       set({
+        capturedProduct: photo,
+        ownership: photo,
         product: product.id,
         productName: product.name,
         productBrand: product.brand,
@@ -227,15 +230,6 @@ export function TrackingWizard({
     }
     if (!p) return;
     setError("");
-    if (
-      !d.ownership &&
-      (!ownership.data || ownership.data.status === "rejected")
-    ) {
-      setError(
-        "Add a product photo for the ownership review. Your draft is saved.",
-      );
-      return;
-    }
     if (d.status !== "purchased" && d.body.trim().length < 10) {
       setError(
         "Add a little more about your experience (at least 10 characters).",
@@ -243,7 +237,8 @@ export function TrackingWizard({
       return;
     }
     try {
-      if (d.logOn || d.routineOn) tracking.nextReminder(d.time, "daily");
+      if (!journeyId && (d.logOn || d.routineOn))
+        tracking.nextReminder(d.time, "daily");
     } catch (e) {
       setError((e as Error).message);
       return;
@@ -298,13 +293,16 @@ export function TrackingWizard({
           skin_public: preference.data?.skin_public ?? false,
           save_investigations: preference.data?.save_investigations ?? false,
         });
-      if (d.status !== "purchased") {
+      if (d.status !== "purchased" || d.skinPhoto) {
         const photo_path = d.skinPhoto
           ? await living.uploadPhoto(d.skinPhoto)
           : null;
         await tracking.logUsage(j.id, d.updateId, {
-          body: d.body.trim(),
-          duration: d.duration,
+          body:
+            d.status === "purchased"
+              ? "Starting photo saved before first use."
+              : d.body.trim(),
+          duration: d.status === "purchased" ? "Not started" : d.duration,
           frequency: d.frequency,
           skin_type: d.skin,
           status: d.status,
@@ -317,15 +315,16 @@ export function TrackingWizard({
           status: "purchased",
           visibility: d.visibility as "private" | "public",
         });
-      await tracking.saveReminders(j.id, [
-        { kind: "log", enabled: d.logOn, time: d.time, cadence: "weekly" },
-        {
-          kind: "routine",
-          enabled: d.routineOn,
-          time: d.time,
-          cadence: "daily",
-        },
-      ]);
+      if (!journeyId)
+        await tracking.saveReminders(j.id, [
+          { kind: "log", enabled: d.logOn, time: d.time, cadence: "weekly" },
+          {
+            kind: "routine",
+            enabled: d.routineOn,
+            time: d.time,
+            cadence: "daily",
+          },
+        ]);
       await draft.clear();
       await qc.invalidateQueries();
       r.replace(`/journey/${j.id}?saved=1` as Href);
@@ -458,6 +457,8 @@ export function TrackingWizard({
                   accessibilityLabel={`Choose ${x.name}`}
                   onPress={() =>
                     set({
+                      capturedProduct: "",
+                      ownership: "",
                       product: x.id,
                       productName: x.name,
                       productBrand: x.brand || "",
@@ -571,7 +572,11 @@ export function TrackingWizard({
               </JournalCard>
             ) : null}
             <ActionButton
-              label="Continue to my experience"
+              label={
+                d.status === "purchased"
+                  ? "Continue to my starting point"
+                  : "Continue to my experience"
+              }
               disabled={!p}
               onPress={next}
             />
@@ -579,38 +584,50 @@ export function TrackingWizard({
         ) : null}
         {d.step === 2 ? (
           <>
-            <JournalCard
-              title={
-                journeyId
-                  ? "What has changed since last time?"
-                  : "Your first chapter starts here."
-              }
-              detail="Good, disappointing, unchanged or unsure. Tell it in your own words."
-            >
-              <Input
-                label="What have you noticed?"
-                multiline
-                value={d.body}
-                onChange={(body) => set({ body })}
-              />
-              {d.status === "active" ? (
-                <View
-                  style={{
-                    padding: 15,
-                    borderRadius: 17,
-                    backgroundColor: journal.mint,
-                    gap: 6,
-                  }}
-                >
-                  <Label>Keep the story going, at your pace.</Label>
-                  <Note>
-                    Come back after another week or month. Add a note, update
-                    your routine, or compare your photos. There’s no streak to
-                    keep.
-                  </Note>
-                </View>
-              ) : null}
-            </JournalCard>
+            {d.status !== "purchased" ? (
+              <JournalCard
+                title={
+                  journeyId
+                    ? "What has changed since last time?"
+                    : "Your first chapter starts here."
+                }
+                detail="Good, disappointing, unchanged or unsure. Tell it in your own words."
+              >
+                <Input
+                  label="What have you noticed?"
+                  multiline
+                  value={d.body}
+                  onChange={(body) => set({ body })}
+                />
+                {d.status === "active" ? (
+                  <View
+                    style={{
+                      padding: 15,
+                      borderRadius: 17,
+                      backgroundColor: journal.mint,
+                      gap: 6,
+                    }}
+                  >
+                    <Label>Keep the story going, at your pace.</Label>
+                    <Note>
+                      Come back after another week or month. Add a note, update
+                      your routine, or compare your photos. There’s no streak to
+                      keep.
+                    </Note>
+                  </View>
+                ) : null}
+              </JournalCard>
+            ) : (
+              <JournalCard
+                title="Ready when you are."
+                detail="You haven’t started using this product yet. Save it now, and add your first experience after you’ve tried it."
+              >
+                <Note>
+                  A starting photo is optional. It gives you something to
+                  compare with later.
+                </Note>
+              </JournalCard>
+            )}
             {beauty ? (
               <ComparisonPhotoCard
                 value={d.skinPhoto}
@@ -647,20 +664,35 @@ export function TrackingWizard({
                 }
                 detail="The marker confirms reviewed ownership evidence. It does not endorse the product or verify the outcome."
               />
+            ) : d.capturedProduct ? (
+              <JournalCard
+                title="Your product photo is already here."
+                detail="We’ll use the photo you took earlier for ownership review. No second photo needed."
+              >
+                <MediaFrame
+                  uri={d.capturedProduct}
+                  label="Your product photo"
+                  ratio={1.8}
+                  corners={false}
+                />
+                <Note>The verified marker appears after review.</Note>
+              </JournalCard>
             ) : (
               <OwnershipPhotoCard
                 value={d.ownership}
                 onChange={(ownership) => set({ ownership })}
               />
             )}
-            <JournalCard title="A reminder, only if it helps.">
-              <ReminderFields
-                logOn={d.logOn}
-                routineOn={d.routineOn}
-                time={d.time}
-                onChange={set}
-              />
-            </JournalCard>
+            {!journeyId ? (
+              <JournalCard title="A reminder, only if it helps.">
+                <ReminderFields
+                  logOn={d.logOn}
+                  routineOn={d.routineOn}
+                  time={d.time}
+                  onChange={set}
+                />
+              </JournalCard>
+            ) : null}
             <View
               style={{
                 padding: 18,
@@ -683,6 +715,7 @@ export function TrackingWizard({
                   : "Save my private journal"
               }
               pending={busy}
+              pendingLabel="Saving…"
               onPress={() => void save()}
             />
           </>

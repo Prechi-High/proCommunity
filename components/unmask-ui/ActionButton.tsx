@@ -1,4 +1,3 @@
-import { Skeleton } from "./Skeleton";
 import { useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import Animated, {
@@ -103,7 +102,7 @@ export function ActionButton({
           })}
         >
           {pending ? (
-            <Skeleton width={24} height={18} radius={5} />
+            <ActivityIndicator size="small" color={t.fg} />
           ) : (
             (icon ?? (Icon ? <Icon size={19} color={t.fg} /> : null))
           )}

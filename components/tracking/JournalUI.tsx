@@ -13,11 +13,11 @@ import { fonts, colors } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { Input, Label, Note, PhotoField, durationOptions } from "./Fields";
 export const journal = {
-  green: "#245B4C",
-  mint: "#E9F2EB",
-  border: "#D8E4DC",
-  paper: "#F6F8F4",
-  ink: "#173A30",
+  green: colors.ink,
+  mint: "#F3F1EE",
+  border: colors.line,
+  paper: "#F8F7F5",
+  ink: colors.ink,
 };
 export function JournalProgress({
   step,
@@ -363,7 +363,7 @@ export function ComparisonPhotoCard({
 }) {
   return (
     <LinearGradient
-      colors={["#EAF3EC", "#F6F8F1"]}
+      colors={["#F3F1EE", "#FAF9F7"]}
       style={{ padding: 21, borderRadius: 25, gap: 13 }}
     >
       <View style={{ flexDirection: "row", gap: 9, alignItems: "center" }}>
@@ -384,34 +384,6 @@ export function ComparisonPhotoCard({
         another with a later update to compare what changed—or stayed the
         same—while using this product.
       </Note>
-      <View style={{ flexDirection: "row", gap: 10 }}>
-        {["Your starting photo", "Your next update"].map((label, i) => (
-          <View
-            key={label}
-            style={{
-              flex: 1,
-              padding: 15,
-              borderRadius: 17,
-              borderWidth: 1,
-              borderStyle: i ? "dashed" : "solid",
-              borderColor: "#C8D9CD",
-              backgroundColor: "#FFFFFF99",
-              gap: 8,
-            }}
-          >
-            <Camera size={21} color={journal.green} />
-            <Text
-              style={{
-                fontFamily: fonts.medium,
-                fontSize: 12,
-                color: journal.green,
-              }}
-            >
-              {label}
-            </Text>
-          </View>
-        ))}
-      </View>
       <PhotoField
         label="Add a starting or progress photo"
         value={value}
@@ -436,7 +408,7 @@ export function OwnershipPhotoCard({
   return (
     <JournalCard
       title="Show the product behind your story."
-      detail="A photo of the product you own helps us review ownership."
+      detail="Optional. A photo of the product you own helps us review ownership. You can save without one."
     >
       <View
         style={{

@@ -1,3 +1,5 @@
+import { Lightbox } from "@/components/Lightbox";
+import { JournalSaved } from "./JournalSaved";
 import { useLocalSearchParams } from "expo-router";
 import { demoJournal } from "@/lib/tracking/demo";
 import { JournalCard, JournalProduct, journal } from "./JournalUI";
@@ -5,7 +7,7 @@ import { Clock, Camera, Lock, ShieldCheck, Check } from "@/components/icons";
 import { ContentSkeleton, Skeleton } from "@/components/unmask-ui/Skeleton";
 import { MediaFrame } from "@/components/unmask-ui/MediaFrame";
 import { useState } from "react";
-import { Image, Text, View } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import { useAppStore } from "@/lib/store";
@@ -28,6 +30,7 @@ import {
 } from "./Fields";
 import { colors, fonts } from "@/constants/theme";
 function TimelinePhoto({ path, label }: { path: string; label: string }) {
+  const [expanded, setExpanded] = useState(false);
   const q = useQuery({
     queryKey: ["tracking-photo", path],
     queryFn: () => living.photoUrl(path),
@@ -36,7 +39,25 @@ function TimelinePhoto({ path, label }: { path: string; label: string }) {
   return (
     <View style={{ flex: 1, gap: 6 }}>
       {q.data ? (
-        <MediaFrame uri={q.data} label={label} ratio={1.3} corners={false} />
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`View full photo: ${label}`}
+            onPress={() => setExpanded(true)}
+          >
+            <MediaFrame
+              uri={q.data}
+              label={label}
+              ratio={1.3}
+              corners={false}
+            />
+          </Pressable>
+          <Lightbox
+            images={[{ url: q.data, caption: label }]}
+            index={expanded ? 0 : null}
+            onClose={() => setExpanded(false)}
+          />
+        </>
       ) : q.isError ? (
         <Note>This photo is private or unavailable.</Note>
       ) : (
@@ -167,11 +188,7 @@ export function TimelineView({ id }: { id: string }) {
               detail="Fictional notes show how tracking looks. This is a journal preview, with no social comments or real product claims."
             />
           ) : saved && own ? (
-            <StatusMessage
-              kind="success"
-              title="Your chapter is saved."
-              detail="You can return whenever you have something new to add."
-            />
+            <JournalSaved />
           ) : null}
           <JournalProduct
             name={j.unmask_catalog?.name || "Your product"}
@@ -353,18 +370,8 @@ export function TimelineView({ id }: { id: string }) {
               {own ? (
                 <ActionButton
                   tone="secondary"
-                  label="Share my journal with a conversation"
-                  onPress={() => {
-                    if (j.visibility !== "public") {
-                      setMessage(
-                        "Your journal is private. Choose to make it public in Routine settings before attaching it to a public answer. Older private photos stay private.",
-                      );
-                      return;
-                    }
-                    r.push(
-                      `/contribute?product=${j.product_id}&journey=${id}` as Href,
-                    );
-                  }}
+                  label="Add another update"
+                  onPress={() => r.push(`/journey/${id}/update` as Href)}
                 />
               ) : null}
             </>
@@ -496,6 +503,7 @@ export function TimelineView({ id }: { id: string }) {
                   <ActionButton
                     label="Save my choices"
                     pending={busy}
+                    pendingLabel="Saving…"
                     onPress={() => void save()}
                   />
                   <ActionButton

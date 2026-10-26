@@ -134,17 +134,17 @@ export default function MyProducts() {
     >
       <DemoBanner />
       <LinearGradient
-        colors={["#245B4C", "#173A30"]}
+        colors={["#F4F1ED", "#FBFAF8"]}
         style={{ padding: 24, borderRadius: 28, gap: 16 }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Clock color="#CBE6CC" size={20} />
+          <Clock color={colors.ink} size={20} />
           <Text
             style={{
               fontFamily: fonts.medium,
               fontSize: 12,
               letterSpacing: 1,
-              color: "#CBE6CC",
+              color: colors.ink,
             }}
           >
             YOUR OWN PRODUCT JOURNALS
@@ -155,7 +155,7 @@ export default function MyProducts() {
             fontFamily: fonts.semibold,
             fontSize: 31,
             lineHeight: 37,
-            color: "#fff",
+            color: colors.ink,
           }}
         >
           Keep the changes. Find your pattern.
@@ -165,7 +165,7 @@ export default function MyProducts() {
             fontFamily: fonts.regular,
             fontSize: 15,
             lineHeight: 23,
-            color: "#EEDCE1",
+            color: colors.inkSoft,
           }}
         >
           What felt different this week? Keep your routine, photos and honest
