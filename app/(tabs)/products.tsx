@@ -1,6 +1,8 @@
 import { DemoBanner } from "@/components/unmask-ui/DemoBanner";
 import { SAMPLE_SHELF } from "@/lib/unmask/samples";
-import { Lock } from "@/components/icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { hapticSelect } from "@/lib/haptics";
+import { Plus, ArrowRight, Clock, Camera, Lock } from "@/components/icons";
 import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
@@ -20,6 +22,8 @@ import { COPY } from "@/constants/brand";
 import { colors, fonts } from "@/constants/theme";
 import * as living from "@/lib/living/api";
 import * as clarity from "@/lib/clarity/api";
+import { statusNames } from "@/components/tracking/Fields";
+import type { TrackedJourney } from "@/lib/tracking/api";
 import { displayName } from "@/lib/products";
 import { useAppStore } from "@/lib/store";
 
@@ -58,7 +62,14 @@ export default function MyProducts() {
       name: j.unmask_catalog?.name || j.product_id,
       brand: j.unmask_catalog?.brand,
       image: j.unmask_catalog?.image_url,
-      note: j.goal || "Private timeline",
+      note:
+        [(j as TrackedJourney).usage_duration, j.frequency]
+          .filter(Boolean)
+          .join(" · ") || "Your timeline is ready",
+      status: statusNames[j.status] || j.status,
+      visibility: j.visibility,
+      journeyId: j.id,
+      verified: (j as TrackedJourney).ownership_verified,
       href: j.id ? `/journey/${j.id}` : `/product/${j.product_id}`,
     }));
     const extra = (experiences.data ?? [])
@@ -112,44 +123,78 @@ export default function MyProducts() {
 
   return (
     <AppShell
-      title="Your product story, over time."
+      title="My products"
       serif
       notify
       subtitle={COPY.productTabSubtitle}
     >
       <DemoBanner />
-      <View
-        style={{
-          padding: 20,
-          borderRadius: 22,
-          backgroundColor: "#F2EAE3",
-          gap: 10,
-        }}
+      <LinearGradient
+        colors={["#542030", "#2A0E16"]}
+        style={{ padding: 24, borderRadius: 28, gap: 16 }}
       >
-        <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-          <Lock size={20} color={colors.brand} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Clock color="#E8C87C" size={20} />
           <Text
             style={{
-              fontFamily: fonts.semibold,
-              fontSize: 14,
-              color: colors.brand,
+              fontFamily: fonts.medium,
+              fontSize: 12,
+              letterSpacing: 1,
+              color: "#E8C87C",
             }}
           >
-            A private place to notice the difference.
+            LITTLE NOTES. A CLEARER PICTURE.
           </Text>
         </View>
+        <Text
+          style={{
+            fontFamily: fonts.semibold,
+            fontSize: 31,
+            lineHeight: 37,
+            color: "#fff",
+          }}
+        >
+          Your shelf. Your story.
+        </Text>
         <Text
           style={{
             fontFamily: fonts.regular,
             fontSize: 15,
             lineHeight: 23,
-            color: colors.inkSoft,
+            color: "#EEDCE1",
           }}
         >
-          Day one. Week six. Still using it? Add a photo or a note. Your updates
-          can help someone else when you choose to share.
+          What felt different this week? Keep your routine, photos and honest
+          updates together. Pick up whenever you’re ready.
         </Text>
-      </View>
+        <ActionButton
+          tone="gold"
+          label="Track a product"
+          onPress={() => router.push("/products/add")}
+        />
+        <View style={{ flexDirection: "row", gap: 16 }}>
+          {[
+            { Icon: Camera, text: "Photos over time" },
+            { Icon: Lock, text: "Private by default" },
+          ].map(({ Icon, text }) => (
+            <View
+              key={text}
+              style={{ flexDirection: "row", gap: 6, alignItems: "center" }}
+            >
+              <Icon size={15} color="#DEC4CC" />
+              <Text
+                style={{
+                  fontFamily: fonts.regular,
+                  fontSize: 12,
+                  color: "#DEC4CC",
+                }}
+              >
+                {text}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </LinearGradient>
       <SearchField
         value={search}
         onChange={setSearch}
@@ -172,43 +217,118 @@ export default function MyProducts() {
       (journeys.isLoading || experiences.isLoading || subs.isLoading) ? (
         <StorySkeleton />
       ) : rows.length ? (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-          {rows.map((p) => (
-            <Pressable
-              key={p.id}
-              onPress={() => router.push(p.href as Href)}
-              style={{ width: "47%", gap: 10, paddingBottom: 8 }}
-            >
-              <MediaFrame
-                uri={p.image}
-                label={p.name}
-                ratio={1}
-                corners={false}
-              />
-              <Text
-                numberOfLines={2}
+        <View style={{ gap: 16 }}>
+          {rows.map((p) => {
+            const detail = p as typeof p & {
+              status?: string;
+              visibility?: string;
+              journeyId?: string;
+              verified?: boolean;
+            };
+            return (
+              <View
+                key={p.id}
                 style={{
-                  fontFamily: fonts.semibold,
-                  fontSize: 14,
-                  lineHeight: 18,
-                  color: colors.ink,
+                  borderRadius: 24,
+                  backgroundColor: "#FAF7F3",
+                  borderWidth: 1,
+                  borderColor: "#E8DED6",
+                  overflow: "hidden",
                 }}
               >
-                {p.name}
-              </Text>
-              <Text
-                numberOfLines={1}
-                style={{
-                  fontFamily: fonts.regular,
-                  fontSize: 12,
-                  color: colors.inkSoft,
-                }}
-              >
-                {p.brand ? `${p.brand} · ` : ""}
-                {demo ? p.note : COPY.addUpdate}
-              </Text>
-            </Pressable>
-          ))}
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={`Open ${p.name}`}
+                  onPress={() => {
+                    hapticSelect();
+                    router.push(p.href as Href);
+                  }}
+                  style={({ pressed }) => ({
+                    padding: 18,
+                    flexDirection: "row",
+                    gap: 16,
+                    opacity: pressed ? 0.8 : 1,
+                  })}
+                >
+                  <View style={{ width: 104 }}>
+                    <MediaFrame
+                      uri={p.image}
+                      label={p.name}
+                      ratio={0.9}
+                      corners={false}
+                    />
+                  </View>
+                  <View style={{ flex: 1, gap: 7, justifyContent: "center" }}>
+                    <Text
+                      style={{
+                        fontFamily: fonts.medium,
+                        fontSize: 11,
+                        color: colors.brand,
+                      }}
+                    >
+                      {demo
+                        ? "DEMO TIMELINE"
+                        : detail.status || tab.toUpperCase()}
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: fonts.semibold,
+                        fontSize: 20,
+                        lineHeight: 26,
+                        color: colors.ink,
+                      }}
+                    >
+                      {p.name}
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: fonts.regular,
+                        fontSize: 13,
+                        lineHeight: 20,
+                        color: colors.inkSoft,
+                      }}
+                    >
+                      {p.note}
+                    </Text>
+                    {detail.visibility ? (
+                      <Text
+                        style={{
+                          fontFamily: fonts.medium,
+                          fontSize: 11,
+                          color: colors.inkSoft,
+                        }}
+                      >
+                        {detail.visibility === "public"
+                          ? "Shared timeline"
+                          : "Private · just for you"}
+                        {detail.verified ? " · Ownership verified" : ""}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <ArrowRight size={19} color={colors.brand} />
+                </Pressable>
+                {detail.journeyId ? (
+                  <View
+                    style={{ paddingHorizontal: 18, paddingBottom: 16, gap: 8 }}
+                  >
+                    <ActionButton
+                      label="Add an update"
+                      onPress={() =>
+                        router.push(
+                          `/journey/${detail.journeyId}/update` as Href,
+                        )
+                      }
+                    />
+                    <ActionButton
+                      tone="ghost"
+                      label="See my timeline & routine"
+                      onPress={() => router.push(p.href as Href)}
+                    />
+                  </View>
+                ) : null}
+              </View>
+            );
+          })}
         </View>
       ) : (
         <EmptyState

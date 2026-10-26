@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/unmask-ui/Skeleton";
 import type { ComponentType, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -320,8 +321,13 @@ export function ProductImage({
   radius?: number;
   style?: StyleProp<ViewStyle>;
 }) {
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    setLoaded(false);
+    setFailed(false);
+  }, [uri]);
   const [failed, setFailed] = useState(false);
-  const Mark = categoryIcon(category ?? '');
+  const Mark = categoryIcon(category ?? "");
   return (
     <View
       style={[
@@ -330,9 +336,9 @@ export function ProductImage({
           height: size,
           borderRadius: radius,
           backgroundColor: colors.white,
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
           borderWidth: 1,
           borderColor: colors.line,
         },
@@ -342,6 +348,7 @@ export function ProductImage({
       {uri && !failed ? (
         <Image
           source={{ uri }}
+          onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}
           style={{ width: size * 0.86, height: size * 0.86 }}
           resizeMode="contain"
@@ -349,6 +356,11 @@ export function ProductImage({
       ) : (
         <Mark size={size * 0.38} color={colors.bone3} weight="regular" />
       )}
+      {uri && !failed && !loaded ? (
+        <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
+          <Skeleton height={size} width={size} radius={radius} />
+        </View>
+      ) : null}
     </View>
   );
 }

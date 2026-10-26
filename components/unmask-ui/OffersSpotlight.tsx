@@ -1,3 +1,4 @@
+import { ContentSkeleton } from "./Skeleton";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowRight, Storefront } from "@/components/icons";
@@ -48,7 +49,11 @@ export function OffersSpotlight() {
           <ArrowRight size={22} color={colors.brand} />
         </Pressable>
       </View>
-      {q.rows.length ? (
+      {q.isLoading ? (
+        <View style={{ paddingHorizontal: 20 }}>
+          <ContentSkeleton rows={2} />
+        </View>
+      ) : q.rows.length ? (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}

@@ -1,3 +1,4 @@
+import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { SaveExperience } from "@/components/tracking/SaveExperience";
 import { AttachedEvidence } from "@/components/tracking/AttachedEvidence";
 import {
@@ -416,9 +417,7 @@ export default function Story() {
           />
         </>
       ) : (
-        <Text style={{ fontFamily: fonts.regular, color: colors.inkSoft }}>
-          Loading story…
-        </Text>
+        <ContentSkeleton/>
       )}
     </AppShell>
   );

@@ -8,6 +8,7 @@ import {
   ActionButton,
   AppShell,
   EmptyState,
+  ContentSkeleton,
   FocusCorners,
   MediaFrame,
   SearchField,
@@ -71,11 +72,8 @@ export default function Results() {
     setPicked(p.id);
     setOpenError("");
     try {
-      const has = p.id.startsWith("demo-")
-        ? SAMPLE_FEED.some((x) => x.productId === p.id)
-        : await hasProductConversation(p.id);
       router.push({
-        pathname: has ? "/product/[id]" : "/product/[id]/ask-community",
+        pathname: "/product/[id]",
         params: { id: p.id, name: p.name },
       } as Href);
     } catch {
@@ -97,7 +95,7 @@ export default function Results() {
       heroImageUrl: null,
     });
     router.push({
-      pathname: "/product/[id]/ask-community",
+      pathname: "/product/[id]",
       params: { id, name },
     } as Href);
   };
@@ -118,11 +116,7 @@ export default function Results() {
       {scan.sheet}
 
       {openError ? <StatusMessage kind="error" title={openError} /> : null}
-      {picked ? (
-        <Text style={{ fontFamily: fonts.regular, color: colors.inkSoft }}>
-          Opening community conversations…
-        </Text>
-      ) : null}
+      {picked ? <ContentSkeleton rows={1} /> : null}
       {result.isError ? (
         <StatusMessage
           kind="error"
@@ -130,11 +124,7 @@ export default function Results() {
           detail="Your query is still here. Try again."
         />
       ) : null}
-      {result.isLoading ? (
-        <Text style={{ fontFamily: fonts.regular, color: colors.inkSoft }}>
-          Looking…
-        </Text>
-      ) : null}
+      {result.isLoading ? <ContentSkeleton /> : null}
       {products.map((p) => (
         <Pressable
           key={p.id}

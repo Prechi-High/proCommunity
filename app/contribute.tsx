@@ -1,3 +1,5 @@
+import { ProductIdentity } from "@/components/community/ProductIdentity";
+import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { EvidencePicker } from "@/components/tracking/EvidencePicker";
 import { AttachedEvidence } from "@/components/tracking/AttachedEvidence";
 import type { EvidenceSelection } from "@/lib/tracking/api";
@@ -247,6 +249,7 @@ export default function Contribute() {
         </>
       ) : null}
 
+      {step === "choose" && cat.isLoading ? <ContentSkeleton /> : null}
       {step === "choose" ? (
         <>
           <SearchField
@@ -351,6 +354,11 @@ export default function Contribute() {
               color: colors.ink,
               textAlignVertical: "top",
             }}
+          />
+          <ProductIdentity
+            name={selected?.name || "Your product"}
+            brand={selected?.brand}
+            image={selected?.image_url}
           />
           <EvidencePicker
             value={attachment}

@@ -1,3 +1,4 @@
+import { ContentSkeleton } from "./Skeleton";
 import { playPeelSound } from "@/lib/sounds";
 import { Lightning } from "@/components/icons";
 import { useEffect, useRef, useState } from "react";
@@ -180,13 +181,16 @@ export function SparkSheet({
         />
       </View>
       {uid ? (
-        <Text style={s.small}>
-          {wallet.isLoading
-            ? "Loading wallet…"
-            : wallet.isError
-              ? "Wallet unavailable. Try again."
-              : `Your balance: ${wallet.data?.sparks ?? 0} Sparks · ${wallet.data?.thunder ?? 0} Thunder Sparks`}
-        </Text>
+        <>
+          {wallet.isLoading ? <ContentSkeleton rows={1} /> : null}
+          <Text style={s.small}>
+            {wallet.isLoading
+              ? ""
+              : wallet.isError
+                ? "Wallet unavailable. Try again."
+                : `Your balance: ${wallet.data?.sparks ?? 0} Sparks · ${wallet.data?.thunder ?? 0} Thunder Sparks`}
+          </Text>
+        </>
       ) : null}
       {receipt ? (
         <>

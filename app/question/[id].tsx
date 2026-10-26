@@ -1,3 +1,4 @@
+import { ProductIdentity } from "@/components/community/ProductIdentity";
 import {
   ExperienceAttachment,
   AttachedExperienceLink,
@@ -12,6 +13,7 @@ import {
   AppShell,
   Avatar,
   StatusMessage,
+  ContentSkeleton,
 } from "@/components/unmask-ui";
 import { COPY } from "@/constants/brand";
 import { colors, fonts } from "@/constants/theme";
@@ -35,6 +37,11 @@ export default function QuestionScreen() {
     queryKey: ["answers", id],
     queryFn: () => api.answers(id),
     enabled: !!id && !sample,
+  });
+  const product = useQuery({
+    queryKey: ["catalog", q.data?.product_id],
+    queryFn: () => api.catalog(q.data!.product_id!),
+    enabled: !!q.data?.product_id,
   });
   const [attachedJourney, setAttachedJourney] = useState("");
   const [attachment, setAttachment] = useState("");
@@ -161,6 +168,33 @@ export default function QuestionScreen() {
         q.data?.author_name ? `Asked by ${q.data.author_name}` : undefined
       }
     >
+      {q.isLoading ? <ContentSkeleton /> : null}
+      {q.data?.product_id ? (
+        <ProductIdentity
+          name={product.data?.[0]?.name || "Product"}
+          brand={product.data?.[0]?.brand}
+          image={product.data?.[0]?.image_url}
+          loading={product.isLoading}
+        />
+      ) : null}
+      {q.data?.skin_type ? (
+        <StatusMessage
+          title={`${q.data.skin_type} skin`}
+          detail="Context shared by the person asking."
+        />
+      ) : null}
+      {q.data?.context ? (
+        <Text
+          style={{
+            fontFamily: fonts.regular,
+            fontSize: 15,
+            color: colors.inkSoft,
+          }}
+        >
+          {q.data.context}
+        </Text>
+      ) : null}
+      {answers.isLoading ? <ContentSkeleton rows={2} /> : null}
       {q.isError ? (
         <StatusMessage kind="error" title="This question isn’t available." />
       ) : null}

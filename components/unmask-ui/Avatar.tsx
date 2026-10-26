@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Image, Text, View } from "react-native";
 
+import { Skeleton } from "./Skeleton";
 import { colors, fonts } from "@/constants/theme";
 import { avatarTone, initials } from "@/lib/unmask/time";
 
@@ -14,8 +15,12 @@ export function Avatar({
   size?: number;
 }) {
   const bg = avatarTone(name);
+  const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [uri]);
+  useEffect(() => {
+    setFailed(false);
+    setLoaded(false);
+  }, [uri]);
   return (
     <View
       style={{
@@ -31,6 +36,7 @@ export function Avatar({
     >
       {uri && !failed ? (
         <Image
+          onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}
           source={{ uri }}
           style={{ width: size, height: size }}
@@ -47,6 +53,11 @@ export function Avatar({
           {initials(name)}
         </Text>
       )}
+      {uri && !failed && !loaded ? (
+        <View style={{ position: "absolute", inset: 0 }}>
+          <Skeleton width={size} height={size} radius={size / 2} />
+        </View>
+      ) : null}
     </View>
   );
 }

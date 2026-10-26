@@ -1,3 +1,4 @@
+import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
@@ -99,11 +100,7 @@ export function EvidencePicker({
             }}
           />
         ) : null}
-        {q.isLoading ? (
-          <Text style={{ color: colors.inkSoft }}>
-            Opening your experiences…
-          </Text>
-        ) : null}
+        {q.isLoading ? <ContentSkeleton /> : null}
         {q.isError ? (
           <ActionButton
             label="Retry experiences"

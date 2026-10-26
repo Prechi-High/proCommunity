@@ -80,7 +80,9 @@ export function questionToFeed(
     productId: q.product_id,
     productName,
     productImage,
-    chips: productName ? [productName] : [],
+    chips: [productName, q.skin_type ? `${q.skin_type} skin` : null].filter(
+      (x): x is string => !!x,
+    ),
     href: `/question/${q.id}`,
     cta: "Answer with what you lived",
   };

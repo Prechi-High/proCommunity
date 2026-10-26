@@ -1,3 +1,4 @@
+import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -218,11 +219,7 @@ export default function Notifications() {
           onAction={() => r.push("/(auth)/sign-in")}
         />
       ) : null}
-      {loading ? (
-        <Text style={{ fontFamily: fonts.regular, color: colors.inkSoft }}>
-          Loading your updates…
-        </Text>
-      ) : null}
+      {loading ? <ContentSkeleton /> : null}
       {failed ? (
         <ActionButton
           label="Retry notifications"

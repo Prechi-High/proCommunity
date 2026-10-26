@@ -15,6 +15,7 @@ import {
   FilterChips,
   SearchField,
   StatusMessage,
+  ContentSkeleton,
 } from "@/components/unmask-ui";
 import {
   Input,
@@ -277,7 +278,7 @@ export function TrackingWizard({
   if (!draft.ready)
     return (
       <AppShell back title="Opening your draft…">
-        {null}
+        <ContentSkeleton />
       </AppShell>
     );
   return (
@@ -297,6 +298,7 @@ export function TrackingWizard({
           detail="Sign in to save your timeline securely."
         />
       ) : null}
+      {d.step === 0 && cat.isLoading ? <ContentSkeleton /> : null}
       {d.step === 0 ? (
         <>
           <SearchField

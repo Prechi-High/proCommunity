@@ -1,3 +1,4 @@
+import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { useState } from "react";
 import { Text, View, useWindowDimensions } from "react-native";
 import {
@@ -50,9 +51,7 @@ export default function Offers() {
         value={category}
         onChange={setCategory}
       />
-      {q.isLoading ? (
-        <Text style={{ color: colors.inkSoft }}>Loading offers…</Text>
-      ) : null}
+      {q.isLoading ? <ContentSkeleton /> : null}
       {q.error ? (
         <ActionButton label="Retry offers" tone="secondary" onPress={q.retry} />
       ) : null}

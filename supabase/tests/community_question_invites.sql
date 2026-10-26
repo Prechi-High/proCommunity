@@ -1,0 +1,25 @@
+begin;
+select set_config('test.asker',(select id::text from auth.users order by created_at limit 1),true),set_config('test.recipient',gen_random_uuid()::text,true),set_config('test.question',gen_random_uuid()::text,true);
+insert into auth.users(id,email,raw_user_meta_data,raw_app_meta_data) values(current_setting('test.recipient')::uuid,'rollback-invite-recipient@example.invalid','{}','{}');
+insert into public.unmask_catalog(id,name,brand,category) values('rollback-invite-product','Rollback Test Cream','Rollback Brand','Skincare');
+-- Isolate fixture matches, without retaining changes.
+update public.unmask_questions set audience='none' where user_id=current_setting('test.asker')::uuid;
+update public.unmask_activity set created_at=now()-interval '2 days' where user_id=current_setting('test.recipient')::uuid and title='Can your experience help someone choose?';
+insert into public.clarity_preferences(user_id,skin_type,product_question_invites) values(current_setting('test.recipient')::uuid,'Dry',true) on conflict(user_id) do update set skin_type='Dry',product_question_invites=true;
+select set_config('request.jwt.claim.sub',current_setting('test.recipient'),true);
+insert into public.unmask_journeys(user_id,product_id,acquisition,status,skin_type,visibility) values(current_setting('test.recipient')::uuid,'rollback-invite-product','purchased','active','Dry','private');
+select set_config('request.jwt.claim.sub',current_setting('test.asker'),true);
+set local role authenticated;
+do $$begin if exists(select 1 from public.unmask_journeys where product_id='rollback-invite-product') then raise exception 'Private ownership leaked to asker';end if;end$$;
+insert into public.unmask_questions(id,product_id,body,skin_type,audience) values(current_setting('test.question')::uuid,'rollback-invite-product','Does this cream work with my routine?','Dry','same_product_skin');
+do $$begin if exists(select 1 from public.unmask_activity where user_id=current_setting('test.recipient')::uuid and route='/question/'||current_setting('test.question')) then raise exception 'Recipient identity leaked to asker';end if;end$$;
+reset role;
+do $$begin if not exists(select 1 from public.unmask_activity where user_id=current_setting('test.recipient')::uuid and route='/question/'||current_setting('test.question') and body like '%private records were not shared%') then raise exception 'Private owner did not receive relevant invitation';end if;end$$;
+update public.clarity_preferences set product_question_invites=false where user_id=current_setting('test.recipient')::uuid;
+update public.unmask_activity set created_at=now()-interval '2 days' where user_id=current_setting('test.recipient')::uuid and route='/question/'||current_setting('test.question');
+set local role authenticated;
+insert into public.unmask_questions(product_id,body,skin_type,audience) values('rollback-invite-product','Another question after the recipient opted out.','Dry','same_product_skin');
+reset role;
+do $$begin if (select count(*) from public.unmask_activity where user_id=current_setting('test.recipient')::uuid and body like '%Rollback Test Cream%' and title='Can your experience help someone choose?')<>1 then raise exception 'Opted-out owner received invitation';end if;end$$;
+select true as private_matching_and_opt_out_passed;
+rollback;

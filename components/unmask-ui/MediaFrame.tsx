@@ -8,6 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Play, Package } from "@/components/icons";
 import { colors, fonts, radii } from "@/constants/theme";
 
+import { Skeleton } from "./Skeleton";
 import { FocusCorners } from "./FocusCorners";
 
 export function MediaFrame({
@@ -42,8 +43,12 @@ export function MediaFrame({
     retry: 1,
   });
   const resolved = needsSigning ? signed.data : uri;
+  const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [resolved]);
+  useEffect(() => {
+    setFailed(false);
+    setLoaded(false);
+  }, [resolved]);
   const hasImage = !!resolved && !failed;
   const r = compact ? 5 / 4 : ratio;
   return (
@@ -59,6 +64,7 @@ export function MediaFrame({
     >
       {hasImage ? (
         <Image
+          onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}
           source={{ uri: resolved! }}
           style={{ width: "100%", height: "100%" }}
@@ -97,7 +103,12 @@ export function MediaFrame({
           </Text>
         </LinearGradient>
       )}
-      {hasImage && (overlay || play) ? (
+      {(hasImage && !loaded) || (needsSigning && signed.isLoading) ? (
+        <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
+          <Skeleton height={1000} radius={0} />
+        </View>
+      ) : null}
+      {hasImage && loaded && (overlay || play) ? (
         <LinearGradient
           colors={["rgba(28,25,23,0)", "rgba(28,25,23,0.55)"]}
           style={{

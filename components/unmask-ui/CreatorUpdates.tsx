@@ -1,3 +1,4 @@
+import { ContentSkeleton } from "./Skeleton";
 import { useState } from "react";
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -268,6 +269,7 @@ export function CreatorUpdates() {
             backgroundColor: "#F7F2ED",
           }}
         >
+          {people.isLoading ? <ContentSkeleton rows={1} /> : null}
           <Text
             style={{
               fontFamily: fonts.regular,
@@ -276,7 +278,7 @@ export function CreatorUpdates() {
             }}
           >
             {people.isLoading
-              ? "Finding your creators…"
+              ? ""
               : people.isError
                 ? "Creator updates couldn’t load."
                 : "Creator updates will appear here as they publish."}

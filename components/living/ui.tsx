@@ -1,3 +1,4 @@
+import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -84,7 +85,17 @@ export function Page({
           gap: 28,
         }}
       >
-        <View style={[design.row, { justifyContent: "space-between", borderBottomWidth: 1, borderColor: c.line, paddingBottom: 20 }]}>
+        <View
+          style={[
+            design.row,
+            {
+              justifyContent: "space-between",
+              borderBottomWidth: 1,
+              borderColor: c.line,
+              paddingBottom: 20,
+            },
+          ]}
+        >
           {back ? (
             <Pressable
               accessibilityLabel="Back"
@@ -442,8 +453,7 @@ export function Busy({
   loading: boolean;
   retry?: () => void;
 }) {
-  if (loading)
-    return <ActivityIndicator color={c.brand} style={{ padding: 30 }} />;
+  if (loading) return <ContentSkeleton />;
   if (error)
     return (
       <Card>

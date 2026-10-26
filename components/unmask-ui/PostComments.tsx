@@ -1,3 +1,4 @@
+import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { EvidencePicker } from "@/components/tracking/EvidencePicker";
 import { AttachedEvidence } from "@/components/tracking/AttachedEvidence";
 import type { EvidenceSelection } from "@/lib/tracking/api";
@@ -125,9 +126,7 @@ export function PostComments({
           onPress={() => void q.refetch()}
         />
       ) : null}
-      {!item.sample && q.isLoading ? (
-        <Text style={{ color: colors.inkSoft }}>Loading comments…</Text>
-      ) : null}
+      {!item.sample && q.isLoading ? <ContentSkeleton /> : null}
       {rows.map((row) => (
         <View
           key={row.id}

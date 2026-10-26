@@ -1,3 +1,4 @@
+import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { useState } from "react";
 import { Linking, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
@@ -49,7 +50,7 @@ export default function OfferDetail() {
       subtitle="Read the experience. Then decide."
     >
       {(!sample && q.isLoading) || (sample && offers.isLoading) ? (
-        <Text style={{ color: colors.inkSoft }}>Loading offer…</Text>
+        <ContentSkeleton />
       ) : null}
       {(!sample && q.isError) || (sample && !o) ? (
         <StatusMessage kind="error" title="This offer isn’t available." />

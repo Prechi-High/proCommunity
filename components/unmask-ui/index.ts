@@ -11,7 +11,7 @@ export { GroupedList, GroupedRow } from './GroupedList';
 export { MediaFrame } from './MediaFrame';
 export { SearchField } from './SearchField';
 export { AppShell } from './Shell';
-export { Skeleton, StorySkeleton } from './Skeleton';
+export { Skeleton, StorySkeleton, ContentSkeleton } from './Skeleton';
 export { SparkBurst } from './SparkBurst';
 export { SparkMeter } from './SparkMeter';
 export { SparkSheet } from './SparkSheet';

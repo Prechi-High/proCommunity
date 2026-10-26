@@ -95,6 +95,8 @@ export interface RoutineItem {
   unmask_catalog: LivingProduct;
 }
 export interface Question {
+  skin_type?: string | null;
+  audience?: string;
   id: string;
   user_id: string;
   author_name: string;

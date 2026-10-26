@@ -1,3 +1,5 @@
+import { ContentSkeleton, Skeleton } from "@/components/unmask-ui/Skeleton";
+import { MediaFrame } from "@/components/unmask-ui/MediaFrame";
 import { useState } from "react";
 import { Image, Text, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -30,17 +32,11 @@ function TimelinePhoto({ path, label }: { path: string; label: string }) {
   return (
     <View style={{ flex: 1, gap: 6 }}>
       {q.data ? (
-        <Image
-          source={{ uri: q.data }}
-          style={{ width: "100%", height: 210, borderRadius: 18 }}
-          resizeMode="cover"
-        />
+        <MediaFrame uri={q.data} label={label} ratio={1.3} corners={false} />
+      ) : q.isError ? (
+        <Note>This photo is private or unavailable.</Note>
       ) : (
-        <Note>
-          {q.isError
-            ? "This photo is private or unavailable."
-            : "Opening photo…"}
-        </Note>
+        <Skeleton height={210} radius={18} />
       )}
       <Text
         style={{
@@ -135,7 +131,7 @@ export function TimelineView({ id }: { id: string }) {
           : "An experience over time, shared by an Unmasker."
       }
     >
-      {q.isLoading ? <Note>Opening the timeline…</Note> : null}
+      {q.isLoading ? <ContentSkeleton /> : null}
       {q.isError ? (
         <StatusMessage
           kind="error"
@@ -327,7 +323,7 @@ export function TimelineView({ id }: { id: string }) {
               onPress={() => void history.refetch()}
             />
           ) : null}
-          {history.isLoading ? <Note>Loading updates…</Note> : null}
+          {history.isLoading ? <ContentSkeleton /> : null}
           {(history.data ?? []).map((u, i) => (
             <View
               key={u.id}

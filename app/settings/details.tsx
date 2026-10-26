@@ -1,3 +1,4 @@
+import { QuestionInvitePreference } from "@/components/community/QuestionInvitePreference";
 import { useState } from "react";
 import { Share, Switch, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -137,6 +138,7 @@ export default function SettingDetails() {
               onPress={() => r.push("/settings/whatsapp")}
             />
           </Card>
+          <QuestionInvitePreference />
           <Heading>Interface sounds</Heading>
           <Copy>
             Optional, quiet feedback. Video sound is controlled separately.

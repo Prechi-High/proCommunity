@@ -1,6 +1,6 @@
 import { SAMPLE_FEED, SAMPLE_SHELF } from "@/lib/unmask/samples";
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Text, View, Pressable } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 
@@ -12,7 +12,17 @@ import {
   MediaFrame,
   StatusMessage,
   StoryCard,
+  ContentSkeleton,
 } from "@/components/unmask-ui";
+import { LinearGradient } from "expo-linear-gradient";
+import {
+  ChatCircle,
+  Plus,
+  Clock,
+  ArrowRight,
+  UsersThree,
+} from "@/components/icons";
+import { ProductIdentity } from "@/components/community/ProductIdentity";
 import { COPY } from "@/constants/brand";
 import { colors, fonts } from "@/constants/theme";
 import { routeId } from "@/lib/catalog";
@@ -72,6 +82,23 @@ export default function ProductPage() {
     queryFn: () => browse(q || known?.name || "", "All", "Recent"),
   });
 
+  const timelines = useQuery({
+    queryKey: ["product-public-timelines", pid],
+    queryFn: async () => {
+      const { data, error } = await clarity
+        .db()
+        .from("unmask_journeys")
+        .select(
+          "id,usage_duration,frequency,skin_type,status,ownership_verified",
+        )
+        .eq("product_id", pid)
+        .eq("visibility", "public")
+        .order("updated_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
   const example = SAMPLE_SHELF.find((x) => x.id === pid);
   const row = catalog.data?.[0];
   const product = known || getKnownProduct(pid);
@@ -99,56 +126,80 @@ export default function ProductPage() {
         .filter((u) => u.product_id === pid || u.product_name === name)
         .map(unmaskToFeed);
 
+  const waiting =
+    !example &&
+    (experiences.isLoading || questions.isLoading || timelines.isLoading);
+  const count =
+    stories.length + asks.length + cases.length + (timelines.data?.length || 0);
+  const ask = () => router.push(`/product/${pid}/ask-community` as Href);
   return (
     <AppShell
       back
       navigation
-      title={name}
-      subtitle={
-        row?.brand ||
-        product?.brand ||
-        "Lived stories. Updated as people keep using it."
-      }
+      title="Meet the product."
+      subtitle="People’s experiences. The context behind them."
     >
-      <MediaFrame uri={image} label={name} ratio={16 / 10} overlay />
-      <Text
-        style={{
-          fontFamily: fonts.regular,
-          fontSize: 14,
-          color: colors.inkSoft,
-        }}
+      <ProductIdentity
+        name={name}
+        image={image}
+        brand={row?.brand || product?.brand || example?.brand}
+        loading={catalog.isLoading && !product && !example}
+      />
+      <LinearGradient
+        colors={["#F1F5ED", "#F9F6EF"]}
+        style={{ padding: 22, borderRadius: 25, gap: 13 }}
       >
-        {stories.length} lived stories · {asks.length} questions ·{" "}
-        {cases.length} Ultra Unmasks
-      </Text>
-      <ActionButton
-        disabled={!!example}
-        label={COPY.createExperience}
-        onPress={() => router.push(`/contribute?product=${pid}` as Href)}
-      />
-      <ActionButton
-        tone="secondary"
-        label="Ask the community"
-        onPress={() => router.push(`/product/${pid}/ask-community` as Href)}
-      />
-
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-        <View style={{ flex: 1, minWidth: 130 }}>
-          <ActionButton
-            tone="ghost"
-            disabled={!!example}
-            label={isFollowing ? "Following product" : "Follow product"}
-            pending={follow.isPending}
-            onPress={() =>
-              uid ? follow.mutate() : router.push("/(auth)/sign-in" as Href)
-            }
-          />
+        <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+          <UsersThree size={22} color={colors.sageInk} />
+          <Text
+            style={{
+              fontFamily: fonts.semibold,
+              fontSize: 21,
+              color: colors.ink,
+            }}
+          >
+            Start with people who’ve tried it.
+          </Text>
         </View>
-        <View style={{ flex: 1, minWidth: 130 }}>
+        {waiting ? (
+          <ContentSkeleton rows={2} />
+        ) : (
+          <Text
+            style={{
+              fontFamily: fonts.regular,
+              fontSize: 15,
+              lineHeight: 23,
+              color: colors.inkSoft,
+            }}
+          >
+            {count
+              ? `${stories.length} experiences · ${asks.length} questions · ${cases.length} Ultra Unmasks${timelines.data?.length ? ` · ${timelines.data.length} shared timelines` : ""}. Explore what happened, how they used it and what changed.`
+              : "The community hasn’t shared much about this product yet. Your question can start the conversation."}
+          </Text>
+        )}
+        <ActionButton
+          icon={<ChatCircle size={20} color="#fff" />}
+          label="I have a question"
+          onPress={ask}
+        />
+        <Text
+          style={{
+            fontFamily: fonts.regular,
+            fontSize: 12,
+            lineHeight: 18,
+            color: colors.inkSoft,
+          }}
+        >
+          Ask even if someone has already posted. Your skin, routine and
+          question may be different.
+        </Text>
+      </LinearGradient>
+      <View style={{ flexDirection: "row", gap: 10 }}>
+        <View style={{ flex: 1 }}>
           <ActionButton
-            tone="ghost"
+            tone="secondary"
+            label="Track my use"
             disabled={!!example}
-            label="Track my experience"
             onPress={() =>
               router.push(
                 `/products/add?product=${encodeURIComponent(pid)}` as Href,
@@ -156,116 +207,149 @@ export default function ProductPage() {
             }
           />
         </View>
+        <View style={{ flex: 1 }}>
+          <ActionButton
+            tone="secondary"
+            label="Share my experience"
+            disabled={!!example}
+            onPress={() =>
+              router.push(
+                `/contribute?product=${encodeURIComponent(pid)}` as Href,
+              )
+            }
+          />
+        </View>
       </View>
+      <ActionButton
+        tone="ghost"
+        label={isFollowing ? "Following product" : "Follow product updates"}
+        disabled={!!example}
+        pending={follow.isPending}
+        onPress={() => (uid ? follow.mutate() : router.push("/(auth)/sign-in"))}
+      />
       {follow.isError ? (
         <StatusMessage
           kind="error"
-          title="Couldn’t update following"
+          title="Following wasn’t updated"
           detail={follow.error.message}
         />
       ) : null}
-      <View
-        style={{
-          padding: 18,
-          borderWidth: 1,
-          borderColor: colors.line,
-          borderRadius: 16,
-          gap: 8,
-        }}
-      >
-        <Text
-          accessibilityRole="header"
-          style={{
-            fontFamily: fonts.semibold,
-            fontSize: 18,
-            color: colors.ink,
-          }}
-        >
-          At a glance
-        </Text>
-        <Text
-          style={{
-            fontFamily: fonts.regular,
-            fontSize: 15,
-            lineHeight: 23,
-            color: colors.inkSoft,
-          }}
-        >
-          {example
-            ? "Fictional demo product and experiences. Explore the stories below to preview the community."
-            : experienceRows.length
-              ? `${experienceRows.length} shared experiences. ${experienceRows.filter((e) => !!e.frequency).length} include usage frequency; ${experienceRows.filter((e) => !!e.skin_type).length} include skin type. Read the context before drawing conclusions.`
-              : "We have basic product information, but no shared experiences yet. Ask the community or add what happened when you used it."}
-        </Text>
-      </View>
+      {example ? (
+        <StatusMessage
+          title="Fictional demo product"
+          detail="These stories illustrate the community. They are not product claims."
+        />
+      ) : null}
+      <Text style={section}>Real experiences</Text>
       {skinOptions.length > 1 ? (
         <FilterChips options={skinOptions} value={skin} onChange={setSkin} />
       ) : null}
-      <Text
-        style={{
-          fontFamily: fonts.semibold,
-          fontSize: 13,
-          letterSpacing: 0.5,
-          color: colors.inkSoft,
-        }}
-      >
-        STORIES
-      </Text>
-      {experiences.isError ? (
-        <StatusMessage kind="error" title="Stories didn’t load." />
-      ) : null}
-      {stories.length ? (
+      {!example && experiences.isLoading ? (
+        <ContentSkeleton />
+      ) : experiences.isError && !example ? (
+        <StatusMessage
+          kind="error"
+          title="Experiences couldn’t load. Please retry."
+        />
+      ) : stories.length ? (
         stories.map((item) => <StoryCard key={item.id} item={item} />)
       ) : (
-        <EmptyState title={COPY.noStories} detail={COPY.noStoriesNext} />
-      )}
-
-      <Text
-        style={{
-          fontFamily: fonts.semibold,
-          fontSize: 13,
-          letterSpacing: 0.5,
-          color: colors.inkSoft,
-        }}
-      >
-        QUESTIONS AND ULTRA UNMASKS
-      </Text>
-      {asks.map((item) => (
-        <StoryCard key={item.id} item={item} />
-      ))}
-      {cases.map((item) => (
-        <StoryCard key={item.id} item={item} />
-      ))}
-
-      <View style={{ gap: 8 }}>
-        <Text
-          style={{
-            fontFamily: fonts.semibold,
-            fontSize: 13,
-            letterSpacing: 0.5,
-            color: colors.inkSoft,
-          }}
-        >
-          ABOUT THIS PRODUCT
-        </Text>
-        <Text
-          style={{
-            fontFamily: fonts.regular,
-            fontSize: 16,
-            lineHeight: 24,
-            color: colors.inkSoft,
-          }}
-        >
-          Experiences are personal reports. Product versions, usage and
-          individual circumstances can differ. Company responses and creator
-          findings are labeled separately.
-        </Text>
-        <ActionButton
-          tone="ghost"
-          label="See offers · unmask first"
-          onPress={() => router.push("/offers" as Href)}
+        <EmptyState
+          title="No shared experiences here yet."
+          detail="Ask people who have used it, or bring your own experience."
+          action="Ask the community"
+          onAction={ask}
         />
-      </View>
+      )}
+      {timelines.isLoading && !example ? (
+        <ContentSkeleton rows={1} />
+      ) : timelines.data?.length ? (
+        <>
+          <Text style={section}>See the story over time</Text>
+          {timelines.data.map((t) => (
+            <Pressable
+              key={t.id}
+              accessibilityRole="link"
+              onPress={() => router.push(`/journey/${t.id}` as Href)}
+              style={{
+                padding: 18,
+                borderRadius: 20,
+                backgroundColor: "#F7F0E2",
+                flexDirection: "row",
+                gap: 12,
+                alignItems: "center",
+              }}
+            >
+              <Clock size={24} color={colors.brand} />
+              <View style={{ flex: 1, gap: 6 }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.semibold,
+                    fontSize: 16,
+                    color: colors.ink,
+                  }}
+                >
+                  {[t.usage_duration, t.frequency]
+                    .filter(Boolean)
+                    .join(" · ") || "A shared product timeline"}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.regular,
+                    fontSize: 13,
+                    color: colors.inkSoft,
+                  }}
+                >
+                  {t.skin_type ? `${t.skin_type} skin · ` : ""}Dated updates and
+                  real usage context
+                  {t.ownership_verified ? " · Ownership verified" : ""}
+                </Text>
+              </View>
+              <ArrowRight size={18} color={colors.brand} />
+            </Pressable>
+          ))}
+        </>
+      ) : null}
+      <Text style={section}>Questions people are asking</Text>
+      {!example && questions.isLoading ? (
+        <ContentSkeleton />
+      ) : questions.isError && !example ? (
+        <StatusMessage kind="error" title="Questions couldn’t load." />
+      ) : asks.length ? (
+        asks.map((item) => <StoryCard key={item.id} item={item} />)
+      ) : (
+        <Text style={bodyStyle}>
+          No questions yet. What would help you decide?
+        </Text>
+      )}
+      <ActionButton
+        tone="secondary"
+        label="Ask another question"
+        onPress={ask}
+      />
+      {cases.length ? (
+        <>
+          <Text style={section}>Taken further with Ultra Unmask</Text>
+          {cases.map((item) => (
+            <StoryCard key={item.id} item={item} />
+          ))}
+        </>
+      ) : !example && unmasks.isLoading ? (
+        <ContentSkeleton rows={1} />
+      ) : null}
     </AppShell>
   );
 }
+const section = {
+  fontFamily: fonts.semibold,
+  fontSize: 21,
+  lineHeight: 28,
+  color: colors.ink,
+  marginTop: 10,
+};
+const bodyStyle = {
+  fontFamily: fonts.regular,
+  fontSize: 15,
+  lineHeight: 23,
+  color: colors.inkSoft,
+};

@@ -304,6 +304,8 @@ export async function question(id: string) {
   );
 }
 export async function addQuestion(row: {
+  skin_type?: string | null;
+  audience?: string;
   product_id?: string;
   routine_id?: string;
   body: string;

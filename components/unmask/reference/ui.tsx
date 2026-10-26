@@ -1,3 +1,5 @@
+import { MediaFrame } from "@/components/unmask-ui/MediaFrame";
+import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { MainNav } from "@/components/unmask-ui/MainNav";
 import type { ReactNode } from "react";
 import {
@@ -387,7 +389,7 @@ export function Busy({
   if (loading)
     return (
       <View style={{ padding: 28, alignItems: "center" }}>
-        <ActivityIndicator color={ink.brand} />
+        <ContentSkeleton />
       </View>
     );
   if (error)
@@ -411,32 +413,13 @@ export function Photo({
   uri?: string | null;
   size?: number;
 }) {
-  return uri ? (
-    <Image
-      source={{ uri }}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: 10,
-        backgroundColor: "#FFFFFF",
-      }}
-      resizeMode="contain"
-    />
-  ) : (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: 10,
-        backgroundColor: ink.soft,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Package size={32} color={ink.muted} />
+  return (
+    <View style={{ width: size, height: size }}>
+      <MediaFrame uri={uri} label="Product photo" ratio={1} corners={false} />
     </View>
   );
 }
+
 export function identityLine(
   product: Product,
   profile?: ProductProfile | null,

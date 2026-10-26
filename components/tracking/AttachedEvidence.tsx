@@ -1,3 +1,4 @@
+import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
@@ -66,6 +67,7 @@ export function AttachedEvidence({
         gap: 8,
       }}
     >
+      {q.isLoading ? <ContentSkeleton rows={1} /> : null}
       {q.isError ? (
         <Text
           style={{
