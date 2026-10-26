@@ -38,7 +38,7 @@ function AuthGate({ children }: { children: ReactNode }) {
   if (!hydrated) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.wine }}>
-        <ActivityIndicator color={colors.hi} />
+        <ContentSkeleton rows={4}/>
       </View>
     );
   }

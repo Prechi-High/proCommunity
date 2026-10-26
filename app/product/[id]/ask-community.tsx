@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Text, View, Switch } from "react-native";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -179,7 +179,15 @@ export default function AskAboutProduct() {
                       "Sensitive",
                     ]}
                     value={d.skin || "Not stated"}
-                    onChange={(v) => set({ skin: v === "Not stated" ? "" : v })}
+                    onChange={(v) =>
+                      set({
+                        skin: v === "Not stated" ? "" : v,
+                        audience:
+                          v === "Not stated"
+                            ? d.audience.replace("_skin", "")
+                            : d.audience,
+                      })
+                    }
                   />
                 </>
               ) : null}
@@ -203,17 +211,58 @@ export default function AskAboutProduct() {
                   Private product use can help us deliver invitations, but you
                   won’t see who owns a private timeline.
                 </Note>
-                {audiences
-                  .filter(([key]) => beauty || !key.endsWith("skin"))
-                  .map(([key, label]) => (
-                    <ActionButton
-                      key={key}
-                      tone={d.audience === key ? "primary" : "secondary"}
-                      label={`${d.audience === key ? "✓ " : ""}${label}`}
-                      disabled={key.endsWith("skin") && !d.skin}
-                      onPress={() => set({ audience: key })}
+                <FilterChips
+                  options={[
+                    "No invitation",
+                    "This product",
+                    "Similar products",
+                  ]}
+                  value={
+                    d.audience === "none"
+                      ? "No invitation"
+                      : d.audience.startsWith("same_product")
+                        ? "This product"
+                        : "Similar products"
+                  }
+                  onChange={(v) =>
+                    set({
+                      audience:
+                        v === "No invitation"
+                          ? "none"
+                          : `${v === "This product" ? "same_product" : "similar_products"}${d.audience.endsWith("_skin") && d.skin ? "_skin" : ""}`,
+                    })
+                  }
+                />
+                {beauty ? (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Label>Match my skin type too</Label>
+                      <Note>
+                        {d.skin
+                          ? `Invite people with ${d.skin.toLowerCase()} skin.`
+                          : "Add your skin type above to use this filter."}
+                      </Note>
+                    </View>
+                    <Switch
+                      accessibilityLabel="Match invited users by skin type"
+                      disabled={!d.skin || d.audience === "none"}
+                      value={d.audience.endsWith("_skin")}
+                      onValueChange={(v) =>
+                        set({
+                          audience: v
+                            ? `${d.audience}_skin`
+                            : d.audience.replace("_skin", ""),
+                        })
+                      }
                     />
-                  ))}
+                  </View>
+                ) : null}
                 <Note>
                   Similar products means the same brand and category.
                   Invitations are limited to protect members from spam. Members
