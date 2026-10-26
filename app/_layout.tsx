@@ -1,4 +1,5 @@
 import 'react-native-gesture-handler';
+import { ContentSkeleton } from '@/components/unmask-ui/Skeleton';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -72,7 +73,7 @@ function RootLayout() {
     return () => clearTimeout(timeout);
   }, [setHydrated, persistHydrated]);
 
-  if (!loaded) return null;
+  if (!loaded) return <View style={{flex:1,backgroundColor:"#fff",padding:24,paddingTop:70}}><ContentSkeleton rows={5}/></View>;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

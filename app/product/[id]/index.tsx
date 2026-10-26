@@ -1,3 +1,5 @@
+import { searchCommunityProducts } from "@/lib/unmask/communitySearch";
+import { exactCommunityMatch } from "@/lib/unmask/productIdentityMatch";
 import { SAMPLE_FEED, SAMPLE_SHELF } from "@/lib/unmask/samples";
 import { useEffect, useState } from "react";
 import { Text, View, Pressable } from "react-native";
@@ -39,7 +41,20 @@ import { useAppStore } from "@/lib/store";
 
 export default function ProductPage() {
   const { id, q } = useLocalSearchParams<{ id: string; q?: string }>();
-  const pid = routeId(id);
+  const originalId = routeId(id);
+  const original = useAppStore((s) => s.knownProducts[originalId]);
+  const canonical = useQuery({
+    queryKey: ["canonical-community-product", originalId, original?.name, q],
+    enabled: !!(original?.name || q) && !originalId.startsWith("demo-"),
+    queryFn: async () => {
+      const identity = original || { name: q || "", brand: "" };
+      return exactCommunityMatch(
+        identity,
+        await searchCommunityProducts(identity.name),
+      );
+    },
+  });
+  const pid = canonical.data?.id || originalId;
   const uid = useAppStore((s) => s.profile?.id);
   const qc = useQueryClient();
   const [skin, setSkin] = useState("All skin types");
@@ -101,7 +116,7 @@ export default function ProductPage() {
   });
   const example = SAMPLE_SHELF.find((x) => x.id === pid);
   const row = catalog.data?.[0];
-  const product = known || getKnownProduct(pid);
+  const product = known || getKnownProduct(pid) || original;
   const name =
     row?.name || product?.name || example?.name || q || pid.replace(/-/g, " ");
   const image = row?.image_url || product?.heroImageUrl || example?.image;
@@ -128,7 +143,10 @@ export default function ProductPage() {
 
   const waiting =
     !example &&
-    (experiences.isLoading || questions.isLoading || timelines.isLoading);
+    (canonical.isLoading ||
+      experiences.isLoading ||
+      questions.isLoading ||
+      timelines.isLoading);
   const count =
     stories.length + asks.length + cases.length + (timelines.data?.length || 0);
   const ask = () => router.push(`/product/${pid}/ask-community` as Href);
@@ -244,7 +262,7 @@ export default function ProductPage() {
       {skinOptions.length > 1 ? (
         <FilterChips options={skinOptions} value={skin} onChange={setSkin} />
       ) : null}
-      {!example && experiences.isLoading ? (
+      {!example && (canonical.isLoading || experiences.isLoading) ? (
         <ContentSkeleton />
       ) : experiences.isError && !example ? (
         <StatusMessage

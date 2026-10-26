@@ -1,3 +1,4 @@
+import { MediaFrame } from "@/components/unmask-ui/MediaFrame";
 import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import type { ReactNode } from "react";
 import {
@@ -424,11 +425,7 @@ export function ProductTile({
         }}
       >
         {image ? (
-          <Image
-            source={{ uri: image }}
-            style={{ width: 54, height: 66 }}
-            resizeMode="contain"
-          />
+          <MediaFrame uri={image} label={name} ratio={64/76} corners={false}/>
         ) : (
           <Leaf size={25} color={c.brand} />
         )}
