@@ -79,12 +79,14 @@ export default function AskAboutProduct() {
         category: p?.category || known?.category || "Product",
         heroImageUrl: image,
       });
+      let audience = d.audience === "none" ? "everyone" : d.audience.replace("similar_products", "same_product");
+      if (!beauty) audience = audience.replace("_skin", "");
       const out = await living.addQuestion({
         product_id: id,
         body: d.body.trim(),
         context: d.context.trim(),
         skin_type: beauty ? d.skin || null : null,
-        audience: d.audience,
+        audience,
       });
       setDone(out.id);
       hapticSaved(out.id);
