@@ -13,7 +13,7 @@ import {
   StoryCard,
   StorySkeleton,
 } from "@/components/unmask-ui";
-import { Sparkle } from "@/components/icons";
+import { Lightning } from "@/components/icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, fonts } from "@/constants/theme";
 import { loadUnmasks } from "@/lib/unmask/feed";
@@ -66,7 +66,7 @@ export default function Unmasks() {
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Sparkle size={22} color="#E8CD89" weight="fill" />
+            <Lightning size={22} color="#E8CD89" weight="fill" />
             <Text
               style={{
                 fontFamily: fonts.semibold,
@@ -139,7 +139,7 @@ export default function Unmasks() {
           <DemoBanner />
           <ActionButton
             label="Request an Ultra Unmask"
-            icon={<Sparkle size={20} color="#fff" />}
+            icon={<Lightning size={20} color="#fff" />}
             onPress={() => router.push("/investigation/request")}
           />
           <SearchField

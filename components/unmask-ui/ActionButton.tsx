@@ -8,7 +8,7 @@ import Animated, {
 } from "react-native-reanimated";
 import {
   ArrowRight,
-  Sparkle,
+  Lightning,
   Play,
   Plus,
   Check,
@@ -51,7 +51,7 @@ export function ActionButton({
   const t = tones[tone];
   const locked = !!(disabled || pending);
   const Icon = /spark/i.test(label)
-    ? Sparkle
+    ? Lightning
     : /watch|play/i.test(label)
       ? Play
       : /try again|retry|refresh/i.test(label)

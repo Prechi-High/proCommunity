@@ -1,3 +1,6 @@
+import { EvidencePicker } from "@/components/tracking/EvidencePicker";
+import { AttachedEvidence } from "@/components/tracking/AttachedEvidence";
+import type { EvidenceSelection } from "@/lib/tracking/api";
 import { useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +28,7 @@ export function PostComments({
   const uid = useAppStore((s) => s.profile?.id);
   const router = useRouter();
   const qc = useQueryClient();
+  const [attachment, setAttachment] = useState<EvidenceSelection | null>(null);
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -44,6 +48,8 @@ export function PostComments({
         id: r.id,
         author: r.author_name || "Unmasker",
         body: r.body,
+        attached_experience_id: r.attached_experience_id,
+        attached_journey_id: r.attached_journey_id,
       }));
     },
   });
@@ -53,12 +59,30 @@ export function PostComments({
     setBusy(true);
     setError("");
     try {
-      if (item.kind === "unmask") await social.addUnmaskComment(id, body);
+      if (item.kind === "unmask")
+        await social.addUnmaskComment(id, body, {
+          journey: attachment?.kind === "journey" ? attachment.id : undefined,
+          experience:
+            attachment?.kind === "experience" ? attachment.id : undefined,
+        });
       else if (item.kind === "experience")
-        await community.addEntry(id, body, "replies");
+        await community.addEntry(
+          id,
+          body,
+          "replies",
+          "",
+          "",
+          "",
+          attachment?.kind === "experience" ? attachment.id : undefined,
+          attachment?.kind === "journey" ? attachment.id : undefined,
+        );
       else
         await living.addAnswer({
           question_id: id,
+          attached_experience_id:
+            attachment?.kind === "experience" ? attachment.id : null,
+          attached_journey_id:
+            attachment?.kind === "journey" ? attachment.id : null,
           body,
           duration: "",
           context: "",
@@ -66,6 +90,7 @@ export function PostComments({
           uncertainty: "",
         });
       setBody("");
+      setAttachment(null);
       await Promise.all([
         qc.invalidateQueries({ queryKey: key }),
         qc.invalidateQueries({ queryKey: ["post-stats"] }),
@@ -129,6 +154,18 @@ export function PostComments({
             >
               {row.body}
             </Text>
+            <AttachedEvidence
+              journeyId={
+                "attached_journey_id" in row
+                  ? (row.attached_journey_id as string)
+                  : undefined
+              }
+              experienceId={
+                "attached_experience_id" in row
+                  ? (row.attached_experience_id as string)
+                  : undefined
+              }
+            />
           </View>
         </View>
       ))}
@@ -148,6 +185,7 @@ export function PostComments({
       {!item.sample ? (
         uid ? (
           <>
+            <EvidencePicker value={attachment} onChange={setAttachment} />
             <TextInput
               accessibilityLabel="Write a comment"
               placeholder="Add to the conversation…"

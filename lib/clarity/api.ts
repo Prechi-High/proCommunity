@@ -17,6 +17,8 @@ async function read<T>(
   return data as T;
 }
 export type Experience = {
+  attached_journey_id?: string | null;
+  attached_experience_id?: string | null;
   moderation_status?: "visible" | "removed";
   photo_path?: string | null;
   goal?: string;

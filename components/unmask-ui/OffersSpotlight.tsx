@@ -27,7 +27,7 @@ export function OffersSpotlight() {
               color: colors.ink,
             }}
           >
-            Offers, with context.
+            Offers from independent sellers
           </Text>
           <Text
             style={{
@@ -36,7 +36,7 @@ export function OffersSpotlight() {
               color: colors.inkSoft,
             }}
           >
-            A good price. A clearer choice.
+            Sponsored by external sellers. Unmask before you buy.
           </Text>
         </View>
         <Pressable

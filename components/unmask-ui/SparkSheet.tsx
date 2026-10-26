@@ -1,5 +1,5 @@
 import { playPeelSound } from "@/lib/sounds";
-import { Sparkle, Lightning } from "@/components/icons";
+import { Lightning } from "@/components/icons";
 import { useEffect, useRef, useState } from "react";
 import { Switch, Text, TextInput, View } from "react-native";
 import { useRouter, type Href } from "expo-router";

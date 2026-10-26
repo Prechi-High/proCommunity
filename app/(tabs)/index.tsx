@@ -1,7 +1,7 @@
 import { OffersSpotlight } from "@/components/unmask-ui/OffersSpotlight";
 import { CreatorUpdates } from "@/components/unmask-ui/CreatorUpdates";
 import { useScan } from "@/lib/useScan";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
@@ -89,7 +89,6 @@ export default function Home() {
         </View>
         <QuickActions />
         <UltraInvitation />
-        <OffersSpotlight />
         <View style={{ paddingHorizontal: 20, gap: 14, paddingTop: 8 }}>
           <View
             style={{
@@ -143,7 +142,12 @@ export default function Home() {
           (filter === "Following" && subs.isLoading) ? (
           <StorySkeleton />
         ) : rows.length ? (
-          rows.map((i) => <StoryCard key={i.id} item={i} flush />)
+          rows.map((i, index) => (
+            <Fragment key={i.id}>
+              <StoryCard item={i} flush />
+              {index === 5 ? <OffersSpotlight /> : null}
+            </Fragment>
+          ))
         ) : (
           <View style={{ paddingHorizontal: 20 }}>
             <EmptyState

@@ -162,8 +162,8 @@ export const fonts = {
   medium: "GeneralSans-Medium",
   semibold: "GeneralSans-Semibold",
   bold: "GeneralSans-Bold",
-  serif: "Boska-Medium",
-  serifBold: "Boska-Bold",
+  serif: "GeneralSans-Medium",
+  serifBold: "GeneralSans-Semibold",
 } as const;
 
 export const DISCLAIMER = BRAND_COPY.disclaimer;

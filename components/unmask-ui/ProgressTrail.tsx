@@ -1,5 +1,5 @@
 import { Text, View } from "react-native";
-import { ChatCircle, Sparkle, User, Play, Check } from "@/components/icons";
+import { ChatCircle, Lightning, User, Play, Check } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import type { PublicUnmaskStage } from "@/lib/unmask/status";
 export function ProgressTrail({ stage }: { stage: PublicUnmaskStage }) {
@@ -30,7 +30,7 @@ export function ProgressTrail({ stage }: { stage: PublicUnmaskStage }) {
         {
           title: "Taking a closer look",
           detail: "Gathering experiences and context",
-          Icon: Sparkle,
+          Icon: Lightning,
         },
         {
           title: "Sharing what we found",

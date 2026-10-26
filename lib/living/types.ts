@@ -105,6 +105,7 @@ export interface Question {
   created_at: string;
 }
 export interface Answer {
+  attached_journey_id?: string | null;
   id: string;
   user_id: string;
   author_name: string;

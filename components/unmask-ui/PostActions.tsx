@@ -7,7 +7,7 @@ import {
   Heart,
   ChatCircle,
   PaperPlaneRight,
-  Sparkle,
+  Lightning,
 } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { useAppStore } from "@/lib/store";
@@ -169,7 +169,7 @@ export function PostActions({ item }: { item: FeedItem }) {
           />
         </View>
         <ReactionButton
-          Icon={Sparkle}
+          Icon={Lightning}
           label={
             target || item.sample
               ? `Add Sparks${item.sample ? " · demo" : ""}`

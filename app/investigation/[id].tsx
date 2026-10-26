@@ -1,3 +1,4 @@
+import { UltraCaseHeader } from "@/components/unmask-ui/UltraCaseHeader";
 import { PostActions } from "@/components/unmask-ui/PostActions";
 import { ProgressTrail } from "@/components/unmask-ui/ProgressTrail";
 import { useState } from "react";
@@ -74,7 +75,13 @@ export default function UnmaskDetail() {
     const demoWeight = (sample.sparks ?? 0) + (demoSparks[sample.id] ?? 0);
     const published = sample.status === "Ultra Unmasked";
     return (
-      <AppShell back navigation title={sample.title}>
+      <AppShell back navigation title="Ultra Unmask">
+        <UltraCaseHeader
+          title={sample.title}
+          status={sample.status}
+          productName={sample.productName}
+          image={sample.photo || sample.productImage}
+        />
         <Text
           style={{
             fontFamily: fonts.regular,
@@ -84,12 +91,6 @@ export default function UnmaskDetail() {
         >
           Design sample · Sparks are not charged on this preview.
         </Text>
-        <MediaFrame
-          uri={sample.photo || sample.productImage}
-          label={sample.productName || sample.title}
-          play={published}
-          overlay
-        />
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View
             style={{
@@ -301,7 +302,15 @@ export default function UnmaskDetail() {
   }
 
   return (
-    <AppShell back navigation title={item?.title || "Unmask"}>
+    <AppShell back navigation title="Ultra Unmask">
+      {item ? (
+        <UltraCaseHeader
+          title={item.title}
+          status={publicUnmaskLabel(publicUnmaskStage(item.status))}
+          productName={product?.name}
+          image={product?.image_url}
+        />
+      ) : null}
       {item ? (
         <PostActions
           item={{
@@ -318,14 +327,7 @@ export default function UnmaskDetail() {
           }}
         />
       ) : null}
-      {product ? (
-        <MediaFrame
-          uri={product.image_url}
-          label={product.name}
-          ratio={16 / 10}
-          overlay
-        />
-      ) : null}
+
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <View
           style={{

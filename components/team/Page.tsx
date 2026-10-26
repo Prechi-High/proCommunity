@@ -101,25 +101,28 @@ export function TeamPage({
         <Chips
           options={[
             "Moderation",
+            "Ownership",
             "Partnerships",
             "Finance",
             "Support",
             "Creators",
           ]}
           value={
-            title.includes("partnership")
-              ? "Partnerships"
-              : title.includes("moderation")
-                ? "Moderation"
-                : title.includes("Support")
-                  ? "Support"
-                  : title.includes("Creators")
-                    ? "Creators"
-                    : "Finance"
+            title.includes("Ownership")
+              ? "Ownership"
+              : title.includes("partnership")
+                ? "Partnerships"
+                : title.includes("moderation")
+                  ? "Moderation"
+                  : title.includes("Support")
+                    ? "Support"
+                    : title.includes("Creators")
+                      ? "Creators"
+                      : "Finance"
           }
           onChange={(t) =>
             r.push(
-              `/team/${({ Moderation: "moderation", Partnerships: "partnerships", Finance: "finance", Support: "support", Creators: "creators" } as Record<string, string>)[t]}` as Href,
+              `/team/${({ Ownership: "ownership", Moderation: "moderation", Partnerships: "partnerships", Finance: "finance", Support: "support", Creators: "creators" } as Record<string, string>)[t]}` as Href,
             )
           }
         />

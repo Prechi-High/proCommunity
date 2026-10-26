@@ -191,6 +191,31 @@ export function OfferCard({
           </Text>
           <ArrowRight size={16} color="#fff" />
         </Pressable>
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={`View seller offer from ${o.sponsor}`}
+          onPress={() => r.push(`/offers/${o.id}` as Href)}
+          style={({ pressed }) => ({
+            paddingVertical: 10,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 7,
+            opacity: pressed ? 0.65 : 1,
+          })}
+        >
+          <Storefront size={16} color={colors.brand} />
+          <Text
+            style={{
+              fontFamily: fonts.semibold,
+              fontSize: 13,
+              color: colors.brand,
+            }}
+          >
+            View seller offer
+          </Text>
+          <ArrowRight size={15} color={colors.brand} />
+        </Pressable>
         {!compact ? (
           <Text
             style={{

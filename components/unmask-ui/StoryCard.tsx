@@ -1,9 +1,11 @@
+import { SaveExperience } from "@/components/tracking/SaveExperience";
+import { AttachedEvidence } from "@/components/tracking/AttachedEvidence";
 import { Pressable, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import {
   ArrowRight,
   ChatCircle,
-  Sparkle,
+  Lightning,
   Clock,
   Play,
 } from "@/components/icons";
@@ -37,7 +39,7 @@ export function StoryCard({
   const published = item.status === "Ultra Unmasked";
   const media = item.photo || item.productImage;
   const tone = ultra ? "#8C6319" : question ? "#386247" : colors.brand;
-  const Icon = ultra ? Sparkle : question ? ChatCircle : Clock;
+  const Icon = ultra ? Lightning : question ? ChatCircle : Clock;
   const kind = ultra
     ? "Ultra Unmask"
     : question
@@ -96,19 +98,26 @@ export function StoryCard({
             {item.sample ? " · Design example" : ""}
           </Text>
         </View>
-        <View
-          style={{
-            padding: 7,
-            borderRadius: 12,
-            backgroundColor: ultra
-              ? "#F7EED8"
-              : question
-                ? "#EDF2EC"
-                : "#F6ECEF",
-          }}
-        >
-          <Icon size={18} color={tone} />
-        </View>
+        {item.kind === "experience" ? (
+          <SaveExperience
+            id={item.href.split("/").pop()!}
+            sample={item.sample}
+          />
+        ) : (
+          <View
+            style={{
+              padding: 7,
+              borderRadius: 12,
+              backgroundColor: ultra
+                ? "#F7EED8"
+                : question
+                  ? "#EDF2EC"
+                  : "#F6ECEF",
+            }}
+          >
+            <Icon size={18} color={tone} />
+          </View>
+        )}
       </View>
       <Pressable
         accessibilityRole="link"
@@ -234,6 +243,10 @@ export function StoryCard({
           </View>
         </View>
       </Pressable>
+      <AttachedEvidence
+        journeyId={item.attachedJourneyId}
+        experienceId={item.attachedExperienceId}
+      />
       <PostActions item={item} />
     </View>
   );

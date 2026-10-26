@@ -1,3 +1,5 @@
+import { SaveExperience } from "@/components/tracking/SaveExperience";
+import { AttachedEvidence } from "@/components/tracking/AttachedEvidence";
 import {
   ExperienceAttachment,
   AttachedExperienceLink,
@@ -27,6 +29,7 @@ export default function Story() {
   const qc = useQueryClient();
   const uid = useAppStore((s) => s.profile?.id);
   const sample = sampleById(id);
+  const [attachedJourney, setAttachedJourney] = useState("");
   const [attachment, setAttachment] = useState("");
   const [reply, setReply] = useState("");
   const [error, setError] = useState("");
@@ -63,9 +66,11 @@ export default function Story() {
         "",
         "",
         attachment || undefined,
+        attachedJourney || undefined,
       );
       setReply("");
       setAttachment("");
+      setAttachedJourney("");
       await qc.invalidateQueries({ queryKey: ["experience-replies", id] });
     } catch (err) {
       setError(
@@ -279,6 +284,11 @@ export default function Story() {
           >
             {e.body}
           </Text>
+          <SaveExperience id={e.id} />
+          <AttachedEvidence
+            journeyId={e.attached_journey_id}
+            experienceId={e.attached_experience_id}
+          />
           <ActionButton
             label={COPY.takeFurther}
             tone="secondary"
@@ -334,7 +344,10 @@ export default function Story() {
                 >
                   {r.body}
                 </Text>
-                <AttachedExperienceLink id={r.attached_experience_id} />
+                <AttachedExperienceLink
+                  id={r.attached_experience_id}
+                  journeyId={r.attached_journey_id}
+                />
               </View>
             </View>
           ))}
@@ -369,6 +382,8 @@ export default function Story() {
             productId={e.product_id}
             value={attachment}
             onChange={setAttachment}
+            journeyValue={attachedJourney}
+            onJourneyChange={setAttachedJourney}
           />
           <TextInput
             value={reply}

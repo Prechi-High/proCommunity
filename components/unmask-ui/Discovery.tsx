@@ -6,7 +6,7 @@ import {
   ChatCircle,
   Clock,
   PencilSimple,
-  Sparkle,
+  Lightning,
   ShieldCheck,
   MagnifyingGlass,
 } from "@/components/icons";
@@ -187,7 +187,7 @@ export function UltraInvitation() {
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
-            <Sparkle size={18} color="#E9CD83" weight="fill" />
+            <Lightning size={18} color="#E9CD83" weight="fill" />
             <Text
               style={{
                 fontFamily: fonts.semibold,
@@ -209,16 +209,17 @@ export function UltraInvitation() {
             color: "#fff",
           }}
         >
-          Your story deserves{"\n"}a closer look.
+          A creator takes your product question further.
         </Text>
         <Text style={{ ...body, color: "#EBDADF" }}>
-          Loved it? Let down? Help a creator explore why — with community
-          support, company questions and expert context.
+          Ultra Unmask is a creator-led deep dive. Share what happened, add
+          Sparks, and help a creator ask the company or an expert why. Good
+          experiences belong here too.
         </Text>
         <Text
           style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#fff" }}
         >
-          See what we’re taking further
+          Explore Ultra Unmask
         </Text>
       </LinearGradient>
     </Pressable>

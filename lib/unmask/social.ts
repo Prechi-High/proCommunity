@@ -34,7 +34,9 @@ export async function setPostLike(kind: FeedKind, id: string, liked: boolean) {
 export async function unmaskComments(id: string) {
   const { data, error } = await db()
     .from("unmask_story_comments")
-    .select("id,user_id,body,created_at")
+    .select(
+      "id,user_id,body,created_at,attached_journey_id,attached_experience_id",
+    )
     .eq("investigation_id", id)
     .order("created_at")
     .limit(100);
@@ -52,10 +54,20 @@ export async function unmaskComments(id: string) {
       people.data?.find((p) => p.id === x.user_id)?.display_name || "Unmasker",
   }));
 }
-export async function addUnmaskComment(id: string, body: string) {
+export async function addUnmaskComment(
+  id: string,
+  body: string,
+  attachment?: { journey?: string; experience?: string },
+) {
   const uid = await userId();
   const { error } = await db()
     .from("unmask_story_comments")
-    .insert({ investigation_id: id, user_id: uid, body: body.trim() });
+    .insert({
+      investigation_id: id,
+      user_id: uid,
+      body: body.trim(),
+      attached_journey_id: attachment?.journey || null,
+      attached_experience_id: attachment?.experience || null,
+    });
   if (error) throw error;
 }

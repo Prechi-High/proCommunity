@@ -31,6 +31,8 @@ export type FeedItem = {
   creatorAvatar?: string | null;
   sparks?: number;
   sample?: boolean;
+  attachedJourneyId?: string | null;
+  attachedExperienceId?: string | null;
 };
 
 function titleFromBody(body: string, fallback: string) {
@@ -44,6 +46,8 @@ export function experienceToFeed(e: clarity.Experience): FeedItem {
   const chips = [e.duration, e.skin_type].filter(Boolean) as string[];
   return {
     id: `exp-${e.id}`,
+    attachedJourneyId: e.attached_journey_id,
+    attachedExperienceId: e.attached_experience_id,
     kind: "experience",
     title: titleFromBody(e.body, "A product experience"),
     body: e.body,

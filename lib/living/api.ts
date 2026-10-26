@@ -218,9 +218,7 @@ export async function routineItems(id: string) {
   return unwrap<RoutineItem[]>(
     await db()
       .from("unmask_routine_items")
-      .select(
-        "*,unmask_catalog(*)",
-      )
+      .select("*,unmask_catalog(*)")
       .eq("routine_id", id)
       .order("step_order"),
   );
@@ -328,6 +326,7 @@ export async function answers(id: string) {
 export async function addAnswer(row: {
   question_id: string;
   attached_experience_id?: string | null;
+  attached_journey_id?: string | null;
   duration: string;
   context: string;
   acquisition: string;

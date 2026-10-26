@@ -36,6 +36,7 @@ export default function QuestionScreen() {
     queryFn: () => api.answers(id),
     enabled: !!id && !sample,
   });
+  const [attachedJourney, setAttachedJourney] = useState("");
   const [attachment, setAttachment] = useState("");
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
@@ -52,6 +53,7 @@ export default function QuestionScreen() {
       await api.addAnswer({
         question_id: id,
         attached_experience_id: attachment || null,
+        attached_journey_id: attachedJourney || null,
         duration: "",
         context: "",
         acquisition: "not_stated",
@@ -61,6 +63,7 @@ export default function QuestionScreen() {
       hapticSaved(id);
       setBody("");
       setAttachment("");
+      setAttachedJourney("");
       await qc.invalidateQueries({ queryKey: ["answers", id] });
     } catch (e) {
       setError(
@@ -194,13 +197,18 @@ export default function QuestionScreen() {
           >
             {a.body}
           </Text>
-          <AttachedExperienceLink id={a.attached_experience_id} />
+          <AttachedExperienceLink
+            id={a.attached_experience_id}
+            journeyId={a.attached_journey_id}
+          />
         </View>
       ))}
       <ExperienceAttachment
         productId={q.data?.product_id}
         value={attachment}
         onChange={setAttachment}
+        journeyValue={attachedJourney}
+        onJourneyChange={setAttachedJourney}
       />
       <TextInput
         value={body}

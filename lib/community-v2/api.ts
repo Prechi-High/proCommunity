@@ -23,6 +23,7 @@ export type Publication = {
   commercial_disclosure: string;
 };
 export type Entry = {
+  attached_journey_id?: string | null;
   id: string;
   experience_id: string;
   attached_experience_id?: string | null;
@@ -83,6 +84,7 @@ export async function addEntry(
   usage_status = "",
   photo_path = "",
   attachedExperience?: string,
+  attachedJourney?: string,
 ) {
   const uid = await userId();
   const row: Record<string, string> = {
@@ -90,7 +92,10 @@ export async function addEntry(
     user_id: uid,
     body: body.trim(),
   };
-  if (kind === "replies" && attachedExperience) row.attached_experience_id = attachedExperience;
+  if (kind === "replies" && attachedJourney)
+    row.attached_journey_id = attachedJourney;
+  if (kind === "replies" && attachedExperience)
+    row.attached_experience_id = attachedExperience;
   if (kind === "followups") {
     if (photo_path) row.photo_path = photo_path;
     row.duration = duration;
