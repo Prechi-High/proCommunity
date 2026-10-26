@@ -137,6 +137,14 @@ export function PostComments({
           Be the first to add something helpful.
         </Text>
       ) : null}
+      <ActionButton
+        tone="secondary"
+        label="Join conversation"
+        onPress={() => {
+          onClose();
+          router.push(item.href as Href);
+        }}
+      />
       {!item.sample ? (
         uid ? (
           <>

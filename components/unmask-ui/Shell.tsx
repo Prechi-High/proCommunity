@@ -1,3 +1,4 @@
+import { MainNav } from "./MainNav";
 import { type ReactNode } from "react";
 import {
   KeyboardAvoidingView,
@@ -23,6 +24,7 @@ export function AppShell({
   footer,
   scroll = true,
   flush,
+  navigation,
 }: {
   children: ReactNode;
   title?: string;
@@ -33,6 +35,7 @@ export function AppShell({
   footer?: ReactNode;
   scroll?: boolean;
   flush?: boolean;
+  navigation?: boolean;
 }) {
   const router = useRouter();
   const header = (
@@ -191,6 +194,7 @@ export function AppShell({
           </View>
         ) : null}
       </KeyboardAvoidingView>
+      {navigation ? <MainNav /> : null}
     </SafeAreaView>
   );
 }

@@ -283,6 +283,9 @@ export const SAMPLE_OFFERS = products.map((p, i) => ({
   title: `Discover ${p.name}`,
   product_id: p.id,
   kind: "Demo placement",
+  price: [12500, 18000, 8500][i],
+  compare_at_price: [15000, 20000, null][i],
+  currency: "NGN",
   description:
     "An illustration of an offer connected to community experiences.",
   disclosure: "Fictional offer. No purchase or paid placement took place.",

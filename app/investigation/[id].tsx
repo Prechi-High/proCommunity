@@ -1,3 +1,4 @@
+import { PostActions } from "@/components/unmask-ui/PostActions";
 import { ProgressTrail } from "@/components/unmask-ui/ProgressTrail";
 import { useState } from "react";
 import { Linking, Text, View } from "react-native";
@@ -73,7 +74,7 @@ export default function UnmaskDetail() {
     const demoWeight = (sample.sparks ?? 0) + (demoSparks[sample.id] ?? 0);
     const published = sample.status === "Ultra Unmasked";
     return (
-      <AppShell back title={sample.title}>
+      <AppShell back navigation title={sample.title}>
         <Text
           style={{
             fontFamily: fonts.regular,
@@ -118,6 +119,7 @@ export default function UnmaskDetail() {
         >
           {sample.body}
         </Text>
+        <PostActions item={sample} />
         {sample.productName ? (
           <Text
             style={{
@@ -292,14 +294,30 @@ export default function UnmaskDetail() {
 
   if (q.isError) {
     return (
-      <AppShell back title="Unmask">
+      <AppShell back navigation title="Unmask">
         <StatusMessage kind="error" title="This Unmask isn’t available." />
       </AppShell>
     );
   }
 
   return (
-    <AppShell back title={item?.title || "Unmask"}>
+    <AppShell back navigation title={item?.title || "Unmask"}>
+      {item ? (
+        <PostActions
+          item={{
+            id: `unmask-${item.id}`,
+            kind: "unmask",
+            title: item.title,
+            body: item.concern,
+            author: "Community",
+            createdAt: item.created_at,
+            href: `/investigation/${item.id}`,
+            chips: [],
+            cta: "Join conversation",
+            sparks: weight,
+          }}
+        />
+      ) : null}
       {product ? (
         <MediaFrame
           uri={product.image_url}

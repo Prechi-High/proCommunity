@@ -6,8 +6,8 @@
  * characters standing in for icons. Screens import from here rather than from
  * `phosphor-react-native` directly so this rule stays enforceable.
  */
-import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Pressable, View, type StyleProp, type ViewStyle } from "react-native";
+import { useRouter } from "expo-router";
 import {
   ArrowFatUp,
   ArrowLeft,
@@ -23,6 +23,8 @@ import {
   CaretRight,
   Cat,
   ChatCircle,
+  Checks,
+  Gear,
   ChatsCircle,
   Check,
   CheckCircle,
@@ -104,7 +106,7 @@ import {
   WhatsappLogo,
   Files,
   LinkSimple,
-} from 'phosphor-react-native';
+} from "phosphor-react-native";
 
 export {
   WhatsappLogo,
@@ -148,7 +150,7 @@ export {
   Scan,
 };
 
-import { colors } from '@/constants/theme';
+import { colors } from "@/constants/theme";
 
 export {
   ArrowFatUp,
@@ -165,6 +167,8 @@ export {
   CaretRight,
   Cat,
   ChatCircle,
+  Checks,
+  Gear,
   ChatsCircle,
   Check,
   CheckCircle,
@@ -208,11 +212,15 @@ export {
   YoutubeLogo,
 };
 
-export type IconWeight = 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone';
+export type IconWeight =
+  "thin" | "light" | "regular" | "bold" | "fill" | "duotone";
 
 /** Product categories get a consistent icon so a list reads at a glance. */
 const CATEGORY_ICONS: Array<[RegExp, typeof Package]> = [
-  [/phone|charger|cable|laptop|computer|tablet|earbud|headphone|speaker|camera|tv|monitor|electronic|console|controller|watch/i, DeviceMobile],
+  [
+    /phone|charger|cable|laptop|computer|tablet|earbud|headphone|speaker|camera|tv|monitor|electronic|console|controller|watch/i,
+    DeviceMobile,
+  ],
   [/shoe|sneaker|shirt|dress|jacket|cloth|apparel|bag|fashion/i, TShirt],
   [/food|drink|snack|coffee|tea|beverage|grocery/i, ForkKnife],
   [/tool|drill|hardware|repair/i, Wrench],
@@ -229,20 +237,26 @@ export function categoryIcon(category: string) {
  * Back affordance used on every pushed screen. Generous hit area, low visual
  * weight — leaving should never feel like the loudest thing on the page.
  */
-export function BackButton({ onPress, label }: { onPress?: () => void; label?: string }) {
+export function BackButton({
+  onPress,
+  label,
+}: {
+  onPress?: () => void;
+  label?: string;
+}) {
   const router = useRouter();
   return (
     <Pressable
       onPress={onPress ?? (() => router.back())}
       hitSlop={12}
       accessibilityRole="button"
-      accessibilityLabel={label ?? 'Go back'}
+      accessibilityLabel={label ?? "Go back"}
       style={{
         width: 36,
         height: 36,
         borderRadius: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
+        alignItems: "center",
+        justifyContent: "center",
         backgroundColor: colors.white,
         borderWidth: 1,
         borderColor: colors.mist,
@@ -257,12 +271,12 @@ export function BackButton({ onPress, label }: { onPress?: () => void; label?: s
 export function IconBubble({
   children,
   size = 44,
-  tone = 'mist',
+  tone = "mist",
   style,
 }: {
   children: React.ReactNode;
   size?: number;
-  tone?: 'mist' | 'sage' | 'rose' | 'honey' | 'white';
+  tone?: "mist" | "sage" | "rose" | "honey" | "white";
   style?: StyleProp<ViewStyle>;
 }) {
   const background = {
@@ -280,8 +294,8 @@ export function IconBubble({
           height: size,
           borderRadius: size / 2,
           backgroundColor: background,
-          alignItems: 'center',
-          justifyContent: 'center',
+          alignItems: "center",
+          justifyContent: "center",
         },
         style,
       ]}
@@ -291,4 +305,9 @@ export function IconBubble({
   );
 }
 
-export { ArrowBendUpLeft, SlidersHorizontal, Buildings, Ruler } from 'phosphor-react-native';
+export {
+  ArrowBendUpLeft,
+  SlidersHorizontal,
+  Buildings,
+  Ruler,
+} from "phosphor-react-native";

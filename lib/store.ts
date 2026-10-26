@@ -49,6 +49,8 @@ export interface AppState {
   flaggedPostIds: string[];
   userThreads: DiscussionThread[];
   hapticsMode: HapticsMode;
+  notificationAckIds: string[];
+  ackNotifications: (ids: string[]) => void;
   demoLikes: Record<string, boolean>;
   toggleDemoLike: (id: string) => void;
   demoSparkAdds: Record<string, number>;
@@ -153,6 +155,13 @@ export const useAppStore = create<AppState>()(
         else set({ searchCategoryIds: [...cur, id] });
       },
       hapticsMode: "subtle" as HapticsMode,
+      notificationAckIds: [],
+      ackNotifications: (ids) =>
+        set((s) => ({
+          notificationAckIds: [
+            ...new Set([...s.notificationAckIds, ...ids]),
+          ].slice(-500),
+        })),
       demoLikes: {},
       toggleDemoLike: (id) =>
         set((s) => ({ demoLikes: { ...s.demoLikes, [id]: !s.demoLikes[id] } })),

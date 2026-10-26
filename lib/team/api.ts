@@ -202,6 +202,9 @@ export const reportContent = (kind: string, id: string, reason: string) =>
       .single(),
   );
 export type Offer = {
+  price?: number | null;
+  compare_at_price?: number | null;
+  currency?: string;
   id: string;
   sponsor: string;
   title: string;

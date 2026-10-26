@@ -1,3 +1,4 @@
+import { OffersSpotlight } from "@/components/unmask-ui/OffersSpotlight";
 import { CreatorUpdates } from "@/components/unmask-ui/CreatorUpdates";
 import { useScan } from "@/lib/useScan";
 import { useEffect, useMemo, useState } from "react";
@@ -88,6 +89,7 @@ export default function Home() {
         </View>
         <QuickActions />
         <UltraInvitation />
+        <OffersSpotlight />
         <View style={{ paddingHorizontal: 20, gap: 14, paddingTop: 8 }}>
           <View
             style={{
@@ -174,12 +176,6 @@ export default function Home() {
               detail: "The people taking your questions further.",
               href: "/creators",
               Icon: UsersThree,
-            },
-            {
-              label: "Offers, with a clearer picture",
-              detail: "Read real experiences before visiting a store.",
-              href: "/offers",
-              Icon: Storefront,
             },
           ].map(({ label, detail, href, Icon }) => (
             <Pressable

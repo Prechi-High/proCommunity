@@ -1,3 +1,4 @@
+import { MainNav } from "@/components/unmask-ui/MainNav";
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -324,66 +325,9 @@ export function BottomNav({
   community?: boolean;
   selected?: "Today" | "My Products" | "Unmask" | "Community" | "You";
 }) {
-  const r = useRouter();
-  return (
-    <SafeAreaView
-      edges={["bottom"]}
-      style={{
-        backgroundColor: "#FFFFFF",
-        borderTopWidth: 1,
-        borderColor: ink.line,
-      }}
-    >
-      <View
-        style={{
-          width: "100%",
-          maxWidth: 760,
-          alignSelf: "center",
-          flexDirection: "row",
-          paddingTop: 7,
-          paddingBottom: 9,
-        }}
-      >
-        {(
-          [
-            { name: "Today", href: "/", Icon: House },
-            { name: "My Products", href: "/products", Icon: Package },
-            { name: "Unmask", href: "/unmask", Icon: MagnifyingGlass },
-            { name: "Community", href: "/pulse", Icon: UsersThree },
-            { name: "You", href: "/you", Icon: User },
-          ] as const
-        ).map(({ name, href, Icon }) => {
-          const active =
-            name === (selected ?? (community ? "Community" : "Unmask"));
-          return (
-            <Pressable
-              key={name}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-              onPress={() => r.push(href as Href)}
-              style={{ flex: 1, alignItems: "center", gap: 3, minHeight: 43 }}
-            >
-              <Icon
-                size={25}
-                color={active ? ink.brand : ink.muted}
-                weight={active ? "bold" : "regular"}
-              />
-              <Text
-                style={{
-                  fontFamily: fonts.medium,
-                  fontSize: 10,
-                  color: active ? ink.brand : ink.muted,
-                }}
-              >
-                {name}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </SafeAreaView>
-  );
+  return <MainNav />;
 }
+
 export function Notice({ children }: { children: ReactNode }) {
   return (
     <View

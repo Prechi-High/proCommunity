@@ -15,13 +15,20 @@ import {
 } from "@/components/unmask-ui";
 import { COPY } from "@/constants/brand";
 import { colors, fonts } from "@/constants/theme";
-import { rememberProduct, searchProducts } from "@/lib/products";
+import { rememberProduct, slugify } from "@/lib/products";
 import { useAppStore } from "@/lib/store";
+import {
+  searchCommunityProducts,
+  hasProductConversation,
+} from "@/lib/unmask/communitySearch";
+import { SAMPLE_SHELF, SAMPLE_FEED } from "@/lib/unmask/samples";
 import type { Product } from "@/lib/types";
 
 export default function Results() {
   const router = useRouter();
   const scan = useScan();
+  const demo = useAppStore((s) => s.demoCommunity);
+  const [openError, setOpenError] = useState("");
   const { q } = useLocalSearchParams<{ q?: string }>();
   const [draft, setDraft] = useState(q || "");
   const [query, setQuery] = useState(q || "");
@@ -31,8 +38,24 @@ export default function Results() {
     setQuery(q || "");
   }, [q]);
   const result = useQuery({
-    queryKey: ["search", query],
-    queryFn: () => searchProducts(query),
+    queryKey: ["community-product-search", query, demo],
+    queryFn: async () => {
+      const live = await searchCommunityProducts(query);
+      const examples = demo
+        ? SAMPLE_SHELF.filter((p) =>
+            `${p.name} ${p.brand}`
+              .toLowerCase()
+              .includes(query.trim().toLowerCase()),
+          ).map((p) => ({
+            id: p.id,
+            name: p.name,
+            brand: p.brand,
+            category: "Skin",
+            heroImageUrl: p.image,
+          }))
+        : [];
+      return [...examples, ...live];
+    },
     enabled: query.trim().length > 1,
     staleTime: 600000,
     retry: 1,
@@ -43,19 +66,46 @@ export default function Results() {
       useAppStore.getState().addSearch(draft.trim());
     }
   };
-  const open = (p: Product) => {
+  const open = async (p: Product) => {
     rememberProduct(p);
     setPicked(p.id);
+    setOpenError("");
+    try {
+      const has = p.id.startsWith("demo-")
+        ? SAMPLE_FEED.some((x) => x.productId === p.id)
+        : await hasProductConversation(p.id);
+      router.push({
+        pathname: has ? "/product/[id]" : "/product/[id]/ask-community",
+        params: { id: p.id, name: p.name },
+      } as Href);
+    } catch {
+      setOpenError("Couldn’t check the conversations. Please try again.");
+    } finally {
+      setPicked("");
+    }
+  };
+  const products = result.data ?? [];
+  const askNew = () => {
+    const name = draft.trim();
+    if (!name) return;
+    const id = `community-${slugify(name)}`;
+    rememberProduct({
+      id,
+      name,
+      brand: "",
+      category: "Product",
+      heroImageUrl: null,
+    });
     router.push({
-      pathname: "/product/[id]",
-      params: { id: p.id, q: p.name },
+      pathname: "/product/[id]/ask-community",
+      params: { id, name },
     } as Href);
   };
-  const products = result.data?.products || [];
 
   return (
     <AppShell
       back
+      navigation
       title="Find a product"
       subtitle="Find the product. Hear from people who have tried it."
     >
@@ -66,7 +116,13 @@ export default function Results() {
         onCamera={scan.openCamera}
       />
       {scan.sheet}
-      <ActionButton tone="secondary" label="Search" onPress={submit} />
+
+      {openError ? <StatusMessage kind="error" title={openError} /> : null}
+      {picked ? (
+        <Text style={{ fontFamily: fonts.regular, color: colors.inkSoft }}>
+          Opening community conversations…
+        </Text>
+      ) : null}
       {result.isError ? (
         <StatusMessage
           kind="error"
@@ -82,7 +138,10 @@ export default function Results() {
       {products.map((p) => (
         <Pressable
           key={p.id}
-          onPress={() => open(p)}
+          disabled={!!picked}
+          accessibilityRole="button"
+          accessibilityLabel={`Open ${p.name}`}
+          onPress={() => void open(p)}
           style={{
             flexDirection: "row",
             gap: 12,
@@ -116,12 +175,12 @@ export default function Results() {
           </View>
         </Pressable>
       ))}
-      {query && !result.isLoading && !products.length ? (
+      {query && !result.isLoading && !result.isError && !products.length ? (
         <EmptyState
-          title={COPY.noMatch}
-          detail={COPY.noMatchNext}
-          action="Add its name"
-          onAction={() => router.push("/products/add" as Href)}
+          title="No matching product here yet."
+          detail="Our catalogue grows with the community. Start a question with the product name."
+          action={`Ask about ${query}`}
+          onAction={askNew}
         />
       ) : null}
     </AppShell>

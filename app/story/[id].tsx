@@ -81,7 +81,7 @@ export default function Story() {
   if (sample) {
     const thread = SAMPLE_REPLIES[sample.id] ?? [];
     return (
-      <AppShell back title={sample.productName || "Story"}>
+      <AppShell back navigation title={sample.productName || "Story"}>
         {sample.sample ? (
           <Text
             style={{
@@ -223,7 +223,7 @@ export default function Story() {
 
   if (story.isError) {
     return (
-      <AppShell back title="Story">
+      <AppShell back navigation title="Story">
         <StatusMessage
           kind="error"
           title="This story isn’t available."
@@ -235,7 +235,7 @@ export default function Story() {
 
   const e = story.data;
   return (
-    <AppShell back title={e?.unmask_catalog?.name || "Story"}>
+    <AppShell back navigation title={e?.unmask_catalog?.name || "Story"}>
       {e ? (
         <>
           <MediaFrame

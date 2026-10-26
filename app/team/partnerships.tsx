@@ -41,6 +41,9 @@ function Content() {
     queryFn: () => catalog(),
   });
   const [id, setId] = useState("");
+  const [price, setPrice] = useState("");
+  const [was, setWas] = useState("");
+  const [currency, setCurrency] = useState("NGN");
   const [sponsor, setSponsor] = useState("");
   const [title, setTitle] = useState("");
   const [product, setProduct] = useState("");
@@ -56,6 +59,9 @@ function Content() {
   const [confirm, setConfirm] = useState(false);
   const load = (o: api.Offer) => {
     setId(o.id);
+    setPrice(o.price == null ? "" : String(o.price));
+    setWas(o.compare_at_price == null ? "" : String(o.compare_at_price));
+    setCurrency(o.currency || "NGN");
     setSponsor(o.sponsor);
     setTitle(o.title);
     setProduct(o.product_id);
@@ -71,7 +77,17 @@ function Content() {
   };
   const save = () =>
     action.mutate(async () => {
+      if (
+        (price.trim() &&
+          (!Number.isFinite(Number(price)) || Number(price) < 0)) ||
+        (was.trim() && (!Number.isFinite(Number(was)) || Number(was) < 0)) ||
+        !/^[A-Z]{3}$/.test(currency)
+      )
+        throw new Error("Enter valid prices and a three-letter currency.");
       const row = {
+        price: price.trim() ? Number(price) : null,
+        compare_at_price: was.trim() ? Number(was) : null,
+        currency,
         sponsor: sponsor.trim(),
         title: title.trim(),
         product_id: product,
@@ -134,6 +150,21 @@ function Content() {
           onChange={setSponsor}
         />
         <Field label="Offer title" value={title} onChange={setTitle} />
+        <Field
+          label="Current price (optional)"
+          value={price}
+          onChange={setPrice}
+        />
+        <Field
+          label="Previous price (optional; only genuine reductions)"
+          value={was}
+          onChange={setWas}
+        />
+        <Field
+          label="Currency"
+          value={currency}
+          onChange={(v) => setCurrency(v.toUpperCase())}
+        />
         <Chips
           options={[
             "Store offer",
