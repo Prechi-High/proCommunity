@@ -411,7 +411,7 @@ export function OwnershipPhotoCard({
   return (
     <JournalCard
       title="Show the product behind your story."
-      detail="Optional. Show that you own it."
+      detail="Optional. You can post without a photo."
     >
       <ImageBackground
         source={require("@/assets/unmask-reference/scan-product.png")}

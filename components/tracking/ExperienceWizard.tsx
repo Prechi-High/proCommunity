@@ -67,6 +67,7 @@ export function ExperienceWizard({
       id: string;
       visibility: string;
       journalId?: string;
+      proofStatus?: "pending" | "submitted" | "failed";
     } | null>(null);
   const keyId = source?.id || productId || "new";
   const draft = useTrackingDraft(
@@ -381,15 +382,7 @@ export function ExperienceWizard({
             photo_path: historyPhoto || null,
           });
         }
-        savingStage = "upload your ownership photo";
-        if (d.ownership) {
-          const proof = await tracking.proof(j.id);
-          if (!proof)
-            await tracking.submitProof(
-              j.id,
-              await tracking.uploadProof(d.ownership),
-            );
-        }
+
       }
       savingStage = "publish your experience";
       const out = await clarity.saveExperience(
@@ -423,7 +416,29 @@ export function ExperienceWizard({
         id: out.id,
         visibility,
         journalId: trackingOn ? journalId : undefined,
+        proofStatus: trackingOn && journalId && d.ownership ? "pending" : undefined,
       });
+      // Ownership verification is optional and separate from publishing.
+      // Show the successful post immediately, even if proof upload fails.
+      if (trackingOn && journalId && d.ownership) {
+        const proofJournal = journalId;
+        void (async () => {
+          try {
+            const proof = await tracking.proof(proofJournal);
+            if (!proof)
+              await tracking.submitProof(
+                proofJournal,
+                await tracking.uploadProof(d.ownership),
+              );
+            setDone((current) => current?.id === out.id
+              ? { ...current, proofStatus: "submitted" } : current);
+            void qc.invalidateQueries({ queryKey: ["ownership-proof", proofJournal] });
+          } catch {
+            setDone((current) => current?.id === out.id
+              ? { ...current, proofStatus: "failed" } : current);
+          }
+        })();
+      }
     } catch (e) {
       const message = (e as Error).message || "";
       setError(/failed to fetch|network request failed|load failed/i.test(message)
@@ -457,6 +472,15 @@ export function ExperienceWizard({
               : "Only you can see this experience. Share it whenever you’re ready."
           }
         />
+        {done.proofStatus ? (
+          <Note>
+            {done.proofStatus === "failed"
+              ? "Your experience is saved. The optional ownership photo couldn’t upload. You can add it later from your product timeline."
+              : done.proofStatus === "pending"
+                ? "Your experience is saved. Your optional ownership photo is uploading separately."
+                : "Ownership photo received. A marker appears only after review."}
+          </Note>
+        ) : null}
         <ActionButton
           label="View my experience"
           onPress={() => r.replace(`/story/${done.id}` as Href)}
