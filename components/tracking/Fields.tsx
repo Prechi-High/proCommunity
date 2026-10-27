@@ -1,3 +1,4 @@
+import { durablePhoto } from "@/lib/tracking/photos";
 import { useState } from "react";
 import { Image, Platform, Switch, Text, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
@@ -113,12 +114,19 @@ export function PhotoField({
         ? await ImagePicker.launchCameraAsync({
             mediaTypes: ["images"],
             quality: 0.7,
+            base64: true,
           })
         : await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ["images"],
             quality: 0.7,
+            base64: true,
           });
-      if (!r.canceled) onChange(r.assets[0].uri);
+      if (!r.canceled) {
+        const asset = r.assets[0];
+        onChange(asset.base64
+          ? `data:${asset.mimeType || "image/jpeg"};base64,${asset.base64}`
+          : await durablePhoto(asset.uri));
+      }
     } catch {
       setError(
         "The camera couldn’t open. You can try again or continue without a photo.",

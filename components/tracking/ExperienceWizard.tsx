@@ -1,3 +1,4 @@
+import { durablePhoto } from "@/lib/tracking/photos";
 import { SkinProgressExample } from "./SkinProgressExample";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -241,6 +242,12 @@ export function ExperienceWizard({
   const scan = useScan({
     onSelect: async (product, photo) => {
       try {
+        photo = await durablePhoto(photo);
+      } catch (e) {
+        setError((e as Error).message);
+        return;
+      }
+      try {
         product =
           exactCommunityMatch(
             product,
@@ -309,6 +316,7 @@ export function ExperienceWizard({
     setBusy(true);
     setError("");
     set({ visibility });
+    let savingStage = "prepare your attachment";
     try {
       let attached = d.attachment;
       // Re-check the source at save time. A private source is never silently published.
@@ -320,6 +328,7 @@ export function ExperienceWizard({
         attached = await tracking.shareAttachment(attached);
         set({ attachment: attached });
       }
+      savingStage = "save the product";
       await living.registerProduct({
         id: p.id,
         name: p.name,
@@ -328,6 +337,7 @@ export function ExperienceWizard({
         heroImageUrl:
           p.image_url && /^https?:/.test(p.image_url) ? p.image_url : null,
       });
+      savingStage = "upload your experience photo";
       let photoPath = d.photoPath;
       if (d.skinPhoto && !photoPath) {
         photoPath = await community.uploadPhoto(d.skinPhoto);
@@ -335,6 +345,7 @@ export function ExperienceWizard({
       }
       let journalId = d.journalId;
       if (trackingOn) {
+        savingStage = "save your product timeline";
         const existingJournal =
           myJourney && myJourney.id !== d.journalId ? myJourney : null;
         const j =
@@ -370,6 +381,7 @@ export function ExperienceWizard({
             photo_path: historyPhoto || null,
           });
         }
+        savingStage = "upload your ownership photo";
         if (d.ownership) {
           const proof = await tracking.proof(j.id);
           if (!proof)
@@ -379,6 +391,7 @@ export function ExperienceWizard({
             );
         }
       }
+      savingStage = "publish your experience";
       const out = await clarity.saveExperience(
         {
           product_id: p.id,
@@ -412,7 +425,10 @@ export function ExperienceWizard({
         journalId: trackingOn ? journalId : undefined,
       });
     } catch (e) {
-      setError((e as Error).message || "Your draft is safe. Try saving again.");
+      const message = (e as Error).message || "";
+      setError(/failed to fetch|network request failed|load failed/i.test(message)
+        ? `We couldn’t ${savingStage}. Check your connection and try again. Your draft is safe.`
+        : message || "Your draft is safe. Try saving again.");
     } finally {
       setBusy(false);
     }

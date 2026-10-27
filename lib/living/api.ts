@@ -1,3 +1,4 @@
+import { readPhoto } from "@/lib/tracking/photos";
 import { supabase } from "../supabase";
 import type { Product } from "../types";
 import type {
@@ -382,7 +383,7 @@ export async function requests() {
 }
 export async function uploadPhoto(uri: string) {
   const uid = await userId();
-  const blob = await (await fetch(uri)).blob();
+  const blob = await readPhoto(uri);
   if (blob.size > 5 * 1024 * 1024)
     throw new Error("Choose a photo smaller than 5 MB.");
   const ext = blob.type === "image/png" ? "png" : "jpg";

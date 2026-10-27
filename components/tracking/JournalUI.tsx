@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { ImageBackground, Pressable, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   Check,
@@ -8,7 +8,7 @@ import {
   ShieldCheck,
   ImageSquare as Images,
 } from "@/components/icons";
-import { ActionButton, ActionSheet, MediaFrame } from "@/components/unmask-ui";
+import { ActionButton, ActionSheet, MediaFrame, Skeleton } from "@/components/unmask-ui";
 import { fonts, colors } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { Input, Label, Note, PhotoField, durationOptions } from "./Fields";
@@ -407,30 +407,29 @@ export function OwnershipPhotoCard({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const [imageReady, setImageReady] = useState(false);
   return (
     <JournalCard
       title="Show the product behind your story."
-      detail="Optional. A photo of the product you own helps us review ownership. You can save without one."
+      detail="Optional. Show that you own it."
     >
-      <View
-        style={{
-          padding: 16,
-          borderRadius: 18,
-          backgroundColor: journal.mint,
-          flexDirection: "row",
-          gap: 12,
-        }}
+      <ImageBackground
+        source={require("@/assets/unmask-reference/scan-product.png")}
+        resizeMode="cover"
+        onLoadEnd={() => setImageReady(true)}
+        accessibilityLabel="A skincare bottle framed by camera focus corners"
+        style={{ height: 210, justifyContent: "flex-end", borderRadius: 20, overflow: "hidden", backgroundColor: journal.paper }}
+        imageStyle={{ borderRadius: 20 }}
       >
-        <ShieldCheck size={28} color={journal.green} />
-        <View style={{ flex: 1, gap: 5 }}>
-          <Label>Give your experience a verified marker.</Label>
-          <Note>
-            After review, an ownership marker appears on your shared timeline.
-            When you attach it to an answer, people can see that you supplied
-            product ownership evidence—helping your answer stand out.
-          </Note>
-        </View>
-      </View>
+        {!imageReady ? <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}><Skeleton height={210} radius={20} /></View> : null}
+        <LinearGradient colors={["transparent", "rgba(0,0,0,0.78)"]} style={{ padding: 18, paddingTop: 65, gap: 7 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <ShieldCheck size={23} color="#fff" />
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#fff" }}>Your product. Your proof.</Text>
+          </View>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: "#fff" }}>An ownership marker helps your shared timeline stand out—after review.</Text>
+        </LinearGradient>
+      </ImageBackground>
       <PhotoField
         label="Add my product photo"
         value={value}
@@ -438,9 +437,7 @@ export function OwnershipPhotoCard({
         camera
       />
       <Note>
-        The proof photo stays private to you and the review team. The marker
-        confirms reviewed ownership evidence, not the product’s safety or the
-        outcome of your experience.
+        Only you and our review team see this photo. The marker confirms ownership evidence, not product safety.
       </Note>
     </JournalCard>
   );

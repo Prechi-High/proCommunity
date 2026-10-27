@@ -1,3 +1,4 @@
+import { readPhoto } from "@/lib/tracking/photos";
 import { db } from "@/lib/clarity/api";
 import { userId } from "@/lib/living/api";
 import type { Journey } from "@/lib/living/types";
@@ -52,7 +53,7 @@ export async function proof(id: string) {
 }
 export async function uploadProof(uri: string) {
   const uid = await userId();
-  const blob = await (await fetch(uri)).blob();
+  const blob = await readPhoto(uri);
   if (blob.size > 5242880)
     throw new Error("Choose an ownership photo smaller than 5 MB.");
   const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
