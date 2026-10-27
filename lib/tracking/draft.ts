@@ -1,15 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 export function useTrackingDraft<T extends object>(
   key: string,
   initial: T,
   resumeKey?: string,
 ) {
+  const cleared = useRef(false);
   const [value, setValue] = useState<T>(initial);
   const [ready, setReady] = useState(false);
   const [restored, setRestored] = useState(false);
   useEffect(() => {
     let alive = true;
+    cleared.current = false;
     setReady(false);
     setRestored(false);
     setValue(initial);
@@ -32,7 +34,8 @@ export function useTrackingDraft<T extends object>(
   useEffect(() => {
     if (!ready) return;
     const t = setTimeout(() => {
-      void AsyncStorage.setItem(key, JSON.stringify(value));
+      if (!cleared.current)
+        void AsyncStorage.setItem(key, JSON.stringify(value));
     }, 350);
     return () => clearTimeout(t);
   }, [key, value, ready]);
@@ -41,6 +44,9 @@ export function useTrackingDraft<T extends object>(
     setValue,
     ready,
     restored,
-    clear: () => AsyncStorage.multiRemove(resumeKey ? [key, resumeKey] : [key]),
+    clear: () => {
+      cleared.current = true;
+      return AsyncStorage.multiRemove(resumeKey ? [key, resumeKey] : [key]);
+    },
   };
 }

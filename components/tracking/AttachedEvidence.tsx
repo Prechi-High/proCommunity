@@ -1,3 +1,5 @@
+import { Clock } from "@/components/icons";
+import { identity } from "@/lib/profiles/api";
 import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
@@ -11,9 +13,11 @@ import { colors, fonts } from "@/constants/theme";
 export function AttachedEvidence({
   journeyId,
   experienceId,
+  attachedBy,
 }: {
   journeyId?: string | null;
   experienceId?: string | null;
+  attachedBy?: string;
 }) {
   const r = useRouter();
   const q = useQuery({
@@ -25,8 +29,11 @@ export function AttachedEvidence({
           living.journey(journeyId) as Promise<tracking.TrackedJourney>,
           tracking.updates(journeyId),
         ]);
+        const person = await identity(j.user_id).catch(() => null);
         const publicUpdates = updates.filter((u) => u.visibility === "public");
         return {
+          owner:
+            person?.display_name || updates[0]?.author_name || "An Unmasker",
           title: j.unmask_catalog?.name || "Product timeline",
           image: j.unmask_catalog?.image_url,
           detail: [
@@ -46,6 +53,7 @@ export function AttachedEvidence({
       }
       const e = await community.experience(experienceId!);
       return {
+        owner: e.author_name,
         title: `${e.author_name}’s experience`,
         image: e.unmask_catalog?.image_url,
         detail: e.duration || "Original experience",
@@ -64,7 +72,9 @@ export function AttachedEvidence({
         padding: 16,
         borderRadius: 18,
         borderWidth: 1,
-        borderColor: "#D9E1D6",
+        borderColor: colors.line,
+        borderLeftWidth: journeyId ? 4 : 1,
+        borderLeftColor: journeyId ? colors.brandDeep : colors.line,
         backgroundColor: "#F8F6F3",
         gap: 8,
       }}
@@ -82,6 +92,37 @@ export function AttachedEvidence({
         </Text>
       ) : q.data ? (
         <>
+          {journeyId ? (
+            <View style={{ gap: 9, paddingBottom: 8 }}>
+              <View
+                style={{ flexDirection: "row", gap: 7, alignItems: "center" }}
+              >
+                <Clock size={18} color={colors.brandDeep} />
+                <Text
+                  style={{
+                    fontFamily: fonts.semibold,
+                    fontSize: 11,
+                    letterSpacing: 1,
+                    color: colors.brandDeep,
+                  }}
+                >
+                  PRODUCT USAGE TIMELINE
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontFamily: fonts.semibold,
+                  fontSize: 15,
+                  lineHeight: 23,
+                  color: colors.ink,
+                }}
+              >
+                {attachedBy
+                  ? `${attachedBy} attached ${attachedBy === q.data.owner ? "their" : `${q.data.owner}’s`} product usage timeline.`
+                  : `${q.data.owner}’s product usage timeline`}
+              </Text>
+            </View>
+          ) : null}
           <View style={{ width: 80 }}>
             <MediaFrame
               uri={q.data.image}

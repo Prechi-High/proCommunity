@@ -287,6 +287,7 @@ export default function Story() {
           </Text>
           <SaveExperience id={e.id} />
           <AttachedEvidence
+            attachedBy={e.author_name}
             journeyId={e.attached_journey_id}
             experienceId={e.attached_experience_id}
           />
@@ -346,6 +347,7 @@ export default function Story() {
                   {r.body}
                 </Text>
                 <AttachedExperienceLink
+                  attachedBy={r.author_name}
                   id={r.attached_experience_id}
                   journeyId={r.attached_journey_id}
                 />
@@ -417,7 +419,7 @@ export default function Story() {
           />
         </>
       ) : (
-        <ContentSkeleton/>
+        <ContentSkeleton />
       )}
     </AppShell>
   );

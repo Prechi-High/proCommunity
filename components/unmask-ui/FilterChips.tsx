@@ -79,7 +79,9 @@ export function FilterChips({
             }}
             style={{
               flex: 1,
-              minHeight: 44,
+              minHeight: 52,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
               borderRadius: 11,
               alignItems: "center",
               justifyContent: "center",
@@ -91,6 +93,9 @@ export function FilterChips({
               style={{
                 fontFamily: on ? fonts.semibold : fonts.medium,
                 fontSize: 14,
+                lineHeight: 20,
+                textAlign: "center",
+                flexShrink: 1,
                 color: on ? colors.ink : colors.inkSoft,
               }}
             >

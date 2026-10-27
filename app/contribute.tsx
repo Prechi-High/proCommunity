@@ -1,560 +1,124 @@
 import {
-  DurationPicker,
-  JournalProgress,
-  JournalProduct,
-  JournalCard,
-} from "@/components/tracking/JournalUI";
-import { SkinTypeField } from "@/components/tracking/SkinTypeField";
-import { useScan } from "@/lib/useScan";
-import { ProductIdentity } from "@/components/community/ProductIdentity";
-import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
-import { EvidencePicker } from "@/components/tracking/EvidencePicker";
-import { AttachedEvidence } from "@/components/tracking/AttachedEvidence";
-import type { EvidenceSelection } from "@/lib/tracking/api";
-import { getKnownProduct } from "@/lib/products";
-import { useEffect, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as ImagePicker from "expo-image-picker";
-import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-
+  Redirect,
+  useLocalSearchParams,
+  useRouter,
+  type Href,
+} from "expo-router";
+import { useQuery } from "@tanstack/react-query";
+import { Pressable, Text, View } from "react-native";
+import { ExperienceWizard } from "@/components/tracking/ExperienceWizard";
 import {
-  ActionButton,
   AppShell,
-  EmptyState,
-  FilterChips,
-  FocusCorners,
+  ActionButton,
+  ContentSkeleton,
   MediaFrame,
-  SearchField,
   StatusMessage,
 } from "@/components/unmask-ui";
-import { COPY } from "@/constants/brand";
-import { colors, fonts } from "@/constants/theme";
-import * as api from "@/lib/clarity/api";
+import * as clarity from "@/lib/clarity/api";
 import * as community from "@/lib/community-v2/api";
-import * as living from "@/lib/living/api";
-import { hapticSaved } from "@/lib/haptics";
 import { useAppStore } from "@/lib/store";
-
+import { colors, fonts } from "@/constants/theme";
 export default function Contribute() {
-  const router = useRouter();
-  const qc = useQueryClient();
   const p = useLocalSearchParams<{
     product?: string;
     journey?: string;
     experience?: string;
     mine?: string;
     update?: string;
+    resumeGuest?: string;
   }>();
-  const uid = useAppStore((s) => s.profile?.id);
-  const [step, setStep] = useState(
-    p.product || p.experience ? "write" : p.mine ? "mine" : "choose",
-  );
-  const [product, setProduct] = useState(p.product || "");
-  const [search, setSearch] = useState("");
-  const [attachment, setAttachment] = useState<EvidenceSelection | null>(
-    p.journey
-      ? {
-          kind: "journey",
-          id: p.journey,
-          title: "Your product timeline",
-          detail: "A living record of your usage",
-          visibility: "public",
-        }
-      : null,
-  );
-  const [usageStatus, setUsageStatus] = useState("Still using");
-  const [frequency, setFrequency] = useState("Once a day");
-  const pref = useQuery({
-    queryKey: ["tracking-skin", uid],
-    queryFn: api.preferences,
-    enabled: !!uid,
-  });
-  const [body, setBody] = useState("");
-  const [duration, setDuration] = useState("");
-  const [skin, setSkin] = useState("Not disclosed");
-  const [photo, setPhoto] = useState("");
-  const scan = useScan({
-    onSelect: (product) => {
-      setProduct(product.id);
-      setStep("write");
-    },
-  });
-  const [visibility, setVisibility] = useState<"private" | "public">("public");
-  const [more, setMore] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [done, setDone] = useState("");
-
-  const cat = useQuery({
-    queryKey: ["catalog"],
-    queryFn: () => living.catalog(),
-  });
+  const uid = useAppStore((s) => s.profile?.id),
+    r = useRouter();
   const own = useQuery({
-    queryKey: ["my-clarity-experiences"],
-    queryFn: () => api.experiences(true),
-    enabled: !!uid && step === "mine",
+    queryKey: ["my-clarity-experiences", uid],
+    queryFn: () => clarity.experiences(true),
+    enabled: !!uid && !!p.mine,
   });
-  const exact = useQuery({
-    queryKey: ["catalog", product],
-    queryFn: () => living.catalog(product),
-    enabled: !!product,
+  const source = useQuery({
+    queryKey: ["clarity-experience", p.experience, uid],
+    queryFn: () => community.experience(p.experience!),
+    enabled: !!p.experience && !!p.update,
   });
-  const known = getKnownProduct(product);
-  const selected =
-    cat.data?.find((x) => x.id === product) ||
-    exact.data?.[0] ||
-    (known
-      ? {
-          id: known.id,
-          name: known.name,
-          brand: known.brand,
-          category: known.category,
-          image_url: known.heroImageUrl,
-        }
-      : undefined);
-  const key = `unmask:experience-draft:${uid || "guest"}:${p.experience || product || "new"}`;
-
-  useEffect(() => {
-    void AsyncStorage.getItem(key).then((raw) => {
-      if (!raw) return;
-      const d = JSON.parse(raw);
-      setBody(d.body || "");
-      setDuration(d.duration || "");
-      setSkin(d.skin || "Not disclosed");
-      if (d.attachment) setAttachment(d.attachment);
-      if (d.usageStatus) setUsageStatus(d.usageStatus);
-      if (d.frequency) setFrequency(d.frequency);
-    });
-  }, [key]);
-  useEffect(() => {
-    if (!body && !duration) return;
-    void AsyncStorage.setItem(
-      key,
-      JSON.stringify({
-        body,
-        duration,
-        skin,
-        attachment,
-        usageStatus,
-        frequency,
-      }),
-    );
-  }, [body, duration, skin, key, attachment, usageStatus, frequency]);
-
-  useEffect(() => {
-    if (pref.data?.skin_type) setSkin(pref.data.skin_type);
-  }, [pref.data?.skin_type]);
-  const save = async () => {
-    if (!uid) {
-      router.push("/(auth)/sign-in" as Href);
-      return;
-    }
-    if (!selected) {
-      setError("Confirm the product first.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      const photoPath = photo ? await community.uploadPhoto(photo) : null;
-      await living.registerProduct({
-        id: selected.id,
-        name: selected.name,
-        brand: selected.brand || "",
-        category: selected.category || "",
-        heroImageUrl:
-          selected.image_url && /^https?:/.test(selected.image_url)
-            ? selected.image_url
-            : null,
-      });
-      const saved = await api.saveExperience({
-        photo_path: photoPath,
-        product_id: product,
-        duration,
-        frequency,
-        goal: "",
-        body: body.trim(),
-        outcome: "Mixed",
-        uncertainty: "",
-        context: "",
-        skin_type: skin === "Not disclosed" ? null : skin,
-        acquisition: "Prefer not to say",
-        usage_status: usageStatus,
-        attached_journey_id:
-          attachment?.kind === "journey" ? attachment.id : null,
-        attached_experience_id:
-          attachment?.kind === "experience" ? attachment.id : null,
-        would_rebuy: "Not stated",
-        visibility,
-      });
-      await AsyncStorage.removeItem(key);
-      await qc.invalidateQueries();
-      hapticSaved(saved.id);
-      setDone(saved.id);
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Your draft is still here. Try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  async function openProductJournal() {
-    await AsyncStorage.setItem(
-      `unmask:tracking:${uid || "guest"}:${product}`,
-      JSON.stringify({
-        step: 1,
-        product,
-        status:
-          usageStatus === "Still using"
-            ? "active"
-            : usageStatus === "Paused"
-              ? "paused"
-              : usageStatus === "Finished"
-                ? "finished"
-                : "stopped",
-        duration: duration,
-        frequency,
-        skin: skin === "Not disclosed" ? "" : skin,
-        body,
-        visibility: "private",
-      }),
-    );
-    router.push(`/products/add?product=${encodeURIComponent(product)}` as Href);
-  }
-  if (done) {
+  if (p.experience && !p.update)
+    return <Redirect href={`/story/${p.experience}` as Href} />;
+  if (p.mine)
     return (
-      <AppShell back navigation title="Your experience is saved.">
-        <StatusMessage
-          kind="success"
-          title={COPY.storyLive}
-          detail={
-            visibility === "public"
-              ? "Others can reply. Ask for an Ultra Unmask when you want a creator to seek more answers."
-              : "This experience is private. Only you can open it."
-          }
-        />
+      <AppShell back navigation title="My experiences">
+        {!uid ? (
+          <ActionButton
+            label="Sign in to see my experiences"
+            onPress={() => r.push("/(auth)/sign-in")}
+          />
+        ) : null}
+        {own.isLoading ? <ContentSkeleton /> : null}
+        {own.isError ? (
+          <ActionButton
+            label="Retry experiences"
+            onPress={() => void own.refetch()}
+          />
+        ) : null}
+        {own.data?.map((e) => (
+          <Pressable
+            accessibilityRole="button"
+            key={e.id}
+            onPress={() => r.push(`/story/${e.id}` as Href)}
+            style={{
+              flexDirection: "row",
+              gap: 12,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: colors.line,
+              borderRadius: 18,
+            }}
+          >
+            <View style={{ width: 60 }}>
+              <MediaFrame
+                uri={e.unmask_catalog?.image_url}
+                label={e.unmask_catalog?.name || "Product"}
+                ratio={1}
+              />
+            </View>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>
+                {e.unmask_catalog?.name}
+              </Text>
+              <Text
+                numberOfLines={2}
+                style={{ fontFamily: fonts.regular, color: colors.inkSoft }}
+              >
+                {e.body}
+              </Text>
+            </View>
+          </Pressable>
+        ))}
+        {own.isSuccess && !own.data.length ? (
+          <StatusMessage title="Your first experience starts here." />
+        ) : null}
         <ActionButton
-          label="View story"
-          onPress={() => router.replace(`/story/${done}` as Href)}
-        />
-        <ActionButton
-          tone="secondary"
-          label={COPY.takeFurther}
-          onPress={() =>
-            router.replace(
-              `/investigation/request?experience=${done}&product=${product}` as Href,
-            )
-          }
+          label="Add a product experience"
+          onPress={() => r.push("/contribute")}
         />
       </AppShell>
     );
-  }
-
+  if (p.experience && source.isLoading)
+    return (
+      <AppShell back title="Opening your experience…">
+        <ContentSkeleton />
+      </AppShell>
+    );
+  if (source.isError)
+    return (
+      <AppShell back title="This experience couldn’t open">
+        <ActionButton label="Try again" onPress={() => void source.refetch()} />
+      </AppShell>
+    );
   return (
-    <AppShell
-      back
-      navigation
-      title={p.update ? COPY.followUpPrompt : COPY.homePrompt}
-      subtitle="Good or bad. Start with what happened. Keep updating it."
-    >
-      {scan.sheet}
-      <JournalProgress
-        step={step === "choose" ? 0 : done ? 2 : 1}
-        labels={["Product", "Your experience", "Shared"]}
-      />
-      {step === "mine" ? (
-        <>
-          {(own.data ?? []).map((e) => (
-            <Pressable
-              key={e.id}
-              onPress={() => router.push(`/story/${e.id}` as Href)}
-            >
-              <Text
-                style={{
-                  fontFamily: fonts.semibold,
-                  fontSize: 16,
-                  color: colors.ink,
-                }}
-              >
-                {e.body.slice(0, 90)}
-              </Text>
-            </Pressable>
-          ))}
-          {!own.data?.length ? (
-            <EmptyState
-              title="No stories yet."
-              action={COPY.createExperience}
-              onAction={() => setStep("choose")}
-            />
-          ) : null}
-        </>
-      ) : null}
-
-      {step === "choose" && cat.isLoading ? <ContentSkeleton /> : null}
-      {step === "choose" ? (
-        <>
-          <SearchField
-            value={search}
-            onChange={setSearch}
-            placeholder="Find the product"
-            onCamera={scan.openCamera}
-          />
-          <ActionButton
-            tone="secondary"
-            label="Identify a product with a photo"
-            onPress={scan.openCamera}
-          />
-          {(cat.data ?? [])
-            .filter((x) =>
-              `${x.name} ${x.brand}`
-                .toLowerCase()
-                .includes(search.toLowerCase()),
-            )
-            .slice(0, 12)
-            .map((x) => (
-              <Pressable
-                key={x.id}
-                onPress={() => {
-                  setProduct(x.id);
-                  setStep("write");
-                }}
-                style={{
-                  flexDirection: "row",
-                  gap: 12,
-                  alignItems: "center",
-                  minHeight: 64,
-                }}
-              >
-                <View style={{ width: 56, position: "relative" }}>
-                  <MediaFrame uri={x.image_url} label={x.name} ratio={1} />
-                  {product === x.id ? <FocusCorners selected /> : null}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      fontFamily: fonts.semibold,
-                      fontSize: 16,
-                      color: colors.ink,
-                    }}
-                  >
-                    {x.name}
-                  </Text>
-                  <Text
-                    style={{
-                      fontFamily: fonts.regular,
-                      fontSize: 14,
-                      color: colors.inkSoft,
-                    }}
-                  >
-                    {x.brand}
-                  </Text>
-                </View>
-              </Pressable>
-            ))}
-          <ActionButton
-            tone="ghost"
-            label={COPY.noMatch}
-            onPress={() => router.push("/results" as Href)}
-          />
-        </>
-      ) : null}
-
-      {step === "write" ? (
-        <>
-          {selected ? (
-            <JournalProduct
-              name={selected.name}
-              brand={selected.brand}
-              image={selected.image_url}
-            />
-          ) : null}
-          <Text
-            style={{
-              fontFamily: fonts.semibold,
-              fontSize: 14,
-              color: colors.brand,
-            }}
-          >
-            What happened?
-          </Text>
-          <TextInput
-            value={body}
-            onChangeText={setBody}
-            multiline
-            placeholder={COPY.contributePlaceholder}
-            placeholderTextColor={colors.bone3}
-            style={{
-              minHeight: 140,
-              fontFamily: fonts.regular,
-              fontSize: 16,
-              lineHeight: 24,
-              color: colors.ink,
-              textAlignVertical: "top",
-            }}
-          />
-          <EvidencePicker
-            value={attachment}
-            onChange={setAttachment}
-            publicPost={visibility === "public"}
-          />
-          <JournalCard
-            title="Give your experience an ownership marker."
-            detail="Add a photo of the product you own in a product journal. After review, its verified marker can stand out when you attach that journal to an answer. Your proof photo stays private."
-          >
-            <ActionButton
-              tone="secondary"
-              label="Add product proof & keep my experience"
-              onPress={() => void openProductJournal()}
-            />
-          </JournalCard>
-          <FilterChips
-            options={["Still using", "Used before", "Paused", "Finished"]}
-            value={usageStatus}
-            onChange={setUsageStatus}
-          />
-          <FilterChips
-            variant="chips"
-            options={[
-              "Once a day",
-              "Twice a day",
-              "A few times a week",
-              "Once a week",
-            ]}
-            value={frequency}
-            onChange={setFrequency}
-          />
-          {usageStatus === "Still using" ? (
-            <View
-              style={{
-                padding: 18,
-                borderRadius: 20,
-                backgroundColor: "#EEF3ED",
-                gap: 10,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: fonts.semibold,
-                  fontSize: 17,
-                  color: colors.ink,
-                }}
-              >
-                Your experience doesn’t have to end with this post.
-              </Text>
-              <Text
-                style={{
-                  fontFamily: fonts.regular,
-                  fontSize: 14,
-                  lineHeight: 22,
-                  color: colors.inkSoft,
-                }}
-              >
-                Track week one, week two and beyond. Add your routine and
-                photos, then attach the timeline to conversations.
-              </Text>
-              <ActionButton
-                tone="secondary"
-                label="Track my use over time"
-                onPress={() => {
-                  void AsyncStorage.setItem(
-                    `unmask:tracking:${uid || "guest"}:${product}`,
-                    JSON.stringify({
-                      step: 1,
-                      product,
-                      status: "active",
-                      duration: duration,
-                      frequency,
-                      skin: skin === "Not disclosed" ? "" : skin,
-                      body,
-                      visibility: "private",
-                    }),
-                  ).then(() =>
-                    router.push(`/products/add?product=${product}` as Href),
-                  );
-                }}
-              />
-            </View>
-          ) : null}
-          <Pressable onPress={() => setMore((v) => !v)}>
-            <Text
-              style={{
-                fontFamily: fonts.semibold,
-                fontSize: 14,
-                color: colors.brandDeep,
-              }}
-            >
-              {more
-                ? "Hide optional details"
-                : "Add how long you used it and more context"}
-            </Text>
-          </Pressable>
-          {more ? (
-            <View style={{ gap: 12 }}>
-              <DurationPicker value={duration} onChange={setDuration} />
-              {/skin|beauty|cosmetic|body|hair|cream|serum|cleanser/i.test(
-                `${selected?.category || ""} ${selected?.name || ""}`,
-              ) ? (
-                <SkinTypeField
-                  value={skin === "Not disclosed" ? "" : skin}
-                  profileSkin={pref.data?.skin_type}
-                  onChange={(v) => setSkin(v || "Not disclosed")}
-                />
-              ) : null}
-            </View>
-          ) : null}
-          <ActionButton
-            tone="ghost"
-            label={photo ? "Change photo" : "Add a photo (optional)"}
-            onPress={() =>
-              void ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ["images"],
-                quality: 0.8,
-              }).then((out) => {
-                if (!out.canceled) setPhoto(out.assets[0]?.uri || "");
-              })
-            }
-          />
-          {photo ? <MediaFrame uri={photo} label="Selected photo" /> : null}
-          <FilterChips
-            options={["public", "private"]}
-            value={visibility}
-            onChange={(v) =>
-              setVisibility(v === "public" ? "public" : "private")
-            }
-          />
-          <Text
-            style={{
-              fontFamily: fonts.regular,
-              fontSize: 14,
-              color: colors.inkSoft,
-            }}
-          >
-            {visibility === "public"
-              ? COPY.publicPreview
-              : "Only you can see this until you share it."}
-          </Text>
-          {error ? (
-            <StatusMessage
-              kind="error"
-              title="Couldn’t post yet."
-              detail={error}
-            />
-          ) : null}
-          <ActionButton
-            label={busy ? "Posting" : "Post story"}
-            pending={busy}
-            disabled={!body.trim()}
-            explanation={
-              !body.trim() ? "Write what happened first." : undefined
-            }
-            onPress={() => void save()}
-          />
-        </>
-      ) : null}
-    </AppShell>
+    <ExperienceWizard
+      key={p.experience || p.product || "new"}
+      productId={p.product || source.data?.product_id}
+      source={source.data?.user_id === uid ? source.data : undefined}
+      initialJourney={p.journey}
+      resumeGuest={p.resumeGuest}
+    />
   );
 }

@@ -1,5 +1,6 @@
+import { Toggle } from "@/components/unmask-ui/Toggle";
 import { useEffect, useState } from "react";
-import { Text, View, Switch } from "react-native";
+import { Text, View } from "react-native";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -79,7 +80,10 @@ export default function AskAboutProduct() {
         category: p?.category || known?.category || "Product",
         heroImageUrl: image,
       });
-      let audience = d.audience === "none" ? "everyone" : d.audience.replace("similar_products", "same_product");
+      let audience =
+        d.audience === "none"
+          ? "everyone"
+          : d.audience.replace("similar_products", "same_product");
       if (!beauty) audience = audience.replace("_skin", "");
       const out = await living.addQuestion({
         product_id: id,
@@ -232,11 +236,11 @@ export default function AskAboutProduct() {
                           : "Add your skin type above to use this filter."}
                       </Note>
                     </View>
-                    <Switch
-                      accessibilityLabel="Match invited users by skin type"
+                    <Toggle
+                      label="Match invited users by skin type"
                       disabled={!d.skin}
                       value={d.audience.endsWith("_skin")}
-                      onValueChange={(v) =>
+                      onChange={(v) =>
                         set({
                           audience: v
                             ? `${["none", "everyone"].includes(d.audience) ? "everyone" : d.audience.replace("_skin", "")}_skin`

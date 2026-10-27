@@ -154,6 +154,7 @@ export function PostComments({
               {row.body}
             </Text>
             <AttachedEvidence
+              attachedBy={row.author}
               journeyId={
                 "attached_journey_id" in row
                   ? (row.attached_journey_id as string)

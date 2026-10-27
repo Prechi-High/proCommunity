@@ -127,10 +127,12 @@ export function JournalProduct({
   name,
   brand,
   image,
+  eyebrow = "YOUR PRODUCT JOURNAL",
 }: {
   name: string;
   brand?: string | null;
   image?: string | null;
+  eyebrow?: string;
 }) {
   return (
     <View
@@ -157,7 +159,7 @@ export function JournalProduct({
             color: journal.green,
           }}
         >
-          YOUR PRODUCT JOURNAL
+          {eyebrow}
         </Text>
         <Text
           style={{

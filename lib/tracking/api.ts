@@ -7,6 +7,7 @@ export type TrackedJourney = Journey & {
   ownership_verified: boolean;
 };
 export type UsageUpdate = {
+  author_name?: string;
   id: string;
   journey_id: string;
   changed: string;

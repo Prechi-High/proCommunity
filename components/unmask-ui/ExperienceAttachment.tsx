@@ -60,9 +60,17 @@ export function ExperienceAttachment({
 export function AttachedExperienceLink({
   id,
   journeyId,
+  attachedBy,
 }: {
   id?: string | null;
   journeyId?: string | null;
+  attachedBy?: string;
 }) {
-  return <AttachedEvidence experienceId={id} journeyId={journeyId} />;
+  return (
+    <AttachedEvidence
+      experienceId={id}
+      journeyId={journeyId}
+      attachedBy={attachedBy}
+    />
+  );
 }

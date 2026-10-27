@@ -244,6 +244,7 @@ export function StoryCard({
         </View>
       </Pressable>
       <AttachedEvidence
+        attachedBy={item.author}
         journeyId={item.attachedJourneyId}
         experienceId={item.attachedExperienceId}
       />

@@ -62,6 +62,7 @@ export async function saveExperience(
     "id" | "user_id" | "author_name" | "created_at" | "unmask_catalog"
   >,
   id?: string,
+  operationId?: string,
 ) {
   const uid = await userId();
   const { data, error } = await db()
@@ -85,7 +86,13 @@ export async function saveExperience(
           .eq("user_id", uid)
           .select()
           .single()
-      : db().from("clarity_experiences").insert(value).select().single(),
+      : operationId
+        ? db()
+            .from("clarity_experiences")
+            .upsert({ id: operationId, ...value }, { onConflict: "id" })
+            .select()
+            .single()
+        : db().from("clarity_experiences").insert(value).select().single(),
   );
 }
 export async function removeExperience(id: string) {

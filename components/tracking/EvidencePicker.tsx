@@ -58,10 +58,16 @@ export function EvidencePicker({
   value,
   onChange,
   publicPost = true,
+  productId,
+  kind,
+  buttonLabel,
 }: {
   value: tracking.EvidenceSelection | null;
   onChange: (v: tracking.EvidenceSelection | null) => void;
   publicPost?: boolean;
+  productId?: string;
+  kind?: tracking.EvidenceSelection["kind"];
+  buttonLabel?: string;
 }) {
   const [open, setOpen] = useState(false),
     [confirm, setConfirm] = useState<tracking.EvidenceSelection | null>(null),
@@ -118,9 +124,10 @@ export function EvidencePicker({
       <ActionButton
         tone="secondary"
         label={
-          value
+          buttonLabel ||
+          (value
             ? "Change attached experience"
-            : "Attach an experience or product timeline"
+            : "Attach an experience or product timeline")
         }
         onPress={() => {
           setConfirm(null);
@@ -209,23 +216,29 @@ export function EvidencePicker({
                 onPress={() => void q.refetch()}
               />
             ) : null}
-            {(q.data ?? []).map((x) => (
-              <Pressable
-                key={`${x.kind}-${x.id}`}
-                accessibilityRole="button"
-                accessibilityLabel={`Attach ${x.title}${x.visibility !== "public" ? ", private" : ""}`}
-                onPress={() => choose(x)}
-                style={({ pressed }) => ({
-                  padding: 14,
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: colors.line,
-                  backgroundColor: pressed ? "#EEE8E2" : "#fff",
-                })}
-              >
-                <Preview source={x} />
-              </Pressable>
-            ))}
+            {(q.data ?? [])
+              .filter(
+                (x) =>
+                  (!productId || x.productId === productId) &&
+                  (!kind || x.kind === kind),
+              )
+              .map((x) => (
+                <Pressable
+                  key={`${x.kind}-${x.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Attach ${x.title}${x.visibility !== "public" ? ", private" : ""}`}
+                  onPress={() => choose(x)}
+                  style={({ pressed }) => ({
+                    padding: 14,
+                    borderRadius: 18,
+                    borderWidth: 1,
+                    borderColor: colors.line,
+                    backgroundColor: pressed ? "#EEE8E2" : "#fff",
+                  })}
+                >
+                  <Preview source={x} />
+                </Pressable>
+              ))}
             {uid && q.isSuccess && !q.data.length ? (
               <StatusMessage
                 title="No experiences yet"

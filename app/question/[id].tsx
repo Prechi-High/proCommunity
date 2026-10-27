@@ -1,3 +1,5 @@
+import { ReplyComposer } from "@/components/community/ReplyComposer";
+import { ChatCircle } from "@/components/icons";
 import { ProductIdentity } from "@/components/community/ProductIdentity";
 import {
   ExperienceAttachment,
@@ -26,7 +28,9 @@ export default function QuestionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const qc = useQueryClient();
-  const uid = useAppStore((s) => s.profile?.id);
+  const profile = useAppStore((s) => s.profile);
+  const uid = profile?.id;
+  const [addDetail, setAddDetail] = useState(false);
   const sample = sampleById(id);
   const q = useQuery({
     queryKey: ["question", id],
@@ -54,6 +58,7 @@ export default function QuestionScreen() {
       router.push("/(auth)/sign-in" as Href);
       return;
     }
+    if (busy || !body.trim()) return;
     setBusy(true);
     setError("");
     try {
@@ -232,40 +237,74 @@ export default function QuestionScreen() {
             {a.body}
           </Text>
           <AttachedExperienceLink
+            attachedBy={a.author_name}
             id={a.attached_experience_id}
             journeyId={a.attached_journey_id}
           />
         </View>
       ))}
-      <ExperienceAttachment
-        productId={q.data?.product_id}
-        value={attachment}
-        onChange={setAttachment}
-        journeyValue={attachedJourney}
-        onJourneyChange={setAttachedJourney}
-      />
-      <TextInput
-        value={body}
-        onChangeText={setBody}
-        multiline
-        placeholder="Answer with what you lived. How you used it matters."
-        placeholderTextColor={colors.bone3}
-        style={{
-          fontFamily: fonts.regular,
-          fontSize: 16,
-          minHeight: 80,
-          color: colors.ink,
-        }}
-      />
+      {q.data && answers.isSuccess && !answers.data.length ? (
+        <View style={{ paddingVertical: 34, alignItems: "center", gap: 10 }}>
+          <ChatCircle size={32} color={colors.inkSoft} />
+          <Text
+            style={{
+              fontFamily: fonts.semibold,
+              fontSize: 20,
+              color: colors.ink,
+            }}
+          >
+            No replies yet
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.regular,
+              fontSize: 15,
+              lineHeight: 23,
+              color: colors.inkSoft,
+              textAlign: "center",
+            }}
+          >
+            {q.data.user_id === uid
+              ? "Your question is out there. We’ll let you know when someone replies."
+              : "Tried this product? Your experience could help."}
+          </Text>
+        </View>
+      ) : null}
+      {answers.isError ? (
+        <StatusMessage
+          kind="error"
+          title="Replies couldn’t load"
+          detail="Try opening this conversation again."
+        />
+      ) : null}
+      {q.data && (q.data.user_id !== uid || addDetail) ? (
+        <ReplyComposer
+          name={profile?.displayName || "You"}
+          body={body}
+          onChange={setBody}
+          onSend={() => void send()}
+          pending={busy}
+          hasAttachment={!!(attachment || attachedJourney)}
+          attachment={
+            <ExperienceAttachment
+              productId={q.data.product_id}
+              value={attachment}
+              onChange={setAttachment}
+              journeyValue={attachedJourney}
+              onJourneyChange={setAttachedJourney}
+            />
+          }
+        />
+      ) : q.data ? (
+        <ActionButton
+          tone="ghost"
+          label="Add more context to my question"
+          onPress={() => setAddDetail(true)}
+        />
+      ) : null}
       {error ? (
         <StatusMessage kind="error" title="Reply didn’t send." detail={error} />
       ) : null}
-      <ActionButton
-        label={COPY.answerCta}
-        pending={busy}
-        disabled={!body.trim()}
-        onPress={() => void send()}
-      />
       {q.data?.product_id ? (
         <ActionButton
           tone="ghost"
