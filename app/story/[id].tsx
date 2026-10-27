@@ -1,3 +1,6 @@
+import { ReplyComposer } from "@/components/community/ReplyComposer";
+import { ProductIdentity } from "@/components/community/ProductIdentity";
+import { ChatCircle } from "@/components/icons";
 import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { SaveExperience } from "@/components/tracking/SaveExperience";
 import { AttachedEvidence } from "@/components/tracking/AttachedEvidence";
@@ -6,7 +9,7 @@ import {
   AttachedExperienceLink,
 } from "@/components/unmask-ui/ExperienceAttachment";
 import { useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { Text, View } from "react-native";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -28,7 +31,9 @@ export default function Story() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const qc = useQueryClient();
-  const uid = useAppStore((s) => s.profile?.id);
+  const profile = useAppStore((s) => s.profile);
+  const uid = profile?.id;
+  const [addDetail, setAddDetail] = useState(false);
   const sample = sampleById(id);
   const [attachedJourney, setAttachedJourney] = useState("");
   const [attachment, setAttachment] = useState("");
@@ -55,7 +60,7 @@ export default function Story() {
       router.push("/(auth)/sign-in" as Href);
       return;
     }
-    if (sample) return;
+    if (sample || pending || !reply.trim()) return;
     setPending(true);
     setError("");
     try {
@@ -87,7 +92,7 @@ export default function Story() {
   if (sample) {
     const thread = SAMPLE_REPLIES[sample.id] ?? [];
     return (
-      <AppShell back navigation title={sample.productName || "Story"}>
+      <AppShell back navigation title="Product Experience" subtitle={`Shared by ${sample.author}`}>
         {sample.sample ? (
           <Text
             style={{
@@ -99,40 +104,12 @@ export default function Story() {
             Design sample · not a live member post.
           </Text>
         ) : null}
-        <MediaFrame
-          uri={sample.photo || sample.productImage}
-          label={sample.productName || sample.title}
-          overlay
-        />
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <Avatar name={sample.author} uri={sample.creatorAvatar} size={40} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text
-              style={{
-                fontFamily: fonts.semibold,
-                fontSize: 15,
-                color: colors.ink,
-              }}
-            >
-              {sample.author}
-            </Text>
-            <Text
-              style={{
-                fontFamily: fonts.regular,
-                fontSize: 13,
-                color: colors.inkSoft,
-              }}
-            >
-              {relativeTime(sample.createdAt)}
-              {sample.chips[0] ? `  ·  ${sample.chips[0]}` : ""}
-            </Text>
-          </View>
-        </View>
+        <ProductIdentity name={sample.productName || "Product"} image={sample.productImage} />
         <Text
           style={{
-            fontFamily: fonts.serifBold,
-            fontSize: 26,
-            lineHeight: 30,
+            fontFamily: fonts.semibold,
+            fontSize: 20,
+            lineHeight: 26,
             color: colors.ink,
             letterSpacing: -0.4,
           }}
@@ -148,31 +125,6 @@ export default function Story() {
           }}
         >
           {sample.body}
-        </Text>
-        <ActionButton
-          label={COPY.takeFurther}
-          tone="secondary"
-          onPress={() => router.push("/investigation/sample-unmask-1" as Href)}
-        />
-        <Text
-          style={{
-            fontFamily: fonts.regular,
-            fontSize: 14,
-            lineHeight: 20,
-            color: colors.inkSoft,
-          }}
-        >
-          {COPY.supportPrompt}
-        </Text>
-        <Text
-          style={{
-            fontFamily: fonts.semibold,
-            fontSize: 13,
-            letterSpacing: 0.5,
-            color: colors.inkSoft,
-          }}
-        >
-          REPLIES
         </Text>
         {thread.map((r) => (
           <View
@@ -203,22 +155,6 @@ export default function Story() {
             </View>
           </View>
         ))}
-        <TextInput
-          value={reply}
-          onChangeText={setReply}
-          placeholder="Share what you know. You can attach your product experience."
-          placeholderTextColor={colors.bone3}
-          multiline
-          style={{
-            fontFamily: fonts.regular,
-            fontSize: 16,
-            minHeight: 72,
-            color: colors.ink,
-            backgroundColor: colors.mist,
-            borderRadius: 16,
-            padding: 14,
-          }}
-        />
         <ActionButton
           label="Sign in to reply"
           onPress={() => router.push("/(auth)/sign-in" as Href)}
@@ -229,10 +165,10 @@ export default function Story() {
 
   if (story.isError) {
     return (
-      <AppShell back navigation title="Story">
+      <AppShell back navigation title="Product Experience">
         <StatusMessage
           kind="error"
-          title="This story isn’t available."
+          title="This experience isn’t available."
           detail="It may be private or still loading."
         />
       </AppShell>
@@ -241,85 +177,46 @@ export default function Story() {
 
   const e = story.data;
   return (
-    <AppShell back navigation title={e?.unmask_catalog?.name || "Story"}>
+    <AppShell back navigation title="Product Experience" subtitle={e?.author_name ? `Shared by ${e.author_name}` : undefined}>
       {e ? (
         <>
-          <MediaFrame
-            uri={e.photo_path || e.unmask_catalog?.image_url}
-            experiencePath={e.photo_path}
-            label={e.unmask_catalog?.name || "Story"}
-            overlay
+          <ProductIdentity
+            name={e.unmask_catalog?.name || "Product"}
+            brand={e.unmask_catalog?.brand}
+            image={e.unmask_catalog?.image_url}
           />
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <Avatar name={e.author_name} size={40} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text
-                style={{
-                  fontFamily: fonts.semibold,
-                  fontSize: 15,
-                  color: colors.ink,
-                }}
-              >
-                {e.author_name}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: fonts.regular,
-                  fontSize: 13,
-                  color: colors.inkSoft,
-                }}
-              >
-                {relativeTime(e.created_at)}
-                {e.duration ? `  ·  ${e.duration}` : ""}
-                {e.skin_type ? `  ·  ${e.skin_type}` : ""}
-              </Text>
-            </View>
-          </View>
+          {e.skin_type ? <StatusMessage title={`${e.skin_type} skin`} detail="Context shared by the person posting." /> : null}
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.inkSoft }}>
+            {[relativeTime(e.created_at), e.usage_status, e.duration, e.frequency].filter(Boolean).join(" · ")}
+          </Text>
           <Text
             style={{
-              fontFamily: fonts.regular,
-              fontSize: 17,
+              fontFamily: fonts.semibold,
+              fontSize: 20,
               lineHeight: 26,
               color: colors.ink,
             }}
           >
             {e.body}
           </Text>
+          {e.photo_path ? <MediaFrame experiencePath={e.photo_path} label="Photo shared with this experience" /> : null}
           <SaveExperience id={e.id} />
           <AttachedEvidence
             attachedBy={e.author_name}
             journeyId={e.attached_journey_id}
             experienceId={e.attached_experience_id}
           />
-          <ActionButton
-            label={COPY.takeFurther}
-            tone="secondary"
-            onPress={() =>
-              router.push(
-                `/investigation/request?experience=${e.id}&product=${e.product_id}` as Href,
-              )
-            }
-          />
-          <Text
-            style={{
-              fontFamily: fonts.regular,
-              fontSize: 14,
-              lineHeight: 20,
-              color: colors.inkSoft,
-            }}
-          >
-            {COPY.supportPrompt}
-          </Text>
-          <Text
-            style={{
-              fontFamily: fonts.semibold,
-              fontSize: 13,
-              letterSpacing: 0.5,
-              color: colors.inkSoft,
-            }}
-          >
-            REPLIES
-          </Text>
+          {replies.isLoading ? <ContentSkeleton rows={2} /> : null}
+          {replies.isError ? <StatusMessage kind="error" title="Replies couldn’t load" detail="Try opening this conversation again." /> : null}
+          {replies.isSuccess && !replies.data.length ? (
+            <View style={{ paddingVertical: 34, alignItems: "center", gap: 10 }}>
+              <ChatCircle size={32} color={colors.inkSoft} />
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 20, color: colors.ink }}>No replies yet</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: colors.inkSoft, textAlign: "center" }}>
+                {e.user_id === uid ? "Your experience is out there. We’ll let you know when someone replies." : "Tried this product? Join the conversation."}
+              </Text>
+            </View>
+          ) : null}
           {(replies.data ?? []).map((r) => (
             <View
               key={r.id}
@@ -381,29 +278,27 @@ export default function Story() {
               ))}
             </>
           ) : null}
-          <ExperienceAttachment
-            productId={e.product_id}
-            value={attachment}
-            onChange={setAttachment}
-            journeyValue={attachedJourney}
-            onJourneyChange={setAttachedJourney}
-          />
-          <TextInput
-            value={reply}
-            onChangeText={setReply}
-            placeholder="Share what you know. You can attach your product experience."
-            placeholderTextColor={colors.bone3}
-            multiline
-            style={{
-              fontFamily: fonts.regular,
-              fontSize: 16,
-              minHeight: 72,
-              color: colors.ink,
-              backgroundColor: colors.mist,
-              borderRadius: 16,
-              padding: 14,
-            }}
-          />
+          {e.user_id !== uid || addDetail ? (
+            <ReplyComposer
+              name={profile?.displayName || "You"}
+              body={reply}
+              onChange={setReply}
+              onSend={() => void send()}
+              pending={pending}
+              hasAttachment={!!(attachment || attachedJourney)}
+              attachment={
+                <ExperienceAttachment
+                  productId={e.product_id}
+                  value={attachment}
+                  onChange={setAttachment}
+                  journeyValue={attachedJourney}
+                  onJourneyChange={setAttachedJourney}
+                />
+              }
+            />
+          ) : (
+            <ActionButton tone="ghost" label="Add more context to my experience" onPress={() => setAddDetail(true)} />
+          )}
           {error ? (
             <StatusMessage
               kind="error"
@@ -412,11 +307,15 @@ export default function Story() {
             />
           ) : null}
           <ActionButton
-            label="Post reply"
-            pending={pending}
-            disabled={!reply.trim()}
-            onPress={() => void send()}
+            label={COPY.takeFurther}
+            tone="ghost"
+            onPress={() =>
+              router.push(
+                `/investigation/request?experience=${e.id}&product=${e.product_id}` as Href,
+              )
+            }
           />
+
         </>
       ) : (
         <ContentSkeleton />
