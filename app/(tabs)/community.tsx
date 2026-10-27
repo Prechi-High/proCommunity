@@ -60,7 +60,7 @@ export default function Community() {
       );
     return list;
   }, [feed.data, filter, subs.data, demo]);
-  if (!uid && seen !== true) return null;
+  if (!uid && seen !== true) return <AppShell notify><StorySkeleton /></AppShell>;
   return (
     <AppShell notify flush>
       <View style={{ gap: 20, paddingTop: 10 }}>
@@ -89,6 +89,7 @@ export default function Community() {
           <DemoBanner />
           {filter === "Ultra Unmasks" ? <ActionButton tone="secondary" label="Explore Ultra Unmasks by stage" onPress={() => router.push("/ultra-unmask" as Href)} /> : null}
           <FilterChips
+            variant="chips"
             options={["All stories", "Experiences", "Questions", "Ultra Unmasks", "Following"]}
             value={filter}
             onChange={setFilter}
