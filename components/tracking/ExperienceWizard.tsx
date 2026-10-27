@@ -1,3 +1,4 @@
+import { SkinProgressExample } from "./SkinProgressExample";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import Animated, { FadeIn, useReducedMotion } from "react-native-reanimated";
@@ -136,6 +137,10 @@ export function ExperienceWizard({
     queryFn: () =>
       living.journey(d.attachment!.id) as Promise<tracking.TrackedJourney>,
     enabled: d.attachment?.kind === "journey",
+    initialData: () =>
+      owned.data?.find((j) => j.id === d.attachment?.id) as
+        tracking.TrackedJourney | undefined,
+    staleTime: 60000,
   });
   const sources = useQuery({
     queryKey: ["evidence-options", uid],
@@ -154,7 +159,18 @@ export function ExperienceWizard({
       const entry = sources.data?.find(
         (x) => x.kind === "journey" && x.id === initialJourney,
       );
-      if (entry) set({ attachment: entry });
+      if (entry)
+        set({
+          attachment: entry,
+          ...(entry.usage
+            ? {
+                duration: entry.usage.duration,
+                frequency: entry.usage.frequency,
+                skin: entry.usage.skin || d.skin,
+                status: entry.usage.status,
+              }
+            : {}),
+        });
     }
   }, [draft.ready, initialJourney, sources.data]);
   const hydratedLink = useRef("");
@@ -164,6 +180,7 @@ export function ExperienceWizard({
       linked.data.product_id === d.product &&
       linked.data.user_id === uid &&
       d.step === 1 &&
+      !editContext &&
       linked.data.id !== hydratedLink.current
     ) {
       hydratedLink.current = linked.data.id;
@@ -601,7 +618,22 @@ export function ExperienceWizard({
             >
               <EvidencePicker
                 value={d.attachment?.kind === "journey" ? d.attachment : null}
-                onChange={(attachment) => set({ attachment })}
+                onChange={(attachment) => {
+                  setEditContext(false);
+                  hydratedLink.current = "";
+                  const usage = attachment?.usage;
+                  set({
+                    attachment,
+                    ...(usage
+                      ? {
+                          duration: usage.duration,
+                          frequency: usage.frequency,
+                          skin: usage.skin || d.skin,
+                          status: usage.status,
+                        }
+                      : {}),
+                  });
+                }}
                 productId={d.product}
                 kind="journey"
                 publicPost={false}
@@ -611,17 +643,34 @@ export function ExperienceWizard({
                     : "Attach my existing product timeline"
                 }
               />
-              {linked.isLoading ? <ContentSkeleton rows={1} /> : null}
             </JournalCard>
-            {linked.data && d.duration && d.frequency && !editContext ? (
+            {d.attachment?.kind === "journey" && !editContext ? (
               <JournalCard title="Your usage details are already here.">
-                <Label>
-                  {statusNames[d.status] || "Used before"} · {d.duration}
-                </Label>
-                <Note>
-                  {d.frequency}
-                  {d.skin ? ` · ${d.skin} skin` : ""}
-                </Note>
+                {d.duration && d.frequency ? (
+                  <>
+                    <Label>
+                      {statusNames[d.status] || "Used before"} · {d.duration}
+                    </Label>
+                    <Note>
+                      {d.frequency}
+                      {d.skin ? ` · ${d.skin} skin` : ""}
+                    </Note>
+                  </>
+                ) : linked.isLoading ? (
+                  <ContentSkeleton rows={1} />
+                ) : (
+                  <Note>
+                    Some usage details haven’t been recorded on this timeline
+                    yet. You can add them below.
+                  </Note>
+                )}
+                {linked.isError ? (
+                  <ActionButton
+                    tone="secondary"
+                    label="Retry timeline details"
+                    onPress={() => void linked.refetch()}
+                  />
+                ) : null}
                 <ActionButton
                   tone="ghost"
                   label="Edit usage details"
@@ -671,7 +720,12 @@ export function ExperienceWizard({
             )}
             <ActionButton
               label="Continue to my experience"
-              disabled={!p || linked.isLoading}
+              disabled={
+                !p ||
+                (d.attachment?.kind === "journey" &&
+                  !editContext &&
+                  (!d.duration || !d.frequency))
+              }
               onPress={next}
             />
           </>
@@ -688,20 +742,22 @@ export function ExperienceWizard({
                 onChange={(body) => set({ body })}
                 multiline
               />
-              <EvidencePicker
-                value={d.attachment}
-                onChange={(attachment) => set({ attachment })}
-                publicPost={false}
-              />
+              {d.attachment?.kind === "journey" ? (
+                <Note>
+                  Your product usage timeline is attached. You can change it in
+                  the previous step.
+                </Note>
+              ) : null}
             </JournalCard>
             <JournalCard
               title="Want to show what you noticed?"
               detail={
                 beauty
-                  ? "Optional. Take a photo of your skin or the area you used this product on. It can help explain your experience."
+                  ? "Optional. Take a photo of your skin now. Photos from later updates can sit alongside it so you can compare what changed—or stayed the same—over time."
                   : "Optional. Add a photo to help tell your product story."
               }
             >
+              {beauty ? <SkinProgressExample /> : null}
               <PhotoField
                 label="Add an experience photo (optional)"
                 value={d.skinPhoto}

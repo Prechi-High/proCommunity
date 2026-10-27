@@ -29,6 +29,7 @@ export type EvidenceSelection = {
   image?: string | null;
   productId?: string;
   owner?: boolean;
+  usage?: { duration: string; frequency: string; skin: string; status: string };
 };
 export async function updates(id: string): Promise<UsageUpdate[]> {
   const { data, error } = await db()
@@ -165,7 +166,7 @@ export async function attachmentOptions(): Promise<EvidenceSelection[]> {
     db()
       .from("unmask_journeys")
       .select(
-        "id,visibility,usage_duration,frequency,product_id,unmask_catalog!unmask_journeys_product_id_fkey(name,image_url)",
+        "id,visibility,usage_duration,frequency,skin_type,status,product_id,unmask_catalog!unmask_journeys_product_id_fkey(name,image_url)",
       )
       .eq("user_id", uid)
       .order("updated_at", { ascending: false }),
@@ -192,6 +193,12 @@ export async function attachmentOptions(): Promise<EvidenceSelection[]> {
     image: j.unmask_catalog?.image_url,
     productId: j.product_id,
     owner: true,
+    usage: {
+      duration: j.usage_duration || "",
+      frequency: j.frequency || "",
+      skin: j.skin_type || "",
+      status: j.status === "purchased" ? "active" : j.status,
+    },
     detail:
       [j.usage_duration, j.frequency].filter(Boolean).join(" · ") ||
       "Usage timeline",
