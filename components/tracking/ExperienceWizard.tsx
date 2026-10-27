@@ -1,4 +1,4 @@
-import { durablePhoto } from "@/lib/tracking/photos";
+import { durablePhoto, PhotoUnavailableError } from "@/lib/tracking/photos";
 import { SkinProgressExample } from "./SkinProgressExample";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -59,6 +59,7 @@ export function ExperienceWizard({
     r = useRouter(),
     qc = useQueryClient();
   const [confirmShare, setConfirmShare] = useState(false);
+  const [missingPhoto, setMissingPhoto] = useState<"private" | "public" | null>(null);
   const [editContext, setEditContext] = useState(false);
   const [search, setSearch] = useState(""),
     [busy, setBusy] = useState(false),
@@ -284,6 +285,7 @@ export function ExperienceWizard({
   async function save(
     visibility: "private" | "public",
     confirmPrivate = false,
+    withoutPhoto = false,
   ) {
     if (busy) return;
     if (!uid) {
@@ -339,8 +341,8 @@ export function ExperienceWizard({
           p.image_url && /^https?:/.test(p.image_url) ? p.image_url : null,
       });
       savingStage = "upload your experience photo";
-      let photoPath = d.photoPath;
-      if (d.skinPhoto && !photoPath) {
+      let photoPath = withoutPhoto ? "" : d.photoPath;
+      if (!withoutPhoto && d.skinPhoto && !photoPath) {
         photoPath = await community.uploadPhoto(d.skinPhoto);
         set({ photoPath });
       }
@@ -366,8 +368,8 @@ export function ExperienceWizard({
         journalId = j.id;
         if (!existingJournal) {
           set({ journalId });
-          let historyPhoto = d.trackingPhotoPath;
-          if (d.skinPhoto && !historyPhoto) {
+          let historyPhoto = withoutPhoto ? "" : d.trackingPhotoPath;
+          if (!withoutPhoto && d.skinPhoto && !historyPhoto) {
             historyPhoto = await living.uploadPhoto(d.skinPhoto);
             set({ trackingPhotoPath: historyPhoto });
           }
@@ -440,6 +442,10 @@ export function ExperienceWizard({
         })();
       }
     } catch (e) {
+      if (e instanceof PhotoUnavailableError) {
+        setMissingPhoto(visibility);
+        return;
+      }
       const message = (e as Error).message || "";
       setError(/failed to fetch|network request failed|load failed/i.test(message)
         ? `We couldn’t ${savingStage}. Check your connection and try again. Your draft is safe.`
@@ -540,6 +546,35 @@ export function ExperienceWizard({
         )
       ) : null}
       {scan.sheet}
+      <ActionSheet
+        open={!!missingPhoto}
+        onClose={() => setMissingPhoto(null)}
+        title="Your photo couldn’t open"
+      >
+        <Note>
+          This saved photo is no longer available. Your words and usage details
+          are safe. Photos are optional—you can continue without it.
+        </Note>
+        <ActionButton
+          label={missingPhoto === "public" ? "Publish without this photo" : "Save without this photo"}
+          onPress={() => {
+            const visibility = missingPhoto;
+            setMissingPhoto(null);
+            if (visibility) {
+              set({ skinPhoto: "", photoPath: "", trackingPhotoPath: "" });
+              void save(visibility, false, true);
+            }
+          }}
+        />
+        <ActionButton
+          tone="secondary"
+          label="Go back and change photo"
+          onPress={() => {
+            setMissingPhoto(null);
+            set({ step: 2 });
+          }}
+        />
+      </ActionSheet>
       <ActionSheet
         open={confirmShare}
         onClose={() => setConfirmShare(false)}

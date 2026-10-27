@@ -1,3 +1,10 @@
+export class PhotoUnavailableError extends Error {
+  constructor() {
+    super("This photo is no longer available. You can continue without it or take a new photo. Your written draft is safe.");
+    this.name = "PhotoUnavailableError";
+  }
+}
+
 /** Turn browser object URLs into photo data before persisting a draft. */
 export async function durablePhoto(uri: string): Promise<string> {
   if (!uri.startsWith("blob:")) return uri;
@@ -18,6 +25,6 @@ export async function readPhoto(uri: string): Promise<Blob> {
     if (!blob.size) throw new Error("Empty photo");
     return blob;
   } catch {
-    throw new Error("This photo is no longer available. Go back and retake or remove it, then publish again. Your written draft is safe.");
+    throw new PhotoUnavailableError();
   }
 }
