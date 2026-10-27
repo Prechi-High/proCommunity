@@ -419,7 +419,7 @@ export function OwnershipPhotoCard({
         onLoadEnd={() => setImageReady(true)}
         accessibilityLabel="A skincare bottle framed by camera focus corners"
         style={{ height: 210, justifyContent: "flex-end", borderRadius: 20, overflow: "hidden", backgroundColor: journal.paper }}
-        imageStyle={{ borderRadius: 20 }}
+        imageStyle={{ borderRadius: 20, width: "100%", height: "100%" }}
       >
         {!imageReady ? <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}><Skeleton height={210} radius={20} /></View> : null}
         <LinearGradient colors={["transparent", "rgba(0,0,0,0.78)"]} style={{ padding: 18, paddingTop: 65, gap: 7 }}>
