@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { usePathname, useRouter, type Href } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { House, Play, Plus, Package, User } from "@/components/icons";
+import { House, UsersThree, Plus, Package, User } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { CreateSheet } from "./CreateSheet";
@@ -14,8 +14,8 @@ export function MainNav() {
     rawPath.replace(/\/\([^/]+\)/g, "").replace(/\/index$/, "/") || "/";
   const [open, setOpen] = useState(false);
   const routes = [
-    { label: "Today", href: "/", Icon: House },
-    { label: "Unmask", href: "/unmask", Icon: Play },
+    { label: "Home", href: "/", Icon: House },
+    { label: "Community", href: "/community", Icon: UsersThree },
     { label: "Create", href: null, Icon: Plus },
     { label: "My Products", href: "/products", Icon: Package },
     { label: "You", href: "/you", Icon: User },
@@ -44,6 +44,8 @@ export function MainNav() {
           const active =
             href === "/"
               ? path === "/"
+              : href === "/community"
+                ? ["/community", "/story", "/question", "/investigation", "/ultra-unmask", "/creators", "/member"].some(prefix => path.startsWith(prefix))
               : href === "/products"
                 ? path.startsWith("/products") || path.startsWith("/journey")
                 : !!href && path.startsWith(href);

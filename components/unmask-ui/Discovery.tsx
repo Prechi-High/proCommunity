@@ -164,7 +164,7 @@ export function UltraInvitation() {
       accessibilityLabel="Explore Ultra Unmasks: take a product question further"
       onPress={() => {
         hapticSelect();
-        r.push("/unmask");
+        r.push("/ultra-unmask" as Href);
       }}
       style={({ pressed }) => ({
         marginHorizontal: 20,

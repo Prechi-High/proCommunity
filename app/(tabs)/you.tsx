@@ -1,3 +1,5 @@
+import { MemberAvatar } from "@/components/unmask-ui/MemberAvatar";
+import { memberIdentity } from "@/lib/membership";
 import { Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
@@ -41,6 +43,7 @@ function Stat({ value, label }: { value: string | number; label: string }) {
 export default function You() {
   const p = useAppStore((s) => s.profile);
   const router = useRouter();
+  const member = useQuery({ queryKey: ["member-identity", p?.id], queryFn: () => memberIdentity(p!.id), enabled: !!p?.id });
   const go = (path: string) => router.push(path as Href);
   const identity = useQuery({
     queryKey: ["public-identity", p?.id],
@@ -97,7 +100,7 @@ export default function You() {
       ) : (
         <View style={{ gap: 28 }}>
           <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
-            <Avatar name={name} uri={identity.data?.avatar_url} size={72} />
+            <MemberAvatar name={name} uri={identity.data?.avatar_url} size={72} claimed={!!member.data} />
             <View style={{ flex: 1, gap: 4 }}>
               <Text
                 style={{

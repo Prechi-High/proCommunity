@@ -1,3 +1,5 @@
+import { MemberAvatar } from "@/components/unmask-ui/MemberAvatar";
+import { memberIdentity } from "@/lib/membership";
 import { useState } from "react";
 import { Linking, Share, Text, View } from "react-native";
 import * as ExpoLinking from "expo-linking";
@@ -30,6 +32,7 @@ export function PublicProfile({
   const uid = useAppStore((s) => s.profile?.id);
   const router = useRouter();
   const sample = SAMPLE_CREATORS.find((c) => c.user_id === id);
+  const member = useQuery({ queryKey: ["member-identity", id], queryFn: () => memberIdentity(id), enabled: !!id && !sample });
   const [tab, setTab] = useState(
     creatorOnly || sample ? "Ultra Unmasks" : "Stories",
   );
@@ -113,7 +116,7 @@ export function PublicProfile({
       subtitle={unmasker ? COPY.unmaskersTeach : undefined}
     >
       <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
-        <Avatar name={name} uri={avatar} size={72} />
+        <MemberAvatar name={name} uri={avatar} size={72} claimed={!!member.data} />
         <View style={{ flex: 1, gap: 4 }}>
           <Text
             style={{
