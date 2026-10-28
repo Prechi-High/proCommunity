@@ -191,15 +191,7 @@ export const SAMPLE_FEED: FeedItem[] = [
 ];
 for (const [i, row] of SAMPLE_FEED.entries()) {
   row.likes = [38, 24, 12, 17, 46, 29, 8, 53, 71][i] ?? 0;
-  if (row.kind !== "unmask") {
-    const linked = SAMPLE_FEED.find(
-      (x) => x.kind === "unmask" && x.productId === row.productId,
-    );
-    if (linked) {
-      row.sparkTargetId = linked.id;
-      row.sparks = linked.sparks;
-    }
-  }
+
 }
 export const SAMPLE_REPLIES: Record<
   string,
