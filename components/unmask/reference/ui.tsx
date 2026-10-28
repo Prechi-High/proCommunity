@@ -1,3 +1,4 @@
+import { hapticSelect } from "@/lib/haptics";
 import { MediaFrame } from "@/components/unmask-ui/MediaFrame";
 import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { MainNav } from "@/components/unmask-ui/MainNav";
@@ -34,11 +35,11 @@ import type { Product, ProductProfile } from "@/lib/types";
 export const ink = {
   brand: colors.brand,
   deep: colors.brandDeep,
-  text: "#111827",
-  muted: "#626B7C",
-  line: "#E4E6EA",
+  text: colors.ink,
+  muted: colors.inkSoft,
+  line: colors.line,
   white: "#FFFFFF",
-  soft: "#F6F7F8",
+  soft: "#F6F3F1",
   tint: "#F7F4F5",
   amber: "#8A520A",
 };
@@ -46,46 +47,46 @@ export const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: "#FFFFFF" },
   content: {
     width: "100%",
-    maxWidth: 760,
+    maxWidth: 780,
     alignSelf: "center",
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 28,
-    gap: 16,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 40,
+    gap: 20,
   },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
   card: {
     borderWidth: 1,
     borderColor: ink.line,
-    borderRadius: 12,
-    backgroundColor: "#FFFFFF",
-    padding: 16,
-    gap: 12,
+    borderRadius: 24,
+    backgroundColor: "#FBF9F7",
+    padding: 20,
+    gap: 15,
   },
   title: {
     fontFamily: fonts.serifBold,
-    fontSize: 28,
-    lineHeight: 33,
+    fontSize: 30,
+    lineHeight: 37,
     color: ink.text,
     letterSpacing: -0.6,
   },
   heading: {
     fontFamily: fonts.serifBold,
-    fontSize: 23,
+    fontSize: 21,
     lineHeight: 28,
     color: ink.text,
     letterSpacing: -0.4,
   },
   body: {
     fontFamily: fonts.regular,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 25,
     color: ink.text,
   },
   small: {
     fontFamily: fonts.regular,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 20,
     color: ink.muted,
   },
   eyebrow: {
@@ -96,15 +97,15 @@ export const s = StyleSheet.create({
   },
   input: {
     fontFamily: fonts.regular,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 25,
     color: ink.text,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F8F5F2",
     borderWidth: 1,
     borderColor: ink.line,
-    borderRadius: 10,
-    padding: 12,
-    minHeight: 44,
+    borderRadius: 16,
+    padding: 14,
+    minHeight: 52,
   },
   rule: { height: 1, backgroundColor: ink.line },
 });
@@ -190,16 +191,17 @@ export function Button({
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
-      onPress={onPress}
+      onPress={() => { hapticSelect(); onPress(); }}
       style={({ pressed }) => [
         {
-          minHeight: 44,
-          paddingVertical: 11,
-          paddingHorizontal: 15,
-          borderRadius: 12,
+          minHeight: 52,
+          paddingVertical: 14,
+          paddingHorizontal: 18,
+          borderRadius: 17,
           borderWidth: 1,
-          borderColor: quiet ? ink.brand : "transparent",
-          backgroundColor: quiet ? "#FFFFFF" : ink.brand,
+          borderColor: "transparent",
+          backgroundColor: quiet ? "#EEE8E5" : ink.deep,
+          transform: [{ scale: pressed ? 0.985 : 1 }],
           opacity: disabled ? 0.45 : pressed ? 0.75 : 1,
           flexDirection: "row",
           justifyContent: "center",
@@ -213,8 +215,8 @@ export function Button({
       <Text
         style={{
           fontFamily: fonts.semibold,
-          fontSize: 14,
-          color: quiet ? ink.brand : "#FFFFFF",
+          fontSize: 15,
+          color: quiet ? ink.text : "#FFFFFF",
           textAlign: "center",
         }}
       >
@@ -244,22 +246,22 @@ export function Chips({
           key={v}
           accessibilityRole="button"
           accessibilityState={{ selected: value === v }}
-          onPress={() => onChange(v)}
+          onPress={() => { hapticSelect(); onChange(v); }}
           style={{
-            minHeight: 36,
+            minHeight: 44,
             paddingHorizontal: 14,
-            paddingVertical: 8,
+            paddingVertical: 10,
             borderWidth: 1,
-            borderColor: value === v ? ink.brand : ink.line,
+            borderColor: "transparent",
             borderRadius: 99,
-            backgroundColor: value === v ? ink.brand : "#FFFFFF",
+            backgroundColor: value === v ? ink.deep : ink.soft,
           }}
         >
           <Text
             style={{
               fontFamily: fonts.medium,
-              fontSize: 12,
-              color: value === v ? "#FFFFFF" : ink.muted,
+              fontSize: 14,
+              color: value === v ? "#FFFFFF" : ink.text,
             }}
           >
             {v}
@@ -283,7 +285,7 @@ export function Header({
       style={{
         backgroundColor: "#FFFFFF",
         width: "100%",
-        maxWidth: 760,
+        maxWidth: 780,
         alignSelf: "center",
         minHeight: 54,
         paddingHorizontal: 12,
@@ -308,13 +310,13 @@ export function Header({
         style={{
           flex: 1,
           textAlign: "center",
-          color: ink.brand,
-          fontFamily: fonts.serifBold,
+          color: ink.deep,
+          fontFamily: fonts.semibold,
           fontSize: wordmarkLarge ? 45 : 30,
           lineHeight: wordmarkLarge ? 54 : 40,
         }}
       >
-        unmask
+        Unmask
       </Text>
       <View style={{ minWidth: 44, alignItems: "flex-end" }}>{right}</View>
     </View>
@@ -335,7 +337,7 @@ export function Notice({ children }: { children: ReactNode }) {
     <View
       style={{
         padding: 13,
-        borderRadius: 10,
+        borderRadius: 18,
         backgroundColor: ink.soft,
         flexDirection: "row",
         alignItems: "flex-start",
@@ -368,7 +370,7 @@ export function LinkRow({
       <Text
         style={[
           s.body,
-          { flex: 1, color: ink.brand, fontFamily: fonts.medium },
+          { flex: 1, color: ink.text, fontFamily: fonts.medium },
         ]}
       >
         {label}
@@ -388,22 +390,16 @@ export function Busy({
 }) {
   if (loading)
     return (
-      <View style={{ padding: 28, alignItems: "center" }}>
+      <View style={{ paddingVertical: 12, width: "100%" }}>
         <ContentSkeleton />
       </View>
     );
-  if (error)
-    return (
-      <Notice>
-        Unable to load this information.
-        {retry ? (
-          <Text onPress={retry} style={{ color: ink.brand }}>
-            {" "}
-            Try again
-          </Text>
-        ) : null}
-      </Notice>
-    );
+  if (error) return (
+    <View style={{ gap: 10 }}>
+      <Notice>We couldn’t load this information. Your connection may have dropped.</Notice>
+      {retry ? <Button quiet label="Try again" onPress={retry} /> : null}
+    </View>
+  );
   return null;
 }
 export function Photo({
@@ -483,12 +479,12 @@ export function Field({
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
-      placeholderTextColor="#959BA5"
+      placeholderTextColor={colors.inkSoft}
       multiline={multiline}
       maxLength={maxLength}
       style={[
         s.input,
-        multiline && { minHeight: 80, textAlignVertical: "top" },
+        multiline && { minHeight: 120, textAlignVertical: "top" },
       ]}
     />
   );

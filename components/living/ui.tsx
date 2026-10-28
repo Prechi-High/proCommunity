@@ -1,3 +1,4 @@
+import { hapticSelect } from "@/lib/haptics";
 import { MediaFrame } from "@/components/unmask-ui/MediaFrame";
 import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import type { ReactNode } from "react";
@@ -23,15 +24,15 @@ export const design = StyleSheet.create({
     backgroundColor: c.white,
     borderWidth: 1,
     borderColor: c.line,
-    borderRadius: 18,
-    padding: 24,
+    borderRadius: 24,
+    padding: 22,
     gap: 14,
   },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
   body: {
     fontFamily: f.regular,
-    fontSize: 15,
-    lineHeight: 23,
+    fontSize: 16,
+    lineHeight: 25,
     color: c.inkSoft,
   },
   small: {
@@ -50,14 +51,15 @@ export const design = StyleSheet.create({
   },
   input: {
     fontFamily: f.regular,
-    fontSize: 15,
+    fontSize: 16,
+    lineHeight: 24,
     color: c.ink,
     backgroundColor: c.white,
     borderColor: c.line,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 14,
-    minHeight: 48,
+    minHeight: 52,
   },
 });
 export function Page({
@@ -250,15 +252,15 @@ export function Button({
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
-      onPress={onPress}
+      onPress={() => { hapticSelect(); onPress(); }}
       style={({ pressed }) => ({
-        minHeight: 46,
+        minHeight: 52,
         paddingHorizontal: 16,
         paddingVertical: 12,
-        borderRadius: 12,
-        backgroundColor: quiet ? c.white : c.brand,
+        borderRadius: 17,
+        backgroundColor: quiet ? c.mist : c.brandDeep,
         borderWidth: 1,
-        borderColor: quiet ? c.line : c.brand,
+        borderColor: "transparent",
         alignItems: "center",
         justifyContent: "center",
         opacity: disabled ? 0.45 : pressed ? 0.75 : 1,
@@ -267,8 +269,8 @@ export function Button({
       <Text
         style={{
           fontFamily: f.semibold,
-          fontSize: 13,
-          color: quiet ? c.brand : c.white,
+          fontSize: 15,
+          color: quiet ? c.ink : c.white,
         }}
       >
         {label}

@@ -1,15 +1,7 @@
 import type { ReactNode } from "react";
-import { ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import {
-  BottomNav,
-  Header,
-  Heading,
-  Copy,
-  Button,
-  s,
-} from "@/components/unmask/reference/ui";
+import { AppShell } from "@/components/unmask-ui";
+import { Copy, Button } from "@/components/unmask/reference/ui";
 export function UtilityPage({
   title,
   sub,
@@ -21,22 +13,7 @@ export function UtilityPage({
   children: ReactNode;
   hideNav?: boolean;
 }) {
-  const r = useRouter();
-  return (
-    <SafeAreaView edges={["top"]} style={s.page}>
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={s.content}
-      >
-        <Header onBack={() => (r.canGoBack() ? r.back() : r.replace("/you"))} />
-        <Copy small>YOUR UNMASK</Copy>
-        <Heading hero>{title}</Heading>
-        {sub ? <Copy muted>{sub}</Copy> : null}
-        {children}
-      </ScrollView>
-      {hideNav ? null : <BottomNav selected="You" />}
-    </SafeAreaView>
-  );
+  return <AppShell back navigation={!hideNav} title={title} subtitle={sub}>{children}</AppShell>;
 }
 export function SignInCard() {
   const r = useRouter();

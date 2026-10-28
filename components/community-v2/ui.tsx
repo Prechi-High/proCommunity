@@ -1,14 +1,6 @@
 import type { ReactNode } from "react";
-import { ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import {
-  Header,
-  Heading,
-  Copy,
-  BottomNav,
-  s,
-} from "@/components/unmask/reference/ui";
+import { AppShell } from "@/components/unmask-ui";
+import { Copy } from "@/components/unmask/reference/ui";
 export function CommunityPage({
   title,
   sub,
@@ -20,27 +12,7 @@ export function CommunityPage({
   children: ReactNode;
   back?: boolean;
 }) {
-  const r = useRouter();
-  return (
-    <SafeAreaView edges={["top"]} style={s.page}>
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={s.content}
-      >
-        <Header
-          onBack={
-            back
-              ? () => (r.canGoBack() ? r.back() : r.replace("/pulse"))
-              : undefined
-          }
-        />
-        <Heading hero>{title}</Heading>
-        {sub ? <Copy muted>{sub}</Copy> : null}
-        {children}
-      </ScrollView>
-      <BottomNav community />
-    </SafeAreaView>
-  );
+  return <AppShell back={back} navigation title={title} subtitle={sub}>{children}</AppShell>;
 }
 
 import { Field as Input } from "@/components/unmask/reference/ui";

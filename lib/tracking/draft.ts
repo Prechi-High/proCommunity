@@ -44,6 +44,7 @@ export function useTrackingDraft<T extends object>(
     setValue,
     ready,
     restored,
+    flush: () => AsyncStorage.setItem(key, JSON.stringify(value)),
     clear: () => {
       cleared.current = true;
       return AsyncStorage.multiRemove(resumeKey ? [key, resumeKey] : [key]);

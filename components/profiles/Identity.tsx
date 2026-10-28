@@ -1,6 +1,6 @@
-import { Image, Text, View } from "react-native";
-import { Copy, Heading, ink } from "@/components/unmask/reference/ui";
-import { fonts } from "@/constants/theme";
+import { View } from "react-native";
+import { Avatar } from "@/components/unmask-ui";
+import { Copy, Heading } from "@/components/unmask/reference/ui";
 export function ProfileIdentity({
   name,
   handle,
@@ -14,30 +14,7 @@ export function ProfileIdentity({
 }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 18 }}>
-      {avatar ? (
-        <Image
-          source={{ uri: avatar }}
-          accessibilityLabel={`${name}'s profile photo`}
-          style={{ width: 82, height: 82, borderRadius: 41 }}
-        />
-      ) : (
-        <View
-          style={{
-            width: 82,
-            height: 82,
-            borderRadius: 41,
-            backgroundColor: ink.tint,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text
-            style={{ fontFamily: fonts.serif, fontSize: 42, color: ink.brand }}
-          >
-            {name.slice(0, 1).toUpperCase()}
-          </Text>
-        </View>
-      )}
+      <Avatar name={name} uri={avatar} size={76} />
       <View style={{ flex: 1, gap: 6 }}>
         <Heading>{name}</Heading>
         {handle ? <Copy muted>@{handle}</Copy> : null}

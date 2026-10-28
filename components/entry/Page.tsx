@@ -1,3 +1,4 @@
+import { ArrowLeft } from "@/components/icons";
 import type { ReactNode } from "react";
 import {
   ScrollView,
@@ -53,7 +54,7 @@ export function EntryPage({
                 }
                 style={{ position: "absolute", left: 0, padding: 12 }}
               >
-                <Text style={{ fontSize: 25, color: ink.text }}>←</Text>
+                <ArrowLeft size={23} color={ink.text} />
               </Pressable>
             ) : null}
             <Text
@@ -78,11 +79,11 @@ export function EntryTitle({ children }: { children: ReactNode }) {
       accessibilityRole="header"
       style={{
         fontFamily: fonts.serifBold,
-        fontSize: 44,
-        lineHeight: 48,
+        fontSize: 34,
+        lineHeight: 40,
         letterSpacing: -1,
         color: ink.deep,
-        marginTop: 24,
+        marginTop: 16,
       }}
     >
       {children}
