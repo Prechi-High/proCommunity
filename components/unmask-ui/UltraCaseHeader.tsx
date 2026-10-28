@@ -17,7 +17,7 @@ export function UltraCaseHeader({
   return (
     <LinearGradient
       colors={["#542030", "#2C1019"]}
-      style={{ padding: 22, borderRadius: 26, gap: 16 }}
+      style={{ padding: 22, borderRadius: 26, gap: 16, borderWidth: 1, borderColor: "#B78D57", boxShadow: "0 0 18px rgba(183,141,87,0.16)" }}
     >
       <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
         <Lightning size={22} color="#F2D25B" weight="fill" />

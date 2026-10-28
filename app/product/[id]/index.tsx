@@ -1,3 +1,6 @@
+import { PersonAvatar } from "@/components/unmask-ui/PersonAvatar";
+import { identity } from "@/lib/profiles/api";
+import { Bell, Check, PencilSimple } from "@/components/icons";
 import { searchCommunityProducts } from "@/lib/unmask/communitySearch";
 import { exactCommunityMatch } from "@/lib/unmask/productIdentityMatch";
 import { SAMPLE_FEED, SAMPLE_SHELF } from "@/lib/unmask/samples";
@@ -104,14 +107,19 @@ export default function ProductPage() {
         .db()
         .from("unmask_journeys")
         .select(
-          "id,usage_duration,frequency,skin_type,status,ownership_verified",
+          "id,user_id,usage_duration,frequency,skin_type,status,ownership_verified",
         )
         .eq("product_id", pid)
         .eq("visibility", "public")
         .order("updated_at", { ascending: false })
         .limit(20);
       if (error) throw error;
-      return data ?? [];
+      return Promise.all(
+        (data ?? []).map(async (t) => ({
+          ...t,
+          person: await identity(t.user_id),
+        })),
+      );
     },
   });
   const example = SAMPLE_SHELF.find((x) => x.id === pid);
@@ -154,98 +162,148 @@ export default function ProductPage() {
     <AppShell
       back
       navigation
-      title="Meet the product."
-      subtitle="People’s experiences. The context behind them."
+      title={name}
+      subtitle="The people. The questions. The story so far."
     >
-      <ProductIdentity
-        name={name}
-        image={image}
-        brand={row?.brand || product?.brand || example?.brand}
-        loading={catalog.isLoading && !product && !example}
-      />
-      <LinearGradient
-        colors={["#F1F5ED", "#F9F6EF"]}
-        style={{ padding: 22, borderRadius: 25, gap: 13 }}
+      <View
+        style={{
+          padding: 20,
+          borderRadius: 26,
+          backgroundColor: "#F7F3EF",
+          gap: 18,
+        }}
       >
-        <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-          <UsersThree size={22} color={colors.sageInk} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 18 }}>
+          <View style={{ width: 106 }}>
+            <MediaFrame uri={image} label={name} ratio={1} corners={false} />
+          </View>
+          <View style={{ flex: 1, gap: 10 }}>
+            <Text
+              style={{
+                fontFamily: fonts.semibold,
+                fontSize: 23,
+                lineHeight: 29,
+                color: colors.ink,
+              }}
+            >
+              {name}
+            </Text>
+            <Text style={bodyStyle}>
+              A product brings us together. People bring the context.
+            </Text>
+          </View>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            isFollowing ? "Unfollow this product" : "Follow this product"
+          }
+          accessibilityState={{
+            selected: !!isFollowing,
+            disabled: !!example || follow.isPending,
+          }}
+          disabled={!!example || follow.isPending}
+          onPress={() =>
+            uid
+              ? follow.mutate()
+              : router.push({
+                  pathname: "/(auth)/sign-in",
+                  params: { returnTo: `/product/${pid}` },
+                } as Href)
+          }
+          style={({ pressed }) => ({
+            alignSelf: "flex-start",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            paddingHorizontal: 17,
+            paddingVertical: 11,
+            borderRadius: 99,
+            backgroundColor: isFollowing ? "#E8E1E5" : colors.brandDeep,
+            opacity: pressed ? 0.75 : 1,
+          })}
+        >
+          {isFollowing ? (
+            <Check size={18} color={colors.ink} />
+          ) : (
+            <Bell size={18} color="#fff" />
+          )}
           <Text
             style={{
               fontFamily: fonts.semibold,
-              fontSize: 21,
-              flex: 1,
-              color: colors.ink,
+              fontSize: 14,
+              color: isFollowing ? colors.ink : "#fff",
             }}
           >
-            Start with people who’ve tried it.
+            {follow.isPending
+              ? "Updating…"
+              : isFollowing
+                ? "Following"
+                : "Follow product"}
           </Text>
-        </View>
-        {waiting ? (
-          <ContentSkeleton rows={2} />
-        ) : (
-          <Text
-            style={{
-              fontFamily: fonts.regular,
-              fontSize: 15,
-              lineHeight: 23,
-              color: colors.inkSoft,
-            }}
-          >
-            {count
-              ? `${stories.length} experiences · ${asks.length} questions · ${cases.length} Ultra Unmasks${timelines.data?.length ? ` · ${timelines.data.length} shared timelines` : ""}. Explore what happened, how they used it and what changed.`
-              : "The community hasn’t shared much about this product yet. Your question can start the conversation."}
-          </Text>
-        )}
-        <ActionButton
-          icon={<ChatCircle size={20} color="#fff" />}
-          label="I have a question"
-          onPress={ask}
-        />
-        <Text
-          style={{
-            fontFamily: fonts.regular,
-            fontSize: 12,
-            lineHeight: 18,
-            color: colors.inkSoft,
-          }}
-        >
-          Ask even if someone has already posted. Your skin, routine and
-          question may be different.
+        </Pressable>
+        <Text style={{ ...bodyStyle, fontSize: 12, lineHeight: 18 }}>
+          Follow for new public experiences, questions and Ultra Unmasks in your
+          notifications.
         </Text>
-      </LinearGradient>
-      <View style={{ flexDirection: "row", gap: 10 }}>
-        <View style={{ flex: 1 }}>
-          <ActionButton
-            tone="secondary"
-            label="Track my use"
-            disabled={!!example}
-            onPress={() =>
-              router.push(
-                `/products/add?product=${encodeURIComponent(pid)}` as Href,
-              )
-            }
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <ActionButton
-            tone="secondary"
-            label="Share my experience"
-            disabled={!!example}
-            onPress={() =>
-              router.push(
-                `/contribute?product=${encodeURIComponent(pid)}` as Href,
-              )
-            }
-          />
-        </View>
       </View>
-      <ActionButton
-        tone="ghost"
-        label={isFollowing ? "Following product" : "Follow product updates"}
-        disabled={!!example}
-        pending={follow.isPending}
-        onPress={() => (uid ? follow.mutate() : router.push("/(auth)/sign-in"))}
-      />
+      {waiting ? (
+        <ContentSkeleton rows={1} />
+      ) : (
+        <Text style={bodyStyle}>
+          {count
+            ? `${stories.length} experiences · ${asks.length} questions · ${timelines.data?.length || 0} timelines · ${cases.length} Ultra Unmasks`
+            : "No public experiences yet. Your question could start the conversation."}
+        </Text>
+      )}
+      <View style={{ flexDirection: "row", gap: 12 }}>
+        {[
+          {
+            label: "Track my use",
+            detail: "Keep your own story",
+            Icon: Clock,
+            path: `/products/add?product=${encodeURIComponent(pid)}`,
+          },
+          {
+            label: "Share my experience",
+            detail: "Help someone decide",
+            Icon: PencilSimple,
+            path: `/contribute?product=${encodeURIComponent(pid)}`,
+          },
+        ].map(({ label, detail, Icon, path }) => (
+          <Pressable
+            key={label}
+            accessibilityRole="button"
+            disabled={!!example}
+            onPress={() => router.push(path as Href)}
+            style={({ pressed }) => ({
+              flex: 1,
+              padding: 17,
+              borderRadius: 21,
+              borderWidth: 1,
+              borderColor: "#E7DDE1",
+              gap: 10,
+              backgroundColor: pressed ? "#F3E8ED" : "#fff",
+              opacity: example ? 0.5 : 1,
+            })}
+          >
+            <Icon size={23} color={colors.brandDeep} />
+            <Text
+              style={{
+                fontFamily: fonts.semibold,
+                fontSize: 15,
+                color: colors.ink,
+              }}
+            >
+              {label}
+            </Text>
+            <Text style={{ ...bodyStyle, fontSize: 12, lineHeight: 18 }}>
+              {detail}
+            </Text>
+            <ArrowRight size={18} color={colors.brandDeep} />
+          </Pressable>
+        ))}
+      </View>
       {follow.isError ? (
         <StatusMessage
           kind="error"
@@ -276,8 +334,6 @@ export default function ProductPage() {
         <EmptyState
           title="No shared experiences here yet."
           detail="Ask people who have used it, or bring your own experience."
-          action="Ask the community"
-          onAction={ask}
         />
       )}
       {timelines.isLoading && !example ? (
@@ -299,7 +355,12 @@ export default function ProductPage() {
                 alignItems: "center",
               }}
             >
-              <Clock size={24} color={colors.brand} />
+              <PersonAvatar
+                id={t.user_id}
+                name={t.person?.display_name}
+                uri={t.person?.avatar_url}
+                size={34}
+              />
               <View style={{ flex: 1, gap: 6 }}>
                 <Text
                   style={{
@@ -308,6 +369,7 @@ export default function ProductPage() {
                     color: colors.ink,
                   }}
                 >
+                  {t.person?.display_name || "Unmasker"}’s timeline{"\n"}
                   {[t.usage_duration, t.frequency]
                     .filter(Boolean)
                     .join(" · ") || "A shared product timeline"}
@@ -341,11 +403,35 @@ export default function ProductPage() {
           No questions yet. What would help you decide?
         </Text>
       )}
-      <ActionButton
-        tone="secondary"
-        label="Ask another question"
+      <Pressable
+        accessibilityRole="button"
         onPress={ask}
-      />
+        style={({ pressed }) => ({
+          flexDirection: "row",
+          gap: 13,
+          alignItems: "center",
+          padding: 18,
+          borderRadius: 22,
+          backgroundColor: pressed ? "#EDE1E7" : "#F4EAF0",
+        })}
+      >
+        <ChatCircle size={25} color={colors.brandDeep} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text
+            style={{
+              fontFamily: fonts.semibold,
+              fontSize: 17,
+              color: colors.ink,
+            }}
+          >
+            Ask the community
+          </Text>
+          <Text style={{ ...bodyStyle, fontSize: 13, lineHeight: 20 }}>
+            A different question? Make it yours.
+          </Text>
+        </View>
+        <ArrowRight size={20} color={colors.brandDeep} />
+      </Pressable>
       {cases.length ? (
         <>
           <Text style={section}>Taken further with Ultra Unmask</Text>

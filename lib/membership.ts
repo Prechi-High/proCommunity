@@ -32,3 +32,9 @@ export async function monthlySparks(claim = false): Promise<MonthlySparks> {
   if (error) throw error;
   return data as MonthlySparks;
 }
+
+export async function foundingMember(id: string) {
+  const { data, error } = await db().from("unmask_founding_members").select("user_id,granted_at").eq("user_id", id).maybeSingle();
+  if (error) throw error;
+  return data as { user_id: string; granted_at: string } | null;
+}

@@ -1,5 +1,5 @@
 import { MemberAvatar } from "@/components/unmask-ui/MemberAvatar";
-import { memberIdentity } from "@/lib/membership";
+import { memberIdentity, foundingMember } from "@/lib/membership";
 import { useState } from "react";
 import { Linking, Share, Text, View } from "react-native";
 import * as ExpoLinking from "expo-linking";
@@ -33,6 +33,8 @@ export function PublicProfile({
   const router = useRouter();
   const sample = SAMPLE_CREATORS.find((c) => c.user_id === id);
   const member = useQuery({ queryKey: ["member-identity", id], queryFn: () => memberIdentity(id), enabled: !!id && !sample });
+  const founder = useQuery({ queryKey: ["founding-member", id], queryFn: () => foundingMember(id), enabled: !!id && !sample });
+  const self = useAppStore(s => s.profile);
   const [tab, setTab] = useState(
     creatorOnly || sample ? "Ultra Unmasks" : "Stories",
   );
@@ -75,6 +77,7 @@ export function PublicProfile({
   const live = creators.data?.find((c) => c.user_id === id);
   const unmasker = Boolean(live || sample);
   const name =
+    (uid === id ? self?.displayName : null) ||
     identity.data?.display_name ||
     live?.display_name ||
     sample?.display_name ||
@@ -112,11 +115,11 @@ export function PublicProfile({
   return (
     <AppShell
       back
-      title={unmasker ? "Unmask Creator" : name}
+      title={name}
       subtitle={unmasker ? COPY.unmaskersTeach : undefined}
     >
       <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
-        <MemberAvatar name={name} uri={avatar} size={72} claimed={!!member.data} />
+        <MemberAvatar name={name} uri={avatar} size={72} claimed={!!member.data} founding={!!founder.data} />
         <View style={{ flex: 1, gap: 4 }}>
           <Text
             style={{
@@ -142,6 +145,7 @@ export function PublicProfile({
           ) : null}
         </View>
       </View>
+      {founder.data ? <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#89641C" }}>Founding member · Here from the beginning</Text> : member.data ? <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.inkSoft }}>Unmasker</Text> : null}
       {unmasker ? (
         <Text
           style={{
@@ -165,7 +169,7 @@ export function PublicProfile({
           {bio}
         </Text>
       ) : null}
-      {counts.data ? (
+      {counts.data && typeof counts.data.followers === "number" ? (
         <Text
           style={{
             fontFamily: fonts.regular,

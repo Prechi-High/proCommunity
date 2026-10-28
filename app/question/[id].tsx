@@ -1,3 +1,5 @@
+import { TakeFurtherCard } from "@/components/unmask-ui/TakeFurtherCard";
+import { PersonAvatar } from "@/components/unmask-ui/PersonAvatar";
 import { ReplyComposer } from "@/components/community/ReplyComposer";
 import { ChatCircle } from "@/components/icons";
 import { ProductIdentity } from "@/components/community/ProductIdentity";
@@ -215,8 +217,10 @@ export default function QuestionScreen() {
           {q.data.body}
         </Text>
       ) : null}
+      {q.data ? <View style={{flexDirection:"row",gap:10,alignItems:"center"}}><PersonAvatar id={q.data.user_id} name={q.data.author_name} size={34}/><Text style={{fontFamily:fonts.semibold,color:colors.ink}}>{q.data.author_name}</Text></View> : null}
       {(answers.data ?? []).map((a) => (
-        <View key={a.id} style={{ gap: 4 }}>
+        <View key={a.id} style={{ gap: 8 }}>
+          <PersonAvatar id={a.user_id} name={a.author_name} size={32}/>
           <Text
             style={{
               fontFamily: fonts.semibold,
@@ -306,9 +310,7 @@ export default function QuestionScreen() {
         <StatusMessage kind="error" title="Reply didn’t send." detail={error} />
       ) : null}
       {q.data?.product_id ? (
-        <ActionButton
-          tone="ghost"
-          label={COPY.takeFurther}
+        <TakeFurtherCard
           onPress={() =>
             router.push(
               `/investigation/request?question=${id}&product=${q.data?.product_id}` as Href,

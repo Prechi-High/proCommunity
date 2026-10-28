@@ -82,9 +82,9 @@ export function ActionButton({
             onPress?.();
           }}
           style={({ pressed }) => ({
-            minHeight: 52,
-            paddingVertical: 14,
-            borderRadius: radii.button,
+            minHeight: tone === "ghost" ? 44 : 48,
+            paddingVertical: tone === "ghost" ? 9 : 12,
+            borderRadius: 16,
             paddingHorizontal: 18,
             backgroundColor:
               pressed && !locked
@@ -92,7 +92,7 @@ export function ActionButton({
                   ? "#602A38"
                   : "#E8DAD2"
                 : t.bg,
-            borderWidth: focus || tone === "ghost" ? 1 : 0,
+            borderWidth: focus || tone === "secondary" ? 1 : 0,
             borderColor: focus ? colors.brand : colors.line,
             flexDirection: "row",
             alignItems: "center",

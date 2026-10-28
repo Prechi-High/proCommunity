@@ -1,3 +1,5 @@
+import { PersonAvatar } from "@/components/unmask-ui/PersonAvatar";
+import { useAppStore } from "@/lib/store";
 import { useState, type ReactNode } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { Avatar, ActionButton } from "@/components/unmask-ui";
@@ -20,6 +22,7 @@ export function ReplyComposer({
   attachment: ReactNode;
   hasAttachment?: boolean;
 }) {
+  const uid=useAppStore(s=>s.profile?.id);
   const [focused, setFocused] = useState(false),
     [attach, setAttach] = useState(false);
   return (
@@ -32,7 +35,7 @@ export function ReplyComposer({
       }}
     >
       <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-        <Avatar name={name} size={38} />
+        <PersonAvatar id={uid} name={name} size={38} />
         <View style={{ flex: 1, gap: 10 }}>
           <TextInput
             accessibilityLabel="Post your reply"

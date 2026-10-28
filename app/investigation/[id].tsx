@@ -1,3 +1,6 @@
+import { UltraConversation } from "@/components/unmask-ui/UltraConversation";
+import { PersonAvatar } from "@/components/unmask-ui/PersonAvatar";
+import { identity } from "@/lib/profiles/api";
 import { AttachedEvidence } from "@/components/tracking/AttachedEvidence";
 import { UltraCaseHeader } from "@/components/unmask-ui/UltraCaseHeader";
 import { PostActions } from "@/components/unmask-ui/PostActions";
@@ -66,6 +69,7 @@ export default function UnmaskDetail() {
     queryFn: () => living.catalog(),
   });
   const item = q.data;
+  const requester = useQuery({ queryKey: ["public-identity", item?.user_id], queryFn: () => identity(item!.user_id), enabled: !!item?.user_id });
   const product = products.data?.find((p) => p.id === item?.product_id);
   const creator = creators.data?.find((c) => c.user_id === item?.creator_id);
   const stage = publicUnmaskStage(item?.status);
@@ -312,6 +316,7 @@ export default function UnmaskDetail() {
           image={product?.image_url}
         />
       ) : null}
+      {item ? <View style={{flexDirection: "row", gap: 12, alignItems: "center"}}><PersonAvatar id={item.user_id} name={requester.data?.display_name} size={36} /><View><Text style={{fontFamily: fonts.semibold, fontSize: 15, color: colors.ink}}>{requester.data?.display_name || "Unmasker"}</Text><Text style={{fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft}}>Requested this Ultra Unmask</Text></View></View> : null}
       {item ? (
         <PostActions
           item={{
@@ -319,7 +324,8 @@ export default function UnmaskDetail() {
             kind: "unmask",
             title: item.title,
             body: item.concern,
-            author: "Community",
+            author: requester.data?.display_name || "Unmasker",
+            authorId: item.user_id,
             createdAt: item.created_at,
             href: `/investigation/${item.id}`,
             chips: [],
@@ -656,6 +662,7 @@ export default function UnmaskDetail() {
           onPress={() => router.push(`/story/${item.experience_id}` as Href)}
         />
       ) : null}
+      {item ? <UltraConversation id={item.id}/> : null}
       {!uid ? (
         <Text
           style={{

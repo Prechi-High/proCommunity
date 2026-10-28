@@ -26,13 +26,7 @@ async function read<T>(
   return data as T;
 }
 export const identity = (id: string) =>
-  read<Identity | null>(
-    db()
-      .from("unmask_public_profiles")
-      .select("*")
-      .eq("user_id", id)
-      .maybeSingle(),
-  );
+  read<Identity | null>(db().rpc("unmask_public_identity", { p_id: id }));
 export const counts = (id: string) =>
   read<{ followers?: number; following?: number }>(
     db().rpc("unmask_profile_counts", { p_id: id }),

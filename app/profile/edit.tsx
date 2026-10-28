@@ -1,3 +1,4 @@
+import { setDisplayName } from "@/lib/auth";
 import { useEffect, useState } from "react";
 import { Switch, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
@@ -82,6 +83,7 @@ export default function EditProfile() {
     try {
       if (links.some((v) => !api.safeLink(v)))
         throw new Error("Social links must be complete HTTPS addresses.");
+      await setDisplayName(name.trim());
       await api.save({
         display_name: name.trim(),
         handle: handle.toLowerCase().replace(/^@/, ""),

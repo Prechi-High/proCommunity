@@ -1,8 +1,8 @@
 /** Unmask voice — two layers of clarity. Plain words. Loss aversion without cruelty. */
 
-export const BRAND_NAME = "Unmask";
+export { BRAND_NAME, BRAND_TAGLINE } from "./brandText";
 
-export const BRAND_TAGLINE = "Know before you buy.";
+
 
 export const BRAND_COPY = {
   searchPrompt: "Find a product. See real experiences.",

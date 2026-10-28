@@ -19,6 +19,7 @@ export class GmailAuthEmailProvider implements AuthEmailProvider {
       to: params.to,
       subject: 'Your Unmask verification code',
       html,
+      text: `Your Unmask verification code is ${params.code}. Enter it in the app to continue. Keep it private. If you didn’t request it, ignore this email.`,
     });
   }
 }

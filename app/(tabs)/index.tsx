@@ -1,3 +1,4 @@
+import { foundingMember } from "@/lib/membership";
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,6 +23,7 @@ export default function Home() {
   const profile = useAppStore(s => s.profile), uid = profile?.id;
   const [seen, setSeen] = useState<boolean | null>(null), [q, setQ] = useState("");
   const [guide, setGuide] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const founder = useQuery({ queryKey: ["founding-member", uid], queryFn: () => foundingMember(uid!), enabled: !!uid });
   const member = useQuery({ queryKey: ["member-identity", uid], queryFn: () => memberIdentity(uid!), enabled: !!uid });
   const person = useQuery({ queryKey: ["public-identity", uid], queryFn: () => publicIdentity(uid!), enabled: !!uid });
   const name = person.data?.display_name || profile?.displayName || "Unmasker";
@@ -40,7 +42,7 @@ export default function Home() {
     <View style={{ gap: 17, paddingTop: 6 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <View style={{ flex: 1, gap: 4 }}><Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brandDeep, letterSpacing: 1 }}>YOUR PEOPLE. YOUR VOICE.</Text><Text accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 27, lineHeight: 33, letterSpacing: -0.8, color: colors.ink }}>{uid ? `Hey, ${name.split(" ")[0]}.` : "You belong here."}</Text></View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Open my Unmasker profile" onPress={() => r.push("/you")}><MemberAvatar name={name} uri={person.data?.avatar_url} size={47} claimed={!!member.data} preview={!member.data} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Open my Unmasker profile" onPress={() => r.push("/you")}><MemberAvatar name={name} uri={person.data?.avatar_url} size={47} claimed={!!member.data} founding={!!founder.data} preview={!member.data} /></Pressable>
       </View>
       <View style={{ gap: 12, padding: 18, borderRadius: 24, backgroundColor: "#F6F3F1", borderWidth: 1, borderColor: "#EEE7E1" }}>
         <Text style={{ fontFamily: fonts.semibold, fontSize: 21, lineHeight: 26, letterSpacing: -0.5, color: colors.ink }}>Before you buy, ask the people.</Text>
@@ -61,7 +63,7 @@ export default function Home() {
     </LinearGradient>
     <View style={{ padding: 21, borderRadius: 27, backgroundColor: "#F4EBF0", borderWidth: 1, borderColor: "#ECDCE4", gap: 15 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 17 }}>
-        <MemberAvatar name={name} uri={person.data?.avatar_url} size={76} claimed={!!member.data} preview={!member.data} />
+        <MemberAvatar name={name} uri={person.data?.avatar_url} size={76} claimed={!!member.data} founding={!!founder.data} preview={!member.data} />
         <View style={{ flex: 1, gap: 6 }}><Text style={{ fontFamily: fonts.medium, fontSize: 10, letterSpacing: 1, color: colors.brandDeep }}>A LITTLE MARK. A REAL BELONGING.</Text><Text accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 23, lineHeight: 28, color: colors.ink }}>{member.data ? "That’s your ring." : "Make it yours."}</Text><Text style={{ ...copy, fontSize: 13, lineHeight: 20 }}>{member.data ? "Your Unmasker identity travels with your public profile." : "Claim your free Unmasker ring. Let your people recognise you."}</Text></View>
       </View>
       {member.isLoading && uid ? <Skeleton height={44} /> : member.data ? <ActionButton tone="secondary" label="See my profile" icon={<Check size={17} color={colors.ink} />} onPress={() => r.push(`/member/${uid}` as Href)} /> : <ActionButton label="Claim my Unmasker ring" icon={<Sparkle size={18} color="#fff" />} pending={busy} pendingLabel="Making it yours…" onPress={() => void claim()} />}

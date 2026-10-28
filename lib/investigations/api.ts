@@ -68,10 +68,11 @@ export async function create(
     | "supporting_links"
   > &
     Pick<Investigation, "attached_journey_id" | "attached_experience_id">,
+  opening: { kind: "sparks" | "thunder"; amount: number; key: string },
 ) {
   await userId();
   return read<Investigation>(
-    db().from("unmask_investigations").insert(row).select().single(),
+    db().rpc("unmask_start_ultra", { p_story: row, p_kind: opening.kind, p_amount: opening.amount, p_key: opening.key }),
   );
 }
 export const summary = (id: string) =>

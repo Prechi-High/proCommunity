@@ -27,6 +27,7 @@ const OTP_LEN = OTP_CODE_LENGTH;
 export default function VerifyEmailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
+    setupAccount?: string;
     email?: string | string[];
     returnTo?: string | string[];
   }>();
@@ -62,6 +63,10 @@ export default function VerifyEmailScreen() {
     if (finished.current) return;
     finished.current = true;
     try {
+      if (params.setupAccount === "1") {
+        router.replace(("/complete-account" + (returnTo ? "?returnTo=" + encodeURIComponent(returnTo) : "")) as Href);
+        return;
+      }
       const p = await setup();
       router.replace(
         (p?.onboarding_completed_at
@@ -90,6 +95,7 @@ export default function VerifyEmailScreen() {
       const result = await verifyEmailCode(email, value);
       setVerified(true);
       hapticSuccess();
+      if (params.setupAccount === "1") { await done(); return; }
       if (result.needsName) {
         const pendingName = takeName(email);
         if (pendingName.length >= 2) {

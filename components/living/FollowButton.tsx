@@ -1,3 +1,4 @@
+import { useRouter, type Href } from "expo-router";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { View } from "react-native";
@@ -13,6 +14,7 @@ export function FollowButton({
   id: string;
   preferences?: boolean;
 }) {
+  const router=useRouter();
   const uid = useAppStore((s) => s.profile?.id);
   const q = useLivingQuery(["subscriptions", uid], api.subscriptions, !!uid);
   const action = useAction();
@@ -31,10 +33,10 @@ export function FollowButton({
     <View style={{ gap: 8 }}>
       <Button
         quiet={!!sub}
-        label={sub ? "Following · manage" : `Follow ${type}`}
+        label={sub ? "Following · manage" : "Follow"}
         disabled={action.isPending}
         onPress={() =>
-          sub
+          !uid ? router.push({pathname:"/(auth)/sign-in",params:{returnTo:`/member/${id}`}} as Href) : sub
             ? setEditing(!editing)
             : action.run(async () => {
                 await api.follow(type, id);

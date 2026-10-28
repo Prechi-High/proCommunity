@@ -108,9 +108,10 @@ export default function SettingDetails() {
               : "You are not signed in."}
           </Copy>
           <Copy>
-            Unmask uses its existing sign-in flow. Never share your sign-in
+            Sign in with a password or an email code. Never share your sign-in
             code, password or OTP in Community.
           </Copy>
+          {s.profile ? <Button label="Set up my username, location & password" onPress={() => r.push("/complete-account")} /> : null}
           <Button
             label={s.profile ? "Back to account settings" : "Sign in"}
             onPress={() => r.push(s.profile ? "/settings" : "/(auth)/sign-in")}

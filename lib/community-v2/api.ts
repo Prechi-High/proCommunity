@@ -24,6 +24,7 @@ export type Publication = {
   commercial_disclosure: string;
 };
 export type Entry = {
+  user_id?: string;
   attached_journey_id?: string | null;
   id: string;
   experience_id: string;

@@ -1,3 +1,4 @@
+import { MemberAvatar } from "@/components/unmask-ui/MemberAvatar";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,7 +23,7 @@ export default function Founding() {
   }
   return <AppShell back navigation title="Here from the beginning." subtitle="Help shape the community you want to belong to.">
     <View style={{ padding: 24, borderRadius: 26, backgroundColor: "#F5EAD0", gap: 14 }}>
-      <SealCheck size={44} color="#76551B" /><Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1, color: "#76551B" }}>FOUNDING CIRCLE · PROGRAM PREVIEW</Text>
+      <View style={{flexDirection:"row",alignItems:"center",gap:18}}><MemberAvatar name="F" size={60} founding preview/><View style={{flex:1,gap:5}}><Text style={{fontFamily:fonts.semibold,fontSize:18,color:colors.ink}}>The founding ring</Text><Text style={{...copy,fontSize:12}}>Design preview · not awarded yet</Text></View></View><Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1, color: "#76551B" }}>FOUNDING CIRCLE · PROGRAM PREVIEW</Text>
       <Text style={{ fontFamily: fonts.semibold, fontSize: 29, lineHeight: 34, color: colors.ink }}>Your support can help build what comes next.</Text>
       <Text style={copy}>We’re designing a founding-member program for early Unmaskers. It isn’t open for purchase yet.</Text>
     </View>

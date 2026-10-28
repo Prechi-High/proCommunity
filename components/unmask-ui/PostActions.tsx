@@ -168,7 +168,7 @@ export function PostActions({ item }: { item: FeedItem }) {
             onPress={() => void share()}
           />
         </View>
-        <ReactionButton
+        {target ? <ReactionButton
           Icon={Lightning}
           label={
             target || item.sample
@@ -182,7 +182,7 @@ export function PostActions({ item }: { item: FeedItem }) {
           color="#976413"
           pulse={sparkPulse}
           onPress={addSpark}
-        />
+        /> : null}
       </View>
       {notice ? (
         <Text

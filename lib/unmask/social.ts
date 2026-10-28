@@ -1,3 +1,4 @@
+import { identity } from "@/lib/profiles/api";
 import { db } from "@/lib/clarity/api";
 import { userId } from "@/lib/living/api";
 import type { FeedKind } from "./feed";
@@ -44,14 +45,11 @@ export async function unmaskComments(id: string) {
   const rows = data ?? [];
   const ids = [...new Set(rows.map((x) => x.user_id))];
   if (!ids.length) return [];
-  const people = await db()
-    .from("profiles")
-    .select("id,display_name")
-    .in("id", ids);
+  const people = await Promise.all(ids.map(identity));
   return rows.map((x) => ({
     ...x,
     author_name:
-      people.data?.find((p) => p.id === x.user_id)?.display_name || "Unmasker",
+      people.find((p) => p?.user_id === x.user_id)?.display_name || "Unmasker",
   }));
 }
 export async function addUnmaskComment(

@@ -1,3 +1,4 @@
+import { FoundingLabel } from "./FoundingLabel";
 import { SaveExperience } from "@/components/tracking/SaveExperience";
 import { AttachedEvidence } from "@/components/tracking/AttachedEvidence";
 import { Pressable, Text, View } from "react-native";
@@ -13,7 +14,7 @@ import { colors, fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import type { FeedItem } from "@/lib/unmask/feed";
 import { relativeTime } from "@/lib/unmask/time";
-import { Avatar } from "./Avatar";
+import { PersonAvatar } from "./PersonAvatar";
 import { MediaFrame } from "./MediaFrame";
 import { useAppStore } from "@/lib/store";
 import { PostActions } from "./PostActions";
@@ -57,7 +58,8 @@ export function StoryCard({
         borderRadius: 24,
         backgroundColor: "#fff",
         borderWidth: 1,
-        borderColor: "#EAE3DE",
+        borderColor: ultra ? "#D5B783" : "#EAE3DE",
+        boxShadow: ultra ? "0 0 18px rgba(186, 139, 63, 0.13)" : undefined,
         overflow: "hidden",
       }}
     >
@@ -69,7 +71,7 @@ export function StoryCard({
           padding: 16,
         }}
       >
-        <Avatar name={item.author} uri={item.creatorAvatar} size={34} />
+        <PersonAvatar id={item.authorId} name={item.author} size={34} />
         <View style={{ flex: 1, gap: 2 }}>
           <Pressable
             disabled={!item.authorId}
@@ -87,6 +89,7 @@ export function StoryCard({
               {item.author}
             </Text>
           </Pressable>
+          <FoundingLabel id={item.authorId}/>
           <Text
             style={{
               fontFamily: fonts.regular,

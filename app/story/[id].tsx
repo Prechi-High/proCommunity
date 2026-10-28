@@ -1,3 +1,5 @@
+import { TakeFurtherCard } from "@/components/unmask-ui/TakeFurtherCard";
+import { PersonAvatar } from "@/components/unmask-ui/PersonAvatar";
 import { ReplyComposer } from "@/components/community/ReplyComposer";
 import { ProductIdentity } from "@/components/community/ProductIdentity";
 import { ChatCircle } from "@/components/icons";
@@ -177,7 +179,8 @@ export default function Story() {
 
   const e = story.data;
   return (
-    <AppShell back navigation title="Product Experience" subtitle={e?.author_name ? `Shared by ${e.author_name}` : undefined}>
+    <AppShell back navigation title="Product Experience">
+      {e ? <View style={{flexDirection:"row",gap:10,alignItems:"center"}}><PersonAvatar id={e.user_id} name={e.author_name} size={36}/><Text style={{fontFamily:fonts.semibold,color:colors.ink}}>{e.author_name}</Text></View> : null}
       {e ? (
         <>
           <ProductIdentity
@@ -222,7 +225,7 @@ export default function Story() {
               key={r.id}
               style={{ flexDirection: "row", gap: 12, paddingVertical: 4 }}
             >
-              <Avatar name={r.author_name || "Member"} size={32} />
+              <PersonAvatar id={r.user_id} name={r.author_name || "Member"} size={32} />
               <View style={{ flex: 1, gap: 4 }}>
                 <Text
                   style={{
@@ -306,9 +309,7 @@ export default function Story() {
               detail={error}
             />
           ) : null}
-          <ActionButton
-            label={COPY.takeFurther}
-            tone="ghost"
+          <TakeFurtherCard
             onPress={() =>
               router.push(
                 `/investigation/request?experience=${e.id}&product=${e.product_id}` as Href,

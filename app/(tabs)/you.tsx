@@ -1,5 +1,5 @@
 import { MemberAvatar } from "@/components/unmask-ui/MemberAvatar";
-import { memberIdentity } from "@/lib/membership";
+import { memberIdentity, foundingMember } from "@/lib/membership";
 import { Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
@@ -44,6 +44,7 @@ export default function You() {
   const p = useAppStore((s) => s.profile);
   const router = useRouter();
   const member = useQuery({ queryKey: ["member-identity", p?.id], queryFn: () => memberIdentity(p!.id), enabled: !!p?.id });
+  const founder = useQuery({ queryKey: ["founding-member", p?.id], queryFn: () => foundingMember(p!.id), enabled: !!p?.id });
   const go = (path: string) => router.push(path as Href);
   const identity = useQuery({
     queryKey: ["public-identity", p?.id],
@@ -70,7 +71,7 @@ export default function You() {
     queryFn: membership,
     enabled: !!p,
   });
-  const name = identity.data?.display_name || p?.displayName || "You";
+  const name = p?.displayName || identity.data?.display_name || "You";
 
   return (
     <AppShell
@@ -100,7 +101,7 @@ export default function You() {
       ) : (
         <View style={{ gap: 28 }}>
           <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
-            <MemberAvatar name={name} uri={identity.data?.avatar_url} size={72} claimed={!!member.data} />
+            <MemberAvatar name={name} uri={identity.data?.avatar_url} size={72} claimed={!!member.data} founding={!!founder.data} />
             <View style={{ flex: 1, gap: 4 }}>
               <Text
                 style={{

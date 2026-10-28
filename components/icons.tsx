@@ -313,3 +313,5 @@ export {
   Buildings,
   Ruler,
 } from "phosphor-react-native";
+
+export { ArrowUpRight, LockKey, MapPin } from "phosphor-react-native";

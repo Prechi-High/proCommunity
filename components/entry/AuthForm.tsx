@@ -1,58 +1,72 @@
 import { useEffect, useState } from "react";
-import { TextInput } from "react-native";
+import { Text, TextInput, View, Pressable } from "react-native";
 import { useRouter, useLocalSearchParams, type Href } from "expo-router";
 import { z } from "zod";
 import { EntryPage, EntryTitle } from "./Page";
 import {
-  Button,
-  Copy,
-  Busy,
-  s,
-  Notice,
-} from "@/components/unmask/reference/ui";
+  ActionButton,
+  ContentSkeleton,
+  StatusMessage,
+} from "@/components/unmask-ui";
 import { requestEmailCode } from "@/lib/services/auth/requestEmailCode";
 import { currentSignIn } from "@/lib/auth";
-import {
-  safeReturn,
-  setup,
-  rememberName,
-  markEntrySeen,
-} from "@/lib/entry/api";
+import { supabase } from "@/lib/supabase";
+import { safeReturn, setup, markEntrySeen } from "@/lib/entry/api";
+import { colors, fonts } from "@/constants/theme";
+const field = {
+  fontFamily: fonts.regular,
+  fontSize: 17,
+  padding: 17,
+  borderWidth: 1,
+  borderColor: colors.line,
+  borderRadius: 17,
+  color: colors.ink,
+  backgroundColor: "#FAF8F6",
+};
+const copy = {
+  fontFamily: fonts.regular,
+  fontSize: 15,
+  lineHeight: 23,
+  color: colors.inkSoft,
+};
 export default function AuthForm({ join = false }: { join?: boolean }) {
-  const r = useRouter();
-  const params = useLocalSearchParams<{ returnTo?: string }>();
-  const ret = safeReturn(params.returnTo);
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [checking, setChecking] = useState(true);
+  const r = useRouter(),
+    params = useLocalSearchParams<{ returnTo?: string }>(),
+    ret = safeReturn(params.returnTo);
+  const [email, setEmail] = useState(""),
+    [password, setPassword] = useState(""),
+    [mode, setMode] = useState<"password" | "code">("password"),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [checking, setChecking] = useState(true),
+    [show, setShow] = useState(false);
+  async function next() {
+    const p = await setup();
+    r.replace(
+      (p?.onboarding_completed_at
+        ? ret || "/(tabs)"
+        : "/onboarding/interests" +
+          (ret ? "?returnTo=" + encodeURIComponent(ret) : "")) as Href,
+    );
+  }
   useEffect(() => {
-    let active = true;
+    let alive = true;
     void currentSignIn()
-      .then(async (session) => {
-        if (session) {
-          const p = await setup();
-          if (active)
-            r.replace(
-              (p?.onboarding_completed_at
-                ? ret || "/(tabs)"
-                : "/onboarding/interests" +
-                  (ret ? "?returnTo=" + encodeURIComponent(ret) : "")) as Href,
-            );
-        }
+      .then(async (s) => {
+        if (s && alive) await next();
       })
       .catch((e) => {
-        if (active) setError(e.message);
+        if (alive) setError(e.message);
       })
       .finally(() => {
-        if (active) setChecking(false);
+        if (alive) setChecking(false);
       });
     return () => {
-      active = false;
+      alive = false;
     };
   }, [r, ret]);
-  const send = async () => {
+  const valid = z.string().email().max(320).safeParse(email.trim()).success;
+  async function submit() {
     if (busy) return;
     setBusy(true);
     setError("");
@@ -62,85 +76,130 @@ export default function AuthForm({ join = false }: { join?: boolean }) {
         .email()
         .max(320)
         .parse(email.trim().toLowerCase());
-      await requestEmailCode(clean);
-      if (join) rememberName(clean, name.trim());
-      const q = new URLSearchParams({ email: clean });
-      if (ret) q.set("returnTo", ret);
-      r.push(("/verify-email?" + q.toString()) as Href);
+      if (!join && mode === "password") {
+        if (!supabase) throw new Error("Sign-in is unavailable right now.");
+        const { error: e } = await supabase.auth.signInWithPassword({
+          email: clean,
+          password,
+        });
+        if (e)
+          throw new Error(
+            "Email or password didn’t match. Try again, or use an email code.",
+          );
+        setPassword("");
+        await currentSignIn();
+        await next();
+      } else {
+        await requestEmailCode(clean);
+        const q = new URLSearchParams({ email: clean });
+        if (ret) q.set("returnTo", ret);
+        if (join) q.set("setupAccount", "1");
+        r.push(("/verify-email?" + q.toString()) as Href);
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not send your code.");
+      setError(
+        e instanceof Error ? e.message : "Couldn’t sign in. Please try again.",
+      );
     } finally {
       setBusy(false);
     }
-  };
+  }
   return (
     <EntryPage back>
+      <Text style={{ ...copy, fontSize: 12, color: colors.brandDeep }}>
+        YOUR PEOPLE. YOUR PRODUCT STORIES.
+      </Text>
       <EntryTitle>
-        {join ? "Become an Unmasker." : "Good to have you back."}
+        {join ? "You belong here." : "Welcome back, Unmasker."}
       </EntryTitle>
-      <Copy muted>
+      <Text style={copy}>
         {join
-          ? "Join the conversation. Share what you discover."
-          : "Sign in to continue to the Unmask community — clarity from real people and real conversations."}
-      </Copy>
+          ? "Start with your email. Verify it, then choose your name, location and password in a few short steps."
+          : "Your stories, your people, your next discovery. Sign in to pick up where you left off."}
+      </Text>
       {checking ? (
-        <Busy loading />
+        <ContentSkeleton />
       ) : (
         <>
-          {join ? (
-            <>
-              <Copy>Display name</Copy>
+          <View style={{ gap: 10 }}>
+            <Text style={copy}>Email address</Text>
+            <TextInput
+              accessibilityLabel="Email address"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              keyboardType="email-address"
+              placeholder="you@example.com"
+              style={field}
+            />
+          </View>
+          {!join && mode === "password" ? (
+            <View style={{ gap: 10 }}>
+              <Text style={copy}>Password</Text>
               <TextInput
-                accessibilityLabel="Display name"
-                placeholder="Your name"
-                value={name}
-                onChangeText={setName}
-                maxLength={40}
-                style={s.input}
+                accessibilityLabel="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!show}
+                autoCapitalize="none"
+                autoComplete="current-password"
+                placeholder="Your password"
+                style={field}
               />
-            </>
-          ) : null}
-          <Copy>Email address</Copy>
-          <TextInput
-            accessibilityLabel="Email address"
-            placeholder="you@example.com"
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="email"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-            style={s.input}
-          />
-          <Copy small>
-            We’ll email you a six-digit code. No password needed. New email
-            addresses create an account after verification.
-          </Copy>
-          <Button
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setShow(!show)}
+                style={{ paddingVertical: 9 }}
+              >
+                <Text style={{ ...copy, fontSize: 13 }}>
+                  {show ? "Hide password" : "Show password"}
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Text style={{ ...copy, fontSize: 13 }}>
+              We’ll send a six-digit code through our secure email service.
+            </Text>
+          )}
+          {error ? <StatusMessage kind="error" title={error} /> : null}
+          <ActionButton
             label={
-              busy
-                ? "Sending code…"
-                : join
-                  ? "Create account →"
-                  : "Send sign-in code →"
+              join
+                ? "Verify my email"
+                : mode === "password"
+                  ? "Sign in"
+                  : "Send my code"
+            }
+            pending={busy}
+            pendingLabel={
+              join || mode === "code" ? "Sending code…" : "Signing in…"
             }
             disabled={
-              busy ||
-              !z.string().email().max(320).safeParse(email.trim()).success ||
-              (join && name.trim().length < 2)
+              !valid || busy || (!join && mode === "password" && !password)
             }
-            onPress={() => void send()}
+            onPress={() => void submit()}
           />
-          <Button
-            quiet
-            label="Continue with Google · Coming soon"
-            disabled
-            onPress={() => undefined}
-          />
-          <Button
-            quiet
+          {!join ? (
+            <ActionButton
+              tone="ghost"
+              label={
+                mode === "password"
+                  ? "Use an email code instead"
+                  : "Use my password"
+              }
+              disabled={busy}
+              onPress={() => {
+                setMode(mode === "password" ? "code" : "password");
+                setError("");
+              }}
+            />
+          ) : null}
+          <ActionButton
+            tone="secondary"
             label={
-              join ? "Already a member? Sign in" : "New here? Join Unmask →"
+              join ? "Already a member? Sign in" : "New here? Create an account"
             }
             onPress={() =>
               r.replace({
@@ -149,31 +208,37 @@ export default function AuthForm({ join = false }: { join?: boolean }) {
               } as Href)
             }
           />
-          <Button
-            quiet
+          <ActionButton
+            tone="ghost"
             label="Explore first"
             onPress={() => {
-              void markEntrySeen().catch(() => undefined);
+              void markEntrySeen();
               r.replace("/(tabs)");
             }}
           />
-          <Copy small>
-            Your email stays private. Your display name appears with
-            contributions you choose to publish.
-          </Copy>
-          <Button
-            quiet
-            label="Terms of service"
-            onPress={() => r.push("/settings/details?section=terms")}
-          />
-          <Button
-            quiet
-            label="Privacy policy"
-            onPress={() => r.push("/settings/details?section=privacy")}
-          />
+          <Text style={{ ...copy, fontSize: 12 }}>
+            Your email stays private. Your name appears on the stories you
+            choose to share.
+          </Text>
+          <View style={{ flexDirection: "row", gap: 20 }}>
+            {[
+              { label: "Terms", section: "terms" },
+              { label: "Privacy", section: "privacy" },
+            ].map((x) => (
+              <Pressable
+                key={x.section}
+                accessibilityRole="link"
+                onPress={() =>
+                  r.push(`/settings/details?section=${x.section}` as Href)
+                }
+                style={{ paddingVertical: 10 }}
+              >
+                <Text style={{ ...copy, fontSize: 13 }}>{x.label}</Text>
+              </Pressable>
+            ))}
+          </View>
         </>
       )}
-      {error ? <Notice>{error}</Notice> : null}
     </EntryPage>
   );
 }
