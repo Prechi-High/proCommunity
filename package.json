@@ -8,14 +8,15 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "export:web": "npm run typecheck && npm run test:parallel-research && npm run test:dynamic-ui && expo export --platform web",
+    "export:web": "npm run build:auth && npm run typecheck && npm run test:parallel-research && npm run test:dynamic-ui && expo export --platform web",
     "test:redis": "tsx --test lib/server/redis/__tests__/redis.service.test.ts",
     "test:dynamic-ui": "tsx --test lib/product-result/__tests__/dynamic-ui.test.ts supabase/functions/_shared/blueprint/__tests__/*.test.ts supabase/functions/_shared/evidence/__tests__/*.test.ts supabase/functions/_shared/domain/__tests__/*.test.ts",
     "test:evidence-providers": "tsx --test supabase/functions/_shared/evidence/__tests__/conversationEvidence.test.ts",
     "test:whatsapp": "tsx --test supabase/functions/_shared/**/__tests__/*.test.ts",
     "typecheck": "tsc --noEmit",
     "whatsapp:keys": "node scripts/whatsapp-flow-keys.mjs",
-    "test:parallel-research": "node --import tsx --test supabase/functions/_shared/research/*.node.test.ts lib/unmask/__tests__/investigationStages.test.ts"
+    "test:parallel-research": "node --import tsx --test supabase/functions/_shared/research/*.node.test.ts lib/unmask/__tests__/investigationStages.test.ts",
+    "build:auth": "node scripts/build-auth-route.mjs"
   },
   "dependencies": {
     "@expo/config-plugins": "^57.0.9",
@@ -66,6 +67,7 @@
     "@types/node": "^26.6.2",
     "@types/nodemailer": "^7.0.12",
     "@types/react": "~19.2.2",
+    "esbuild": "0.28.2",
     "tsx": "^4.23.13",
     "typescript": "~6.0.3"
   }

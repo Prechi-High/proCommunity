@@ -1,4 +1,4 @@
-import { BRAND_NAME, BRAND_TAGLINE } from '@/constants/brandText';
+import { BRAND_NAME, BRAND_TAGLINE } from '../../../../constants/brandText';
 export type VerificationEmailParams = { code: string; logoUrl?: string };
 const escape = (s: string) => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 export function renderVerificationCodeEmail({ code, logoUrl }: VerificationEmailParams): string {

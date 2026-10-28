@@ -2,7 +2,7 @@
  * POST /api/auth/request-email-code — SERVER ONLY (Vercel).
  * Generates Supabase email OTP and sends branded code via Gmail/Nodemailer.
  */
-import { handleRequestEmailCode } from '../../lib/server/auth/requestEmailCodeHandler';
+import { handleRequestEmailCode } from './requestEmailCodeHandler';
 
 type Req = {
   method?: string;
@@ -19,7 +19,7 @@ const DEFAULT_ORIGINS = ['http://localhost:8081', 'http://localhost:19006', 'htt
 
 function applyCors(req: Req, res: Res): void {
   const configured =
-    process.env.AUTH_CORS_ORIGINS?.split(',').map((s) => s.trim()).filter(Boolean) ?? DEFAULT_ORIGINS;
+    process.env.AUTH_CORS_ORIGINS?.split(',').map((s: string) => s.trim()).filter(Boolean) ?? DEFAULT_ORIGINS;
   const origin = typeof req.headers?.origin === 'string' ? req.headers.origin : undefined;
   if (origin && configured.includes(origin)) {
     res.setHeader?.('Access-Control-Allow-Origin', origin);
