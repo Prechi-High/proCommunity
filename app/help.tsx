@@ -17,6 +17,10 @@ import {
 } from "@/components/unmask/reference/ui";
 const faqs = [
   {
+    q: "Can I get free Sparks?",
+    a: "Yes. Sign in and claim 50 free Sparks once per calendar month, using Lagos time, from Home or your wallet. Unclaimed months don’t stack. Claimed Sparks remain in your wallet. Free claims are not purchases and do not grant founding status.",
+  },
+  {
     q: "How are creators assigned?",
     a: "Unmask’s editorial team assigns creators. Requests for a particular creator are not available yet. Creator status does not verify professional credentials.",
   },

@@ -4,25 +4,27 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { AppShell, ActionButton, SearchField, Skeleton, StatusMessage } from "@/components/unmask-ui";
-import { Lightning, ArrowRight, UsersThree, Play, SealCheck, Camera } from "@/components/icons";
+import { Lightning, ArrowRight, UsersThree, Play, Sparkle, Check } from "@/components/icons";
 import { MemberAvatar } from "@/components/unmask-ui/MemberAvatar";
+import { CreatorUpdates } from "@/components/unmask-ui/CreatorUpdates";
 import { UltraGuide, CreatorAnswers } from "@/components/home/HomeSections";
+import { MonthlySparkCard } from "@/components/home/MonthlySparkCard";
 import { useAppStore } from "@/lib/store";
 import { useScan } from "@/lib/useScan";
 import { entrySeen } from "@/lib/entry/api";
-import { wallet } from "@/lib/investigations/api";
 import { memberIdentity, claimIdentity } from "@/lib/membership";
+import { identity as publicIdentity } from "@/lib/profiles/api";
 import { hapticSuccess } from "@/lib/haptics";
 import { colors, fonts } from "@/constants/theme";
-
 const copy = { fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: colors.inkSoft };
 export default function Home() {
   const r = useRouter(), qc = useQueryClient(), scan = useScan();
   const profile = useAppStore(s => s.profile), uid = profile?.id;
   const [seen, setSeen] = useState<boolean | null>(null), [q, setQ] = useState("");
   const [guide, setGuide] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState("");
-  const balance = useQuery({ queryKey: ["spark-wallet", uid], queryFn: wallet, enabled: !!uid });
-  const identity = useQuery({ queryKey: ["member-identity", uid], queryFn: () => memberIdentity(uid!), enabled: !!uid });
+  const member = useQuery({ queryKey: ["member-identity", uid], queryFn: () => memberIdentity(uid!), enabled: !!uid });
+  const person = useQuery({ queryKey: ["public-identity", uid], queryFn: () => publicIdentity(uid!), enabled: !!uid });
+  const name = person.data?.display_name || profile?.displayName || "Unmasker";
   useEffect(() => { void entrySeen().then(setSeen).catch(() => setSeen(true)); }, []);
   useEffect(() => { if (seen === false && !uid) r.replace("/welcome"); }, [seen, uid, r]);
   function search() { if (q.trim().length > 1) r.push({ pathname: "/results", params: { q: q.trim() } } as Href); }
@@ -31,66 +33,43 @@ export default function Home() {
     if (busy) return;
     setBusy(true); setError("");
     try { await claimIdentity(); await qc.invalidateQueries({ queryKey: ["member-identity", uid] }); hapticSuccess(); }
-    catch { setError("Your ring couldn’t be claimed. Please try again."); }
-    finally { setBusy(false); }
+    catch { setError("Your ring couldn’t be claimed. Please try again."); } finally { setBusy(false); }
   }
   if (!uid && seen !== true) return <AppShell notify><Skeleton height={250} /></AppShell>;
   return <AppShell notify>
-    <View style={{ gap: 14, paddingTop: 16 }}>
-      <Text style={{ fontFamily: fonts.medium, fontSize: 12, letterSpacing: 1, color: colors.brandDeep }}>BEFORE YOU BUY. AFTER YOU TRY.</Text>
-      <Text accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 38, lineHeight: 43, letterSpacing: -1.3, color: colors.ink }}>Know the product.{"\n"}Hear from its people.</Text>
-      <Text style={copy}>Unmask a product. See real experiences from people who’ve used it, before you decide.</Text>
-      <SearchField value={q} onChange={setQ} onSubmit={search} onCamera={scan.openCamera} placeholder="Which product are you thinking of?" />
-      <ActionButton label="Unmask this product" disabled={q.trim().length < 2} onPress={search} icon={<ArrowRight size={19} color="#fff" />} />
-      <Pressable accessibilityRole="button" accessibilityLabel="Unmask a product with a photo" onPress={scan.openCamera}
-        style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 44 }}>
-        <Camera size={18} color={colors.ink} /><Text style={{ ...copy, fontFamily: fonts.medium, color: colors.ink }}>Or take a product photo</Text>
-      </Pressable>
-      <Text style={{ ...copy, fontSize: 13, lineHeight: 20 }}>No experiences yet? Ask the community. Someone who’s tried it can help.</Text>
+    <View style={{ gap: 17, paddingTop: 6 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <View style={{ flex: 1, gap: 4 }}><Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brandDeep, letterSpacing: 1 }}>YOUR PEOPLE. YOUR VOICE.</Text><Text accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 27, lineHeight: 33, letterSpacing: -0.8, color: colors.ink }}>{uid ? `Hey, ${name.split(" ")[0]}.` : "You belong here."}</Text></View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Open my Unmasker profile" onPress={() => r.push("/you")}><MemberAvatar name={name} uri={person.data?.avatar_url} size={47} claimed={!!member.data} preview={!member.data} /></Pressable>
+      </View>
+      <View style={{ gap: 12, padding: 18, borderRadius: 24, backgroundColor: "#F6F3F1", borderWidth: 1, borderColor: "#EEE7E1" }}>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 21, lineHeight: 26, letterSpacing: -0.5, color: colors.ink }}>Before you buy, ask the people.</Text>
+        <SearchField value={q} onChange={setQ} onSubmit={search} onCamera={scan.openCamera} placeholder="Which product should we unmask?" />
+        {q.trim().length > 1 ? <ActionButton label="Unmask this product" onPress={search} icon={<ArrowRight size={18} color="#fff" />} /> : null}
+        <Text style={{ ...copy, fontSize: 12, lineHeight: 18 }}>Real experiences first. No answers yet? Ask your community.</Text>
+      </View>
     </View>
-
-    <LinearGradient colors={["#4A1B2B", "#260E16"]} style={{ borderRadius: 28, padding: 24, gap: 17, marginTop: 12 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><Lightning size={22} weight="fill" color="#F2D25B" /><Text style={{ fontFamily: fonts.semibold, fontSize: 12, letterSpacing: 1.1, color: "#F2D25B" }}>ULTRA UNMASK</Text></View>
-      <Text accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 29, lineHeight: 34, letterSpacing: -0.6, color: "#fff" }}>Don’t just wonder why.{"\n"}Let’s take it further.</Text>
-      <Text style={{ ...copy, color: "#EFDEE4" }}>Loved it? Let down? Share your story and add Sparks. A creator can ask the company or an expert why—and share what they find.</Text>
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        {["Your story", "Community Sparks", "Creator answers"].map((text, i) => <View key={text} style={{ flex: 1, borderTopWidth: 1, borderColor: "#80515E", paddingTop: 11, gap: 5 }}><Text style={{ fontFamily: fonts.medium, fontSize: 11, color: "#E5C77E" }}>0{i + 1}</Text><Text style={{ fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, color: "#fff" }}>{text}</Text></View>)}
-      </View>
-      <ActionButton tone="gold" label="Start an Ultra Unmask" onPress={() => r.push("/investigation/request")} />
-      <Pressable accessibilityRole="button" onPress={() => setGuide(true)} style={{ minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
-        <Play size={18} color="#fff" weight="fill" /><Text style={{ fontFamily: fonts.medium, fontSize: 14, color: "#fff" }}>What happens in an Ultra Unmask?</Text>
-      </Pressable>
-      <View style={{ borderTopWidth: 1, borderColor: "#724350", paddingTop: 16, gap: 10 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <View style={{ flex: 1, gap: 5 }}><Text style={{ fontFamily: fonts.medium, fontSize: 12, color: "#E5C77E" }}>YOUR SPARKS</Text>
-            {uid && balance.isLoading ? <Skeleton width={100} height={29} /> : <Text style={{ fontFamily: fonts.semibold, fontSize: 23, color: "#fff" }}>{!uid ? "Your voice, amplified" : balance.isError ? "Balance unavailable" : `${(balance.data?.sparks ?? 0).toLocaleString()} Sparks`}</Text>}
-            {uid && !balance.isLoading && !balance.isError ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: "#EFDEE4" }}>{balance.data?.thunder ?? 0} Thunder Sparks</Text> : null}
-          </View>
-          <ActionButton tone="gold" label={uid ? "Add Sparks" : "Sign in"} onPress={() => r.push(uid ? "/wallet/recharge" : "/(auth)/sign-in")} />
-        </View>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 19, color: "#DFCBD2" }}>Sparks support stories getting a closer look. They don’t buy a verdict or guarantee a company reply.</Text>
-        {balance.isError ? <ActionButton tone="gold" label="Retry balance" onPress={() => void balance.refetch()} /> : null}
-      </View>
+    <View style={{ marginHorizontal: -20, marginTop: 2 }}><CreatorUpdates /></View>
+    <MonthlySparkCard />
+    <LinearGradient colors={["#4E1E33", "#25111F"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 27, padding: 22, overflow: "hidden", gap: 14 }}>
+      <View pointerEvents="none" style={{ position: "absolute", right: -35, top: -34, width: 180, height: 180, borderWidth: 1, borderColor: "#8B5A7133", borderRadius: 100, alignItems: "center", justifyContent: "center" }}><View style={{ width: 135, height: 135, borderWidth: 1, borderColor: "#8B5A7144", borderRadius: 100, alignItems: "center", justifyContent: "center" }}><Lightning size={70} weight="fill" color="#E6C77822" /></View></View>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}><Lightning size={17} weight="fill" color="#F2D25B" /><Text style={{ fontFamily: fonts.semibold, fontSize: 10, letterSpacing: 1.2, color: "#E7C983" }}>ULTRA UNMASK</Text></View>
+      <Text accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 27, lineHeight: 32, letterSpacing: -0.7, color: "#fff", maxWidth: 290 }}>Your story deserves{"\n"}more than a comment.</Text>
+      <Text style={{ ...copy, color: "#E9D8E0", maxWidth: 500 }}>Loved it? Let down? Spark a closer look. A creator can ask the company or an expert why.</Text>
+      <ActionButton tone="gold" label="Take my story further" onPress={() => r.push("/investigation/request")} />
+      <Pressable accessibilityRole="button" onPress={() => setGuide(true)} style={{ minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 }}><Play size={15} weight="fill" color="#fff" /><Text style={{ fontFamily: fonts.medium, fontSize: 13, color: "#fff" }}>See how Ultra Unmask works</Text></Pressable>
     </LinearGradient>
-
-    <CreatorAnswers />
-
-    <View style={{ padding: 22, borderRadius: 24, backgroundColor: "#F6F2EE", gap: 15 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-        <MemberAvatar name={profile?.displayName || "You"} claimed={!!identity.data} preview={!identity.data} />
-        <View style={{ flex: 1, gap: 5 }}><Text accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 21, color: colors.ink }}>You’re an Unmasker.</Text><Text style={copy}>Your experience can help someone choose better. There’s a place for you here.</Text></View>
+    <View style={{ padding: 21, borderRadius: 27, backgroundColor: "#F4EBF0", borderWidth: 1, borderColor: "#ECDCE4", gap: 15 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 17 }}>
+        <MemberAvatar name={name} uri={person.data?.avatar_url} size={76} claimed={!!member.data} preview={!member.data} />
+        <View style={{ flex: 1, gap: 6 }}><Text style={{ fontFamily: fonts.medium, fontSize: 10, letterSpacing: 1, color: colors.brandDeep }}>A LITTLE MARK. A REAL BELONGING.</Text><Text accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 23, lineHeight: 28, color: colors.ink }}>{member.data ? "That’s your ring." : "Make it yours."}</Text><Text style={{ ...copy, fontSize: 13, lineHeight: 20 }}>{member.data ? "Your Unmasker identity travels with your public profile." : "Claim your free Unmasker ring. Let your people recognise you."}</Text></View>
       </View>
-      {identity.isLoading && uid ? <Skeleton height={44} /> : identity.data ? <View style={{ flexDirection: "row", gap: 7, alignItems: "center" }}><SealCheck size={20} color={colors.brandDeep} /><Text style={{ ...copy, fontFamily: fonts.medium, color: colors.ink }}>Your Unmasker ring is claimed.</Text></View> : <ActionButton tone="secondary" label="Claim my free Unmasker ring" pending={busy} pendingLabel="Claiming…" onPress={() => void claim()} />}
-      <Text style={{ ...copy, fontSize: 12, lineHeight: 18 }}>Free. Your claimed ring appears on your public profile.</Text>
+      {member.isLoading && uid ? <Skeleton height={44} /> : member.data ? <ActionButton tone="secondary" label="See my profile" icon={<Check size={17} color={colors.ink} />} onPress={() => r.push(`/member/${uid}` as Href)} /> : <ActionButton label="Claim my Unmasker ring" icon={<Sparkle size={18} color="#fff" />} pending={busy} pendingLabel="Making it yours…" onPress={() => void claim()} />}
       {error ? <StatusMessage kind="error" title={error} /> : null}
-      <Pressable accessibilityRole="link" onPress={() => r.push("/founding" as Href)} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 48, paddingTop: 12, borderTopWidth: 1, borderColor: colors.line }}>
-        <View style={{ flex: 1, gap: 4 }}><Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>Here from the beginning?</Text><Text style={{ ...copy, fontSize: 13 }}>Explore the founding-member program · preview</Text></View><ArrowRight size={21} color={colors.ink} />
-      </Pressable>
+      <Pressable accessibilityRole="link" onPress={() => r.push("/founding" as Href)} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 48, borderTopWidth: 1, borderColor: "#DDC9D4", paddingTop: 13 }}><View style={{ flex: 1, gap: 3 }}><Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>Here from the beginning?</Text><Text style={{ ...copy, fontSize: 12 }}>The founding circle · program preview</Text></View><ArrowRight size={20} color={colors.brandDeep} /></Pressable>
     </View>
-    <Pressable accessibilityRole="link" onPress={() => r.navigate("/community" as Href)} style={({ pressed }) => ({ padding: 20, borderRadius: 22, borderWidth: 1, borderColor: colors.line, backgroundColor: pressed ? "#F5EFE9" : "#fff", flexDirection: "row", alignItems: "center", gap: 13 })}>
-      <UsersThree size={28} color={colors.brandDeep} /><View style={{ flex: 1, gap: 5 }}><Text style={{ fontFamily: fonts.semibold, fontSize: 19, color: colors.ink }}>Meet your community.</Text><Text style={copy}>Ask, share, and follow the stories that matter to you.</Text></View><ArrowRight size={20} color={colors.ink} />
-    </Pressable>
-    <UltraGuide open={guide} onClose={() => setGuide(false)} />
-    {scan.sheet}
+    <CreatorAnswers />
+    <Pressable accessibilityRole="link" onPress={() => r.navigate("/community" as Href)} style={({ pressed }) => ({ padding: 20, borderRadius: 24, backgroundColor: pressed ? "#E8DCE5" : "#F3EDF1", flexDirection: "row", alignItems: "center", gap: 13 })}><UsersThree size={28} color={colors.brandDeep} /><View style={{ flex: 1, gap: 3 }}><Text style={{ fontFamily: fonts.semibold, fontSize: 19, color: colors.ink }}>Your people are in here.</Text><Text style={{ ...copy, fontSize: 13 }}>Ask. Share. Be part of the conversation.</Text></View><ArrowRight size={20} color={colors.ink} /></Pressable>
+    <UltraGuide open={guide} onClose={() => setGuide(false)} />{scan.sheet}
   </AppShell>;
 }

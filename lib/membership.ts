@@ -23,3 +23,12 @@ export async function joinFoundingInterest() {
   const { error } = await db().from("unmask_founding_interest").insert({ user_id: await userId() });
   if (error && error.code !== "23505") throw error;
 }
+
+export type MonthlySparks = {
+  month: string; next_claim_at: string; claimed: boolean; awarded: boolean; amount: number; sparks: number;
+};
+export async function monthlySparks(claim = false): Promise<MonthlySparks> {
+  const { data, error } = await db().rpc("unmask_monthly_sparks", { p_claim: claim });
+  if (error) throw error;
+  return data as MonthlySparks;
+}

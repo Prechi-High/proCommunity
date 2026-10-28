@@ -1,3 +1,4 @@
+import { MonthlySparkCard } from "@/components/home/MonthlySparkCard";
 import { Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter, type Href } from 'expo-router';
@@ -26,6 +27,7 @@ export default function Wallet() {
 
   return (
     <AppShell back title="Sparks" subtitle={COPY.sparkTeach}>
+      <MonthlySparkCard />
       {!uid ? (
         <>
           <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.inkSoft }}>

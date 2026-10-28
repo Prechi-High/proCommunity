@@ -25,3 +25,11 @@ The Home creator section links to creator profiles and an information/interest p
 ## Validation
 
 Typecheck and web export; rollback SQL allow/deny tests for free claims, immutable timestamps, private founding interest and anonymous access; browser checks of Home search, Community filters, legacy redirects and the visual guide. Production payment and monthly-credit systems are not part of this release.
+
+## Social Home refresh — 28 October 2026
+
+Home now uses a personal greeting, creator update circles, a compact product-search surface, a monthly Spark drop, a shorter Ultra invitation and a prominent animated membership-ring card. Portraits remain stable while a gradient light and particles orbit the ring; reduced-motion preferences disable continuous animation. No synthetic popularity counts or activity are shown.
+
+Every signed-in non-anonymous account can manually claim 50 free Sparks per calendar month in Africa/Lagos. Unclaimed months are not banked; credited Sparks carry over in the existing wallet. The server supplies the claim month, next boundary and fixed amount. A ledger primary key (user_id, month) makes retries and concurrent claims idempotent. The grant and wallet credit happen in one transaction. Client roles cannot insert or alter ledger rows. Claim history is private to its owner. Free grants do not count as purchases or founding qualification. Existing creator support/payout rules are unchanged; free credits are platform-funded rather than payment revenue.
+
+Home and wallet show the same claim component. Celebration occurs only after a confirmed newly awarded grant. Repeated claims return the existing balance and no duplicate award. The monthly guide and FAQ distinguish free claims from recharge packs. Checkout is still not connected, and no simulated payment grants credits.
