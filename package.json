@@ -63,7 +63,7 @@
     "zod": "^4.1.8",
     "zustand": "^5.0.8",
     "livekit-client": "^2.23.0",
-    "livekit-server-sdk": "^2.19.2"
+    "livekit-server-sdk": "2.19.1"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",
