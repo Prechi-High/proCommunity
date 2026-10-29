@@ -255,7 +255,7 @@ export default function CompleteAccount() {
       )}
       {error ? <StatusMessage kind="error" title={error} /> : null}
       <ActionButton
-        label={d.step < 2 ? "Continue" : "Finish my account"}
+        label={d.step < 3 ? "Continue" : "Finish my account"}
         pending={busy}
         pendingLabel="Saving…"
         disabled={!valid || busy}
