@@ -47,6 +47,7 @@ export default function CompleteAccount() {
       handle: "",
       country: "",
       region: "",
+      ageBand: "",
       step: 0,
     },
   );
@@ -70,8 +71,10 @@ export default function CompleteAccount() {
     d.step === 0
       ? d.name.trim().length >= 2 && /^[a-z0-9_]{3,24}$/.test(d.handle)
       : d.step === 1
-        ? !!d.country && (!statesFor(d.country).length || !!d.region)
-        : password.length >= 10 && password === confirm;
+        ? !!d.ageBand
+        : d.step === 2
+          ? !!d.country && (!statesFor(d.country).length || !!d.region)
+          : password.length >= 10 && password === confirm;
   async function save() {
     if (busy || !supabase || !valid) return;
     setBusy(true);
@@ -84,6 +87,7 @@ export default function CompleteAccount() {
         p_handle: d.handle,
         p_country: country.name,
         p_region: d.region,
+        p_age_band: d.ageBand,
       });
       if (e)
         throw new Error(
@@ -123,7 +127,7 @@ export default function CompleteAccount() {
   return (
     <EntryPage back>
       <View style={{ flexDirection: "row", gap: 7 }}>
-        {["Your identity", "Your location", "Your password"].map((label, i) => (
+        {["Your identity", "Your age", "Your location", "Your password"].map((label, i) => (
           <View key={label} style={{ flex: 1, gap: 7 }}>
             <View
               style={{
@@ -142,6 +146,7 @@ export default function CompleteAccount() {
         {
           [
             "Make yourself at home.",
+            "A little about your age.",
             "Where are you joining from?",
             "One last thing. Make it yours.",
           ][d.step]
@@ -180,6 +185,18 @@ export default function CompleteAccount() {
           </Text>
         </>
       ) : d.step === 1 ? (
+        <>
+          <Text style={text}>Your age range</Text>
+          <View style={{ gap: 10 }}>
+            {["13-17", "18-24", "25-34", "35-44", "45-54", "55+"].map((age) => (
+              <Pressable key={age} accessibilityRole="radio" accessibilityState={{ checked: d.ageBand === age }} onPress={() => set({ ageBand: age })} style={{ padding: 16, borderRadius: 16, borderWidth: 1, borderColor: d.ageBand === age ? colors.brandDeep : colors.line, backgroundColor: d.ageBand === age ? "#F2E8EF" : "#FAF8F6" }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.ink }}>{age}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={{ ...text, fontSize: 12 }}>This is kept private. Unmask uses the age band for safety, demographics and future compatibility signals.</Text>
+        </>
+      ) : d.step === 2 ? (
         <LocationPicker
           country={d.country}
           region={d.region}
@@ -243,7 +260,7 @@ export default function CompleteAccount() {
         pendingLabel="Saving…"
         disabled={!valid || busy}
         onPress={() =>
-          d.step < 2 ? (setError(""), set({ step: d.step + 1 })) : void save()
+          d.step < 3 ? (setError(""), set({ step: d.step + 1 })) : void save()
         }
       />
       {d.step > 0 ? (
