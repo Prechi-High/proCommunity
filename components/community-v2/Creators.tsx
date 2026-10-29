@@ -20,6 +20,7 @@ import { DemoBanner } from "@/components/unmask-ui/DemoBanner";
 import { CreatorStrip } from "@/components/unmask-ui/CreatorStrip";
 import { SAMPLE_CREATORS } from "@/lib/unmask/samples";
 import { useAppStore } from "@/lib/store";
+import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
 export function Creators({
   compact = false,
   id,
@@ -93,11 +94,11 @@ export function Creators({
       {rows.map((c) => (
         <Card key={c.user_id}>
           <View style={{ flexDirection: "row", gap: 14 }}>
-            <Photo uri={c.avatar_url} size={72} />
+            <View style={{ position: "relative" }}><Photo uri={c.avatar_url} size={72} /><View style={{ position: "absolute", right: -5, bottom: -5 }}><CreatorMark mark={c.creator_mark || c.user_id} size={31} /></View></View>
             <View style={{ flex: 1, gap: 8 }}>
               <Heading>{c.display_name}</Heading>
               <Copy muted>@{c.handle}</Copy>
-              <Pill>Unmask Creator</Pill>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}><Pill>Unmask Creator</Pill><Text style={{ fontFamily: "GeneralSans-Medium", fontSize: 11, color: "#6F5961" }}>{c.verification_level === "verified_professional" ? "Verified professional" : c.verification_level === "expert" ? "Expert" : "Creator"}</Text></View>
             </View>
           </View>
           <Copy>{c.bio}</Copy>
