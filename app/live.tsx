@@ -53,8 +53,7 @@ export default function Live() {
       <Text style={{fontFamily:fonts.regular,fontSize:14,lineHeight:21,color:colors.inkSoft}}>{s.description}</Text>
       {s.status==="live" ? <View style={{flexDirection:"row",alignItems:"center",gap:8}}><UsersThree size={15} color={colors.inkSoft}/><Text style={{fontFamily:fonts.medium,fontSize:12,color:colors.inkSoft}}>{count} {count===1?"person":"people"} here</Text><Text style={{fontFamily:fonts.medium,fontSize:12,color:talking?"#B42318":colors.inkSoft}}>{talking?"· People are talking":"· Waiting"}</Text></View> : null}
       <ActionButton label={isHost ? "Resume hosting" : s.status==="live"?"Join Live":"View session"} onPress={()=>router.push({pathname:"/live/session",params:{id:s.id,...(isHost?{host:"1"}:{})}} as Href)}/></View>;
-    })
-    </View>):<View style={{padding:20,borderRadius:23,backgroundColor:"#F6F3F1",gap:10}}>
+    }):<View style={{padding:20,borderRadius:23,backgroundColor:"#F6F3F1",gap:10}}>
       <BellRinging size={25} color={colors.brandDeep}/>
       <Text style={{fontFamily:fonts.semibold,fontSize:19,color:colors.ink}}>No Live sessions yet.</Text>
       <Text style={{fontFamily:fonts.regular,fontSize:14,lineHeight:21,color:colors.inkSoft}}>The creator roster is being built. Scheduled sessions will appear here automatically.</Text>
