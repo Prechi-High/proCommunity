@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useState } from "react";
 import { useRouter, type Href } from "expo-router";
 import { db } from "@/lib/clarity/api";
 import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
@@ -8,6 +9,25 @@ import { colors, fonts } from "@/constants/theme";
 import { ChatCircleDots, Play, UsersThree, X } from "@/components/icons";
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/lib/store";
+
+function ActivityBars({ active, dark }: { active: boolean; dark: boolean }) {
+  const [pulse, setPulse] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(() => setPulse(v => (v + 1) % 2), 260);
+    return () => clearInterval(timer);
+  }, [active]);
+  const heights = active
+    ? (pulse ? [8, 22, 13, 27, 11] : [20, 11, 25, 14, 21])
+    : [5, 5, 5, 5, 5];
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 3, height: 25 }}>
+      {heights.map((height, index) => (
+        <View key={index} style={{ width: 3, height, borderRadius: 3, backgroundColor: active ? "#F2D25B" : (dark ? "#6C3A4B" : "#C8AAB6") }} />
+      ))}
+    </View>
+  );
+}
 
 type Row = {
   id: string;
@@ -18,6 +38,8 @@ type Row = {
   started_at: string | null;
   participant_count: number;
   cohost_ids: string[];
+  active_speaker_count: number;
+  last_activity_at: string | null;
   creator?: {
     display_name: string;
     handle: string;
@@ -40,6 +62,8 @@ async function loadActive() {
     ...row,
     participant_count: Number(row.metadata?.participant_count || 0),
     cohost_ids: Array.isArray(row.metadata?.cohost_ids) ? row.metadata.cohost_ids.map(String) : [],
+    active_speaker_count: Number(row.metadata?.active_speaker_count || 0),
+    last_activity_at: row.metadata?.last_activity_at || null,
     creator: Array.isArray(row.unmask_creators) ? row.unmask_creators[0] || null : row.unmask_creators || null,
   })) as Row[];
 }
@@ -48,7 +72,7 @@ export function RealtimeRail() {
   const router = useRouter();
   const qc = useQueryClient();
   const uid = useAppStore(s => s.profile?.id);
-  const q = useQuery({ queryKey: ["active-realtime"], queryFn: loadActive, refetchInterval: 10000 });
+  const q = useQuery({ queryKey: ["active-realtime"], queryFn: loadActive, refetchInterval: 3000 });
   const rows = q.data || [];
 
   async function endSession(id: string) {
@@ -80,7 +104,8 @@ export function RealtimeRail() {
           const creator = row.creator;
           const isRoom = row.mode === "room";
           const isHost = !!uid && row.host_creator_id === uid;
-          const label = isHost ? "You're hosting" : isRoom ? "Listen live" : "Watch live";
+          const label = isHost ? `You're hosting · ${row.participant_count} ${row.participant_count === 1 ? "person" : "people"} here` : isRoom ? "Listen live" : "Watch live";
+          const activityActive = row.active_speaker_count > 0 && !!row.last_activity_at && Date.now() - Date.parse(row.last_activity_at) < 6000;
           return (
             <View key={row.id} style={{ width: 292, minHeight: 150, borderRadius: 22, backgroundColor: isRoom ? "#F3EBE2" : "#2A0E16", overflow: "hidden" }}>
               <Pressable
@@ -108,11 +133,15 @@ export function RealtimeRail() {
                 <Text numberOfLines={2} style={{ fontFamily: fonts.semibold, fontSize: 17, lineHeight: 21, color: isRoom ? colors.ink : "#fff" }}>
                   {row.title}
                 </Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   {isRoom ? <ChatCircleDots size={15} color={colors.brandDeep} /> : <Play size={15} color="#F2D25B" weight="fill" />}
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: isRoom ? colors.brandDeep : "#F2D25B" }}>{label}</Text>
+                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12, color: isRoom ? colors.brandDeep : "#F2D25B" }}>{label}</Text>
+                  <ActivityBars active={activityActive} dark={!isRoom} />
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
                   <UsersThree size={14} color={isRoom ? colors.inkSoft : "#E9D8E0"} />
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: isRoom ? colors.inkSoft : "#E9D8E0" }}>{row.participant_count}</Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: isRoom ? colors.inkSoft : "#E9D8E0" }}>{row.participant_count} {row.participant_count === 1 ? "person" : "people"} here</Text>
+                  {activityActive ? <Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: isRoom ? colors.brandDeep : "#F2D25B" }}>LIVE TALKING</Text> : null}
                 </View>
               </Pressable>
               {isHost ? (
