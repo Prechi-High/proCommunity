@@ -1,4 +1,3 @@
-import { AccessToken } from "livekit-server-sdk";
 import { createClient } from "@supabase/supabase-js";
 
 function env(name) {
@@ -15,6 +14,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return send(res, 405, { error: "Method not allowed" });
 
   try {
+    const { AccessToken } = await import("livekit-server-sdk");
     const authorization = req.headers.authorization || "";
     const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
     if (!accessToken) return send(res, 401, { error: "Sign in required." });
