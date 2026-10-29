@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
+import { db } from "@/lib/clarity/api";
 import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
 import { Avatar } from "@/components/unmask-ui/Avatar";
 import { colors, fonts } from "@/constants/theme";
