@@ -5,12 +5,14 @@ import { AppShell, ActionButton, Skeleton } from "@/components/unmask-ui";
 import { Play, UsersThree, BellRinging, ChatCircleDots } from "@/components/icons";
 import { db } from "@/lib/clarity/api";
 import { colors, fonts } from "@/constants/theme";
+import { useAppStore } from "@/lib/store";
 
-type Session = { id:string; title:string; description:string; status:string; scheduled_at:string|null };
+type Session = { id:string; title:string; description:string; status:string; scheduled_at:string|null; host_creator_id:string|null; metadata:any };
 
 export default function Live() {
   const router=useRouter();
   const [rows,setRows]=useState<Session[]>([]);
+  const uid = useAppStore(s => s.profile?.id);
   const [loading,setLoading]=useState(true);
 
   useEffect(()=>{
@@ -19,7 +21,7 @@ export default function Live() {
       try{
         const {data}=await db()
           .from("unmask_realtime_sessions")
-          .select("id,title,description,status,scheduled_at")
+          .select("id,title,description,status,scheduled_at,host_creator_id,metadata")
           .eq("mode","live")
           .in("status",["scheduled","live"])
           .order("scheduled_at",{ascending:true})
@@ -41,11 +43,17 @@ export default function Live() {
       <Text style={{fontFamily:fonts.semibold,fontSize:27,lineHeight:32,color:"#fff"}}>See what creators are finding right now.</Text>
       <Text style={{fontFamily:fonts.regular,fontSize:15,lineHeight:23,color:"#E9D8E0"}}>Lives are open discovery. Ask questions, watch the investigation unfold, and move to Ultra when a situation needs deeper context.</Text>
     </View>
-    {loading?<Skeleton height={150}/>:rows.length?rows.map(s=><View key={s.id} style={{padding:18,borderRadius:23,backgroundColor:"#fff",borderWidth:1,borderColor:"#EDE6E1",gap:9}}>
-      <Text style={{fontFamily:fonts.semibold,fontSize:12,color:s.status==="live"?"#B42318":colors.inkSoft,letterSpacing:.8}}>{s.status==="live"?"LIVE NOW":"UP NEXT"}</Text>
+    {loading?<Skeleton height={150}/>:rows.length?rows.map(s=>{
+      const isHost = !!uid && s.host_creator_id === uid;
+      const count = Number(s.metadata?.participant_count || 0);
+      const talking = Number(s.metadata?.active_speaker_count || 0) > 0;
+      return <View key={s.id} style={{padding:18,borderRadius:23,backgroundColor:"#fff",borderWidth:1,borderColor:"#EDE6E1",gap:9}}>
+      <Text style={{fontFamily:fonts.semibold,fontSize:12,color:s.status==="live"?"#B42318":colors.inkSoft,letterSpacing:.8}}>{isHost ? "YOUR LIVE" : s.status==="live"?"LIVE NOW":"UP NEXT"}</Text>
       <Text style={{fontFamily:fonts.semibold,fontSize:20,color:colors.ink}}>{s.title}</Text>
       <Text style={{fontFamily:fonts.regular,fontSize:14,lineHeight:21,color:colors.inkSoft}}>{s.description}</Text>
-      <ActionButton label={s.status==="live"?"Join Live":"View session"} onPress={()=>router.push({pathname:"/live/session",params:{id:s.id}} as Href)}/>
+      {s.status==="live" ? <View style={{flexDirection:"row",alignItems:"center",gap:8}}><UsersThree size={15} color={colors.inkSoft}/><Text style={{fontFamily:fonts.medium,fontSize:12,color:colors.inkSoft}}>{count} {count===1?"person":"people"} here</Text><Text style={{fontFamily:fonts.medium,fontSize:12,color:talking?"#B42318":colors.inkSoft}}>{talking?"· People are talking":"· Waiting"}</Text></View> : null}
+      <ActionButton label={isHost ? "Resume hosting" : s.status==="live"?"Join Live":"View session"} onPress={()=>router.push({pathname:"/live/session",params:{id:s.id,...(isHost?{host:"1"}:{})}} as Href)}/></View>;
+    })
     </View>):<View style={{padding:20,borderRadius:23,backgroundColor:"#F6F3F1",gap:10}}>
       <BellRinging size={25} color={colors.brandDeep}/>
       <Text style={{fontFamily:fonts.semibold,fontSize:19,color:colors.ink}}>No Live sessions yet.</Text>
