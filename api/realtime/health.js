@@ -1,5 +1,3 @@
-import { RoomServiceClient, AccessToken } from "livekit-server-sdk";
-
 function env(name) {
   const value = process.env[name];
   if (!value) throw new Error(`Missing ${name}`);
@@ -10,6 +8,7 @@ export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ ok: false, error: "Method not allowed" });
   let roomName = "";
   try {
+    const { RoomServiceClient, AccessToken } = await import("livekit-server-sdk");
     const livekitUrl = env("LIVEKIT_URL");
     const apiKey = env("LIVEKIT_API_KEY");
     const apiSecret = env("LIVEKIT_API_SECRET");
