@@ -47,8 +47,6 @@ export default async function handler(req, res) {
       }
       role = "host";
     } else if (requestedRole === "speaker" || requestedRole === "requester") {
-      // Speaker/requester publishing is granted only after the app explicitly promotes the
-      // participant. Until that workflow is implemented, these roles remain subscriber-only.
       role = "viewer";
     }
 
@@ -60,7 +58,7 @@ export default async function handler(req, res) {
     const at = new AccessToken(env("LIVEKIT_API_KEY"), env("LIVEKIT_API_SECRET"), {
       identity: userData.user.id,
       name: userData.user.user_metadata?.display_name || userData.user.email || "Unmasker",
-      ttl: "2h",
+      ttl: "15m",
     });
     at.addGrant({
       roomJoin: true,
