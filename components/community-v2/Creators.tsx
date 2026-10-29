@@ -1,7 +1,7 @@
 import { Field } from "@/components/community-v2/ui";
 import { useState } from "react";
 import { fonts } from "@/constants/theme";
-import { Linking, View } from "react-native";
+import { Linking, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import * as api from "@/lib/community-v2/api";
