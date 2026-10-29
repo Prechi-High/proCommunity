@@ -1,5 +1,6 @@
 import { Field } from "@/components/community-v2/ui";
 import { useState } from "react";
+import { fonts } from "@/constants/theme";
 import { Linking, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
@@ -98,7 +99,7 @@ export function Creators({
             <View style={{ flex: 1, gap: 8 }}>
               <Heading>{c.display_name}</Heading>
               <Copy muted>@{c.handle}</Copy>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}><Pill>Unmask Creator</Pill><Text style={{ fontFamily: "GeneralSans-Medium", fontSize: 11, color: "#6F5961" }}>{c.verification_level === "verified_professional" ? "Verified professional" : c.verification_level === "expert" ? "Expert" : "Creator"}</Text></View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}><Pill>Unmask Creator</Pill><Text style={{ fontFamily: fonts.medium, fontSize: 11, color: "#6F5961" }}>{c.verification_level === "verified_professional" ? "Verified professional" : c.verification_level === "expert" ? "Expert" : "Creator"}</Text></View>
             </View>
           </View>
           <Copy>{c.bio}</Copy>
