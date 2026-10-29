@@ -30,7 +30,7 @@ export default async function handler(req: ReqReq, res: ReqRes) {
   }
 
   try {
-    const { ProductIdentificationService } = await import('@/lib/services/product-identification/productIdentification');
+    const { ProductIdentificationService } = await import('../../lib/services/product-identification/productIdentification');
     const service = new ProductIdentificationService();
 
     let result;
