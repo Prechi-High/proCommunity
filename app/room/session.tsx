@@ -1,3 +1,0 @@
-import { useLocalSearchParams } from "expo-router";
-import { AppShell, StatusMessage } from "@/components/unmask-ui";
-export default function RoomSession(){const{id}=useLocalSearchParams<{id?:string}>();return <AppShell back title="Room"><StatusMessage title="Realtime connection is ready for provider setup." detail={id? "The room record exists. Add LiveKit credentials to connect the audio layer; the product lifecycle is already persisted in Supabase.":"Choose a room from Room."}/></AppShell>}
