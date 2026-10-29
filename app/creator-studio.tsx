@@ -28,19 +28,24 @@ export default function CreatorStudio() {
     if (!uid || !creator || busy || !title.trim()) return;
     setBusy(true); setError("");
     try {
-      const { data, error: e } = await db().from("unmask_realtime_sessions").insert({
-        mode,
-        host_creator_id: uid,
-        title: title.trim(),
-        description: description.trim(),
-        status: "live",
-        started_at: new Date().toISOString(),
-        recording_status: "not_requested",
-        transcript_status: "not_requested",
-      }).select("id").single();
-      if (e) throw e;
-      if (!data?.id) throw new Error("The session was created without an id.");
-      r.replace({ pathname: mode === "live" ? "/live/session" : "/room/session", params: { id: data.id, host: "1" } } as Href);
+      const { data: auth } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+      if (!auth.session?.access_token) throw new Error("Sign in required.");
+      const response = await fetch("/api/realtime/create-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${auth.session.access_token}`,
+        },
+        body: JSON.stringify({
+          mode,
+          title: title.trim(),
+          description: description.trim(),
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Could not start the session.");
+      if (!payload?.id) throw new Error("The session was created without an id.");
+      r.replace({ pathname: mode === "live" ? "/live/session" : "/room/session", params: { id: payload.id, host: "1" } } as Href);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not start the session.");
     } finally { setBusy(false); }
