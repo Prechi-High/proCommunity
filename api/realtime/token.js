@@ -112,7 +112,7 @@ export default async function handler(req, res) {
 
     const { data: session, error: sessionError } = await supabase
       .from("unmask_realtime_sessions")
-      .select("id,mode,status,host_creator_id,room_name")
+      .select("id,mode,status,host_creator_id,room_name,metadata")
       .eq("id", sessionId)
       .single();
     if (sessionError || !session) return send(res, 404, { error: "Session not found." });
