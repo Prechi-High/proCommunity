@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
 
 import {
   CaretRight,
@@ -11,6 +12,7 @@ import { COPY } from "@/constants/brand";
 import { colors, fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { useAppStore } from "@/lib/store";
+import { db } from "@/lib/clarity/api";
 
 import { ActionSheet } from "./ActionSheet";
 
@@ -43,7 +45,9 @@ export function CreateSheet({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const signedIn = Boolean(useAppStore((s) => s.profile?.id));
+  const uid = useAppStore((s) => s.profile?.id);
+  const signedIn = Boolean(uid);
+  const creator = useQuery({ queryKey: ["my-creator", uid], queryFn: async () => { const { data } = await db().from("unmask_creators").select("user_id").eq("user_id", uid!).maybeSingle(); return data; }, enabled: !!uid });
   return (
     <ActionSheet
       open={open}
@@ -133,6 +137,22 @@ export function CreateSheet({
           </Pressable>
         ))}
       </View>
+      {signedIn ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => { hapticSelect(); onClose(); router.push((creator.data ? "/creator-studio" : "/creator-program") as Href); }}
+          style={{ flexDirection: "row", gap: 14, alignItems: "center", minHeight: 70, paddingHorizontal: 14, paddingVertical: 12, marginTop: 10, borderRadius: 18, backgroundColor: "#F3EBE2" }}
+        >
+          <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" }}>
+            <ChatCircle size={22} color={colors.brandDeep} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: colors.ink }}>{creator.data ? "Creator Studio" : "Creator Program"}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.inkSoft }}>{creator.data ? "Go live, open a Room or manage your creator identity." : "Apply to join the Unmask creator network."}</Text>
+          </View>
+          <CaretRight size={16} color={colors.bone3} />
+        </Pressable>
+      ) : null}
     </ActionSheet>
   );
 }
