@@ -23,7 +23,9 @@ export default async function handler(req, res) {
       const { AccessToken, TokenVerifier, RoomServiceClient } = await import("livekit-server-sdk");
       const url = env("LIVEKIT_URL"), key = env("LIVEKIT_API_KEY"), secret = env("LIVEKIT_API_SECRET");
       const room = "unmask-health-" + Date.now();
-      const token = await new AccessToken(key, secret, { identity: "unmask-health-check", ttl: "2m" }).addGrant({ roomJoin: true, room, canSubscribe: true }).toJwt();
+      const at = new AccessToken(key, secret, { identity: "unmask-health-check", ttl: "2m" });
+      at.addGrant({ roomJoin: true, room, canSubscribe: true });
+      const token = await at.toJwt();
       const claims = await new TokenVerifier(key, secret).verify(token);
       const host = new URL(url);
       if (host.protocol === "wss:") host.protocol = "https:";
