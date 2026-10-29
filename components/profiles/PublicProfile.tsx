@@ -1,4 +1,5 @@
 import { MemberAvatar } from "@/components/unmask-ui/MemberAvatar";
+import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
 import { memberIdentity, foundingMember } from "@/lib/membership";
 import { useState } from "react";
 import { Linking, Share, Text, View } from "react-native";
@@ -121,7 +122,8 @@ export function PublicProfile({
       <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
         <MemberAvatar name={name} uri={avatar} size={72} claimed={!!member.data} founding={!!founder.data} />
         <View style={{ flex: 1, gap: 4 }}>
-          <Text
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text
             style={{
               fontFamily: fonts.serifBold,
               fontSize: 26,
@@ -131,7 +133,9 @@ export function PublicProfile({
             }}
           >
             {name}
-          </Text>
+            </Text>
+            {unmasker ? <CreatorMark mark={live?.creator_mark || id} size={28} /> : null}
+          </View>
           {handle ? (
             <Text
               style={{
@@ -147,15 +151,23 @@ export function PublicProfile({
       </View>
       {founder.data ? <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#89641C" }}>Founding member · Here from the beginning</Text> : member.data ? <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.inkSoft }}>Unmasker</Text> : null}
       {unmasker ? (
-        <Text
+        <View style={{ gap: 7 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <CreatorMark mark={live?.creator_mark || id} size={24} />
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 12, letterSpacing: 0.7, color: colors.brandDeep }}>
+              {live?.verification_level === "verified_professional" ? "VERIFIED PROFESSIONAL" : live?.verification_level === "expert" ? "UNMASK EXPERT" : "UNMASK CREATOR"}
+            </Text>
+          </View>
+          <Text
           style={{
             fontFamily: fonts.medium,
             fontSize: 13,
             color: colors.brandDeep,
           }}
         >
-          Unmask Creator · product investigations
-        </Text>
+          Product investigations, live conversations and evidence-led follow-through.
+          </Text>
+        </View>
       ) : null}
       {bio ? (
         <Text
