@@ -6,10 +6,12 @@ import { db } from "@/lib/clarity/api";
 import { supabase } from "@/lib/supabase";
 import { AppShell, ActionButton, StatusMessage } from "@/components/unmask-ui";
 import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
-import { ChatCircleDots, Play, UsersThree } from "@/components/icons";
+import { ChatCircleDots, Play, UsersThree, Microphone, UserPlus, X } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
+import { useAppStore } from "@/lib/store";
 
 type ChatItem = { id: string; name: string; text: string };
+type Creator = { user_id: string; display_name: string; handle: string; avatar_url: string | null; creator_mark: string; status: string; published: boolean };
 
 export function RealtimeSession({
   id,
@@ -21,20 +23,32 @@ export function RealtimeSession({
   host: boolean;
 }) {
   const router = useRouter();
+  const uid = useAppStore(s => s.profile?.id);
   const roomRef = useRef<Room | null>(null);
   const mediaRef = useRef<any>(null);
   const [state, setState] = useState("connecting");
   const [count, setCount] = useState(0);
-  const [micOn, setMicOn] = useState(host);
-  const [cameraOn, setCameraOn] = useState(mode === "live" && host);
+  const [micOn, setMicOn] = useState(false);
+  const [cameraOn, setCameraOn] = useState(false);
   const [canPlayAudio, setCanPlayAudio] = useState(true);
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState<ChatItem[]>([]);
   const [speaker, setSpeaker] = useState("");
+  const [speaking, setSpeaking] = useState(false);
+  const [pulse, setPulse] = useState(0);
   const [title, setTitle] = useState(mode === "live" ? "Live" : "Room");
   const [creator, setCreator] = useState<any>(null);
+  const [liveRole, setLiveRole] = useState<"viewer" | "host" | "cohost">("viewer");
+  const [creators, setCreators] = useState<Creator[]>([]);
+  const [cohostIds, setCohostIds] = useState<string[]>([]);
   const encoder = useMemo(() => new TextEncoder(), []);
   const decoder = useMemo(() => new TextDecoder(), []);
+
+  useEffect(() => {
+    if (!speaking) return;
+    const timer = setInterval(() => setPulse(v => (v + 1) % 2), 220);
+    return () => clearInterval(timer);
+  }, [speaking]);
 
   useEffect(() => {
     if (!id) return;
@@ -66,17 +80,22 @@ export function RealtimeSession({
         const res = await fetch("/api/realtime/token", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.session.access_token}` },
-          body: JSON.stringify({ sessionId: id, role: host ? "host" : "viewer" }),
+          body: JSON.stringify({ sessionId: id, role: host ? "host" : "cohost" }),
         });
         const payload = await res.json();
         if (!res.ok) throw new Error(payload.error || "Could not join the session.");
 
+        setLiveRole(payload.role || "viewer");
         const room = new Room({ adaptiveStream: true, dynacast: true, disconnectOnPageLeave: true });
         roomRef.current = room;
         const sync = () => setCount(room.numParticipants);
         const onTrack = (track: RemoteTrack) => attach(track);
         const onUntrack = (track: RemoteTrack) => detach(track);
-        const onSpeaker = (people: Participant[]) => setSpeaker(people[0]?.name || people[0]?.identity || "");
+        const onSpeaker = (people: Participant[]) => {
+          const first = people[0];
+          setSpeaker(first?.name || first?.identity || "");
+          setSpeaking(people.length > 0);
+        };
         const onChat = (payloadBytes: Uint8Array, participant?: Participant) => {
           try {
             const item = JSON.parse(decoder.decode(payloadBytes));
@@ -97,11 +116,24 @@ export function RealtimeSession({
         if (dead) return;
         sync();
 
-        const session = await db().from("unmask_realtime_sessions").select("title,host_creator_id,unmask_creators(display_name,handle,avatar_url,creator_mark,verification_level)").eq("id", id).single();
+        const session = await db().from("unmask_realtime_sessions")
+          .select("title,host_creator_id,metadata,unmask_creators(display_name,handle,avatar_url,creator_mark,verification_level)")
+          .eq("id", id).single();
         if (!session.error) {
           setTitle(session.data?.title || title);
           const c = Array.isArray(session.data?.unmask_creators) ? session.data?.unmask_creators[0] : session.data?.unmask_creators;
           setCreator(c || null);
+          const ids = Array.isArray(session.data?.metadata?.cohost_ids) ? session.data.metadata.cohost_ids.map(String) : [];
+          setCohostIds(ids);
+        }
+
+        if (host) {
+          const { data } = await db().from("unmask_creators")
+            .select("user_id,display_name,handle,avatar_url,creator_mark,status,published")
+            .eq("published", true)
+            .in("status", ["trial", "active", "expert", "verified_professional"])
+            .neq("user_id", uid || "");
+          setCreators((data || []) as Creator[]);
         }
 
         for (const participant of room.remoteParticipants.values()) {
@@ -110,13 +142,13 @@ export function RealtimeSession({
           }
         }
 
-        if (host) {
+        if (payload.role === "host" || payload.role === "cohost") {
           if (mode === "live") {
             await room.localParticipant.setCameraEnabled(true);
-            await room.localParticipant.setMicrophoneEnabled(true);
-          } else {
-            await room.localParticipant.setMicrophoneEnabled(true);
+            setCameraOn(true);
           }
+          await room.localParticipant.setMicrophoneEnabled(true);
+          setMicOn(true);
         }
         setState("connected");
       } catch (e) {
@@ -129,7 +161,7 @@ export function RealtimeSession({
       roomRef.current?.disconnect();
       roomRef.current = null;
     };
-  }, [id, mode, host, decoder]);
+  }, [id, mode, host, decoder, uid]);
 
   async function sendMessage() {
     const room = roomRef.current;
@@ -147,7 +179,7 @@ export function RealtimeSession({
   }
 
   async function toggleCamera() {
-    const room = roomRef.current; if (!room || mode !== "live") return;
+    const room = roomRef.current; if (!room || mode !== "live" || (liveRole !== "host" && liveRole !== "cohost")) return;
     const next = !cameraOn; await room.localParticipant.setCameraEnabled(next); setCameraOn(next);
   }
 
@@ -157,16 +189,40 @@ export function RealtimeSession({
     try { await room.startAudio(); setCanPlayAudio(true); } catch {}
   }
 
-  async function leave(end = false) {
-    const room = roomRef.current;
-    if (end && host) {
-      await db().from("unmask_realtime_sessions").update({ status: "ended", ended_at: new Date().toISOString() }).eq("id", id);
+  async function manage(action: "end" | "add_cohost" | "remove_cohost", targetUserId?: string) {
+    if (!supabase) return;
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) return;
+    const response = await fetch("/api/realtime/manage-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+      body: JSON.stringify({ action, sessionId: id, targetUserId }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Could not update the session.");
+    if (action === "add_cohost") setCohostIds(payload.cohostIds || []);
+    if (action === "remove_cohost") setCohostIds(payload.cohostIds || []);
+    if (action === "end") {
+      await roomRef.current?.disconnect();
+      router.replace("/" as Href);
     }
-    await room?.disconnect();
+  }
+
+  async function leave(end = false) {
+    if (end && host) {
+      try { await manage("end"); } catch (e) { setState(e instanceof Error ? e.message : "Could not end the session."); }
+      return;
+    }
+    await roomRef.current?.disconnect();
     router.back();
   }
 
   const active = state === "connected";
+  const canSpeak = liveRole === "host" || liveRole === "cohost";
+  const barHeights = speaking
+    ? (pulse ? [9, 25, 14, 30, 12] : [22, 12, 28, 15, 24])
+    : [5, 5, 5, 5, 5];
+
   return (
     <AppShell back title={mode === "live" ? "Live" : "Room"} subtitle={title}>
       <View style={{ gap: 14 }}>
@@ -179,9 +235,23 @@ export function RealtimeSession({
               </Text>
               <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 22, color: mode === "live" ? "#fff" : colors.ink }}>{title}</Text>
             </View>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: mode === "live" ? "#E9D8E0" : colors.inkSoft }}>{count} here</Text>
+            <View style={{ alignItems: "flex-end", gap: 2 }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 17, color: mode === "live" ? "#fff" : colors.ink }}>{count}</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: mode === "live" ? "#E9D8E0" : colors.inkSoft }}>{count === 1 ? "person here" : "people here"}</Text>
+            </View>
           </View>
-          {creator ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: mode === "live" ? "#E9D8E0" : colors.inkSoft }}>@{creator.handle} · {creator.verification_level === "verified_professional" ? "Verified professional" : creator.verification_level === "expert" ? "Expert" : "Creator"}</Text> : null}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 4 }}>
+            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 3, height: 28 }}>
+              {barHeights.map((height, index) => <View key={index} style={{ width: 4, height, borderRadius: 4, backgroundColor: speaking ? "#F2D25B" : (mode === "live" ? "#6C3A4B" : "#C8AAB6") }} />)}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: mode === "live" ? "#E9D8E0" : colors.inkSoft }}>
+                {speaking ? (speaker ? `Speaking · ${speaker}` : "Conversation is active") : "Waiting for conversation"}
+              </Text>
+            </View>
+            {canSpeak ? <Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: mode === "live" ? "#F2D25B" : colors.brandDeep }}>{liveRole === "host" ? "HOST" : "CO-HOST"}</Text> : null}
+          </View>
+          {creator ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: mode === "live" ? "#E9D8E0" : colors.inkSoft }}>@{creator.handle} · Creator</Text> : null}
         </View>
 
         {state === "connecting" ? <StatusMessage title="Connecting…" detail="Joining the realtime session." /> :
@@ -190,14 +260,13 @@ export function RealtimeSession({
 
         {active ? (
           <>
-            <View ref={mediaRef} style={{ height: mode === "live" ? 360 : 80, borderRadius: 22, backgroundColor: "#0B0306", overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
+            <View ref={mediaRef} style={{ height: mode === "live" ? 360 : 100, borderRadius: 22, backgroundColor: "#0B0306", overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
               {mode === "room" ? <ChatCircleDots size={34} color="#F2D25B" /> : <Play size={34} color="#F2D25B" weight="fill" />}
-              {speaker ? <View style={{ position: "absolute", bottom: 14, left: 14, right: 14, padding: 10, borderRadius: 14, backgroundColor: "#0B0306CC" }}><Text style={{ fontFamily: fonts.medium, fontSize: 12, color: "#fff" }}>Speaking · {speaker}</Text></View> : null}
             </View>
 
-            {!canPlayAudio && !host ? <ActionButton label="Tap to enable audio" onPress={() => void startAudio()} /> : null}
+            {!canPlayAudio && !canSpeak ? <ActionButton label="Tap to enable audio" onPress={() => void startAudio()} /> : null}
 
-            {host ? (
+            {canSpeak ? (
               <View style={{ flexDirection: "row", gap: 10 }}>
                 <ActionButton label={micOn ? "Mute mic" : "Turn mic on"} tone={micOn ? "primary" : "secondary"} onPress={() => void toggleMic()} />
                 {mode === "live" ? <ActionButton label={cameraOn ? "Camera off" : "Camera on"} tone={cameraOn ? "primary" : "secondary"} onPress={() => void toggleCamera()} /> : null}
@@ -207,10 +276,42 @@ export function RealtimeSession({
             <View style={{ padding: 16, borderRadius: 20, backgroundColor: "#F6F3F1", gap: 9 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <UsersThree size={19} color={colors.brandDeep} />
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{count} {count === 1 ? "person" : "people"} connected</Text>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{count} {count === 1 ? "person" : "people"} in this {mode === "room" ? "Room" : "Live"}</Text>
               </View>
-              {host ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>You are hosting. Keep the conversation useful, calm and evidence-led.</Text> : <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{mode === "room" ? "You joined as a listener. The host controls who gets speaking access." : "You joined as a viewer. Camera and microphone stay off."}</Text>}
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>
+                {speaking ? (speaker ? `${speaker} is speaking now.` : "People are talking right now.") : mode === "room" ? "The Room is open. Speakers will light up as they talk." : "The Live is open. Viewers can watch and join the conversation."}
+              </Text>
             </View>
+
+            {host ? (
+              <View style={{ padding: 16, borderRadius: 20, backgroundColor: "#fff", borderWidth: 1, borderColor: "#EDE6E1", gap: 11 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <UserPlus size={18} color={colors.brandDeep} />
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>Co-hosts</Text>
+                  </View>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>{cohostIds.length} added</Text>
+                </View>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.inkSoft }}>
+                  Only active Unmask Creators can be co-hosts. Co-hosts can speak and publish in this session.
+                </Text>
+                {creators.length ? creators.map(person => {
+                  const added = cohostIds.includes(person.user_id);
+                  return (
+                    <View key={person.user_id} style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 }}>
+                      <CreatorMark mark={person.creator_mark} size={30} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.ink }}>{person.display_name}</Text>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>@{person.handle}</Text>
+                      </View>
+                      <Pressable onPress={() => void manage(added ? "remove_cohost" : "add_cohost", person.user_id)} style={{ minHeight: 34, paddingHorizontal: 11, borderRadius: 10, backgroundColor: added ? "#F3EBE2" : colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
+                        {added ? <X size={14} color={colors.brandDeep} /> : <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: "#fff" }}>Add</Text>}
+                      </Pressable>
+                    </View>
+                  );
+                }) : <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>No other active Unmask Creators are available right now.</Text>}
+              </View>
+            ) : null}
 
             <View style={{ borderWidth: 1, borderColor: "#EDE6E1", borderRadius: 20, overflow: "hidden", backgroundColor: "#fff" }}>
               <View style={{ padding: 14, borderBottomWidth: 1, borderColor: "#EDE6E1", flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -228,7 +329,14 @@ export function RealtimeSession({
               </View>
             </View>
 
-            <ActionButton tone="secondary" label={host ? "End session" : "Leave session"} onPress={() => void leave(host)} />
+            {host ? (
+              <View style={{ gap: 9 }}>
+                <ActionButton tone="secondary" label="Leave & keep live" onPress={() => void leave(false)} />
+                <ActionButton tone="secondary" label="End session" onPress={() => void leave(true)} />
+              </View>
+            ) : (
+              <ActionButton tone="secondary" label="Leave session" onPress={() => void leave(false)} />
+            )}
           </>
         ) : null}
       </View>
