@@ -40,6 +40,7 @@ type Row = {
   cohost_ids: string[];
   active_speaker_count: number;
   last_activity_at: string | null;
+  active_speaker_name: string;
   creator?: {
     display_name: string;
     handle: string;
@@ -64,6 +65,7 @@ async function loadActive() {
     cohost_ids: Array.isArray(row.metadata?.cohost_ids) ? row.metadata.cohost_ids.map(String) : [],
     active_speaker_count: Number(row.metadata?.active_speaker_count || 0),
     last_activity_at: row.metadata?.last_activity_at || null,
+    active_speaker_name: String(row.metadata?.active_speaker_name || ""),
     creator: Array.isArray(row.unmask_creators) ? row.unmask_creators[0] || null : row.unmask_creators || null,
   })) as Row[];
 }
@@ -141,7 +143,7 @@ export function RealtimeRail() {
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
                   <UsersThree size={14} color={isRoom ? colors.inkSoft : "#E9D8E0"} />
                   <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: isRoom ? colors.inkSoft : "#E9D8E0" }}>{row.participant_count} {row.participant_count === 1 ? "person" : "people"} here</Text>
-                  {activityActive ? <Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: isRoom ? colors.brandDeep : "#F2D25B" }}>LIVE TALKING</Text> : null}
+                  {activityActive ? <Text numberOfLines={1} style={{ maxWidth: 120, fontFamily: fonts.semibold, fontSize: 10, color: isRoom ? colors.brandDeep : "#F2D25B" }}>{row.active_speaker_name ? `SPEAKING · ${row.active_speaker_name}` : "LIVE TALKING"}</Text> : null}
                 </View>
               </Pressable>
               {isHost ? (
