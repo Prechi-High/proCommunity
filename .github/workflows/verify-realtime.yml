@@ -3,6 +3,8 @@ name: Verify realtime implementation
 on:
   push:
     branches: [master]
+  pull_request:
+    branches: [master]
 
 permissions:
   contents: read
