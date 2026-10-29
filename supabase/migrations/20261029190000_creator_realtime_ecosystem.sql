@@ -135,3 +135,8 @@ drop policy if exists gifts_participant_read on public.unmask_creator_gifts;
 create policy gifts_participant_read on public.unmask_creator_gifts for select to authenticated using (sender_id=(select auth.uid()) or creator_id=(select auth.uid()));
 
 commit;
+
+
+create or replace function public.unmask_start_creator_trial() returns trigger language plpgsql security invoker set search_path=public,pg_temp as $$ begin if new.status='trial' then update public.unmask_creators set trial_started_at=coalesce(trial_started_at,now()), trial_ends_at=coalesce(trial_ends_at,now()+interval '30 days') where user_id=new.user_id; insert into public.unmask_creator_trials(creator_id,started_at,ends_at) values(new.user_id,coalesce(new.trial_started_at,now()),coalesce(new.trial_ends_at,now()+interval '30 days')) on conflict(creator_id) do nothing; end if; return new; end; $$;
+drop trigger if exists trg_unmask_start_creator_trial on public.unmask_creators;
+create trigger trg_unmask_start_creator_trial after insert on public.unmask_creators for each row execute function public.unmask_start_creator_trial();
