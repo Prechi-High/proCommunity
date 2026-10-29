@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { AppShell, ActionButton, Skeleton } from "@/components/unmask-ui";
 import { Play, UsersThree, BellRinging, ChatCircleDots } from "@/components/icons";
@@ -12,7 +12,29 @@ export default function Live() {
   const router=useRouter();
   const [rows,setRows]=useState<Session[]>([]);
   const [loading,setLoading]=useState(true);
-  useEffect(()=>{let active=true;db().from("unmask_realtime_sessions").select("id,title,description,status,scheduled_at").eq("mode","live").in("status",["scheduled","live"]).order("scheduled_at",{ascending:true}).limit(20).then(({data})=>{if(active){setRows((data??[]) as Session[]);setLoading(false)}}).catch(()=>{if(active)setLoading(false)});return()=>{active=false}},[]);
+
+  useEffect(()=>{
+    let active=true;
+    const load=async()=>{
+      try{
+        const {data}=await db()
+          .from("unmask_realtime_sessions")
+          .select("id,title,description,status,scheduled_at")
+          .eq("mode","live")
+          .in("status",["scheduled","live"])
+          .order("scheduled_at",{ascending:true})
+          .limit(20);
+        if(active)setRows((data??[]) as Session[]);
+      }catch{
+        // Keep the empty state when the realtime session feed is unavailable.
+      }finally{
+        if(active)setLoading(false);
+      }
+    };
+    void load();
+    return()=>{active=false};
+  },[]);
+
   return <AppShell back title="Live" subtitle="Discovery, in real time."><View style={{gap:16}}>
     <View style={{padding:22,borderRadius:26,backgroundColor:"#2A0E16",gap:11}}>
       <Play size={28} color="#F2D25B" weight="fill"/>
