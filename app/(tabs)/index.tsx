@@ -4,7 +4,7 @@ import { Pressable, Text, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { AppShell, ActionButton, SearchField, Skeleton, StatusMessage } from "@/components/unmask-ui";
+import { AppShell, ActionButton, SearchField, Skeleton, StatusMessage, RealtimeRail } from "@/components/unmask-ui";
 import { Lightning, ArrowRight, UsersThree, Play, Sparkle, Check } from "@/components/icons";
 import { MemberAvatar } from "@/components/unmask-ui/MemberAvatar";
 import { CreatorUpdates } from "@/components/unmask-ui/CreatorUpdates";
@@ -52,6 +52,7 @@ export default function Home() {
       </View>
     </View>
     <View style={{ marginHorizontal: -20, marginTop: 2 }}><CreatorUpdates /></View>
+    <RealtimeRail />
     <MonthlySparkCard />
     <LinearGradient colors={["#4E1E33", "#25111F"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 27, padding: 22, overflow: "hidden", gap: 14 }}>
       <View pointerEvents="none" style={{ position: "absolute", right: -35, top: -34, width: 180, height: 180, borderWidth: 1, borderColor: "#8B5A7133", borderRadius: 100, alignItems: "center", justifyContent: "center" }}><View style={{ width: 135, height: 135, borderWidth: 1, borderColor: "#8B5A7144", borderRadius: 100, alignItems: "center", justifyContent: "center" }}><Lightning size={70} weight="fill" color="#E6C77822" /></View></View>
