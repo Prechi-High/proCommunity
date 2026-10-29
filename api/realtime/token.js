@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     const sessionId = String(body.sessionId || "");
     const requestedRole = String(body.role || "viewer");
     if (!sessionId) return send(res, 400, { error: "sessionId is required." });
-    if (!["viewer", "host", "speaker", "requester"].includes(requestedRole)) return send(res, 400, { error: "Invalid role." });
+    if (!["viewer", "host", "cohost", "speaker", "requester"].includes(requestedRole)) return send(res, 400, { error: "Invalid role." });
 
     const { data: session, error: sessionError } = await supabase
       .from("unmask_realtime_sessions")
@@ -47,12 +47,21 @@ export default async function handler(req, res) {
     if (session.status === "cancelled") return send(res, 409, { error: "Session is cancelled." });
 
     let role = "viewer";
+    const sessionMetadata = session.metadata && typeof session.metadata === "object" ? session.metadata : {};
+    const cohostIds = Array.isArray(sessionMetadata.cohost_ids) ? sessionMetadata.cohost_ids.map(String) : [];
     if (requestedRole === "host") {
       const { data: creator } = await supabase.from("unmask_creators").select("user_id,status,published").eq("user_id", userData.user.id).maybeSingle();
       if (!creator || creator.user_id !== session.host_creator_id || !["trial","active","expert","verified_professional"].includes(creator.status)) {
         return send(res, 403, { error: "You are not the host of this session." });
       }
       role = "host";
+    } else if (requestedRole === "cohost") {
+      const { data: creator } = await supabase.from("unmask_creators").select("user_id,status,published").eq("user_id", userData.user.id).maybeSingle();
+      if (creator && creator.published && ["trial","active","expert","verified_professional"].includes(creator.status) && cohostIds.includes(userData.user.id)) {
+        role = "cohost";
+      } else {
+        role = "viewer";
+      }
     } else if (requestedRole === "speaker" || requestedRole === "requester") {
       role = "viewer";
     }
@@ -74,7 +83,7 @@ export default async function handler(req, res) {
     at.addGrant({
       roomJoin: true,
       room: roomName,
-      canPublish: role === "host",
+      canPublish: role === "host" || role === "cohost",
       canSubscribe: true,
       canPublishData: true,
     });
