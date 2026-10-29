@@ -15,36 +15,45 @@ function httpHost(value) {
 export default async function handler(req, res) {
   if (req.method !== "GET") return send(res, 405, { error: "Method not allowed" });
 
+  const result = {
+    ok: false,
+    urlProtocol: null,
+    serverApiReachable: false,
+    tokenCreated: false,
+    tokenSignatureValid: false,
+  };
+
   try {
     const { AccessToken, RoomServiceClient, TokenVerifier } = await import("livekit-server-sdk");
     const url = env("LIVEKIT_URL");
     const apiKey = env("LIVEKIT_API_KEY");
     const apiSecret = env("LIVEKIT_API_SECRET");
-    const roomName = `unmask-health-${Date.now()}`;
+    result.urlProtocol = new URL(url).protocol;
 
+    const roomName = `unmask-health-${Date.now()}`;
     const at = new AccessToken(apiKey, apiSecret, { identity: "unmask-health-check", ttl: "2m" });
     at.addGrant({ roomJoin: true, room: roomName, canSubscribe: true, canPublishData: true });
     const token = await at.toJwt();
+    result.tokenCreated = Boolean(token);
 
-    const verifier = new TokenVerifier(apiKey, apiSecret);
-    const claims = await verifier.verify(token);
+    try {
+      const verifier = new TokenVerifier(apiKey, apiSecret);
+      const claims = await verifier.verify(token);
+      result.tokenSignatureValid = Boolean(claims?.iss);
+    } catch (error) {
+      return send(res, 500, { ...result, stage: "token-verification", error: error instanceof Error ? error.message : String(error) });
+    }
 
-    const service = new RoomServiceClient(httpHost(url), apiKey, apiSecret);
-    await service.listRooms([roomName]);
+    try {
+      const service = new RoomServiceClient(httpHost(url), apiKey, apiSecret);
+      await service.listRooms([roomName]);
+      result.serverApiReachable = true;
+    } catch (error) {
+      return send(res, 500, { ...result, stage: "server-api", error: error instanceof Error ? error.message : String(error), httpHost: httpHost(url) });
+    }
 
-    return send(res, 200, {
-      ok: true,
-      urlProtocol: new URL(url).protocol,
-      serverApiReachable: true,
-      tokenSignatureValid: true,
-      tokenIssuer: claims.iss,
-      room: roomName,
-    });
+    return send(res, 200, { ...result, ok: true });
   } catch (error) {
-    console.error("realtime health error", error);
-    return send(res, 500, {
-      ok: false,
-      error: error instanceof Error ? error.message : "Realtime health check failed.",
-    });
+    return send(res, 500, { ...result, stage: "setup", error: error instanceof Error ? error.message : String(error) });
   }
 }
