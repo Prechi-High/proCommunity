@@ -44,12 +44,23 @@ export default async function handler(req, res) {
           .eq("id", sessionId).single();
         if (presenceError || !presenceSession) return send(res, 404, { error: "Session not found." });
         if (presenceSession.status !== "live") return send(res, 409, { error: "This session is no longer live." });
-        const count = presenceSession.room_name
-          ? (await new RoomServiceClient(httpHost(env("LIVEKIT_URL")), env("LIVEKIT_API_KEY"), env("LIVEKIT_API_SECRET")).listParticipants(presenceSession.room_name))?.length || 0
-          : 0;
+        const participants = presenceSession.room_name
+          ? await new RoomServiceClient(httpHost(env("LIVEKIT_URL")), env("LIVEKIT_API_KEY"), env("LIVEKIT_API_SECRET")).listParticipants(presenceSession.room_name)
+          : [];
+        const count = Array.isArray(participants) ? participants.length : 0;
+        const requestedActiveCount = Number(body.activeSpeakerCount || 0);
+        const activeSpeakerCount = Number.isFinite(requestedActiveCount) ? Math.max(0, Math.min(requestedActiveCount, count)) : 0;
+        const activeSpeakerName = typeof body.activeSpeakerName === "string" ? body.activeSpeakerName.slice(0, 120) : "";
         const metadata = presenceSession.metadata && typeof presenceSession.metadata === "object" ? presenceSession.metadata : {};
-        await supabase.from("unmask_realtime_sessions").update({ metadata: { ...metadata, participant_count: count } }).eq("id", sessionId);
-        return send(res, 200, { ok: true, participantCount: count });
+        const nextMetadata = {
+          ...metadata,
+          participant_count: count,
+          active_speaker_count: activeSpeakerCount,
+          active_speaker_name: activeSpeakerCount > 0 ? activeSpeakerName : "",
+          last_activity_at: activeSpeakerCount > 0 ? new Date().toISOString() : (metadata.last_activity_at || null),
+        };
+        await supabase.from("unmask_realtime_sessions").update({ metadata: nextMetadata }).eq("id", sessionId);
+        return send(res, 200, { ok: true, participantCount: count, activeSpeakerCount });
       }
 
 
@@ -110,21 +121,24 @@ export default async function handler(req, res) {
     let role = "viewer";
     const sessionMetadata = session.metadata && typeof session.metadata === "object" ? session.metadata : {};
     const cohostIds = Array.isArray(sessionMetadata.cohost_ids) ? sessionMetadata.cohost_ids.map(String) : [];
-    if (requestedRole === "host") {
-      const { data: creator } = await supabase.from("unmask_creators").select("user_id,status,published").eq("user_id", userData.user.id).maybeSingle();
-      if (!creator || creator.user_id !== session.host_creator_id || !["trial","active","expert","verified_professional"].includes(creator.status)) {
-        return send(res, 403, { error: "You are not the host of this session." });
-      }
+    const { data: requesterCreator } = await supabase
+      .from("unmask_creators")
+      .select("user_id,status,published")
+      .eq("user_id", userData.user.id)
+      .maybeSingle();
+    const creatorCanHost = !!requesterCreator &&
+      requesterCreator.published &&
+      ["trial","active","expert","verified_professional"].includes(requesterCreator.status);
+
+    // The database is authoritative: the session owner is always the host,
+    // regardless of how the client reached the session.
+    if (userData.user.id === session.host_creator_id) {
+      if (!creatorCanHost) return send(res, 403, { error: "Your creator access is no longer active." });
       role = "host";
-    } else if (requestedRole === "cohost") {
-      const { data: creator } = await supabase.from("unmask_creators").select("user_id,status,published").eq("user_id", userData.user.id).maybeSingle();
-      if (creator && creator.published && ["trial","active","expert","verified_professional"].includes(creator.status) && cohostIds.includes(userData.user.id)) {
-        role = "cohost";
-      } else {
-        role = "viewer";
-      }
-    } else if (requestedRole === "speaker" || requestedRole === "requester") {
-      role = "viewer";
+    } else if (requestedRole === "cohost" && creatorCanHost && cohostIds.includes(userData.user.id)) {
+      role = "cohost";
+    } else if (requestedRole === "host") {
+      return send(res, 403, { error: "You are not the host of this session." });
     }
 
     const roomName = session.room_name || `unmask-${session.id}`;
