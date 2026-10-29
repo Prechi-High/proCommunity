@@ -78,7 +78,7 @@ export function RealtimeRail() {
             >
               <View style={{ flexDirection: "row", alignItems: "center", gap: 11 }}>
                 <View style={{ position: "relative" }}>
-                  <Avatar uri={creator?.avatar_url || undefined} size={44} />
+                  <Avatar name={creator?.display_name || "Unmask Creator"} uri={creator?.avatar_url || undefined} size={44} />
                   <View style={{ position: "absolute", right: -4, bottom: -4, borderRadius: 12, backgroundColor: isRoom ? "#F3EBE2" : "#2A0E16", padding: 2 }}>
                     <CreatorMark mark={creator?.creator_mark || row.host_creator_id || row.id} size={20} />
                   </View>
