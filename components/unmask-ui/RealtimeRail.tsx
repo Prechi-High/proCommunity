@@ -27,7 +27,7 @@ type Row = {
 };
 
 async function loadActive() {
-  const response = await fetch("/api/realtime/active", { cache: "no-store" });
+  const response = await fetch("/api/realtime/token?view=active", { cache: "no-store" });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Could not load live sessions.");
   return (payload.sessions || []) as Row[];
@@ -44,7 +44,7 @@ export function RealtimeRail() {
     if (!supabase) return;
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) return;
-    const response = await fetch("/api/realtime/manage-session", {
+    const response = await fetch("/api/realtime/token", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
       body: JSON.stringify({ action: "end", sessionId: id }),
