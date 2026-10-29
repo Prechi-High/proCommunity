@@ -1,3 +1,0 @@
-import { useLocalSearchParams } from "expo-router";
-import { AppShell, StatusMessage } from "@/components/unmask-ui";
-export default function LiveSession(){const{id}=useLocalSearchParams<{id?:string}>();return <AppShell back title="Live session"><StatusMessage title="Realtime connection is ready for provider setup." detail={id? "The session record exists. Add LiveKit credentials to connect the media layer; the product lifecycle is already persisted in Supabase.":"Choose a session from Live."}/></AppShell>}
