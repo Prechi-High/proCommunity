@@ -3,6 +3,7 @@ import { Text, TextInput, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { useAppStore } from "@/lib/store";
 import { db } from "@/lib/clarity/api";
+import { supabase } from "@/lib/supabase";
 import { AppShell, ActionButton, StatusMessage } from "@/components/unmask-ui";
 import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
 import { colors, fonts } from "@/constants/theme";
@@ -28,7 +29,8 @@ export default function CreatorStudio() {
     if (!uid || !creator || busy || !title.trim()) return;
     setBusy(true); setError("");
     try {
-      const { data: auth } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+      if (!supabase) throw new Error("Connection unavailable.");
+      const { data: auth } = await supabase.auth.getSession();
       if (!auth.session?.access_token) throw new Error("Sign in required.");
       const response = await fetch("/api/realtime/create-session", {
         method: "POST",
