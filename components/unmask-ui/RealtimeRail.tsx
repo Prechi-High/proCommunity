@@ -27,10 +27,20 @@ type Row = {
 };
 
 async function loadActive() {
-  const response = await fetch("/api/realtime/token?view=active", { cache: "no-store" });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "Could not load live sessions.");
-  return (payload.sessions || []) as Row[];
+  const { data, error } = await db()
+    .from("unmask_realtime_sessions")
+    .select("id,mode,title,description,host_creator_id,started_at,metadata,unmask_creators(display_name,handle,avatar_url,creator_mark,verification_level)")
+    .eq("status", "live")
+    .in("mode", ["live", "room"])
+    .order("started_at", { ascending: false })
+    .limit(12);
+  if (error) throw error;
+  return (data || []).map((row: any) => ({
+    ...row,
+    participant_count: Number(row.metadata?.participant_count || 0),
+    cohost_ids: Array.isArray(row.metadata?.cohost_ids) ? row.metadata.cohost_ids.map(String) : [],
+    creator: Array.isArray(row.unmask_creators) ? row.unmask_creators[0] || null : row.unmask_creators || null,
+  })) as Row[];
 }
 
 export function RealtimeRail() {
