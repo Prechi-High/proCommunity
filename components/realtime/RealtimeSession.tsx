@@ -85,10 +85,22 @@ export function RealtimeSession({
         const payload = await res.json();
         if (!res.ok) throw new Error(payload.error || "Could not join the session.");
 
+        const syncPresence = async () => {
+          try {
+            const presence = await fetch("/api/realtime/token", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.session.access_token}` },
+              body: JSON.stringify({ action: "sync_presence", sessionId: id }),
+            });
+            const result = await presence.json().catch(() => ({}));
+            if (presence.ok && typeof result.participantCount === "number") setCount(result.participantCount);
+          } catch {}
+        };
+
         setLiveRole(payload.role || "viewer");
         const room = new Room({ adaptiveStream: true, dynacast: true, disconnectOnPageLeave: true });
         roomRef.current = room;
-        const sync = () => setCount(room.numParticipants);
+        const sync = () => { setCount(room.numParticipants); void syncPresence(); };
         const onTrack = (track: RemoteTrack) => attach(track);
         const onUntrack = (track: RemoteTrack) => detach(track);
         const onSpeaker = (people: Participant[]) => {
@@ -115,6 +127,7 @@ export function RealtimeSession({
         await room.connect(payload.serverUrl, payload.participantToken);
         if (dead) return;
         sync();
+        void syncPresence();
 
         const session = await db().from("unmask_realtime_sessions")
           .select("title,host_creator_id,metadata,unmask_creators(display_name,handle,avatar_url,creator_mark,verification_level)")
@@ -158,7 +171,19 @@ export function RealtimeSession({
 
     return () => {
       dead = true;
-      roomRef.current?.disconnect();
+      void roomRef.current?.disconnect().then(() => {
+        if (supabase) {
+          supabase.auth.getSession().then(({ data }) => {
+            if (data.session?.access_token) {
+              void fetch("/api/realtime/token", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+                body: JSON.stringify({ action: "sync_presence", sessionId: id }),
+              });
+            }
+          });
+        }
+      });
       roomRef.current = null;
     };
   }, [id, mode, host, decoder, uid]);
