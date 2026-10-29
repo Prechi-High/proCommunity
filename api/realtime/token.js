@@ -18,24 +18,6 @@ function websocketUrl(value) {
 }
 
 export default async function handler(req, res) {
-  if (req.method === "GET") {
-    try {
-      const { AccessToken, TokenVerifier, RoomServiceClient } = await import("livekit-server-sdk");
-      const url = env("LIVEKIT_URL"), key = env("LIVEKIT_API_KEY"), secret = env("LIVEKIT_API_SECRET");
-      const room = "unmask-health-" + Date.now();
-      const at = new AccessToken(key, secret, { identity: "unmask-health-check", ttl: "2m" });
-      at.addGrant({ roomJoin: true, room, canSubscribe: true });
-      const token = await at.toJwt();
-      const claims = await new TokenVerifier(key, secret).verify(token);
-      const host = new URL(url);
-      if (host.protocol === "wss:") host.protocol = "https:";
-      if (host.protocol === "ws:") host.protocol = "http:";
-      await new RoomServiceClient(host.toString().replace(/\/$/, ""), key, secret).listRooms([room]);
-      return send(res, 200, { ok: true, tokenSignatureValid: Boolean(claims?.iss), serverApiReachable: true, urlProtocol: new URL(url).protocol });
-    } catch (error) {
-      return send(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
-    }
-  }
   if (req.method !== "POST") return send(res, 405, { error: "Method not allowed" });
 
   try {
