@@ -41,7 +41,7 @@ function Content() {
       <Card>
         <Heading>Creator applications</Heading>
         <Busy loading={applications.isLoading} error={applications.error} />
-        {(applications.data || []).map((app: any) => (
+        {((applications.data || []) as any[]).map((app: any) => (
           <View key={app.id} style={{ gap: 8, paddingTop: 10 }}>
             <Heading>{app.display_name}</Heading>
             <Copy>@{app.handle}</Copy>
@@ -84,7 +84,7 @@ function Content() {
             </View>
           </View>
         ))}
-        {applications.data?.length === 0 ? <Copy muted>No pending applications.</Copy> : null}
+        {(applications.data as any[] | undefined)?.length === 0 ? <Copy muted>No pending applications.</Copy> : null}
       </Card>
       {q.data?.map((c) => (
         <Card key={c.user_id}>
