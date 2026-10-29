@@ -1,6 +1,6 @@
 import { Field } from "@/components/community-v2/ui";
 import { useState } from "react";
-import { Linking, View } from "react-native";
+import { Linking, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import * as api from "@/lib/community-v2/api";
@@ -83,7 +83,12 @@ export function Creators({
             <View style={{ flex: 1, gap: 8 }}>
               <Heading>{c.display_name}</Heading>
               <Copy muted>@{c.handle}</Copy>
-              <Pill>Unmask Creator</Pill>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                <Pill>{c.status === "trial" ? "Creator Trial" : c.verification_level === "verified_professional" ? "Verified Professional" : c.verification_level === "expert" ? "Unmask Expert" : "Unmask Creator"}</Pill>
+                <View style={{ width: 22, height: 22, borderRadius: 7, backgroundColor: "#2A0E16", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ color: "#F2D25B", fontSize: 11, fontWeight: "800" }}>U</Text>
+                </View>
+              </View>
             </View>
           </View>
           <Copy>{c.bio}</Copy>
