@@ -24,7 +24,7 @@ export default async function handler(req: ReqReq, res: ReqRes) {
   }
 
   try {
-    const { ProductIntelligenceService } = await import('@/lib/services/productIntelligence');
+    const { ProductIntelligenceService } = await import('../../lib/services/productIntelligence');
     const service = new ProductIntelligenceService();
 
     const intelligence = await service.investigateProduct(query);
