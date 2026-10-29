@@ -1,20 +1,24 @@
+import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { usePathname, useRouter, type Href } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { House, UsersThree, Scan, Package, User } from "@/components/icons";
+import { House, UsersThree, Plus, Package, User } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
+import { CreateSheet } from "./CreateSheet";
+
 export function MainNav() {
   const r = useRouter(),
     rawPath = usePathname(),
     insets = useSafeAreaInsets();
   const path =
     rawPath.replace(/\/\([^/]+\)/g, "").replace(/\/index$/, "/") || "/";
+  const [open, setOpen] = useState(false);
   const routes = [
-    { label: "Today", href: "/", Icon: House },
-    { label: "My Products", href: "/products", Icon: Package },
-    { label: "Unmask", href: "/unmask", Icon: Scan },
+    { label: "Home", href: "/", Icon: House },
     { label: "Community", href: "/community", Icon: UsersThree },
+    { label: "Create", href: null, Icon: Plus },
+    { label: "My Products", href: "/products", Icon: Package },
     { label: "You", href: "/you", Icon: User },
   ];
   return (
@@ -43,20 +47,22 @@ export function MainNav() {
               ? path === "/"
               : href === "/community"
                 ? ["/community", "/story", "/question", "/investigation", "/ultra-unmask", "/creators", "/member"].some(prefix => path.startsWith(prefix))
-              : href === "/products"
-                ? path.startsWith("/products") || path.startsWith("/journey")
-                : !!href && path.startsWith(href);
+                : href === "/products"
+                  ? path.startsWith("/products") || path.startsWith("/journey")
+                  : !!href && path.startsWith(href);
+          const create = !href;
           return (
             <Pressable
               key={label}
-              accessibilityRole="tab"
+              accessibilityRole={create ? "button" : "tab"}
               accessibilityLabel={
-                label
+                create ? "Create: share, ask or track" : label
               }
               accessibilityState={{ selected: active }}
               onPress={() => {
                 hapticSelect();
-                r.navigate(href as Href);
+                if (create) setOpen(true);
+                else r.navigate(href as Href);
               }}
               style={({ pressed }) => ({
                 flex: 1,
@@ -69,7 +75,7 @@ export function MainNav() {
             >
               <View
                 style={
-                  false
+                  create
                     ? {
                         width: 50,
                         height: 50,
@@ -84,14 +90,14 @@ export function MainNav() {
                 }
               >
                 <Icon
-                  size={23}
+                  size={create ? 27 : 23}
                   color={
-                    active ? colors.brandDeep : colors.inkSoft
+                    create ? "#fff" : active ? colors.brandDeep : colors.inkSoft
                   }
-                  weight={active ? "fill" : "regular"}
+                  weight={create ? "bold" : active ? "fill" : "regular"}
                 />
               </View>
-              {(
+              {!create ? (
                 <Text
                   style={{
                     fontFamily: active ? fonts.semibold : fonts.medium,
@@ -101,11 +107,12 @@ export function MainNav() {
                 >
                   {label}
                 </Text>
-              )}
+              ) : null}
             </Pressable>
           );
         })}
       </View>
+      <CreateSheet open={open} onClose={() => setOpen(false)} />
     </View>
   );
 }
