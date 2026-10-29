@@ -13,6 +13,9 @@ export type Creator = {
   bio: string;
   specialties: string[];
   avatar_url: string | null;
+  status?: "trial" | "active" | "expert" | "verified_professional" | "suspended" | "removed";
+  verification_level?: "creator" | "expert" | "verified_professional";
+  creator_mark?: string;
 };
 export type Publication = {
   id: string;
@@ -47,7 +50,7 @@ export const creators = () =>
   read<Creator[]>(
     db()
       .from("unmask_creators")
-      .select("user_id,display_name,handle,bio,specialties,avatar_url")
+      .select("user_id,display_name,handle,bio,specialties,avatar_url,status,verification_level,creator_mark")
       .eq("published", true)
       .order("display_name"),
   );
