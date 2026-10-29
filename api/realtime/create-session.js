@@ -49,6 +49,23 @@ export default async function handler(req, res) {
       return send(res, 403, { error: "Creator access is not active." });
     }
 
+    const { data: existingSession, error: existingSessionError } = await supabase
+      .from("unmask_realtime_sessions")
+      .select("id,mode,title,status")
+      .eq("host_creator_id", userData.user.id)
+      .eq("status", "live")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existingSessionError) throw existingSessionError;
+    if (existingSession) {
+      return send(res, 409, {
+        error: `You already have a live ${existingSession.mode === "room" ? "Room" : "broadcast"}.`,
+        sessionId: existingSession.id,
+        mode: existingSession.mode,
+      });
+    }
+
     const { RoomServiceClient } = await import("livekit-server-sdk");
     const livekitUrl = env("LIVEKIT_URL");
     const apiKey = env("LIVEKIT_API_KEY");
