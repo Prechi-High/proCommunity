@@ -39,6 +39,7 @@ export function RealtimeSession({
   const [title, setTitle] = useState(mode === "live" ? "Live" : "Room");
   const [creator, setCreator] = useState<any>(null);
   const [liveRole, setLiveRole] = useState<"viewer" | "host" | "cohost">("viewer");
+  const [isHostSession, setIsHostSession] = useState(host);
   const [creators, setCreators] = useState<Creator[]>([]);
   const [cohostIds, setCohostIds] = useState<string[]>([]);
   const encoder = useMemo(() => new TextEncoder(), []);
@@ -85,12 +86,17 @@ export function RealtimeSession({
         const payload = await res.json();
         if (!res.ok) throw new Error(payload.error || "Could not join the session.");
 
-        const syncPresence = async () => {
+        const syncPresence = async (activeSpeakerCount = 0, activeSpeakerName = "") => {
           try {
             const presence = await fetch("/api/realtime/token", {
               method: "POST",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.session.access_token}` },
-              body: JSON.stringify({ action: "sync_presence", sessionId: id }),
+              body: JSON.stringify({
+                action: "sync_presence",
+                sessionId: id,
+                activeSpeakerCount,
+                activeSpeakerName,
+              }),
             });
             const result = await presence.json().catch(() => ({}));
             if (presence.ok && typeof result.participantCount === "number") setCount(result.participantCount);
@@ -98,15 +104,20 @@ export function RealtimeSession({
         };
 
         setLiveRole(payload.role || "viewer");
+        setIsHostSession(payload.role === "host");
         const room = new Room({ adaptiveStream: true, dynacast: true, disconnectOnPageLeave: true });
         roomRef.current = room;
-        const sync = () => { setCount(room.numParticipants); void syncPresence(); };
+        const sync = () => {
+          setCount(room.numParticipants + 1);
+          void syncPresence(room.activeSpeakers.length, room.activeSpeakers[0]?.name || room.activeSpeakers[0]?.identity || "");
+        };
         const onTrack = (track: RemoteTrack) => attach(track);
         const onUntrack = (track: RemoteTrack) => detach(track);
         const onSpeaker = (people: Participant[]) => {
           const first = people[0];
           setSpeaker(first?.name || first?.identity || "");
           setSpeaking(people.length > 0);
+          void syncPresence(people.length, first?.name || first?.identity || "");
         };
         const onChat = (payloadBytes: Uint8Array, participant?: Participant) => {
           try {
@@ -127,7 +138,7 @@ export function RealtimeSession({
         await room.connect(payload.serverUrl, payload.participantToken);
         if (dead) return;
         sync();
-        void syncPresence();
+
 
         const session = await db().from("unmask_realtime_sessions")
           .select("title,host_creator_id,metadata,unmask_creators(display_name,handle,avatar_url,creator_mark,verification_level)")
@@ -140,7 +151,7 @@ export function RealtimeSession({
           setCohostIds(ids);
         }
 
-        if (host) {
+        if (payload.role === "host") {
           const { data } = await db().from("unmask_creators")
             .select("user_id,display_name,handle,avatar_url,creator_mark,status,published")
             .eq("published", true)
@@ -178,7 +189,7 @@ export function RealtimeSession({
               void fetch("/api/realtime/token", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
-                body: JSON.stringify({ action: "sync_presence", sessionId: id }),
+                body: JSON.stringify({ action: "sync_presence", sessionId: id, activeSpeakerCount: 0, activeSpeakerName: "" }),
               });
             }
           });
@@ -308,7 +319,7 @@ export function RealtimeSession({
               </Text>
             </View>
 
-            {host ? (
+            {isHostSession ? (
               <View style={{ padding: 16, borderRadius: 20, backgroundColor: "#fff", borderWidth: 1, borderColor: "#EDE6E1", gap: 11 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -354,7 +365,7 @@ export function RealtimeSession({
               </View>
             </View>
 
-            {host ? (
+            {isHostSession ? (
               <View style={{ gap: 9 }}>
                 <ActionButton tone="secondary" label="Leave & keep live" onPress={() => void leave(false)} />
                 <ActionButton tone="secondary" label="End session" onPress={() => void leave(true)} />
