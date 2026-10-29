@@ -193,7 +193,7 @@ export function RealtimeSession({
     if (!supabase) return;
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) return;
-    const response = await fetch("/api/realtime/manage-session", {
+    const response = await fetch("/api/realtime/token", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
       body: JSON.stringify({ action, sessionId: id, targetUserId }),
