@@ -107,7 +107,7 @@ export default function CreatorStudio() {
       </View>
 
       {error ? <StatusMessage kind="error" title={error} /> : null}
-      <ActionButton label={mode === "live" ? "Start Live" : "Start Room"} pending={busy} pendingLabel="Starting…" disabled={!title.trim() || busy} onPress={() => void start()} />
+      <ActionButton label={mode === "live" ? "Start Live" : "Start Room"} pending={busy} pendingLabel="Starting…" disabled={!title.trim() || busy || !!activeSession} onPress={() => void start()} />
       <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.inkSoft }}>
         {mode === "room" ? "Rooms are public and audio-first. Listeners join muted; the host controls who gets speaking access." : "Live broadcasts are public. Camera and microphone permissions will be requested when you enter."}
       </Text>
