@@ -203,11 +203,14 @@ export function PublicProfile({
         </Text>
       ) : null}
       {uid === id ? (
-        <ActionButton
-          tone="secondary"
-          label="Edit profile"
-          onPress={() => router.push("/profile/edit" as Href)}
-        />
+        <>
+          <ActionButton
+            tone="secondary"
+            label="Edit profile"
+            onPress={() => router.push("/profile/edit" as Href)}
+          />
+          {unmasker ? <ActionButton label="Open Creator Studio" onPress={() => router.push("/creator-studio" as Href)} /> : null}
+        </>
       ) : sample ? (
         <ActionButton
           tone="secondary"
