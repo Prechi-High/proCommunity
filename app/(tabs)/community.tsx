@@ -13,6 +13,7 @@ import {
   EmptyState,
   ActionButton,
   ActionSheet,
+  RealtimeRail,
 } from "@/components/unmask-ui";
 import { QuickActions } from "@/components/unmask-ui/Discovery";
 import { ArrowRight, UsersThree } from "@/components/icons";
@@ -65,6 +66,7 @@ export default function Community() {
     <AppShell notify flush>
       <View style={{ gap: 20, paddingTop: 10 }}>
         <CreatorUpdates />
+        <RealtimeRail />
         <QuickActions />
         <View style={{ paddingHorizontal: 20, gap: 14, paddingTop: 8 }}>
           <View
