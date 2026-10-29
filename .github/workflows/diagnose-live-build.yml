@@ -1,0 +1,19 @@
+name: Diagnose Live Build
+on:
+  push:
+    branches:
+      - diagnose-live-build
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm install
+      - run: npm run typecheck
+      - run: npm run test:parallel-research
+      - run: npm run test:dynamic-ui
+      - run: npx expo export --platform web
