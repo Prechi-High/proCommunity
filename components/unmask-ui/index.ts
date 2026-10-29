@@ -18,3 +18,4 @@ export { SparkSheet } from './SparkSheet';
 export { StatusMessage } from './StatusMessage';
 export { StoryCard } from './StoryCard';
 export { TimelineCheckpoint } from './TimelineCheckpoint';
+export { CreatorMark } from './CreatorMark';
