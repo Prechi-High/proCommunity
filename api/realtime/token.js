@@ -83,7 +83,7 @@ export default async function handler(req, res) {
     const livekitHttpUrl = env("LIVEKIT_URL")
       .replace(/^wss:/, "https:")
       .replace(/^ws:/, "http:")
-      .replace(/\\/$/, "");
+      .replace(/\/$/, "");
     const validationResponse = await fetch(
       \`${livekitHttpUrl}/rtc/validate?access_token=\${encodeURIComponent(participantToken)}\`,
       { method: "GET", headers: { Accept: "application/json" } },
