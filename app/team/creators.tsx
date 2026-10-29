@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   TeamGate,
