@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   TeamGate,
   TeamPage,
@@ -26,7 +26,9 @@ export default function Creators() {
 }
 function Content() {
   const action = useTeamAction();
+  const qc = useQueryClient();
   const q = useQuery({ queryKey: ["team", "creators"], queryFn: api.creators });
+  const applications = useQuery({ queryKey: ["team", "creator-applications"], queryFn: async () => api.read(db().from("unmask_creator_applications").select("*").eq("status", "pending").order("created_at", { ascending: true })) });
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
@@ -35,6 +37,54 @@ function Content() {
   return (
     <TeamPage title="Creators" tab="Operations">
       <Busy loading={q.isLoading} error={q.error} />
+      <Card>
+        <Heading>Creator applications</Heading>
+        <Busy loading={applications.isLoading} error={applications.error} />
+        {(applications.data || []).map((app: any) => (
+          <View key={app.id} style={{ gap: 8, paddingTop: 10 }}>
+            <Heading>{app.display_name}</Heading>
+            <Copy>@{app.handle}</Copy>
+            <Copy>{app.bio || "No bio yet."}</Copy>
+            <Copy small>{(app.specialties || []).join(" · ") || "No specialties listed"}</Copy>
+            {app.reason ? <Copy small>{app.reason}</Copy> : null}
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <Button
+                disabled={action.isPending}
+                label="Approve + create creator"
+                onPress={() => action.mutate(async () => {
+                  const { error } = await db().from("unmask_creators").insert({
+                    user_id: app.user_id,
+                    display_name: app.display_name,
+                    handle: app.handle,
+                    bio: app.bio,
+                    specialties: app.specialties,
+                    published: false,
+                    status: "trial",
+                    verification_level: "creator",
+                    credential_status: "unverified",
+                  });
+                  if (error) throw error;
+                  const { error: updateError } = await db().from("unmask_creator_applications").update({ status: "approved", reviewed_at: new Date().toISOString() }).eq("id", app.id);
+                  if (updateError) throw updateError;
+                  await qc.invalidateQueries({ queryKey: ["team", "creators"] });
+                  await qc.invalidateQueries({ queryKey: ["team", "creator-applications"] });
+                })}
+              />
+              <Button
+                quiet
+                disabled={action.isPending}
+                label="Reject"
+                onPress={() => action.mutate(async () => {
+                  const { error } = await db().from("unmask_creator_applications").update({ status: "rejected", reviewed_at: new Date().toISOString() }).eq("id", app.id);
+                  if (error) throw error;
+                  await qc.invalidateQueries({ queryKey: ["team", "creator-applications"] });
+                })}
+              />
+            </View>
+          </View>
+        ))}
+        {applications.data?.length === 0 ? <Copy muted>No pending applications.</Copy> : null}
+      </Card>
       {q.data?.map((c) => (
         <Card key={c.user_id}>
           <Heading>{c.display_name}</Heading>
