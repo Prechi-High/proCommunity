@@ -92,6 +92,13 @@ export default async function handler(req, res) {
         started_at: new Date().toISOString(),
         recording_status: "not_requested",
         transcript_status: "not_requested",
+        metadata: {
+          participant_count: 0,
+          active_speaker_count: 0,
+          active_speaker_name: "",
+          last_activity_at: null,
+          cohost_ids: [],
+        },
       })
       .select("id,room_name,mode")
       .single();
