@@ -6,7 +6,7 @@ import { db } from "@/lib/clarity/api";
 import { supabase } from "@/lib/supabase";
 import { AppShell, ActionButton, StatusMessage } from "@/components/unmask-ui";
 import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
-import { ChatCircleDots, Play, UsersThree, Microphone, UserPlus, X } from "@/components/icons";
+import { ChatCircleDots, Play, UsersThree, X } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { useAppStore } from "@/lib/store";
 
@@ -287,7 +287,7 @@ export function RealtimeSession({
               <View style={{ padding: 16, borderRadius: 20, backgroundColor: "#fff", borderWidth: 1, borderColor: "#EDE6E1", gap: 11 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <UserPlus size={18} color={colors.brandDeep} />
+                    <UsersThree size={18} color={colors.brandDeep} />
                     <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>Co-hosts</Text>
                   </View>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>{cohostIds.length} added</Text>
