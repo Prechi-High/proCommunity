@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Room as LiveKitRoom, RoomEvent, Track } from "livekit-client";
+import { Room as LiveKitRoom, RoomEvent } from "livekit-client";
 import { AppShell, ActionButton, StatusMessage } from "@/components/unmask-ui";
-import { Microphone, VideoCamera, PhoneDisconnect, UsersThree } from "@/components/icons";
+import { UsersThree } from "@/components/icons";
 import { supabase } from "@/lib/supabase";
 import { colors, fonts } from "@/constants/theme";
 
 export default function LiveSession(){
  const {id}=useLocalSearchParams<{id?:string}>(); const router=useRouter();
- const roomRef=useRef<LiveKitRoom|null>(null); const [state,setState]=useState("connecting"); const [count,setCount]=useState(0); const [muted,setMuted]=useState(true); const [camera,setCamera]=useState(false);
+ const roomRef=useRef<LiveKitRoom|null>(null); const [state,setState]=useState("connecting"); const [count,setCount]=useState(0);
  useEffect(()=>{let dead=false; if(!id)return; (async()=>{try{
    if(!supabase)throw new Error("Connection unavailable.");
    const {data:{session}}=await supabase.auth.getSession(); if(!session?.access_token)throw new Error("Sign in required.");
