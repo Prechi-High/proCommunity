@@ -49,6 +49,20 @@ export function Creators({
   return (
     <>
       <DemoBanner />
+      {!id ? (
+        <Card>
+          <Heading>Realtime with creators</Heading>
+          <Copy muted>Watch a Live broadcast or join an audio Room when creators are on.</Copy>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Button label="Live" onPress={() => r.push("/live" as Href)} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button quiet label="Room" onPress={() => r.push("/room" as Href)} />
+            </View>
+          </View>
+        </Card>
+      ) : null}
       {demo ? (
         <CreatorStrip
           creators={SAMPLE_CREATORS.filter((c) =>
