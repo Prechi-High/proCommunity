@@ -39,7 +39,7 @@ export async function cacheAside<T>(options: {
     return cached.value;
   }
 
-  if (!cached.ok && cached.error !== 'redis_unconfigured') {
+  if (cached.ok === false && cached.error !== 'redis_unconfigured') {
     onEvent?.({
       event: 'redis_error',
       key,
@@ -67,7 +67,7 @@ export async function cacheAside<T>(options: {
   const allow = shouldCache ? shouldCache(value) : true;
   if (allow && value !== null && value !== undefined) {
     const set = await redisService.setJson(key, value, ttlSec);
-    if (!set.ok && set.error !== 'redis_unconfigured') {
+    if (set.ok === false && set.error !== 'redis_unconfigured') {
       onEvent?.({
         event: 'redis_error',
         key,
