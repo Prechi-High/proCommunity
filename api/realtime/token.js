@@ -18,10 +18,43 @@ function websocketUrl(value) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return send(res, 405, { error: "Method not allowed" });
-
   try {
-    const { AccessToken } = await import("livekit-server-sdk");
+    const { AccessToken, RoomServiceClient } = await import("livekit-server-sdk");
+
+    if (req.method === "GET" && new URL(req.url || "", "https://unmask.local").searchParams.get("view") === "active") {
+      const supabase = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data, error } = await supabase.from("unmask_realtime_sessions")
+        .select("id,mode,title,description,host_creator_id,started_at,room_name,metadata,unmask_creators(display_name,handle,avatar_url,creator_mark,verification_level)")
+        .eq("status", "live").in("mode", ["live", "room"]).order("started_at", { ascending: false }).limit(12);
+      if (error) throw error;
+      const service = new RoomServiceClient(
+        httpHost(env("LIVEKIT_URL")),
+        env("LIVEKIT_API_KEY"),
+        env("LIVEKIT_API_SECRET"),
+      );
+      const sessions = [];
+      for (const row of data || []) {
+        let participantCount = 0;
+        if (row.room_name) {
+          try { participantCount = (await service.listParticipants(row.room_name))?.length || 0; } catch {}
+        }
+        const creator = Array.isArray(row.unmask_creators) ? row.unmask_creators[0] || null : row.unmask_creators || null;
+        sessions.push({
+          id: row.id,
+          mode: row.mode,
+          title: row.title,
+          description: row.description,
+          host_creator_id: row.host_creator_id,
+          started_at: row.started_at,
+          participant_count: participantCount,
+          creator,
+          cohost_ids: Array.isArray(row.metadata?.cohost_ids) ? row.metadata.cohost_ids.map(String) : [],
+        });
+      }
+      return send(res, 200, { sessions });
+    }
+
+    if (req.method !== "POST") return send(res, 405, { error: "Method not allowed" });
     const authorization = req.headers.authorization || "";
     const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
     if (!accessToken) return send(res, 401, { error: "Sign in required." });
@@ -34,6 +67,51 @@ export default async function handler(req, res) {
 
     const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
     const sessionId = String(body.sessionId || "");
+    const action = String(body.action || "");
+    if (action) {
+      if (!sessionId) return send(res, 400, { error: "sessionId is required." });
+      const { data: managedSession, error: managedSessionError } = await supabase
+        .from("unmask_realtime_sessions")
+        .select("id,status,host_creator_id,room_name,metadata")
+        .eq("id", sessionId).single();
+      if (managedSessionError || !managedSession) return send(res, 404, { error: "Session not found." });
+      if (managedSession.status !== "live") return send(res, 409, { error: "This session is no longer live." });
+      if (managedSession.host_creator_id !== userData.user.id) return send(res, 403, { error: "Only the host can manage this session." });
+
+      if (action === "end") {
+        if (managedSession.room_name) {
+          try { await new RoomServiceClient(httpHost(env("LIVEKIT_URL")), env("LIVEKIT_API_KEY"), env("LIVEKIT_API_SECRET")).deleteRoom(managedSession.room_name); } catch (error) { console.error("livekit delete room failed", error); }
+        }
+        await supabase.from("unmask_realtime_sessions").update({ status: "ended", ended_at: new Date().toISOString() }).eq("id", sessionId);
+        return send(res, 200, { ok: true, action });
+      }
+
+      if (action === "add_cohost" || action === "remove_cohost") {
+        const targetUserId = String(body.targetUserId || "");
+        if (!targetUserId) return send(res, 400, { error: "A creator is required." });
+        const { data: target } = await supabase.from("unmask_creators")
+          .select("user_id,display_name,handle,creator_mark,status,published,avatar_url")
+          .eq("user_id", targetUserId).maybeSingle();
+        if (!target || !target.published || !["trial","active","expert","verified_professional"].includes(target.status)) {
+          return send(res, 400, { error: "Only active Unmask Creators can be co-hosts." });
+        }
+        const metadata = managedSession.metadata && typeof managedSession.metadata === "object" ? managedSession.metadata : {};
+        const ids = Array.isArray(metadata.cohost_ids) ? metadata.cohost_ids.map(String) : [];
+        const next = action === "add_cohost" ? Array.from(new Set([...ids, targetUserId])) : ids.filter((id) => id !== targetUserId);
+        const { error } = await supabase.from("unmask_realtime_sessions").update({ metadata: { ...metadata, cohost_ids: next } }).eq("id", sessionId);
+        if (error) throw error;
+        if (managedSession.room_name) {
+          try {
+            const roomService = new RoomServiceClient(httpHost(env("LIVEKIT_URL")), env("LIVEKIT_API_KEY"), env("LIVEKIT_API_SECRET"));
+            await roomService.updateParticipant(managedSession.room_name, targetUserId, {
+              permission: { canPublish: action === "add_cohost", canSubscribe: true, canPublishData: true },
+            });
+          } catch (error) { console.error("livekit cohost permission update skipped", error); }
+        }
+        return send(res, 200, { ok: true, action, creator: target, cohostIds: next });
+      }
+      return send(res, 400, { error: "Unknown action." });
+    }
     const requestedRole = String(body.role || "viewer");
     if (!sessionId) return send(res, 400, { error: "sessionId is required." });
     if (!["viewer", "host", "cohost", "speaker", "requester"].includes(requestedRole)) return send(res, 400, { error: "Invalid role." });
