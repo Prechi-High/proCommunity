@@ -28,7 +28,7 @@ export default async function handler(req: ReqReq, res: ReqRes) {
   }
 
   try {
-    const { SearchDiscoveryService } = await import('@/lib/services/search-discovery/searchDiscovery');
+    const { SearchDiscoveryService } = await import('../../lib/services/search-discovery/searchDiscovery');
     const service = new SearchDiscoveryService();
 
     const results = await service.discoverForProduct(productName, brand, fields);
