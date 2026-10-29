@@ -10,6 +10,13 @@ function send(res, status, body) {
   res.status(status).setHeader("Content-Type", "application/json").end(JSON.stringify(body));
 }
 
+function websocketUrl(value) {
+  const url = new URL(value);
+  if (url.protocol === "https:") url.protocol = "wss:";
+  if (url.protocol === "http:") url.protocol = "ws:";
+  return url.toString().replace(/\/$/, "");
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return send(res, 405, { error: "Method not allowed" });
 
@@ -73,7 +80,7 @@ export default async function handler(req, res) {
     });
 
     return send(res, 200, {
-      serverUrl: env("LIVEKIT_URL"),
+      serverUrl: websocketUrl(env("LIVEKIT_URL")),
       participantToken: await at.toJwt(),
       role,
       roomName,
