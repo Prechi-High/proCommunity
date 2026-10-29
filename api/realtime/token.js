@@ -79,9 +79,31 @@ export default async function handler(req, res) {
       canPublishData: true,
     });
 
+    const participantToken = await at.toJwt();
+    const livekitHttpUrl = env("LIVEKIT_URL")
+      .replace(/^wss:/, "https:")
+      .replace(/^ws:/, "http:")
+      .replace(/\\/$/, "");
+    const validationResponse = await fetch(
+      \`${livekitHttpUrl}/rtc/validate?access_token=\${encodeURIComponent(participantToken)}\`,
+      { method: "GET", headers: { Accept: "application/json" } },
+    );
+    if (!validationResponse.ok) {
+      const validationBody = await validationResponse.text();
+      console.error("livekit token validation failed", {
+        status: validationResponse.status,
+        body: validationBody.slice(0, 500),
+        roomName,
+      });
+      return send(res, 502, {
+        error: \`LiveKit rejected the generated participant token (HTTP \${validationResponse.status}).\`,
+        detail: validationBody.slice(0, 300),
+      });
+    }
+
     return send(res, 200, {
       serverUrl: websocketUrl(env("LIVEKIT_URL")),
-      participantToken: await at.toJwt(),
+      participantToken,
       role,
       roomName,
       mode: session.mode,
