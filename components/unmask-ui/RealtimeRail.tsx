@@ -75,7 +75,11 @@ export function RealtimeRail() {
   const qc = useQueryClient();
   const uid = useAppStore(s => s.profile?.id);
   const q = useQuery({ queryKey: ["active-realtime"], queryFn: loadActive, refetchInterval: 3000 });
-  const rows = q.data || [];
+  const rows = [...(q.data || [])].sort((a, b) => {
+    const aHost = !!uid && a.host_creator_id === uid;
+    const bHost = !!uid && b.host_creator_id === uid;
+    return Number(bHost) - Number(aHost);
+  });
 
   async function endSession(id: string) {
     if (!supabase) return;
@@ -148,7 +152,7 @@ export function RealtimeRail() {
               </Pressable>
               {isHost ? (
                 <View style={{ paddingHorizontal: 16, paddingBottom: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: isRoom ? colors.inkSoft : "#E9D8E0", flex: 1 }}>Your session is still live.</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: isRoom ? colors.inkSoft : "#E9D8E0", flex: 1 }}>Your session is still live. Open it to manage the room or end it.</Text>
                   <Pressable accessibilityRole="button" onPress={() => void endSession(row.id)} style={{ minHeight: 34, paddingHorizontal: 11, borderRadius: 11, backgroundColor: isRoom ? "#fff" : "#3A1622", flexDirection: "row", alignItems: "center", gap: 5 }}>
                     <X size={14} color={isRoom ? colors.brandDeep : "#F2D25B"} />
                     <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: isRoom ? colors.brandDeep : "#F2D25B" }}>End</Text>
