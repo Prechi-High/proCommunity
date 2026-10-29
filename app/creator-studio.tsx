@@ -19,11 +19,42 @@ export default function CreatorStudio() {
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [activeSession, setActiveSession] = useState<any>(null);
+  const [ending, setEnding] = useState(false);
 
   useEffect(() => {
     if (!uid) return;
     db().from("unmask_creators").select("*").eq("user_id", uid).maybeSingle().then(({ data }) => setCreator(data));
+    db().from("unmask_realtime_sessions")
+      .select("id,mode,title,description,status,metadata,started_at")
+      .eq("host_creator_id", uid)
+      .eq("status", "live")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setActiveSession(data || null));
   }, [uid]);
+
+  async function endActiveSession() {
+    if (!activeSession || ending || !supabase) return;
+    setEnding(true); setError("");
+    try {
+      const { data: auth } = await supabase.auth.getSession();
+      if (!auth.session?.access_token) throw new Error("Sign in required.");
+      const response = await fetch("/api/realtime/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.session.access_token}` },
+        body: JSON.stringify({ action: "end", sessionId: activeSession.id }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Could not end the session.");
+      setActiveSession(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not end the session.");
+    } finally {
+      setEnding(false);
+    }
+  }
 
   async function start() {
     if (!uid || !creator || busy || !title.trim()) return;
@@ -80,6 +111,22 @@ export default function CreatorStudio() {
       <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.inkSoft }}>
         {mode === "room" ? "Rooms are public and audio-first. Listeners join muted; the host controls who gets speaking access." : "Live broadcasts are public. Camera and microphone permissions will be requested when you enter."}
       </Text>
+
+      {activeSession ? (
+        <View style={{ padding: 18, borderRadius: 22, backgroundColor: activeSession.mode === "room" ? "#F3EBE2" : "#2A0E16", gap: 10 }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 10, letterSpacing: 1, color: activeSession.mode === "room" ? colors.brandDeep : "#F2D25B" }}>
+            {activeSession.mode === "room" ? "YOUR ROOM IS LIVE" : "YOUR LIVE IS ON"}
+          </Text>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 20, color: activeSession.mode === "room" ? colors.ink : "#fff" }}>{activeSession.title}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: activeSession.mode === "room" ? colors.inkSoft : "#E9D8E0" }}>
+            You are already the host. You don't need to start another session.
+          </Text>
+          <View style={{ flexDirection: "row", gap: 9 }}>
+            <ActionButton tone={activeSession.mode === "room" ? "primary" : "gold"} label="Open controls" onPress={() => r.replace({ pathname: activeSession.mode === "room" ? "/room/session" : "/live/session", params: { id: activeSession.id, host: "1" } } as Href)} />
+            <ActionButton tone="secondary" label={ending ? "Ending…" : "End now"} pending={ending} onPress={() => void endActiveSession()} />
+          </View>
+        </View>
+      ) : null}
     </AppShell>
   );
 }
