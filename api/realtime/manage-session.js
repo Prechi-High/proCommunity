@@ -59,6 +59,21 @@ export default async function handler(req, res) {
       const nextMetadata = { ...metadata, cohost_ids: next };
       const { error } = await supabase.from("unmask_realtime_sessions").update({ metadata: nextMetadata }).eq("id", session.id);
       if (error) throw error;
+      if (session.room_name) {
+        try {
+          const { RoomServiceClient } = await import("livekit-server-sdk");
+          const roomService = new RoomServiceClient(httpHost(env("LIVEKIT_URL")), env("LIVEKIT_API_KEY"), env("LIVEKIT_API_SECRET"));
+          await roomService.updateParticipant(session.room_name, targetUserId, {
+            permission: {
+              canPublish: action === "add_cohost",
+              canSubscribe: true,
+              canPublishData: true,
+            },
+          });
+        } catch (error) {
+          console.error("livekit cohost permission update skipped", error);
+        }
+      }
       return send(res, 200, { ok: true, action, creator: target, cohostIds: next });
     }
 
