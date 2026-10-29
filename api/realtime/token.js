@@ -21,39 +21,6 @@ export default async function handler(req, res) {
   try {
     const { AccessToken, RoomServiceClient } = await import("livekit-server-sdk");
 
-    if (req.method === "GET" && new URL(req.url || "", "https://unmask.local").searchParams.get("view") === "active") {
-      const supabase = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false, autoRefreshToken: false } });
-      const { data, error } = await supabase.from("unmask_realtime_sessions")
-        .select("id,mode,title,description,host_creator_id,started_at,room_name,metadata,unmask_creators(display_name,handle,avatar_url,creator_mark,verification_level)")
-        .eq("status", "live").in("mode", ["live", "room"]).order("started_at", { ascending: false }).limit(12);
-      if (error) throw error;
-      const service = new RoomServiceClient(
-        httpHost(env("LIVEKIT_URL")),
-        env("LIVEKIT_API_KEY"),
-        env("LIVEKIT_API_SECRET"),
-      );
-      const sessions = [];
-      for (const row of data || []) {
-        let participantCount = 0;
-        if (row.room_name) {
-          try { participantCount = (await service.listParticipants(row.room_name))?.length || 0; } catch {}
-        }
-        const creator = Array.isArray(row.unmask_creators) ? row.unmask_creators[0] || null : row.unmask_creators || null;
-        sessions.push({
-          id: row.id,
-          mode: row.mode,
-          title: row.title,
-          description: row.description,
-          host_creator_id: row.host_creator_id,
-          started_at: row.started_at,
-          participant_count: participantCount,
-          creator,
-          cohost_ids: Array.isArray(row.metadata?.cohost_ids) ? row.metadata.cohost_ids.map(String) : [],
-        });
-      }
-      return send(res, 200, { sessions });
-    }
-
     if (req.method !== "POST") return send(res, 405, { error: "Method not allowed" });
     const authorization = req.headers.authorization || "";
     const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
@@ -70,6 +37,22 @@ export default async function handler(req, res) {
     const action = String(body.action || "");
     if (action) {
       if (!sessionId) return send(res, 400, { error: "sessionId is required." });
+      if (action === "sync_presence") {
+        const { data: presenceSession, error: presenceError } = await supabase
+          .from("unmask_realtime_sessions")
+          .select("id,status,room_name,metadata")
+          .eq("id", sessionId).single();
+        if (presenceError || !presenceSession) return send(res, 404, { error: "Session not found." });
+        if (presenceSession.status !== "live") return send(res, 409, { error: "This session is no longer live." });
+        const count = presenceSession.room_name
+          ? (await new RoomServiceClient(httpHost(env("LIVEKIT_URL")), env("LIVEKIT_API_KEY"), env("LIVEKIT_API_SECRET")).listParticipants(presenceSession.room_name))?.length || 0
+          : 0;
+        const metadata = presenceSession.metadata && typeof presenceSession.metadata === "object" ? presenceSession.metadata : {};
+        await supabase.from("unmask_realtime_sessions").update({ metadata: { ...metadata, participant_count: count } }).eq("id", sessionId);
+        return send(res, 200, { ok: true, participantCount: count });
+      }
+
+
       const { data: managedSession, error: managedSessionError } = await supabase
         .from("unmask_realtime_sessions")
         .select("id,status,host_creator_id,room_name,metadata")
