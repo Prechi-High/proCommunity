@@ -55,9 +55,13 @@ export default async function handler(req, res) {
       await supabase.from("unmask_realtime_sessions").update({ room_name: roomName }).eq("id", session.id);
     }
 
+    const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", userData.user.id).maybeSingle();
+    const { data: creatorProfile } = await supabase.from("unmask_creators").select("display_name,handle,creator_mark").eq("user_id", userData.user.id).maybeSingle();
+    const displayName = creatorProfile?.display_name || profile?.display_name || userData.user.user_metadata?.display_name || "Unmasker";
     const at = new AccessToken(env("LIVEKIT_API_KEY"), env("LIVEKIT_API_SECRET"), {
       identity: userData.user.id,
-      name: userData.user.user_metadata?.display_name || userData.user.email || "Unmasker",
+      name: displayName,
+      metadata: JSON.stringify({ handle: creatorProfile?.handle || null, creator_mark: creatorProfile?.creator_mark || null }),
       ttl: "15m",
     });
     at.addGrant({
