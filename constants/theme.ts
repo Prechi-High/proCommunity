@@ -53,7 +53,7 @@ const lightColors = {
   marker: "#C9A227",
   markerInk: "#1C1917",
   markerConcern: "#C45C4A",
-} as const; as const;
+} as const;
 
 const darkColors = {
   ...lightColors,
