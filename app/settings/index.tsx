@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 import { AppShell, ActionButton, StatusMessage } from "@/components/unmask-ui";
-import { User, Lock, Bell, Lightning, ChatCircle, Info, CaretRight } from "@/components/icons";
+import { User, Lock, Bell, Lightning, ChatCircle, Info, CaretRight, MoonStars } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { useState } from "react";
@@ -30,6 +30,12 @@ const groups = [
         "Your sign-in details and account access",
         "/settings/details?section=security",
       ],
+    ],
+  },
+  {
+    title: "Appearance",
+    rows: [
+      ["Theme", "Light, dark, or follow your device", "/settings/details?section=appearance"],
     ],
   },
   {
@@ -113,7 +119,7 @@ export default function Settings() {
   return (
     <AppShell back navigation title="Settings" subtitle="Your account. Your choices.">
       {groups.map((g) => {
-        const Icon = g.title === "Account" ? User : g.title === "Privacy" ? Lock : g.title === "Notifications" ? Bell : g.title === "Support" ? ChatCircle : g.title === "About" ? Info : Lightning;
+        const Icon = g.title === "Account" ? User : g.title === "Privacy" ? Lock : g.title === "Appearance" ? MoonStars : g.title === "Notifications" ? Bell : g.title === "Support" ? ChatCircle : g.title === "About" ? Info : Lightning;
         return <View key={g.title} style={{ gap: 10 }}>
           <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.inkSoft, paddingHorizontal: 5 }}>{g.title}</Text>
           <View style={{ borderRadius: 23, overflow: "hidden", backgroundColor: "#F6F2EF" }}>
