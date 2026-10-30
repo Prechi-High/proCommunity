@@ -366,6 +366,11 @@ export function RealtimeSession({
   const barHeights = speaking
     ? (pulse ? [9, 25, 14, 30, 12] : [22, 12, 28, 15, 24])
     : [5, 5, 5, 5, 5];
+  const anonymousRemoteCount = participants.filter((person) => person.attributes?.anonymous === "true").length;
+  const anonymousCount = anonymousRemoteCount + (anonymousListening ? 1 : 0);
+  const visiblePeople = participants.filter((person) => person.attributes?.anonymous !== "true");
+  const activePeople = participants.filter((person) => activeSpeakerIds.includes(person.identity));
+  const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "U";
 
   return (
     <AppShell back title={mode === "live" ? "Live" : "Room"} subtitle={title}>
@@ -407,14 +412,68 @@ export function RealtimeSession({
             <View ref={mediaRef} style={{ height: mode === "live" ? 360 : 100, borderRadius: 22, backgroundColor: "#0B0306", overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
               {mode === "room" ? <ChatCircleDots size={34} color="#F2D25B" /> : <Play size={34} color="#F2D25B" weight="fill" />}
             </View>
+            <View style={{ padding: 18, borderRadius: 22, backgroundColor: colors.stage, gap: 16 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <View style={{ gap: 3 }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>People here</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{count} listening{anonymousCount ? " · " + anonymousCount + " anonymous" : ""}</Text>
+                </View>
+                {speaking ? <Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.brandDeep }}>LIVE TALKING</Text> : null}
+              </View>
+              {creator ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 11 }}>
+                  <CreatorMark mark={creator.creator_mark || id} size={46} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{creator.display_name}</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>Host · @{creator.handle}</Text>
+                  </View>
+                  <View style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 999, backgroundColor: colors.hiSoft }}><Text style={{ fontFamily: fonts.semibold, fontSize: 9, color: colors.hiInk }}>HOST</Text></View>
+                </View>
+              ) : null}
+              {activePeople.length ? (
+                <View style={{ gap: 9 }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.inkSoft, letterSpacing: 0.8 }}>SPEAKING NOW</Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 9 }}>
+                    {activePeople.slice(0, 8).map((person) => (
+                      <View key={person.identity} style={{ flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 9, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.white }}>
+                        <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 9, color: "#fff" }}>{initials(person.name || person.identity)}</Text></View>
+                        <Text numberOfLines={1} style={{ maxWidth: 120, fontFamily: fonts.medium, fontSize: 11, color: colors.ink }}>{person.name || person.identity}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+              {visiblePeople.length || (liveRole === "viewer" && !anonymousListening) ? (
+                <View style={{ gap: 9 }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.inkSoft, letterSpacing: 0.8 }}>LISTENERS</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 7 }}>
+                    {visiblePeople.slice(0, 12).map((person) => (
+                      <View key={person.identity} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.rosewoodSoft, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.line }}><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.brandDeep }}>{initials(person.name || person.identity)}</Text></View>
+                    ))}
+                    {liveRole === "viewer" && !anonymousListening ? <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 8, color: "#fff" }}>YOU</Text></View> : null}
+                    {anonymousCount ? <View style={{ paddingHorizontal: 10, height: 36, borderRadius: 18, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.inkSoft }}>+{anonymousCount} anonymous</Text></View> : null}
+                  </View>
+                </View>
+              ) : null}
+            </View>
 
             {!canPlayAudio && !canSpeak ? <ActionButton label="Tap to enable audio" onPress={() => void startAudio()} /> : null}
 
-            {mode === "room" && liveRole === "viewer" && !micApproved ? (
+            {mode === "room" && liveRole === "viewer" && !micApproved && !anonymousListening ? (
               <ActionButton label={micRequested ? "Mic requested" : "Request to speak"} tone={micRequested ? "secondary" : "primary"} disabled={micRequested} onPress={() => void requestMic()} />
             ) : null}
+            {liveRole === "viewer" ? (
+              <Pressable accessibilityRole="switch" accessibilityState={{ checked: anonymousListening }} onPress={() => void setAnonymous(!anonymousListening)} style={{ padding: 15, borderRadius: 18, borderWidth: 1, borderColor: anonymousListening ? colors.brandDeep : colors.line, backgroundColor: anonymousListening ? colors.hiSoft : colors.stage, flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <View style={{ width: 38, height: 24, borderRadius: 12, backgroundColor: anonymousListening ? colors.brandDeep : colors.bone3, padding: 3, justifyContent: "center", alignItems: anonymousListening ? "flex-end" : "flex-start" }}><View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: "#fff" }} /></View>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.ink }}>Listen anonymously</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 11, lineHeight: 16, color: colors.inkSoft }}>{anonymousListening ? "Your profile is hidden. You cannot speak or send chat while anonymous." : "Your profile is visible to other listeners."}</Text>
+                </View>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: anonymousListening ? colors.brandDeep : colors.inkSoft }}>{anonymousListening ? "ON" : "OFF"}</Text>
+              </Pressable>
+            ) : null}
 
-            {canSpeak ? (
+            {canSpeak && !anonymousListening ? (
               <View style={{ flexDirection: "row", gap: 10 }}>
                 <ActionButton label={micOn ? "Mute mic" : "Turn mic on"} tone={micOn ? "primary" : "secondary"} onPress={() => void toggleMic()} />
                 {mode === "live" ? <ActionButton label={cameraOn ? "Camera off" : "Camera on"} tone={cameraOn ? "primary" : "secondary"} onPress={() => void toggleCamera()} /> : null}
@@ -424,7 +483,7 @@ export function RealtimeSession({
             <View style={{ padding: 16, borderRadius: 20, backgroundColor: "#F6F3F1", gap: 9 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <UsersThree size={19} color={colors.brandDeep} />
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{count} {count === 1 ? "person" : "people"} in this {mode === "room" ? "Room" : "Live"}</Text>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{count} {count === 1 ? "person" : "people"} in this {mode === "room" ? "Room" : "Live"}{anonymousCount ? " · " + anonymousCount + " anonymous" : ""}</Text>
               </View>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>
                 {speaking ? (speaker ? `${speaker} is speaking now.` : "People are talking right now.") : mode === "room" ? "The Room is open. Speakers will light up as they talk." : "The Live is open. Viewers can watch and join the conversation."}
