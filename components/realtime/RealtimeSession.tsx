@@ -11,6 +11,7 @@ import { colors, fonts } from "@/constants/theme";
 import { useAppStore } from "@/lib/store";
 
 type ChatItem = { id: string; name: string; text: string };
+type MicRequest = { user_id: string; display_name?: string; status: "pending" | "approved" | "denied" };
 type Creator = { user_id: string; display_name: string; handle: string; avatar_url: string | null; creator_mark: string; status: string; published: boolean };
 
 export function RealtimeSession({
@@ -42,6 +43,11 @@ export function RealtimeSession({
   const [isHostSession, setIsHostSession] = useState(host);
   const [creators, setCreators] = useState<Creator[]>([]);
   const [cohostIds, setCohostIds] = useState<string[]>([]);
+  const [cohostPermissions, setCohostPermissions] = useState<Record<string, { can_end?: boolean; can_manage_cohosts?: boolean }>>({});
+  const [micRequests, setMicRequests] = useState<MicRequest[]>([]);
+  const [micRequested, setMicRequested] = useState(false);
+  const [micApproved, setMicApproved] = useState(false);
+  const [managementError, setManagementError] = useState("");
   const encoder = useMemo(() => new TextEncoder(), []);
   const decoder = useMemo(() => new TextDecoder(), []);
 
@@ -115,6 +121,22 @@ export function RealtimeSession({
           setCount(room.numParticipants + 1);
           void syncPresence(room.activeSpeakers.length, room.activeSpeakers[0]?.name || room.activeSpeakers[0]?.identity || "");
         };
+        const attachLocal = (track: any) => {
+          if (Platform.OS !== "web" || !mediaRef.current) return;
+          const el = track.attach();
+          el.setAttribute("data-unmask-local-track", track.sid || "");
+          if (track.kind === Track.Kind.Video) {
+            el.style.width = "100%"; el.style.height = "100%"; el.style.objectFit = "cover"; el.style.borderRadius = "22px";
+            el.muted = true;
+            mediaRef.current.appendChild(el);
+          } else {
+            el.style.display = "none";
+            mediaRef.current.appendChild(el);
+          }
+        };
+        const onLocalTrack = (publication: any) => {
+          if (publication?.track) attachLocal(publication.track);
+        };
         const onTrack = (track: RemoteTrack) => attach(track);
         const onUntrack = (track: RemoteTrack) => detach(track);
         const onSpeaker = (people: Participant[]) => {
@@ -132,6 +154,7 @@ export function RealtimeSession({
         };
         room.on(RoomEvent.ParticipantConnected, sync)
           .on(RoomEvent.ParticipantDisconnected, sync)
+          .on(RoomEvent.LocalTrackPublished, onLocalTrack)
           .on(RoomEvent.TrackSubscribed, onTrack)
           .on(RoomEvent.TrackUnsubscribed, onUntrack)
           .on(RoomEvent.ActiveSpeakersChanged, onSpeaker)
@@ -155,7 +178,7 @@ export function RealtimeSession({
           setCohostIds(ids);
         }
 
-        if (payload.role === "host") {
+        if (payload.role === "host" || payload.role === "cohost") {
           const { data } = await db().from("unmask_creators")
             .select("user_id,display_name,handle,avatar_url,creator_mark,status,published")
             .eq("published", true)
@@ -177,6 +200,9 @@ export function RealtimeSession({
           }
           await room.localParticipant.setMicrophoneEnabled(true);
           setMicOn(true);
+          for (const publication of room.localParticipant.trackPublications.values()) {
+            if (publication.track) attachLocal(publication.track);
+          }
         }
         setState("connected");
       } catch (e) {
@@ -229,7 +255,7 @@ export function RealtimeSession({
     try { await room.startAudio(); setCanPlayAudio(true); } catch {}
   }
 
-  async function manage(action: "end" | "add_cohost" | "remove_cohost", targetUserId?: string) {
+  async function manage(action: string, targetUserId?: string) {
     if (!supabase) return;
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) return;
@@ -244,16 +270,34 @@ export function RealtimeSession({
       throw new Error(raw.trim() || `Could not update the session (HTTP ${response.status}).`);
     }
     if (!response.ok) throw new Error(payload.error || `Could not update the session (HTTP ${response.status}).`);
-    if (action === "add_cohost") setCohostIds(payload.cohostIds || []);
-    if (action === "remove_cohost") setCohostIds(payload.cohostIds || []);
+    if (payload.cohostIds) setCohostIds(payload.cohostIds || []);
+    if (payload.cohostPermissions) setCohostPermissions(payload.cohostPermissions || {});
+    if (payload.micRequests) setMicRequests(payload.micRequests || []);
+    if (action === "request_mic") setMicRequested(true);
+    if (action === "approve_mic" && targetUserId === uid) { setMicApproved(true); setMicRequested(false); }
+    if (action === "deny_mic" && targetUserId === uid) { setMicRequested(false); setMicApproved(false); }
     if (action === "end") {
       await roomRef.current?.disconnect();
       router.replace("/" as Href);
     }
   }
 
+  async function requestMic() {
+    if (!supabase || !uid || micRequested || micApproved) return;
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) return;
+    const response = await fetch("/api/realtime/token", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+      body: JSON.stringify({ action: "request_mic", sessionId: id }),
+    });
+    const raw = await response.text(); let payload:any={}; try { payload=raw?JSON.parse(raw):{}; } catch {}
+    if (!response.ok) throw new Error(payload.error || "Could not request the mic.");
+    setMicRequested(true);
+  }
+
   async function leave(end = false) {
-    if (end && isHostSession) {
+    const canEnd = isHostSession || !!cohostPermissions[uid || ""]?.can_end;
+    if (end && canEnd) {
       try { await manage("end"); } catch (e) { setState(e instanceof Error ? e.message : "Could not end the session."); }
       return;
     }
@@ -262,7 +306,9 @@ export function RealtimeSession({
   }
 
   const active = state === "connected";
-  const canSpeak = liveRole === "host" || liveRole === "cohost";
+  const canSpeak = liveRole === "host" || liveRole === "cohost" || micApproved;
+  const canManageCohosts = isHostSession || !!cohostPermissions[uid || ""]?.can_manage_cohosts;
+  const canEnd = isHostSession || !!cohostPermissions[uid || ""]?.can_end;
   const barHeights = speaking
     ? (pulse ? [9, 25, 14, 30, 12] : [22, 12, 28, 15, 24])
     : [5, 5, 5, 5, 5];
@@ -310,6 +356,10 @@ export function RealtimeSession({
 
             {!canPlayAudio && !canSpeak ? <ActionButton label="Tap to enable audio" onPress={() => void startAudio()} /> : null}
 
+            {mode === "room" && liveRole === "viewer" && !micApproved ? (
+              <ActionButton label={micRequested ? "Mic requested" : "Request to speak"} tone={micRequested ? "secondary" : "primary"} disabled={micRequested} onPress={() => void requestMic()} />
+            ) : null}
+
             {canSpeak ? (
               <View style={{ flexDirection: "row", gap: 10 }}>
                 <ActionButton label={micOn ? "Mute mic" : "Turn mic on"} tone={micOn ? "primary" : "secondary"} onPress={() => void toggleMic()} />
@@ -327,7 +377,7 @@ export function RealtimeSession({
               </Text>
             </View>
 
-            {isHostSession ? (
+            {canManageCohosts || isHostSession ? (
               <View style={{ padding: 16, borderRadius: 20, backgroundColor: "#fff", borderWidth: 1, borderColor: "#EDE6E1", gap: 11 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -337,8 +387,21 @@ export function RealtimeSession({
                   <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>{cohostIds.length} added</Text>
                 </View>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.inkSoft }}>
-                  Only active Unmask Creators can be co-hosts. Co-hosts can speak and publish in this session.
+                  Only active Unmask Creators can be co-hosts. The host keeps final control unless specific permissions are delegated.
                 </Text>
+                {micRequests.filter(r => r.status === "pending").length ? (
+                  <View style={{ padding: 12, borderRadius: 14, backgroundColor: "#F3EBE2", gap: 8 }}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.ink }}>Mic requests</Text>
+                    {micRequests.filter(r => r.status === "pending").map(request => (
+                      <View key={request.user_id} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.ink }}>{request.display_name || request.user_id.slice(0, 8)} wants to speak.</Text>
+                        <Pressable onPress={() => void manage("approve_mic", request.user_id)} style={{ paddingHorizontal: 10, paddingVertical: 8, borderRadius: 9, backgroundColor: colors.brandDeep }}><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: "#fff" }}>Allow</Text></Pressable>
+                        <Pressable onPress={() => void manage("deny_mic", request.user_id)} style={{ paddingHorizontal: 10, paddingVertical: 8, borderRadius: 9, backgroundColor: "#F6F3F1" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.ink }}>Decline</Text></Pressable>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
                 {creators.length ? creators.map(person => {
                   const added = cohostIds.includes(person.user_id);
                   return (
@@ -373,7 +436,7 @@ export function RealtimeSession({
               </View>
             </View>
 
-            {isHostSession ? (
+            {canEnd ? (
               <View style={{ gap: 9 }}>
                 <ActionButton tone="secondary" label="Leave & keep live" onPress={() => void leave(false)} />
                 <ActionButton tone="secondary" label="End session" onPress={() => void leave(true)} />
