@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import { useAppStore } from "@/lib/store";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -21,6 +22,7 @@ export function Screen({
   padded?: boolean;
   footer?: ReactNode;
 }) {
+  useAppStore((state) => state.themeMode);
   const bodyStyle: ViewStyle = {
     flex: 1,
     backgroundColor: colors.white,
