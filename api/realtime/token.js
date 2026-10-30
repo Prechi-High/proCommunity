@@ -45,6 +45,34 @@ async function handler(req, res) {
     if (action) {
       if (!sessionId) return send(res, 400, { error: "sessionId is required." });
 
+      if (action === "request_mic") {
+        const { data: requestSession, error: requestSessionError } = await supabase
+          .from("unmask_realtime_sessions").select("id,status,mode,metadata")
+          .eq("id", sessionId).single();
+        if (requestSessionError || !requestSession) return send(res, 404, { error: "Session not found." });
+        if (requestSession.status !== "live" || requestSession.mode !== "room") return send(res, 409, { error: "Mic requests are only available in live audio Rooms." });
+
+        const metadata = requestSession.metadata && typeof requestSession.metadata === "object" ? requestSession.metadata : {};
+        const requests = Array.isArray(metadata.mic_requests) ? metadata.mic_requests : [];
+        const existing = requests.find(item => String(item?.user_id) === userData.user.id);
+        if (existing?.status === "pending") return send(res, 200, { ok: true, request: existing });
+        const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", userData.user.id).maybeSingle();
+        const { data: creatorProfile } = await supabase.from("unmask_creators").select("display_name").eq("user_id", userData.user.id).maybeSingle();
+        const request = {
+          user_id: userData.user.id,
+          display_name: creatorProfile?.display_name || profile?.display_name || userData.user.user_metadata?.display_name || "Unmasker",
+          status: "pending",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        const nextRequests = requests.filter(item => String(item?.user_id) !== userData.user.id);
+        nextRequests.push(request);
+        const { error: updateError } = await supabase.from("unmask_realtime_sessions")
+          .update({ metadata: { ...metadata, mic_requests: nextRequests } }).eq("id", sessionId);
+        if (updateError) throw updateError;
+        return send(res, 200, { ok: true, request });
+      }
+
       if (action === "sync_presence") {
         const { data: presenceSession, error: presenceError } = await supabase
           .from("unmask_realtime_sessions").select("id,status,room_name,metadata")
