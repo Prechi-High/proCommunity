@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
+import * as Linking from "expo-linking";
 import { Room, RoomEvent, Track, type Participant, type RemoteTrack } from "livekit-client";
 import { db } from "@/lib/clarity/api";
 import { supabase } from "@/lib/supabase";
 import { AppShell, ActionButton, StatusMessage } from "@/components/unmask-ui";
 import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
+import { RoomExperience } from "@/components/room/RoomExperience";
 import { ChatCircleDots, Play, UsersThree, X } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
+import { hapticError, hapticSuccess } from "@/lib/haptics";
+import { roomProducts, roomTopic } from "@/lib/room/context";
+import { arrangeRoom } from "@/lib/room/seats";
+import type { RoomReactionKind } from "@/lib/room/types";
 import { useAppStore } from "@/lib/store";
 
 type ChatItem = { id: string; name: string; text: string };
@@ -25,6 +31,7 @@ export function RealtimeSession({
 }) {
   const router = useRouter();
   const uid = useAppStore(s => s.profile?.id);
+  const youName = useAppStore(s => s.profile?.displayName) || "You";
   const roomRef = useRef<Room | null>(null);
   const mediaRef = useRef<any>(null);
   const [state, setState] = useState("connecting");
@@ -50,7 +57,20 @@ export function RealtimeSession({
   const [micRequests, setMicRequests] = useState<MicRequest[]>([]);
   const [micRequested, setMicRequested] = useState(false);
   const [micApproved, setMicApproved] = useState(false);
+  const [micDenied, setMicDenied] = useState(false);
+  const [invited, setInvited] = useState(false);
+  const [minimized, setMinimized] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [reactions, setReactions] = useState<Array<{ id: string; kind: RoomReactionKind; name: string }>>([]);
+  const [reactionCounts, setReactionCounts] = useState<Record<RoomReactionKind, number>>({ same: 0, differs: 0, clarify: 0, keep: 0 });
+  const [sessionMeta, setSessionMeta] = useState<{ description: string; hostId: string | null; recordingStatus: string | null; metadata: unknown }>({
+    description: "",
+    hostId: null,
+    recordingStatus: null,
+    metadata: {},
+  });
   const [managementError, setManagementError] = useState("");
+  const inviteSeen = useRef(false);
   const encoder = useMemo(() => new TextEncoder(), []);
   const decoder = useMemo(() => new TextDecoder(), []);
 
@@ -74,7 +94,10 @@ export function RealtimeSession({
         setCohostPermissions(permissions);
         if (uid) {
           const mine = requests.find(item => String(item.user_id) === uid);
-          if (mine?.status === "pending") setMicRequested(true);
+          if (mine?.status === "pending") {
+            setMicRequested(true);
+            setMicDenied(false);
+          }
           if (mine?.status === "approved" && !micApproved) {
             setMicApproved(true);
             const room = roomRef.current;
@@ -85,6 +108,7 @@ export function RealtimeSession({
           if (mine?.status === "denied") {
             setMicRequested(false);
             setMicApproved(false);
+            setMicDenied(true);
           }
         }
       } catch {}
@@ -95,7 +119,17 @@ export function RealtimeSession({
   }, [id, state, uid, micApproved]);
 
   useEffect(() => {
-    if (!id) return;
+    if (mode !== "room" || !micApproved || liveRole !== "viewer" || inviteSeen.current) return;
+    inviteSeen.current = true;
+    setInvited(true);
+    hapticSuccess();
+  }, [micApproved, liveRole, mode]);
+
+  useEffect(() => {
+    if (!id) {
+      setState(mode === "room" ? "Open this Room from the list to join." : "Open this session from Live or Room to join.");
+      return;
+    }
     let dead = false;
     const attach = (track: RemoteTrack) => {
       if (Platform.OS !== "web" || !mediaRef.current) return;
@@ -189,8 +223,17 @@ export function RealtimeSession({
         const onChat = (payloadBytes: Uint8Array, participant?: Participant) => {
           try {
             const item = JSON.parse(decoder.decode(payloadBytes));
+            const anonymous = participant?.attributes?.anonymous === "true";
+            const personName = anonymous ? "Anonymous" : participant?.name || participant?.identity || "Unmasker";
+            if (item?.type === "reaction" && ["same", "differs", "clarify", "keep"].includes(item.kind)) {
+              const reaction = { id: String(item.id || Date.now()), kind: item.kind as RoomReactionKind, name: personName };
+              setReactions(old => [...old, reaction].slice(-8));
+              setReactionCounts(old => ({ ...old, [reaction.kind]: (old[reaction.kind] || 0) + 1 }));
+              setTimeout(() => setReactions(old => old.filter(entry => entry.id !== reaction.id)), 2600);
+              return;
+            }
             if (item?.type !== "chat" || !item.text) return;
-            setChat(old => [...old, { id: item.id || String(Date.now()), name: participant?.name || participant?.identity || "Unmasker", text: String(item.text) }].slice(-40));
+            setChat(old => [...old, { id: item.id || String(Date.now()), name: personName, text: String(item.text) }].slice(-40));
           } catch {}
         };
         room.on(RoomEvent.ParticipantConnected, sync)
@@ -210,10 +253,16 @@ export function RealtimeSession({
 
 
         const session = await db().from("unmask_realtime_sessions")
-          .select("title,host_creator_id,metadata,unmask_creators(display_name,handle,avatar_url,creator_mark,verification_level)")
+          .select("title,description,host_creator_id,recording_status,metadata,unmask_creators(display_name,handle,avatar_url,creator_mark,verification_level)")
           .eq("id", id).single();
         if (!session.error) {
           setTitle(session.data?.title || title);
+          setSessionMeta({
+            description: session.data?.description || "",
+            hostId: session.data?.host_creator_id || null,
+            recordingStatus: session.data?.recording_status || null,
+            metadata: session.data?.metadata || {},
+          });
           const c = Array.isArray(session.data?.unmask_creators) ? session.data?.unmask_creators[0] : session.data?.unmask_creators;
           setCreator(c || null);
           const ids = Array.isArray(session.data?.metadata?.cohost_ids) ? session.data.metadata.cohost_ids.map(String) : [];
@@ -269,7 +318,7 @@ export function RealtimeSession({
       });
       roomRef.current = null;
     };
-  }, [id, mode, host, decoder, uid]);
+  }, [id, mode, host, decoder, uid, attempt]);
 
   async function sendMessage() {
     const room = roomRef.current;
@@ -326,12 +375,39 @@ export function RealtimeSession({
     if (payload.cohostIds) setCohostIds(payload.cohostIds || []);
     if (payload.cohostPermissions) setCohostPermissions(payload.cohostPermissions || {});
     if (payload.micRequests) setMicRequests(payload.micRequests || []);
-    if (action === "request_mic") setMicRequested(true);
+    if (action === "request_mic") {
+      setMicRequested(true);
+      setMicDenied(false);
+    }
     if (action === "approve_mic" && targetUserId === uid) { setMicApproved(true); setMicRequested(false); }
     if (action === "deny_mic" && targetUserId === uid) { setMicRequested(false); setMicApproved(false); }
     if (action === "end") {
       await roomRef.current?.disconnect();
-      router.replace("/" as Href);
+      router.replace((mode === "room" ? "/room" : "/") as Href);
+    }
+  }
+
+  async function sendReaction(kind: RoomReactionKind) {
+    const room = roomRef.current;
+    if (!room || anonymousListening) return;
+    const payload = { type: "reaction", id: `${Date.now()}-${Math.random()}`, kind };
+    try {
+      await room.localParticipant.publishData(encoder.encode(JSON.stringify(payload)), { reliable: true, topic: "unmask-chat" });
+      setReactions(old => [...old, { id: payload.id, kind, name: "You" }].slice(-8));
+      setReactionCounts(old => ({ ...old, [kind]: (old[kind] || 0) + 1 }));
+      setTimeout(() => setReactions(old => old.filter(entry => entry.id !== payload.id)), 2600);
+    } catch (error) {
+      setManagementError(error instanceof Error ? error.message : "Could not send that reaction.");
+      hapticError();
+    }
+  }
+
+  async function shareRoom() {
+    const url = Linking.createURL(`/room/session?id=${encodeURIComponent(id)}`);
+    try {
+      await Share.share({ message: `${title} — a Room on Unmask\n${url}`, url });
+    } catch {
+      /* The share sheet was dismissed. */
     }
   }
 
@@ -345,8 +421,13 @@ export function RealtimeSession({
       body: JSON.stringify({ action: "request_mic", sessionId: id }),
     });
     const raw = await response.text(); let payload:any={}; try { payload=raw?JSON.parse(raw):{}; } catch {}
-    if (!response.ok) throw new Error(payload.error || "Could not request the mic.");
+    if (!response.ok) {
+      setManagementError(payload.error || "Could not request the mic.");
+      hapticError();
+      return;
+    }
     setMicRequested(true);
+    setMicDenied(false);
   }
 
   async function leave(end = false) {
@@ -371,6 +452,128 @@ export function RealtimeSession({
   const visiblePeople = participants.filter((person) => person.attributes?.anonymous !== "true");
   const activePeople = participants.filter((person) => activeSpeakerIds.includes(person.identity));
   const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "U";
+
+  if (mode === "room") {
+    const phase = state === "connecting" ? "connecting" : state === "connected" ? "live" : state === "ended" ? "ended" : "error";
+    const youRole = isHostSession || liveRole === "host" ? "host" : liveRole === "cohost" ? "cohost" : canSpeak ? "speaker" : "listener";
+    const arranged = arrangeRoom({
+      hostId: sessionMeta.hostId || (isHostSession ? uid : "") || "",
+      hostName: creator?.display_name || "Host",
+      hostHandle: creator?.handle || null,
+      hostMark: creator?.creator_mark || null,
+      hostAvatar: creator?.avatar_url || null,
+      youId: uid,
+      youName,
+      youRole,
+      youMicOn: micOn,
+      youAnonymous: anonymousListening,
+      cohostIds,
+      speakingIds: activeSpeakerIds,
+      speakerIds: micRequests.filter((ask) => ask.status === "approved").map((ask) => ask.user_id),
+      people: participants.map((person) => {
+        let creatorMark: string | null = null;
+        let handle: string | null = null;
+        try {
+          const parsed = person.metadata ? JSON.parse(person.metadata) : {};
+          creatorMark = typeof parsed.creator_mark === "string" ? parsed.creator_mark : null;
+          handle = typeof parsed.handle === "string" ? parsed.handle : null;
+        } catch { /* LiveKit metadata is optional. */ }
+        return {
+          id: person.identity,
+          name: person.name || "Unmasker",
+          anonymous: person.attributes?.anonymous === "true",
+          micOn: Boolean(person.isMicrophoneEnabled),
+          speaking: activeSpeakerIds.includes(person.identity),
+          creatorMark,
+          handle,
+        };
+      }),
+    });
+    return (
+      <RoomExperience
+        phase={phase}
+        errorDetail={phase === "error" ? state : undefined}
+        title={title}
+        description={sessionMeta.description}
+        products={roomProducts(sessionMeta.metadata)}
+        topic={roomTopic(sessionMeta.metadata)}
+        recordingStatus={sessionMeta.recordingStatus}
+        hostName={creator?.display_name || "Host"}
+        hostHandle={creator?.handle}
+        hostMark={creator?.creator_mark}
+        hostAvatar={creator?.avatar_url}
+        listenerCount={count}
+        anonymousCount={anonymousCount}
+        stage={arranged.stage}
+        audience={arranged.audience}
+        youRole={youRole}
+        micOn={micOn}
+        canSpeak={canSpeak}
+        micRequested={micRequested}
+        micDenied={micDenied}
+        anonymous={anonymousListening}
+        canToggleAnonymous={liveRole === "viewer" && !micApproved && !micOn}
+        invited={invited}
+        onDismissInvite={() => setInvited(false)}
+        reactions={reactions}
+        reactionCounts={reactionCounts}
+        onReact={(kind) => void sendReaction(kind)}
+        notes={chat}
+        message={message}
+        onMessage={setMessage}
+        onSend={() => void sendMessage()}
+        onToggleMic={() => void toggleMic()}
+        onRequestMic={() => void requestMic()}
+        onLeave={() => void leave(false)}
+        onEnd={canEnd ? () => void leave(true) : undefined}
+        onExit={() => {
+          void roomRef.current?.disconnect();
+          router.replace("/room" as Href);
+        }}
+        onRetry={() => {
+          setManagementError("");
+          setState("connecting");
+          setAttempt((value) => value + 1);
+        }}
+        onShare={() => void shareRoom()}
+        onToggleAnonymous={(next) => void setAnonymous(next)}
+        minimized={minimized}
+        onMinimize={() => setMinimized(true)}
+        onExpand={() => setMinimized(false)}
+        canHear={canPlayAudio}
+        onStartAudio={() => void startAudio()}
+        pendingMics={micRequests.filter((ask) => ask.status === "pending")}
+        onApproveMic={(userId) => void manage("approve_mic", userId).catch((error) => setManagementError(error instanceof Error ? error.message : "Could not update the mic request."))}
+        onDenyMic={(userId) => void manage("deny_mic", userId).catch((error) => setManagementError(error instanceof Error ? error.message : "Could not update the mic request."))}
+        canManage={canManageCohosts || isHostSession}
+        creators={creators.map((person) => ({
+          user_id: person.user_id,
+          display_name: person.display_name,
+          handle: person.handle,
+          creator_mark: person.creator_mark,
+        }))}
+        cohostIds={cohostIds}
+        cohostPermissions={cohostPermissions}
+        onManage={(action, userId) => {
+          void manage(action, userId).catch((error) => {
+            setManagementError(error instanceof Error ? error.message : "Could not update the Room.");
+            hapticError();
+          });
+        }}
+        notice={managementError}
+        audioHost={
+          <View
+            ref={mediaRef}
+            collapsable={false}
+            pointerEvents="none"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={{ position: "absolute", width: 1, height: 1, opacity: 0, overflow: "hidden" }}
+          />
+        }
+      />
+    );
+  }
 
   return (
     <AppShell back title={mode === "live" ? "Live" : "Room"} subtitle={title}>
@@ -410,7 +613,7 @@ export function RealtimeSession({
         {active ? (
           <>
             <View ref={mediaRef} style={{ height: mode === "live" ? 360 : 100, borderRadius: 22, backgroundColor: "#050404", overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
-              {mode === "room" ? <ChatCircleDots size={34} color="#F2D25B" /> : <Play size={34} color="#F2D25B" weight="fill" />}
+              <Play size={34} color="#F2D25B" weight="fill" />
             </View>
             <View style={{ padding: 18, borderRadius: 22, backgroundColor: colors.stage, gap: 16 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -459,9 +662,6 @@ export function RealtimeSession({
 
             {!canPlayAudio && !canSpeak ? <ActionButton label="Tap to enable audio" onPress={() => void startAudio()} /> : null}
 
-            {mode === "room" && liveRole === "viewer" && !micApproved && !anonymousListening ? (
-              <ActionButton label={micRequested ? "Mic requested" : "Request to speak"} tone={micRequested ? "secondary" : "primary"} disabled={micRequested} onPress={() => void requestMic()} />
-            ) : null}
             {liveRole === "viewer" ? (
               <Pressable accessibilityRole="switch" accessibilityState={{ checked: anonymousListening }} onPress={() => void setAnonymous(!anonymousListening)} style={{ padding: 15, borderRadius: 18, borderWidth: 1, borderColor: anonymousListening ? colors.brandDeep : colors.line, backgroundColor: anonymousListening ? colors.hiSoft : colors.stage, flexDirection: "row", alignItems: "center", gap: 12 }}>
                 <View style={{ width: 38, height: 24, borderRadius: 12, backgroundColor: anonymousListening ? colors.brandDeep : colors.bone3, padding: 3, justifyContent: "center", alignItems: anonymousListening ? "flex-end" : "flex-start" }}><View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: colors.white }} /></View>
@@ -483,10 +683,10 @@ export function RealtimeSession({
             <View style={{ padding: 16, borderRadius: 20, backgroundColor: colors.stage, gap: 9 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <UsersThree size={19} color={colors.brandDeep} />
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{count} {count === 1 ? "person" : "people"} in this {mode === "room" ? "Room" : "Live"}{anonymousCount ? " · " + anonymousCount + " anonymous" : ""}</Text>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{count} {count === 1 ? "person" : "people"} in this Live{anonymousCount ? " · " + anonymousCount + " anonymous" : ""}</Text>
               </View>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>
-                {speaking ? (speaker ? `${speaker} is speaking now.` : "People are talking right now.") : mode === "room" ? "The Room is open. Speakers will light up as they talk." : "The Live is open. Viewers can watch and join the conversation."}
+                {speaking ? (speaker ? `${speaker} is speaking now.` : "People are talking right now.") : "The Live is open. Viewers can watch and join the conversation."}
               </Text>
             </View>
 

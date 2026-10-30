@@ -1,46 +1,275 @@
-import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
-import { useRouter, type Href } from "expo-router";
-import { AppShell, ActionButton, Skeleton } from "@/components/unmask-ui";
-import { ChatCircleDots, UsersThree } from "@/components/icons";
+import { useEffect, useState, type ReactNode } from "react";
+import { Pressable, Text, View, useWindowDimensions } from "react-native";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+
+import { UsersThree, Waveform } from "@/components/icons";
+import { RoomCard } from "@/components/room/RoomCard";
+import { AppShell } from "@/components/unmask-ui";
+import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
+import { fonts } from "@/constants/theme";
 import { db } from "@/lib/clarity/api";
-import { colors, fonts } from "@/constants/theme";
+import { formatSchedule, roomProducts, roomTopic } from "@/lib/room/context";
 import { useAppStore } from "@/lib/store";
+import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
 
-type Session={id:string;title:string;description:string;status:string;scheduled_at:string|null;host_creator_id:string|null;metadata:any};
+type Creator = {
+  display_name: string;
+  handle: string;
+  avatar_url: string | null;
+  creator_mark: string;
+};
 
-export default function Room(){
- const router=useRouter();const[rows,setRows]=useState<Session[]>([]);const[loading,setLoading]=useState(true);const uid=useAppStore(s=>s.profile?.id);
+type Session = {
+  id: string;
+  title: string;
+  description: string;
+  status: "live" | "scheduled";
+  scheduled_at: string | null;
+  started_at: string | null;
+  host_creator_id: string | null;
+  recording_status: string | null;
+  metadata: unknown;
+  creator: Creator | null;
+};
 
- useEffect(()=>{
-   let active=true;
-   const load=async()=>{
-     try{
-       const {data}=await db()
-         .from("unmask_realtime_sessions")
-         .select("id,title,description,status,scheduled_at,host_creator_id,metadata")
-         .eq("mode","room")
-         .in("status",["scheduled","live"])
-         .order("scheduled_at",{ascending:true})
-         .limit(20);
-       if(active)setRows((data??[]) as Session[]);
-     }catch{
-       // Keep the empty state when the realtime session feed is unavailable.
-     }finally{
-       if(active)setLoading(false);
-     }
-   };
-   void load();
-   return()=>{active=false};
- },[]);
+const SAMPLE: Session[] = [
+  {
+    id: "sample-live",
+    title: "Why this cleanser pills in humidity",
+    description: "Owners compare texture, fragrance, and whether the tight feeling shows up after a week.",
+    status: "live",
+    scheduled_at: null,
+    started_at: new Date().toISOString(),
+    host_creator_id: "ada",
+    recording_status: "recording",
+    metadata: {
+      participant_count: 18,
+      active_speaker_count: 1,
+      active_speaker_name: "Ada Mensah",
+      product_name: "Hydrating Cleanser",
+      product_brand: "CeraVe",
+      topic: "Texture",
+    },
+    creator: { display_name: "Ada Mensah", handle: "ada", avatar_url: null, creator_mark: "creator-ada" },
+  },
+  {
+    id: "sample-soon",
+    title: "Night cream: worth the price?",
+    description: "A scheduled listen on scent, pilling, and what people noticed after thirty days.",
+    status: "scheduled",
+    scheduled_at: new Date(Date.now() + 86400000).toISOString(),
+    started_at: null,
+    host_creator_id: "bea",
+    recording_status: "not_requested",
+    metadata: { participant_count: 0, product_name: "Skin Renewing Night Cream", product_brand: "CeraVe", topic: "Price" },
+    creator: { display_name: "Bea Okonkwo", handle: "bea", avatar_url: null, creator_mark: "creator-bea" },
+  },
+];
 
- return <AppShell back title="Room" subtitle="Talk it through together."><View style={{gap:16}}>
-  <View style={{padding:22,borderRadius:26,backgroundColor:"#F3EBE2",gap:11}}><ChatCircleDots size={29} color={colors.brandDeep} weight="fill"/><Text style={{fontFamily:fonts.semibold,fontSize:27,lineHeight:32,color:colors.ink}}>Audio-first product conversations.</Text><Text style={{fontFamily:fonts.regular,fontSize:15,lineHeight:23,color:colors.inkSoft}}>Listen to a moderated discussion, request the mic when invited, and add your experience to the collective picture.</Text></View>
-  {loading?<Skeleton height={150}/>:rows.length?rows.map(s=>{
-   const isHost=!!uid&&s.host_creator_id===uid; const count=Number(s.metadata?.participant_count||0); const talking=Number(s.metadata?.active_speaker_count||0)>0;
-   return <View key={s.id} style={{padding:18,borderRadius:23,backgroundColor:"#fff",borderWidth:1,borderColor:"#EDE6E1",gap:9}}><Text style={{fontFamily:fonts.semibold,fontSize:12,color:s.status==="live"?"#B42318":colors.inkSoft,letterSpacing:.8}}>{isHost?"YOUR ROOM":s.status==="live"?"LIVE ROOM":"SCHEDULED ROOM"}</Text><Text style={{fontFamily:fonts.semibold,fontSize:20,color:colors.ink}}>{s.title}</Text><Text style={{fontFamily:fonts.regular,fontSize:14,lineHeight:21,color:colors.inkSoft}}>{s.description}</Text>{s.status==="live"?<View style={{flexDirection:"row",alignItems:"center",gap:8}}><UsersThree size={15} color={colors.inkSoft}/><Text style={{fontFamily:fonts.medium,fontSize:12,color:colors.inkSoft}}>{count} {count===1?"person":"people"} here</Text><Text style={{fontFamily:fonts.medium,fontSize:12,color:talking?colors.brandDeep:colors.inkSoft}}>{talking?"· People are talking":"· Waiting"}</Text></View>:null}<ActionButton label={isHost?"Resume hosting":s.status==="live"?"Join Room":"View room"} onPress={()=>router.push({pathname:"/room/session",params:{id:s.id,...(isHost?{host:"1"}:{})}} as Href)}/></View>;
- }):<View style={{padding:20,borderRadius:23,backgroundColor:"#F6F3F1",gap:10}}><ChatCircleDots size={25} color={colors.brandDeep}/><Text style={{fontFamily:fonts.semibold,fontSize:19,color:colors.ink}}>No Rooms yet.</Text><Text style={{fontFamily:fonts.regular,fontSize:14,lineHeight:21,color:colors.inkSoft}}>Rooms will appear as creators schedule audio discussions.</Text><ActionButton tone="secondary" label="Meet the creators" onPress={()=>router.push("/creators" as Href)}/></View>}
-  <View style={{flexDirection:"row",alignItems:"center",gap:10,paddingTop:5}}><UsersThree size={19} color={colors.inkSoft}/><Text style={{flex:1,fontFamily:fonts.regular,fontSize:13,lineHeight:19,color:colors.inkSoft}}>Rooms are community spaces. Ultra is the structured path when one person's situation needs deeper investigation.</Text></View>
-  <ActionButton tone="secondary" label="See Live" onPress={()=>router.push("/live" as Href)}/>
- </View></AppShell>;
+function creatorOf(row: { unmask_creators?: Creator | Creator[] | null }) {
+  const value = row.unmask_creators;
+  if (Array.isArray(value)) return value[0] || null;
+  return value || null;
+}
+
+export default function RoomList() {
+  const { colors } = useUnmaskTheme();
+  const router = useRouter();
+  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const sample = preview === "1";
+  const { width } = useWindowDimensions();
+  const columns = width >= 760;
+  const uid = useAppStore((state) => state.profile?.id);
+  const [rows, setRows] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(!sample);
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (sample) {
+      setRows(SAMPLE);
+      setLoading(false);
+      setError("");
+      return;
+    }
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const { data, error: queryError } = await db()
+          .from("unmask_realtime_sessions")
+          .select("id,title,description,status,scheduled_at,started_at,host_creator_id,recording_status,metadata,unmask_creators(display_name,handle,avatar_url,creator_mark)")
+          .eq("mode", "room")
+          .in("status", ["scheduled", "live"])
+          .limit(20);
+        if (queryError) throw new Error(queryError.message);
+        if (!active) return;
+        const next = ((data ?? []) as Array<Session & { unmask_creators?: Creator | Creator[] | null }>).map((row) => ({
+          ...row,
+          status: row.status === "live" ? "live" as const : "scheduled" as const,
+          creator: creatorOf(row),
+        }));
+        next.sort((a, b) => {
+          if (a.status !== b.status) return a.status === "live" ? -1 : 1;
+          const aTime = Date.parse(a.status === "live" ? a.started_at || "" : a.scheduled_at || "");
+          const bTime = Date.parse(b.status === "live" ? b.started_at || "" : b.scheduled_at || "");
+          return a.status === "live" ? bTime - aTime : aTime - bTime;
+        });
+        setRows(next);
+      } catch (cause) {
+        if (active) setError(cause instanceof Error ? cause.message : "Rooms could not be loaded.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [attempt, sample]);
+
+  const live = rows.filter((row) => row.status === "live");
+  const scheduled = rows.filter((row) => row.status === "scheduled");
+
+  function open(row: Session) {
+    if (sample) {
+      router.push("/room/session?preview=1" as Href);
+      return;
+    }
+    const isHost = !!uid && row.host_creator_id === uid;
+    router.push({ pathname: "/room/session", params: { id: row.id, ...(isHost ? { host: "1" } : {}) } } as Href);
+  }
+
+  return (
+    <AppShell back title="Rooms" subtitle="Pause on a product and listen to the people who have used it.">
+      <View style={{ gap: 18 }}>
+        {sample ? (
+          <View style={{ padding: 12, borderRadius: 14, backgroundColor: colors.goldSoft }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, color: colors.honeyInk }}>
+              Sample layout. These Rooms are not live discussions.
+            </Text>
+          </View>
+        ) : null}
+        <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.inkSoft }}>
+          A Room is a moderated discussion. The host and co-hosts hold the stage. Listeners can ask for the mic. The product stays in view.
+        </Text>
+        {loading ? <ContentSkeleton rows={3} /> : null}
+        {!loading && error ? (
+          <View style={{ gap: 12, padding: 16, borderRadius: 20, backgroundColor: colors.coralSoft }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.coral }}>Rooms could not be loaded.</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.ink }}>{error}</Text>
+            <QuietButton label="Try again" onPress={() => setAttempt((value) => value + 1)} colors={colors} />
+          </View>
+        ) : null}
+        {!loading && !error && !rows.length ? (
+          <View style={{ padding: 20, borderRadius: 24, backgroundColor: colors.stage, gap: 10 }}>
+            <Waveform size={28} color={colors.brand} />
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 22, lineHeight: 28, color: colors.ink }}>No Rooms yet.</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.inkSoft }}>
+              Creators open a Room when a product needs a shared listen. Nothing is live or scheduled right now.
+            </Text>
+            <QuietButton label="Meet the creators" onPress={() => router.push("/creators" as Href)} colors={colors} />
+          </View>
+        ) : null}
+        {!loading && !error && live.length ? (
+          <Section title="Live now" colors={colors}>
+            <CardGrid columns={columns}>
+              {live.map((row) => (
+                <View key={row.id} style={{ flexGrow: 1, flexBasis: columns ? 320 : "100%" }}>
+                <RoomCard
+                  title={row.title}
+                  description={row.description}
+                  status="live"
+                  hostName={row.creator?.display_name || "Unmask Creator"}
+                  hostHandle={row.creator?.handle}
+                  hostAvatar={row.creator?.avatar_url}
+                  hostMark={row.creator?.creator_mark}
+                  count={Number((row.metadata as { participant_count?: number } | null)?.participant_count || 0)}
+                  talking={Number((row.metadata as { active_speaker_count?: number } | null)?.active_speaker_count || 0) > 0}
+                  speakerName={String((row.metadata as { active_speaker_name?: string } | null)?.active_speaker_name || "")}
+                  products={roomProducts(row.metadata)}
+                  topic={roomTopic(row.metadata)}
+                  recordingStatus={row.recording_status}
+                  isHost={!!uid && row.host_creator_id === uid}
+                  onPress={() => open(row)}
+                />
+                </View>
+              ))}
+            </CardGrid>
+          </Section>
+        ) : null}
+        {!loading && !error && scheduled.length ? (
+          <Section title="Scheduled" colors={colors}>
+            <CardGrid columns={columns}>
+              {scheduled.map((row) => (
+                <View key={row.id} style={{ flexGrow: 1, flexBasis: columns ? 320 : "100%" }}>
+                <RoomCard
+                  title={row.title}
+                  description={row.description}
+                  status="scheduled"
+                  hostName={row.creator?.display_name || "Unmask Creator"}
+                  hostHandle={row.creator?.handle}
+                  hostAvatar={row.creator?.avatar_url}
+                  hostMark={row.creator?.creator_mark}
+                  count={0}
+                  products={roomProducts(row.metadata)}
+                  topic={roomTopic(row.metadata)}
+                  when={formatSchedule(row.scheduled_at)}
+                  recordingStatus={row.recording_status}
+                  isHost={!!uid && row.host_creator_id === uid}
+                  onPress={() => open(row)}
+                />
+                </View>
+              ))}
+            </CardGrid>
+          </Section>
+        ) : null}
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+          <UsersThree size={18} color={colors.inkSoft} />
+          <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.inkSoft }}>
+            A Room is a public discussion. Ultra is the separate path when one person's situation needs a deeper investigation.
+          </Text>
+        </View>
+        <QuietButton label="See Live" onPress={() => router.push("/live" as Href)} colors={colors} />
+      </View>
+    </AppShell>
+  );
+}
+
+function QuietButton({ label, onPress, colors }: { label: string; onPress: () => void; colors: { stage: string; ink: string; line: string } }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: 48,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.line,
+        backgroundColor: colors.stage,
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: pressed ? 0.8 : 1,
+      })}
+    >
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function Section({ title, children, colors }: { title: string; children: ReactNode; colors: { ink: string } }) {
+  return (
+    <View style={{ gap: 12 }}>
+      <Text accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 13, letterSpacing: 0.7, color: colors.ink }}>
+        {title.toUpperCase()}
+      </Text>
+      {children}
+    </View>
+  );
+}
+
+function CardGrid({ columns, children }: { columns: boolean; children: ReactNode }) {
+  return <View style={{ flexDirection: columns ? "row" : "column", flexWrap: "wrap", gap: 12 }}>{children}</View>;
 }

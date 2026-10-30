@@ -11,13 +11,17 @@ import { Eyebrow, ProductImage, ScoreDial, Shimmer } from '@/components/kit';
 import { Composer, KIND_STYLE, PostCard } from '@/components/social';
 import { colors, fonts } from '@/constants/theme';
 import { routeId } from '@/lib/catalog';
+import { db } from '@/lib/clarity/api';
 import { fetchFeed, fetchRoom, KIND_LABEL } from '@/lib/community';
 import { hapticTap } from '@/lib/haptics';
 import { displayName, getKnownProduct, loadProduct } from '@/lib/products';
+import { roomProducts } from '@/lib/room/context';
+import { useUnmaskTheme } from '@/lib/useUnmaskTheme';
 import type { ThreadKind } from '@/lib/types';
 
 /** A product's room: how it's faring with the people deciding, and everything they're saying. */
 export default function RoomScreen() {
+  useUnmaskTheme();
   const router = useRouter();
   const qc = useQueryClient();
   const params = useLocalSearchParams<{ id: string; name?: string }>();
@@ -35,6 +39,23 @@ export default function RoomScreen() {
   const r = room.data;
   const kinds = Object.entries(r?.byKind ?? {}).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0)) as Array<[ThreadKind, number]>;
   const maxKind = Math.max(1, ...kinds.map(([, n]) => n));
+  const audioRooms = useQuery({
+    queryKey: ['product-audio-rooms', id, name],
+    enabled: Boolean(id),
+    staleTime: 20_000,
+    queryFn: async () => {
+      const { data, error } = await db()
+        .from('unmask_realtime_sessions')
+        .select('id,title,status,metadata')
+        .eq('mode', 'room')
+        .eq('status', 'live')
+        .limit(12);
+      if (error) throw error;
+      return ((data ?? []) as Array<{ id: string; title: string; metadata?: unknown }>).filter((row) =>
+        roomProducts(row.metadata).some((chip) => chip.id === id || chip.name.toLowerCase() === name.toLowerCase()),
+      );
+    },
+  });
   const seed = useMemo(
     () => ({ id, name: p?.name ?? name, brand: p?.brand ?? '', category: p?.category ?? '', heroImageUrl: p?.heroImageUrl ?? null }),
     [id, p?.name, p?.brand, p?.category, p?.heroImageUrl, name],
@@ -71,11 +92,11 @@ export default function RoomScreen() {
         {room.isLoading ? (
           <Shimmer height={170} radius={22} />
         ) : r ? (
-          <View style={{ backgroundColor: colors.black, borderRadius: 22, padding: 18, gap: 16 }}>
+          <View style={{ backgroundColor: colors.brandDeep, borderRadius: 22, padding: 18, gap: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
               <ScoreDial score={r.score} size={84} stroke={8} onDark />
               <View style={{ flex: 1, gap: 4 }}>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)' }}>How it’s faring</Text>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.gold }}>How it’s faring</Text>
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21, color: colors.white }}>{r.consensus || 'Owners are still weighing in on this one.'}</Text>
               </View>
             </View>
@@ -89,18 +110,36 @@ export default function RoomScreen() {
               <View style={{ gap: 8 }}>
                 {r.praise.slice(0, 2).map((t) => (
                   <View key={t} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-                    <SealCheck size={15} color="#5BD68A" weight="fill" style={{ marginTop: 2 }} />
-                    <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: 'rgba(255,255,255,0.85)' }}>{t}</Text>
+                    <SealCheck size={15} color={colors.gold} weight="fill" style={{ marginTop: 2 }} />
+                    <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.white }}>{t}</Text>
                   </View>
                 ))}
                 {r.complaints.slice(0, 2).map((t) => (
                   <View key={t} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-                    <Warning size={15} color="#FF8A7A" weight="fill" style={{ marginTop: 2 }} />
-                    <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: 'rgba(255,255,255,0.85)' }}>{t}</Text>
+                    <Warning size={15} color={colors.gold} weight="fill" style={{ marginTop: 2 }} />
+                    <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.white }}>{t}</Text>
                   </View>
                 ))}
               </View>
             ) : null}
+          </View>
+        ) : null}
+
+        {audioRooms.data?.length ? (
+          <View style={{ backgroundColor: colors.stage, borderRadius: 20, padding: 16, gap: 10 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.bone }}>Listening live</Text>
+            {audioRooms.data.map((room) => (
+              <Pressable
+                key={room.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Join audio room ${room.title}`}
+                onPress={() => router.push({ pathname: '/room/session', params: { id: room.id } } as Href)}
+                style={({ pressed }) => ({ minHeight: 48, justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}
+              >
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>{room.title}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.hi }}>Join the audio Room</Text>
+              </Pressable>
+            ))}
           </View>
         ) : null}
 
@@ -186,9 +225,9 @@ export default function RoomScreen() {
 
 function Stat({ value, label }: { value: number | string; label: string }) {
   return (
-    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, padding: 10, gap: 2 }}>
+    <View style={{ flex: 1, gap: 2 }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 19, letterSpacing: -0.4, color: colors.white }}>{value}</Text>
-      <Text numberOfLines={2} style={{ fontFamily: fonts.regular, fontSize: 11, lineHeight: 13, color: 'rgba(255,255,255,0.6)' }}>{label}</Text>
+      <Text numberOfLines={2} style={{ fontFamily: fonts.regular, fontSize: 11, lineHeight: 13, color: colors.gold }}>{label}</Text>
     </View>
   );
 }

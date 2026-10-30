@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useEffect, useState } from "react";
 import { useRouter, type Href } from "expo-router";
@@ -6,6 +7,7 @@ import { db } from "@/lib/clarity/api";
 import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
 import { Avatar } from "@/components/unmask-ui/Avatar";
 import { colors, fonts } from "@/constants/theme";
+import { roomProducts } from "@/lib/room/context";
 import { ChatCircleDots, Play, UsersThree, X } from "@/components/icons";
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/lib/store";
@@ -17,13 +19,13 @@ function ActivityBars({ active, dark }: { active: boolean; dark: boolean }) {
     const timer = setInterval(() => setPulse(v => (v + 1) % 2), 260);
     return () => clearInterval(timer);
   }, [active]);
-  const heights = active
+    const heights = active
     ? (pulse ? [8, 22, 13, 27, 11] : [20, 11, 25, 14, 21])
     : [5, 5, 5, 5, 5];
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 3, height: 25 }}>
       {heights.map((height, index) => (
-        <View key={index} style={{ width: 3, height, borderRadius: 3, backgroundColor: active ? "#F2D25B" : (dark ? "#6C3A4B" : "#C8AAB6") }} />
+        <View key={index} style={{ width: 3, height, borderRadius: 3, backgroundColor: active ? (dark ? "#F2D25B" : colors.gold) : (dark ? "#6C3A4B" : colors.line) }} />
       ))}
     </View>
   );
@@ -41,6 +43,7 @@ type Row = {
   active_speaker_count: number;
   last_activity_at: string | null;
   active_speaker_name: string;
+  product_name: string;
   creator?: {
     display_name: string;
     handle: string;
@@ -66,11 +69,13 @@ async function loadActive() {
     active_speaker_count: Number(row.metadata?.active_speaker_count || 0),
     last_activity_at: row.metadata?.last_activity_at || null,
     active_speaker_name: String(row.metadata?.active_speaker_name || ""),
+    product_name: roomProducts(row.metadata)[0]?.name || "",
     creator: Array.isArray(row.unmask_creators) ? row.unmask_creators[0] || null : row.unmask_creators || null,
   })) as Row[];
 }
 
 export function RealtimeRail() {
+  useUnmaskTheme();
   const router = useRouter();
   const qc = useQueryClient();
   const uid = useAppStore(s => s.profile?.id);
@@ -117,7 +122,7 @@ export function RealtimeRail() {
           const label = isHost ? `You're hosting · ${row.participant_count} ${row.participant_count === 1 ? "person" : "people"} here` : isRoom ? "Listen live" : "Watch live";
           const activityActive = row.active_speaker_count > 0 && !!row.last_activity_at && Date.now() - Date.parse(row.last_activity_at) < 6000;
           return (
-            <View key={row.id} style={{ width: 292, minHeight: 150, borderRadius: 22, backgroundColor: isRoom ? "#F3EBE2" : "#2A0E16", overflow: "hidden" }}>
+            <View key={row.id} style={{ width: 292, minHeight: 150, borderRadius: 22, backgroundColor: isRoom ? colors.stage : "#2A0E16", borderWidth: isRoom ? 1 : 0, borderColor: colors.line, overflow: "hidden" }}>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => router.push({ pathname: isRoom ? "/room/session" : "/live/session", params: { id: row.id, ...(isHost ? { host: "1" } : {}) } } as Href)}
@@ -126,7 +131,7 @@ export function RealtimeRail() {
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 11 }}>
                   <View style={{ position: "relative" }}>
                     <Avatar name={creator?.display_name || "Unmask Creator"} uri={creator?.avatar_url || undefined} size={44} />
-                    <View style={{ position: "absolute", right: -4, bottom: -4, borderRadius: 12, backgroundColor: isRoom ? "#F3EBE2" : "#2A0E16", padding: 2 }}>
+                    <View style={{ position: "absolute", right: -4, bottom: -4, borderRadius: 12, backgroundColor: isRoom ? colors.stage : "#2A0E16", padding: 2 }}>
                       <CreatorMark mark={creator?.creator_mark || row.host_creator_id || row.id} size={20} />
                     </View>
                   </View>
@@ -143,6 +148,9 @@ export function RealtimeRail() {
                 <Text numberOfLines={2} style={{ fontFamily: fonts.semibold, fontSize: 17, lineHeight: 21, color: isRoom ? colors.ink : "#fff" }}>
                   {row.title}
                 </Text>
+                {isRoom && row.product_name ? (
+                  <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.brand }}>{row.product_name}</Text>
+                ) : null}
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   {isRoom ? <ChatCircleDots size={15} color={colors.brandDeep} /> : <Play size={15} color="#F2D25B" weight="fill" />}
                   <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12, color: isRoom ? colors.brandDeep : "#F2D25B" }}>{label}</Text>
@@ -157,7 +165,7 @@ export function RealtimeRail() {
               {isHost ? (
                 <View style={{ paddingHorizontal: 16, paddingBottom: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: isRoom ? colors.inkSoft : "#E9D8E0", flex: 1 }}>Your session is still live. Open it to manage the room or end it.</Text>
-                  <Pressable accessibilityRole="button" onPress={() => void endSession(row.id)} style={{ minHeight: 34, paddingHorizontal: 11, borderRadius: 11, backgroundColor: isRoom ? "#fff" : "#3A1622", flexDirection: "row", alignItems: "center", gap: 5 }}>
+                  <Pressable accessibilityRole="button" onPress={() => void endSession(row.id)} style={{ minHeight: 44, paddingHorizontal: 11, borderRadius: 11, backgroundColor: isRoom ? colors.lac : "#3A1622", flexDirection: "row", alignItems: "center", gap: 5 }}>
                     <X size={14} color={isRoom ? colors.brandDeep : "#F2D25B"} />
                     <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: isRoom ? colors.brandDeep : "#F2D25B" }}>End</Text>
                   </Pressable>
