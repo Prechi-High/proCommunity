@@ -28,7 +28,7 @@ export default async function handler(req: ReqReq, res: ReqRes) {
   }
 
   try {
-    const { CategoryClassificationService } = await import('../../lib/services/category-classification/categoryClassification');
+    const { CategoryClassificationService } = await import('../../lib/services/category-classification/categoryClassification.js');
     const service = new CategoryClassificationService();
 
     const result = await service.classify(query, productName, brand);

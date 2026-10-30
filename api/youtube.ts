@@ -4,15 +4,15 @@ import {
   COMMENT_THREADS_FETCH,
   filterMeaningfulThreads,
   type ThreadComment,
-} from '../lib/commentQuality';
+} from '../lib/commentQuality.js';
 import {
   CACHE_TTL,
   cacheAside,
   cacheInvalidation,
   logCacheEvent,
   videoCommentsKey,
-} from '../lib/server/redis';
-import { isShortFormYoutube, isoDurationToSeconds } from '../lib/youtubeDuration';
+} from '../lib/server/redis/index.js';
+import { isShortFormYoutube, isoDurationToSeconds } from '../lib/youtubeDuration.js';
 
 type QueryReq = {
   method?: string;

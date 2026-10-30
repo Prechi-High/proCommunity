@@ -1,5 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
-const { nextMicRequests, presencePatch } = require("./mic-access");
+const { nextMicRequests, presencePatch } = require("../../lib/realtime/mic-access.js");
 
 function env(name) {
   const value = process.env[name];
