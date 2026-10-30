@@ -84,7 +84,7 @@ export function RealtimeSession({
           body: JSON.stringify({ sessionId: id, role: host ? "host" : "cohost" }),
         });
         const raw = await res.text();
-        let payload = {};
+        let payload: any = {};
         try { payload = raw ? JSON.parse(raw) : {}; } catch {
           throw new Error(raw.trim() || `Could not join the session (HTTP ${res.status}).`);
         }
