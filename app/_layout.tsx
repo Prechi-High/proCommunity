@@ -10,6 +10,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { WebShell } from '@/components/Screen';
+import { RoomDock } from '@/components/room/RoomDock';
 import { applyThemeColors, colors } from '@/constants/theme';
 import { startAuth } from '@/lib/auth';
 import { recordSiteVisit } from '@/lib/siteAnalytics';
@@ -116,6 +117,7 @@ function RootLayout() {
                 <Stack.Screen name="settings/whatsapp" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="admin/index" />
               </Stack>
+              <RoomDock />
               </View>
             </AuthGate>
           </WebShell>

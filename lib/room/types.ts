@@ -18,7 +18,17 @@ export type RoomSeat = {
   avatarUrl?: string | null;
 };
 
-export type RoomReactionKind = "same" | "differs" | "clarify" | "keep";
+export type RoomReactionKind =
+  | "laugh"
+  | "wow"
+  | "sad"
+  | "heart"
+  | "hundred"
+  | "clap"
+  | "fist"
+  | "up"
+  | "down"
+  | "wave";
 
 export type RoomPresence = {
   id: string;

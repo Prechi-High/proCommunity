@@ -3,12 +3,13 @@ import { Pressable, Text, View, useWindowDimensions } from "react-native";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 
 import { UsersThree, Waveform } from "@/components/icons";
-import { RoomCard } from "@/components/room/RoomCard";
+import { SpaceCard, SpacePill } from "@/components/room/SpaceCard";
 import { AppShell } from "@/components/unmask-ui";
 import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { fonts } from "@/constants/theme";
 import { db } from "@/lib/clarity/api";
-import { formatSchedule, roomProducts, roomTopic } from "@/lib/room/context";
+import { formatSchedule, roomProducts } from "@/lib/room/context";
+import { useRoomDock } from "@/lib/room/dock";
 import { useAppStore } from "@/lib/store";
 import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
 
@@ -75,6 +76,7 @@ function creatorOf(row: { unmask_creators?: Creator | Creator[] | null }) {
 export default function RoomList() {
   const { colors } = useUnmaskTheme();
   const router = useRouter();
+  const openRoom = useRoomDock((state) => state.open);
   const { preview } = useLocalSearchParams<{ preview?: string }>();
   const sample = preview === "1";
   const { width } = useWindowDimensions();
@@ -134,11 +136,11 @@ export default function RoomList() {
 
   function open(row: Session) {
     if (sample) {
-      router.push("/room/session?preview=1" as Href);
+      router.push((row.status === "live" ? "/room/session?preview=live" : "/room/session?preview=prejoin") as Href);
       return;
     }
     const isHost = !!uid && row.host_creator_id === uid;
-    router.push({ pathname: "/room/session", params: { id: row.id, ...(isHost ? { host: "1" } : {}) } } as Href);
+    openRoom({ id: row.id, host: isHost });
   }
 
   return (
@@ -172,56 +174,53 @@ export default function RoomList() {
             <QuietButton label="Meet the creators" onPress={() => router.push("/creators" as Href)} colors={colors} />
           </View>
         ) : null}
+        {!loading && !error && live[0] ? (
+          <SpacePill
+            title={live[0].title}
+            hostName={live[0].creator?.display_name || "Host"}
+            count={Number((live[0].metadata as { participant_count?: number } | null)?.participant_count || 0)}
+            onPress={() => open(live[0])}
+          />
+        ) : null}
         {!loading && !error && live.length ? (
           <Section title="Live now" colors={colors}>
             <CardGrid columns={columns}>
-              {live.map((row) => (
-                <View key={row.id} style={{ flexGrow: 1, flexBasis: columns ? 320 : "100%" }}>
-                <RoomCard
-                  title={row.title}
-                  description={row.description}
-                  status="live"
-                  hostName={row.creator?.display_name || "Unmask Creator"}
-                  hostHandle={row.creator?.handle}
-                  hostAvatar={row.creator?.avatar_url}
-                  hostMark={row.creator?.creator_mark}
-                  count={Number((row.metadata as { participant_count?: number } | null)?.participant_count || 0)}
-                  talking={Number((row.metadata as { active_speaker_count?: number } | null)?.active_speaker_count || 0) > 0}
-                  speakerName={String((row.metadata as { active_speaker_name?: string } | null)?.active_speaker_name || "")}
-                  products={roomProducts(row.metadata)}
-                  topic={roomTopic(row.metadata)}
-                  recordingStatus={row.recording_status}
-                  isHost={!!uid && row.host_creator_id === uid}
-                  onPress={() => open(row)}
-                />
-                </View>
-              ))}
+              {live.map((row) => {
+                const product = roomProducts(row.metadata)[0];
+                return (
+                  <View key={row.id} style={{ flexGrow: 1, flexBasis: columns ? 320 : "100%" }}>
+                    <SpaceCard
+                      title={row.title}
+                      hostName={row.creator?.display_name || "Unmask Creator"}
+                      hostHandle={row.creator?.handle}
+                      count={Number((row.metadata as { participant_count?: number } | null)?.participant_count || 0)}
+                      product={product ? (product.brand ? `${product.brand} ${product.name}` : product.name) : undefined}
+                      onPress={() => open(row)}
+                    />
+                  </View>
+                );
+              })}
             </CardGrid>
           </Section>
         ) : null}
         {!loading && !error && scheduled.length ? (
           <Section title="Scheduled" colors={colors}>
             <CardGrid columns={columns}>
-              {scheduled.map((row) => (
-                <View key={row.id} style={{ flexGrow: 1, flexBasis: columns ? 320 : "100%" }}>
-                <RoomCard
-                  title={row.title}
-                  description={row.description}
-                  status="scheduled"
-                  hostName={row.creator?.display_name || "Unmask Creator"}
-                  hostHandle={row.creator?.handle}
-                  hostAvatar={row.creator?.avatar_url}
-                  hostMark={row.creator?.creator_mark}
-                  count={0}
-                  products={roomProducts(row.metadata)}
-                  topic={roomTopic(row.metadata)}
-                  when={formatSchedule(row.scheduled_at)}
-                  recordingStatus={row.recording_status}
-                  isHost={!!uid && row.host_creator_id === uid}
-                  onPress={() => open(row)}
-                />
-                </View>
-              ))}
+              {scheduled.map((row) => {
+                const product = roomProducts(row.metadata)[0];
+                return (
+                  <View key={row.id} style={{ flexGrow: 1, flexBasis: columns ? 320 : "100%" }}>
+                    <SpaceCard
+                      title={row.title}
+                      hostName={row.creator?.display_name || "Unmask Creator"}
+                      hostHandle={row.creator?.handle}
+                      count={0}
+                      product={product ? `${product.brand ? `${product.brand} ` : ""}${product.name} · ${formatSchedule(row.scheduled_at)}` : formatSchedule(row.scheduled_at)}
+                      onPress={() => open(row)}
+                    />
+                  </View>
+                );
+              })}
             </CardGrid>
           </Section>
         ) : null}

@@ -12,6 +12,8 @@ import { ChatCircleDots, Play, UsersThree, X } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { roomProducts, roomTopic } from "@/lib/room/context";
+import { useRoomDock } from "@/lib/room/dock";
+import { ROOM_EMOJI_IDS } from "@/lib/room/emoji";
 import { arrangeRoom } from "@/lib/room/seats";
 import type { RoomReactionKind } from "@/lib/room/types";
 import { useAppStore } from "@/lib/store";
@@ -32,6 +34,7 @@ export function RealtimeSession({
   const router = useRouter();
   const uid = useAppStore(s => s.profile?.id);
   const youName = useAppStore(s => s.profile?.displayName) || "You";
+  const storeMinimized = useRoomDock((state) => state.active?.id === id && state.active.minimized);
   const roomRef = useRef<Room | null>(null);
   const mediaRef = useRef<any>(null);
   const [state, setState] = useState("connecting");
@@ -60,9 +63,12 @@ export function RealtimeSession({
   const [micDenied, setMicDenied] = useState(false);
   const [invited, setInvited] = useState(false);
   const [minimized, setMinimized] = useState(false);
+  const [armed, setArmed] = useState(mode !== "room" || host);
+  const [outputOn, setOutputOn] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const [reactions, setReactions] = useState<Array<{ id: string; kind: RoomReactionKind; name: string }>>([]);
-  const [reactionCounts, setReactionCounts] = useState<Record<RoomReactionKind, number>>({ same: 0, differs: 0, clarify: 0, keep: 0 });
+  const anonymousRef = useRef(false);
+  anonymousRef.current = anonymousListening;
   const [sessionMeta, setSessionMeta] = useState<{ description: string; hostId: string | null; recordingStatus: string | null; metadata: unknown }>({
     description: "",
     hostId: null,
@@ -126,6 +132,31 @@ export function RealtimeSession({
   }, [micApproved, liveRole, mode]);
 
   useEffect(() => {
+    if (mode !== "room" || !id) return;
+    let dead = false;
+    void db().from("unmask_realtime_sessions")
+      .select("title,description,host_creator_id,recording_status,metadata,unmask_creators(display_name,handle,avatar_url,creator_mark,verification_level)")
+      .eq("id", id).single().then(({ data, error }) => {
+        if (dead || error || !data) return;
+        setTitle(data.title || "Room");
+        setSessionMeta({
+          description: data.description || "",
+          hostId: data.host_creator_id || null,
+          recordingStatus: data.recording_status || null,
+          metadata: data.metadata || {},
+        });
+        const joined = Array.isArray(data.unmask_creators) ? data.unmask_creators[0] : data.unmask_creators;
+        setCreator(joined || null);
+        const ids = Array.isArray(data.metadata?.cohost_ids) ? data.metadata.cohost_ids.map(String) : [];
+        setCohostIds(ids);
+        const present = Number(data.metadata?.participant_count || 0);
+        if (present) setCount(present);
+      });
+    return () => { dead = true; };
+  }, [id, mode]);
+
+  useEffect(() => {
+    if (mode === "room" && !armed) return;
     if (!id) {
       setState(mode === "room" ? "Open this Room from the list to join." : "Open this session from Live or Room to join.");
       return;
@@ -158,7 +189,7 @@ export function RealtimeSession({
         const res = await fetch("/api/realtime/token", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.session.access_token}` },
-          body: JSON.stringify({ sessionId: id, role: host ? "host" : "cohost", anonymous: anonymousListening }),
+          body: JSON.stringify({ sessionId: id, role: host ? "host" : "cohost", anonymous: anonymousRef.current }),
         });
         const raw = await res.text();
         let payload: any = {};
@@ -225,10 +256,9 @@ export function RealtimeSession({
             const item = JSON.parse(decoder.decode(payloadBytes));
             const anonymous = participant?.attributes?.anonymous === "true";
             const personName = anonymous ? "Anonymous" : participant?.name || participant?.identity || "Unmasker";
-            if (item?.type === "reaction" && ["same", "differs", "clarify", "keep"].includes(item.kind)) {
+            if (item?.type === "reaction" && ROOM_EMOJI_IDS.includes(item.kind)) {
               const reaction = { id: String(item.id || Date.now()), kind: item.kind as RoomReactionKind, name: personName };
               setReactions(old => [...old, reaction].slice(-8));
-              setReactionCounts(old => ({ ...old, [reaction.kind]: (old[reaction.kind] || 0) + 1 }));
               setTimeout(() => setReactions(old => old.filter(entry => entry.id !== reaction.id)), 2600);
               return;
             }
@@ -318,7 +348,7 @@ export function RealtimeSession({
       });
       roomRef.current = null;
     };
-  }, [id, mode, host, decoder, uid, attempt]);
+  }, [id, mode, host, decoder, uid, attempt, armed]);
 
   async function sendMessage() {
     const room = roomRef.current;
@@ -383,7 +413,8 @@ export function RealtimeSession({
     if (action === "deny_mic" && targetUserId === uid) { setMicRequested(false); setMicApproved(false); }
     if (action === "end") {
       await roomRef.current?.disconnect();
-      router.replace((mode === "room" ? "/room" : "/") as Href);
+      if (mode === "room") useRoomDock.getState().close();
+      else router.replace("/" as Href);
     }
   }
 
@@ -394,7 +425,6 @@ export function RealtimeSession({
     try {
       await room.localParticipant.publishData(encoder.encode(JSON.stringify(payload)), { reliable: true, topic: "unmask-chat" });
       setReactions(old => [...old, { id: payload.id, kind, name: "You" }].slice(-8));
-      setReactionCounts(old => ({ ...old, [kind]: (old[kind] || 0) + 1 }));
       setTimeout(() => setReactions(old => old.filter(entry => entry.id !== payload.id)), 2600);
     } catch (error) {
       setManagementError(error instanceof Error ? error.message : "Could not send that reaction.");
@@ -437,7 +467,32 @@ export function RealtimeSession({
       return;
     }
     await roomRef.current?.disconnect();
+    if (mode === "room") {
+      useRoomDock.getState().close();
+      return;
+    }
     router.back();
+  }
+
+  async function toggleOutput() {
+    const room = roomRef.current;
+    const next = !outputOn;
+    setOutputOn(next);
+    if (!room) return;
+    room.remoteParticipants.forEach((person) => {
+      person.audioTrackPublications.forEach((publication) => {
+        const track = publication.track as { setVolume?: (volume: number) => void } | undefined;
+        track?.setVolume?.(next ? 1 : 0);
+      });
+    });
+  }
+
+  async function copyRoomLink() {
+    const url = Linking.createURL(`/room/session?id=${encodeURIComponent(id)}`);
+    if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.clipboard) {
+      try { await navigator.clipboard.writeText(url); return; } catch { /* fall through */ }
+    }
+    await shareRoom();
   }
 
   const active = state === "connected";
@@ -454,7 +509,7 @@ export function RealtimeSession({
   const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "U";
 
   if (mode === "room") {
-    const phase = state === "connecting" ? "connecting" : state === "connected" ? "live" : state === "ended" ? "ended" : "error";
+    const phase = !armed ? "prejoin" : state === "connecting" ? "connecting" : state === "connected" ? "live" : state === "ended" ? "ended" : "error";
     const youRole = isHostSession || liveRole === "host" ? "host" : liveRole === "cohost" ? "cohost" : canSpeak ? "speaker" : "listener";
     const arranged = arrangeRoom({
       hostId: sessionMeta.hostId || (isHostSession ? uid : "") || "",
@@ -516,7 +571,6 @@ export function RealtimeSession({
         invited={invited}
         onDismissInvite={() => setInvited(false)}
         reactions={reactions}
-        reactionCounts={reactionCounts}
         onReact={(kind) => void sendReaction(kind)}
         notes={chat}
         message={message}
@@ -528,18 +582,32 @@ export function RealtimeSession({
         onEnd={canEnd ? () => void leave(true) : undefined}
         onExit={() => {
           void roomRef.current?.disconnect();
-          router.replace("/room" as Href);
+          useRoomDock.getState().close();
         }}
         onRetry={() => {
           setManagementError("");
           setState("connecting");
+          setArmed(true);
           setAttempt((value) => value + 1);
         }}
+        onStart={() => {
+          setState("connecting");
+          setArmed(true);
+        }}
         onShare={() => void shareRoom()}
+        onCopyLink={() => void copyRoomLink()}
         onToggleAnonymous={(next) => void setAnonymous(next)}
-        minimized={minimized}
-        onMinimize={() => setMinimized(true)}
-        onExpand={() => setMinimized(false)}
+        minimized={storeMinimized}
+        onMinimize={() => {
+          setMinimized(true);
+          useRoomDock.getState().minimize();
+        }}
+        onExpand={() => {
+          setMinimized(false);
+          useRoomDock.getState().expand();
+        }}
+        outputOn={outputOn}
+        onToggleOutput={() => void toggleOutput()}
         canHear={canPlayAudio}
         onStartAudio={() => void startAudio()}
         pendingMics={micRequests.filter((ask) => ask.status === "pending")}

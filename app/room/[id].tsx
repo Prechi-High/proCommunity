@@ -16,6 +16,7 @@ import { fetchFeed, fetchRoom, KIND_LABEL } from '@/lib/community';
 import { hapticTap } from '@/lib/haptics';
 import { displayName, getKnownProduct, loadProduct } from '@/lib/products';
 import { roomProducts } from '@/lib/room/context';
+import { useRoomDock } from '@/lib/room/dock';
 import { useUnmaskTheme } from '@/lib/useUnmaskTheme';
 import type { ThreadKind } from '@/lib/types';
 
@@ -23,6 +24,7 @@ import type { ThreadKind } from '@/lib/types';
 export default function RoomScreen() {
   useUnmaskTheme();
   const router = useRouter();
+  const openRoom = useRoomDock((state) => state.open);
   const qc = useQueryClient();
   const params = useLocalSearchParams<{ id: string; name?: string }>();
   const id = routeId(params.id);
@@ -133,7 +135,7 @@ export default function RoomScreen() {
                 key={room.id}
                 accessibilityRole="button"
                 accessibilityLabel={`Join audio room ${room.title}`}
-                onPress={() => router.push({ pathname: '/room/session', params: { id: room.id } } as Href)}
+                onPress={() => openRoom({ id: room.id })}
                 style={({ pressed }) => ({ minHeight: 48, justifyContent: 'center', opacity: pressed ? 0.75 : 1 })}
               >
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.bone }}>{room.title}</Text>

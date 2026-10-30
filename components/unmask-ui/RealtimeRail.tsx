@@ -8,6 +8,8 @@ import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
 import { Avatar } from "@/components/unmask-ui/Avatar";
 import { colors, fonts } from "@/constants/theme";
 import { roomProducts } from "@/lib/room/context";
+import { useRoomDock } from "@/lib/room/dock";
+import { SpaceCard } from "@/components/room/SpaceCard";
 import { ChatCircleDots, Play, UsersThree, X } from "@/components/icons";
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/lib/store";
@@ -121,8 +123,23 @@ export function RealtimeRail() {
           const isHost = !!uid && row.host_creator_id === uid;
           const label = isHost ? `You're hosting · ${row.participant_count} ${row.participant_count === 1 ? "person" : "people"} here` : isRoom ? "Listen live" : "Watch live";
           const activityActive = row.active_speaker_count > 0 && !!row.last_activity_at && Date.now() - Date.parse(row.last_activity_at) < 6000;
+          if (isRoom) {
+            const product = row.product_name;
+            return (
+              <View key={row.id} style={{ width: 300 }}>
+                <SpaceCard
+                  title={row.title}
+                  hostName={creator?.display_name || "Unmask Creator"}
+                  hostHandle={creator?.handle}
+                  count={row.participant_count}
+                  product={product || undefined}
+                  onPress={() => useRoomDock.getState().open({ id: row.id, host: isHost })}
+                />
+              </View>
+            );
+          }
           return (
-            <View key={row.id} style={{ width: 292, minHeight: 150, borderRadius: 22, backgroundColor: isRoom ? colors.stage : "#2A0E16", borderWidth: isRoom ? 1 : 0, borderColor: colors.line, overflow: "hidden" }}>
+            <View key={row.id} style={{ width: 292, minHeight: 150, borderRadius: 22, backgroundColor: "#2A0E16", overflow: "hidden" }}>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => router.push({ pathname: isRoom ? "/room/session" : "/live/session", params: { id: row.id, ...(isHost ? { host: "1" } : {}) } } as Href)}

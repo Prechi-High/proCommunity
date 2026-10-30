@@ -116,6 +116,8 @@ import {
   SpeakerHigh,
   SpeakerSlash,
   CaretUp,
+  Pause,
+  Flag,
 } from "phosphor-react-native";
 
 export {
@@ -131,6 +133,8 @@ export {
   SpeakerHigh,
   SpeakerSlash,
   CaretUp,
+  Pause,
+  Flag,
   ArrowFatDown,
   BellRinging,
   ChatCircleDots,
