@@ -93,9 +93,13 @@ async function handler(req, res) {
 
       if (managedSessionError || !managedSession) return send(res, 404, { error: "Session not found." });
       if (managedSession.status !== "live") return send(res, 409, { error: "This session is no longer live." });
-      if (managedSession.host_creator_id !== userData.user.id) {
-        return send(res, 403, { error: "Only the host can manage this session." });
-      }
+      const managedMetadata = managedSession.metadata && typeof managedSession.metadata === "object" ? managedSession.metadata : {};
+      const managedCohostIds = Array.isArray(managedMetadata.cohost_ids) ? managedMetadata.cohost_ids.map(String) : [];
+      const managedCohostPermissions = managedMetadata.cohost_permissions && typeof managedMetadata.cohost_permissions === "object" ? managedMetadata.cohost_permissions : {};
+      const isRootHost = managedSession.host_creator_id === userData.user.id;
+      const actorPermissions = managedCohostPermissions[userData.user.id] || {};
+      if (!isRootHost && !managedCohostIds.includes(userData.user.id)) return send(res, 403, { error: "Only the host or a co-host can manage this session." });
+      if (action === "end" && !isRootHost && !actorPermissions.can_end) return send(res, 403, { error: "You do not have permission to end this session." });
 
       if (action === "end") {
         const { error: endError } = await supabase.from("unmask_realtime_sessions")
@@ -116,42 +120,65 @@ async function handler(req, res) {
         return send(res, 200, { ok: true, action });
       }
 
-      if (action === "add_cohost" || action === "remove_cohost") {
+      if (["add_cohost","remove_cohost","grant_end","revoke_end","grant_cohost_management","revoke_cohost_management","approve_mic","deny_mic"].includes(action)) {
         const targetUserId = String(body.targetUserId || "");
-        if (!targetUserId) return send(res, 400, { error: "A creator is required." });
-
-        const { data: target } = await supabase.from("unmask_creators")
-          .select("user_id,display_name,handle,creator_mark,status,published,avatar_url")
-          .eq("user_id", targetUserId).maybeSingle();
-
-        if (!target || !target.published || !["trial", "active", "expert", "verified_professional"].includes(target.status)) {
-          return send(res, 400, { error: "Only active Unmask Creators can be co-hosts." });
+        if (!targetUserId) return send(res, 400, { error: "A user is required." });
+        const metadata = managedSession.metadata && typeof managedSession.metadata === "object" ? managedSession.metadata : {};
+        const cohostIds = Array.isArray(metadata.cohost_ids) ? metadata.cohost_ids.map(String) : [];
+        const permissions = metadata.cohost_permissions && typeof metadata.cohost_permissions === "object" ? metadata.cohost_permissions : {};
+        const root = managedSession.host_creator_id === userData.user.id;
+        const actor = permissions[userData.user.id] || {};
+        const managementAction = ["add_cohost","remove_cohost","grant_end","revoke_end","grant_cohost_management","revoke_cohost_management"].includes(action);
+        if (!root && (!cohostIds.includes(userData.user.id) || (managementAction && !actor.can_manage_cohosts))) {
+          return send(res, 403, { error: "You do not have permission to manage co-hosts." });
         }
 
-        const metadata = managedSession.metadata && typeof managedSession.metadata === "object"
-          ? managedSession.metadata : {};
-        const ids = Array.isArray(metadata.cohost_ids) ? metadata.cohost_ids.map(String) : [];
-        const next = action === "add_cohost"
-          ? Array.from(new Set([...ids, targetUserId])) : ids.filter((id) => id !== targetUserId);
-
-        const { error } = await supabase.from("unmask_realtime_sessions")
-          .update({ metadata: { ...metadata, cohost_ids: next } }).eq("id", sessionId);
-        if (error) throw error;
-
-        if (managedSession.room_name) {
-          try {
-            const { RoomServiceClient } = await import("livekit-server-sdk");
-            const roomService = new RoomServiceClient(
-              httpHost(env("LIVEKIT_URL")), env("LIVEKIT_API_KEY"), env("LIVEKIT_API_SECRET")
-            );
-            await roomService.updateParticipant(managedSession.room_name, targetUserId, {
-              permission: { canPublish: action === "add_cohost", canSubscribe: true, canPublishData: true },
-            });
-          } catch (error) {
-            console.error("livekit cohost permission update skipped", error);
+        if (["add_cohost","remove_cohost"].includes(action)) {
+          const { data: target } = await supabase.from("unmask_creators")
+            .select("user_id,display_name,handle,creator_mark,status,published,avatar_url")
+            .eq("user_id", targetUserId).maybeSingle();
+          if (!target || !target.published || !["trial","active","expert","verified_professional"].includes(target.status)) {
+            return send(res, 400, { error: "Only active Unmask Creators can be co-hosts." });
           }
+          const nextIds = action === "add_cohost" ? Array.from(new Set([...cohostIds,targetUserId])) : cohostIds.filter(id => id !== targetUserId);
+          const nextPermissions = { ...permissions };
+          if (action === "add_cohost") nextPermissions[targetUserId] = nextPermissions[targetUserId] || { can_end:false, can_manage_cohosts:false };
+          else delete nextPermissions[targetUserId];
+          const { error } = await supabase.from("unmask_realtime_sessions").update({ metadata:{...metadata,cohost_ids:nextIds,cohost_permissions:nextPermissions} }).eq("id",sessionId);
+          if (error) throw error;
+          if (managedSession.room_name && action === "add_cohost") {
+            try {
+              const { RoomServiceClient } = await import("livekit-server-sdk");
+              await new RoomServiceClient(httpHost(env("LIVEKIT_URL")),env("LIVEKIT_API_KEY"),env("LIVEKIT_API_SECRET")).updateParticipant(managedSession.room_name,targetUserId,{permission:{canPublish:true,canSubscribe:true,canPublishData:true}});
+            } catch (error) { console.error("livekit cohost permission update skipped",error); }
+          }
+          return send(res,200,{ok:true,action,creator:target,cohostIds:nextIds,cohostPermissions:nextPermissions});
         }
-        return send(res, 200, { ok: true, action, creator: target, cohostIds: next });
+
+        if (["grant_end","revoke_end","grant_cohost_management","revoke_cohost_management"].includes(action)) {
+          if (!cohostIds.includes(targetUserId)) return send(res,400,{error:"That user is not a co-host."});
+          const nextPermissions={...permissions,[targetUserId]:{...(permissions[targetUserId]||{}),
+            ...(action==="grant_end"?{can_end:true}:{}),
+            ...(action==="revoke_end"?{can_end:false}:{}),
+            ...(action==="grant_cohost_management"?{can_manage_cohosts:true}:{}),
+            ...(action==="revoke_cohost_management"?{can_manage_cohosts:false}:{})}};
+          const {error}=await supabase.from("unmask_realtime_sessions").update({metadata:{...metadata,cohost_permissions:nextPermissions}}).eq("id",sessionId);
+          if(error) throw error;
+          return send(res,200,{ok:true,action,cohostPermissions:nextPermissions});
+        }
+
+        if (["approve_mic","deny_mic"].includes(action)) {
+          const requests=Array.isArray(metadata.mic_requests)?metadata.mic_requests:[];
+          if(!requests.some(item=>String(item?.user_id)===targetUserId && item?.status==="pending")) return send(res,404,{error:"Mic request not found."});
+          const nextRequests=requests.map(item=>String(item?.user_id)===targetUserId&&item?.status==="pending"?{...item,status:action==="approve_mic"?"approved":"denied",updated_at:new Date().toISOString()}:item);
+          const {error}=await supabase.from("unmask_realtime_sessions").update({metadata:{...metadata,mic_requests:nextRequests}}).eq("id",sessionId);
+          if(error) throw error;
+          if(action==="approve_mic"&&managedSession.room_name){try{
+            const {RoomServiceClient}=await import("livekit-server-sdk");
+            await new RoomServiceClient(httpHost(env("LIVEKIT_URL")),env("LIVEKIT_API_KEY"),env("LIVEKIT_API_SECRET")).updateParticipant(managedSession.room_name,targetUserId,{permission:{canPublish:true,canSubscribe:true,canPublishData:true}});
+          }catch(error){console.error("livekit mic approval update skipped",error);}}
+          return send(res,200,{ok:true,action,micRequests:nextRequests});
+        }
       }
 
       return send(res, 400, { error: "Unknown action." });
