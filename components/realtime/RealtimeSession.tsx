@@ -39,6 +39,9 @@ export function RealtimeSession({
   const [pulse, setPulse] = useState(0);
   const [title, setTitle] = useState(mode === "live" ? "Live" : "Room");
   const [creator, setCreator] = useState<any>(null);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [activeSpeakerIds, setActiveSpeakerIds] = useState<string[]>([]);
+  const [anonymousListening, setAnonymousListening] = useState(false);
   const [liveRole, setLiveRole] = useState<"viewer" | "host" | "cohost">("viewer");
   const [isHostSession, setIsHostSession] = useState(host);
   const [creators, setCreators] = useState<Creator[]>([]);
@@ -121,7 +124,7 @@ export function RealtimeSession({
         const res = await fetch("/api/realtime/token", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.session.access_token}` },
-          body: JSON.stringify({ sessionId: id, role: host ? "host" : "cohost" }),
+          body: JSON.stringify({ sessionId: id, role: host ? "host" : "cohost", anonymous: anonymousListening }),
         });
         const raw = await res.text();
         let payload: any = {};
@@ -148,11 +151,14 @@ export function RealtimeSession({
         };
 
         setLiveRole(payload.role || "viewer");
+        setAnonymousListening(Boolean(anonymousListening && payload.role === "viewer"));
         setIsHostSession(payload.role === "host");
         const room = new Room({ adaptiveStream: true, dynacast: true, disconnectOnPageLeave: true });
         roomRef.current = room;
+        const syncParticipants = () => setParticipants(Array.from(room.remoteParticipants.values()));
         const sync = () => {
           setCount(room.numParticipants + 1);
+          syncParticipants();
           void syncPresence(room.activeSpeakers.length, room.activeSpeakers[0]?.name || room.activeSpeakers[0]?.identity || "");
         };
         const attachLocal = (track: any) => {
@@ -175,6 +181,7 @@ export function RealtimeSession({
         const onUntrack = (track: RemoteTrack) => detach(track);
         const onSpeaker = (people: Participant[]) => {
           const first = people[0];
+          setActiveSpeakerIds(people.map(person => person.identity));
           setSpeaker(first?.name || first?.identity || "");
           setSpeaking(people.length > 0);
           void syncPresence(people.length, first?.name || first?.identity || "");
@@ -188,6 +195,7 @@ export function RealtimeSession({
         };
         room.on(RoomEvent.ParticipantConnected, sync)
           .on(RoomEvent.ParticipantDisconnected, sync)
+          .on(RoomEvent.ParticipantAttributesChanged, syncParticipants)
           .on(RoomEvent.LocalTrackPublished, onLocalTrack)
           .on(RoomEvent.TrackSubscribed, onTrack)
           .on(RoomEvent.TrackUnsubscribed, onUntrack)
@@ -289,6 +297,17 @@ export function RealtimeSession({
     try { await room.startAudio(); setCanPlayAudio(true); } catch {}
   }
 
+  async function setAnonymous(next: boolean) {
+    const room = roomRef.current;
+    if (!room || liveRole !== "viewer" || micApproved || micOn) return;
+    try {
+      await room.localParticipant.setAttributes({ anonymous: next ? "true" : "false" });
+      setAnonymousListening(next);
+    } catch (error) {
+      setManagementError(error instanceof Error ? error.message : "Could not update anonymous listening.");
+    }
+  }
+
   async function manage(action: string, targetUserId?: string) {
     if (!supabase) return;
     const { data } = await supabase.auth.getSession();
@@ -318,6 +337,7 @@ export function RealtimeSession({
 
   async function requestMic() {
     if (!supabase || !uid || micRequested || micApproved) return;
+    if (anonymousListening) await setAnonymous(false);
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) return;
     const response = await fetch("/api/realtime/token", {
