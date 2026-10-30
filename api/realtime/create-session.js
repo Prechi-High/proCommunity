@@ -98,6 +98,8 @@ async function handler(req, res) {
           active_speaker_name: "",
           last_activity_at: null,
           cohost_ids: [],
+          cohost_permissions: {},
+          mic_requests: [],
         },
       })
       .select("id,room_name,mode")
