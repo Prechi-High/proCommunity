@@ -9,7 +9,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { WebShell } from '@/components/Screen';
-import { colors } from '@/constants/theme';
+import { applyThemeColors, colors } from '@/constants/theme';
 import { startAuth } from '@/lib/auth';
 import { recordSiteVisit } from '@/lib/siteAnalytics';
 import { ObservabilityProvider, wrapRoot } from '@/lib/observability';
@@ -57,10 +57,16 @@ function RootLayout() {
   });
   const setHydrated = useAppStore((state) => state.setHydrated);
   const persistHydrated = useAppStore((state) => state.hydrated);
+  const themeMode = useAppStore((state) => state.themeMode);
 
   useEffect(() => {
     if (error) throw error;
   }, [error]);
+
+  useEffect(() => {
+    const dark = typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+    applyThemeColors(themeMode, !!dark);
+  }, [themeMode]);
 
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync();
