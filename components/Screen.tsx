@@ -77,7 +77,7 @@ export function WebShell({ children }: { children: ReactNode }) {
       style={{
         flex: 1,
         width: "100%",
-        backgroundColor: "#F0EDE9",
+        backgroundColor: colors.webShell,
         alignItems: "center",
       }}
     >
