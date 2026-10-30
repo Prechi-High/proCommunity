@@ -86,4 +86,4 @@ npx supabase secrets set --project-ref aqdptcuwpneuyzjavjak `
 
 ## How the Flow is launched
 
-`launchResearchFlow` creates a session with a random `ft_…` token (only its SHA-256 hash is stored), then sends an interactive Flow message ("Open Sourced") with that token. Today it is sent when a linked user types `menu`; the chat replies work the same with or without it.
+`launchResearchFlow` creates a session with a random `ft_…` token (only its SHA-256 hash is stored), then sends an interactive Flow message with that token. The button label in the current code is still "Open Sourced". Today it is sent when a linked user types `menu`; the chat replies work the same with or without it.

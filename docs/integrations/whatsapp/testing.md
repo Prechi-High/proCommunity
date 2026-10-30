@@ -45,7 +45,7 @@ Checks the security boundaries of the live functions with only the public anon k
 4. **Image**: send a product photo → card. Confirm no image is stored in Storage.
 5. **Follow-ups**: ask a question, "compare with la roche posay", "save" (check the heart in the app), "share" (open the link logged out).
 6. **Isolation**: from a second linked number, tap a forwarded button from the first user's card → "not found".
-7. **Flow**: open Sourced from chat → My Research → a card → a section.
+7. **Flow**: open the Flow from chat (the current button label is "Open Sourced") → My Research → a card → a section.
 8. **Notifications**: reply in a discussion the linked user follows → WhatsApp message (inside 24 h) or template (outside, if approved).
 9. **Disconnect**: "disconnect" in chat → the app shows disconnected; further messages get linking instructions.
 10. **Observability**: check Sentry and PostHog contain no phone numbers or message text.

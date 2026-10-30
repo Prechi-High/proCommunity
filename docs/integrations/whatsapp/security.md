@@ -2,7 +2,7 @@
 
 ## Identity
 
-- Sourced accounts are Supabase Auth users (email one-time code or link). No passwords anywhere, and WhatsApp never asks for one.
+- Unmask accounts are Supabase Auth users (email code, magic link, or password). WhatsApp never asks for a password.
 - Server functions derive the user from the JWT (`userFromRequest`). A `user_id`, `memberId` or `author` in a request body is ignored — including in `product-intelligence` community actions, which now overwrite them from the JWT and reject anonymous writes with `sign_in_required`.
 - In WhatsApp, identity comes from the `wa_id` → active `whatsapp_connections` row. In Flows, from the hashed `flow_token` → session → active connection. Payload user ids are never trusted.
 
@@ -14,7 +14,7 @@ The Supabase project uses the default email sender, which does not allow templat
 
 1. Signed-in user taps **Connect** → `research` `whatsapp_link` (rate-limited: 6 per 15 min).
 2. Server creates `wa_link_` + random token, stores **only its SHA-256 hash** with a 12-minute expiry, returns the raw token once.
-3. User sends `LINK wa_link_…` to the Sourced number (the `wa.me` link pre-fills it).
+3. User sends `LINK wa_link_…` to the Unmask WhatsApp number (the `wa.me` link pre-fills it).
 4. Webhook hashes the token, checks unexpired and unused, marks it used atomically, and binds `wa_id` to the user. One active number per account and one account per number; re-linking replaces the old binding.
 5. Disconnect works from either side ("disconnect" in chat or the app) and stops all messaging immediately.
 

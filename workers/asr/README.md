@@ -1,10 +1,12 @@
 # ASR worker — captions first, Whisper last
 
-Python background worker for Sourced video analysis. It does **not** download video files on the normal path. Existing YouTube captions and title/description/comments are enough for most classifications. faster-whisper runs only as a fallback, and only for YouTube, and only when metadata is insufficient.
+Python background worker for Unmask video analysis. It does **not** download video files on the normal path. Existing YouTube captions and title/description/comments are enough for most classifications. faster-whisper runs only as a fallback, and only for YouTube, and only when metadata is insufficient.
 
 The worker is independent of your laptop once it runs on AWS Fargate. **No AWS resources have been created yet.** Review cost below and apply Terraform only after you approve.
 
 ## Architecture
+
+Product pages discover videos through `youtube-fetch`. That function does not enqueue this worker. The diagram is the path inside `discover-video-content` when `VIDEO_DISCOVERY_PROVIDER=serper` and Upstash is configured. With the default `youtube` provider, that discover action returns `serper_disabled` and does not queue jobs. See [ARCHITECTURE.md](../../ARCHITECTURE.md).
 
 ```
 Expo / Vercel  →  discover-video-content (Edge)

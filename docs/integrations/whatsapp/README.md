@@ -1,6 +1,6 @@
 # WhatsApp Business Platform + Research Cards
 
-WhatsApp is another way into Sourced, not a second product. Every piece of research — started in the app or in WhatsApp — becomes a **Research Card** owned by a signed-in Sourced account. The app, WhatsApp chat, the WhatsApp Flow and the public share page all read the same card.
+WhatsApp is another way into Unmask, the same product. Every piece of research — started in the app or in WhatsApp — becomes a **Research Card** owned by a signed-in Unmask account. The app, WhatsApp chat, the WhatsApp Flow and the public share page all read the same card. Some shipped strings and Meta template names still use the older `sourced` / `Sourced` identifiers; those names match the code and are not a second product.
 
 | Document | What it covers |
 | --- | --- |

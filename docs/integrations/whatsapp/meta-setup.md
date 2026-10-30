@@ -11,7 +11,7 @@ Everything here is done once, by a person with access to Meta Business Manager. 
 ## 2. WhatsApp Business Account and number
 
 1. WhatsApp → API Setup: create or attach a WhatsApp Business Account. Note its id (`WHATSAPP_BUSINESS_ACCOUNT_ID`).
-2. Add the production phone number, verify it, and set the display name "Sourced".
+2. Add the production phone number, verify it, and set the display name "Unmask". Approved template names in the code still use the `sourced_` prefix (`sourced_research_completed_v1` and the others below). Register those exact names in Meta.
 3. Note the **Phone number ID** (`WHATSAPP_PHONE_NUMBER_ID`) and the number itself in digits, e.g. `2348012345678` (`WHATSAPP_BUSINESS_NUMBER`).
 
 ## 3. Permanent access token

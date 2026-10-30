@@ -1,8 +1,10 @@
-# Sourced
+# Unmask
 
-Buying confidence for skincare — literacy, a explained Confidence Score, and verified-owner experience before any store or price.
+**Know before you buy.** Unmask is a product-intelligence platform: community, vetted creators, Live / Room / Ultra realtime modes, a Spark economy, evidence, and AI investigation. Beauty and cosmetics are the initial category. The app is architected for broader product categories.
 
-This repo is an Expo (web + native) app. V1 runs on a seeded catalog so you can use every shopper flow without Shopify or Supabase credentials. The SQL in `supabase/migrations` is the production schema.
+Product direction is [`docs/UNMASK-MASTER-PRODUCT-DOCUMENT.md`](docs/UNMASK-MASTER-PRODUCT-DOCUMENT.md). That file is the source of truth. The Word original sits next to it: [`docs/UNMASK-MASTER-PRODUCT-DOCUMENT.docx`](docs/UNMASK-MASTER-PRODUCT-DOCUMENT.docx).
+
+This repository is an Expo 57 app. Web is exported for Vercel. Native runs through Expo. The display name in `app.json` is Unmask. The package name and URL scheme still use the older `sourced` slug.
 
 ## Run
 
@@ -11,31 +13,31 @@ npm install
 npx expo start --web
 ```
 
-Expo Go works for iOS/Android from the same command (`npx expo start`).
+`npm start` starts the same Expo dev server. `npm run web`, `npm run ios`, and `npm run android` are the platform scripts. Expo Go works for iOS and Android from `npx expo start`.
 
-## First-run path
+`npm run export:web` typechecks, runs the parallel-research and dynamic-UI tests, and exports the web bundle (`vercel.json` publishes `dist`).
 
-1. Continue with an email (or `preview@sourced.local` via Google to open the admin queue).
-2. Optional skin-type profile or 5-question estimate. Skip is allowed.
-3. Shelf → Search → product page (no price) → **Get This Product** → store list.
-4. Mark purchased, add to routine, log AM/PM, save progress privately.
+## App shell
 
-## Rules encoded in the code
+The visible bar is Home, Community, Create, My Products, and You (`components/unmask-ui/MainNav.tsx`). The tab routes also include `/unmask` and `/pulse`; those two are hidden from the bar. Live, Room, and Ultra have their own screens (`/live`, `/room`, `/ultra-unmask`).
 
-- `lib/catalog.ts` splits **product** reads from **listing** reads. The product route never loads prices or merchants.
-- Confidence Score UI always explains fit, community, and transparency. No bare number.
-- Streaks count routine completion only.
-- Progress sharing defaults off and is per entry.
-- Store sort has no promoted/boosted field.
+The master product document locks a different bottom navigation (Today, My Products, Unmask, Community, You). That document is the product target. The bar above is what the code renders today.
 
-## Connect Supabase later
+Sign-in uses Supabase Auth (email code or password). Setup is in [`docs/email-auth-setup.md`](docs/email-auth-setup.md).
 
-Copy `.env.example` to `.env.local`, create a project, run `supabase/migrations/0001_init.sql`, then swap the Zustand store in `lib/store.ts` onto `lib/supabase.ts`.
+## Environment
 
-Shopify OAuth, YouTube cache, and cron jobs belong in `supabase/functions` once a project exists. Do not put Shopify tokens or the service role key in the client.
+Copy `.env.example` to `.env.local`. Values prefixed `EXPO_PUBLIC_` are bundled into the client. Service role keys, LLM keys, Shopify secrets, and Upstash tokens stay on the server.
 
-Background video analysis (captions, then Whisper fallback) lives in `workers/asr`. See `ARCHITECTURE.md` and `workers/asr/README.md`. Do not apply the AWS Terraform until you accept the cost table in that README.
+Supabase project ref: `aqdptcuwpneuyzjavjak`. Schema changes live in `supabase/migrations` and, where a feature doc says so, `database/`. Deploy Edge Functions with `node scripts/supabase-cli.mjs` or the deploy scripts in `scripts/`. Load `SUPABASE_ACCESS_TOKEN` from `.env.local`. Do not commit it. Agent notes are in [`AGENTS.md`](AGENTS.md).
 
-## Brand
+Photo identification uses the `product-vision` Edge Function. See [`SETUP_IMAGE_RECOGNITION.md`](SETUP_IMAGE_RECOGNITION.md).
 
-Shell `#FBF5F1` · Ink `#2A211D` · Rosewood `#8C3547` · Honey `#D9A441` · Sage `#6E8F73` · General Sans · Phosphor icons.
+Background video analysis (captions, then a Whisper fallback) lives in `workers/asr`. See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`workers/asr/README.md`](workers/asr/README.md). Do not apply the AWS Terraform until you accept the cost table in that README.
+
+## Where to read next
+
+- Current system shape: [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- WhatsApp Research Cards: [`docs/integrations/whatsapp/README.md`](docs/integrations/whatsapp/README.md)
+- Parallel product research: [`docs/parallel-research.md`](docs/parallel-research.md)
+- Shared research processing: [`docs/shared-research-processing.md`](docs/shared-research-processing.md)

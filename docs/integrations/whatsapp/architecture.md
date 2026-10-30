@@ -3,7 +3,7 @@
 ## Components
 
 ```text
-                ┌──────────── Sourced app (Expo, web + native) ────────────┐
+                ┌──────────── Unmask app (Expo, web + native) ─────────────┐
                 │ sign-in · My Research · card detail · WhatsApp settings  │
                 └──────────────┬───────────────────────────────────────────┘
                                │ user JWT

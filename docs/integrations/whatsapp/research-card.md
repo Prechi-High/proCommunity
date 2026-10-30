@@ -1,6 +1,6 @@
 # Research Cards
 
-A Research Card is the durable result of one research request. It is owned by one Sourced account and is the same object in the app, in WhatsApp chat, in the Flow and on the share page.
+A Research Card is the durable result of one research request. It is owned by one Unmask account and is the same object in the app, in WhatsApp chat, in the Flow and on the share page.
 
 ## Lifecycle
 
