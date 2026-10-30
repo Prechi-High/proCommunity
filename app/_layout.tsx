@@ -5,6 +5,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, type ReactNode } from 'react';
+import { useColorScheme } from 'react-native';
 import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -58,15 +59,16 @@ function RootLayout() {
   const setHydrated = useAppStore((state) => state.setHydrated);
   const persistHydrated = useAppStore((state) => state.hydrated);
   const themeMode = useAppStore((state) => state.themeMode);
+  const systemScheme = useColorScheme();
 
   useEffect(() => {
     if (error) throw error;
   }, [error]);
 
   useEffect(() => {
-    const dark = typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+    const dark = systemScheme === 'dark' || (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
     applyThemeColors(themeMode, !!dark);
-  }, [themeMode]);
+  }, [themeMode, systemScheme]);
 
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync();
