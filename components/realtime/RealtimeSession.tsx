@@ -409,7 +409,7 @@ export function RealtimeSession({
 
         {active ? (
           <>
-            <View ref={mediaRef} style={{ height: mode === "live" ? 360 : 100, borderRadius: 22, backgroundColor: "#0B0306", overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
+            <View ref={mediaRef} style={{ height: mode === "live" ? 360 : 100, borderRadius: 22, backgroundColor: "#050404", overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
               {mode === "room" ? <ChatCircleDots size={34} color="#F2D25B" /> : <Play size={34} color="#F2D25B" weight="fill" />}
             </View>
             <View style={{ padding: 18, borderRadius: 22, backgroundColor: colors.stage, gap: 16 }}>
@@ -436,7 +436,7 @@ export function RealtimeSession({
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 9 }}>
                     {activePeople.slice(0, 8).map((person) => (
                       <View key={person.identity} style={{ flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 9, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.white }}>
-                        <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 9, color: "#fff" }}>{initials(person.name || person.identity)}</Text></View>
+                        <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 9, color: colors.white }}>{initials(person.name || person.identity)}</Text></View>
                         <Text numberOfLines={1} style={{ maxWidth: 120, fontFamily: fonts.medium, fontSize: 11, color: colors.ink }}>{person.name || person.identity}</Text>
                       </View>
                     ))}
@@ -450,7 +450,7 @@ export function RealtimeSession({
                     {visiblePeople.slice(0, 12).map((person) => (
                       <View key={person.identity} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.rosewoodSoft, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.line }}><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.brandDeep }}>{initials(person.name || person.identity)}</Text></View>
                     ))}
-                    {liveRole === "viewer" && !anonymousListening ? <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 8, color: "#fff" }}>YOU</Text></View> : null}
+                    {liveRole === "viewer" && !anonymousListening ? <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 8, color: colors.white }}>YOU</Text></View> : null}
                     {anonymousCount ? <View style={{ paddingHorizontal: 10, height: 36, borderRadius: 18, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.inkSoft }}>+{anonymousCount} anonymous</Text></View> : null}
                   </View>
                 </View>
@@ -464,7 +464,7 @@ export function RealtimeSession({
             ) : null}
             {liveRole === "viewer" ? (
               <Pressable accessibilityRole="switch" accessibilityState={{ checked: anonymousListening }} onPress={() => void setAnonymous(!anonymousListening)} style={{ padding: 15, borderRadius: 18, borderWidth: 1, borderColor: anonymousListening ? colors.brandDeep : colors.line, backgroundColor: anonymousListening ? colors.hiSoft : colors.stage, flexDirection: "row", alignItems: "center", gap: 12 }}>
-                <View style={{ width: 38, height: 24, borderRadius: 12, backgroundColor: anonymousListening ? colors.brandDeep : colors.bone3, padding: 3, justifyContent: "center", alignItems: anonymousListening ? "flex-end" : "flex-start" }}><View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: "#fff" }} /></View>
+                <View style={{ width: 38, height: 24, borderRadius: 12, backgroundColor: anonymousListening ? colors.brandDeep : colors.bone3, padding: 3, justifyContent: "center", alignItems: anonymousListening ? "flex-end" : "flex-start" }}><View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: colors.white }} /></View>
                 <View style={{ flex: 1, gap: 3 }}>
                   <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.ink }}>Listen anonymously</Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 11, lineHeight: 16, color: colors.inkSoft }}>{anonymousListening ? "Your profile is hidden. You cannot speak or send chat while anonymous." : "Your profile is visible to other listeners."}</Text>
@@ -480,7 +480,7 @@ export function RealtimeSession({
               </View>
             ) : null}
 
-            <View style={{ padding: 16, borderRadius: 20, backgroundColor: "#F6F3F1", gap: 9 }}>
+            <View style={{ padding: 16, borderRadius: 20, backgroundColor: colors.stage, gap: 9 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <UsersThree size={19} color={colors.brandDeep} />
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{count} {count === 1 ? "person" : "people"} in this {mode === "room" ? "Room" : "Live"}{anonymousCount ? " · " + anonymousCount + " anonymous" : ""}</Text>
@@ -491,7 +491,7 @@ export function RealtimeSession({
             </View>
 
             {canManageCohosts || isHostSession ? (
-              <View style={{ padding: 16, borderRadius: 20, backgroundColor: "#fff", borderWidth: 1, borderColor: "#EDE6E1", gap: 11 }}>
+              <View style={{ padding: 16, borderRadius: 20, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, gap: 11 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                     <UsersThree size={18} color={colors.brandDeep} />
@@ -503,13 +503,13 @@ export function RealtimeSession({
                   Only active Unmask Creators can be co-hosts. The host keeps final control unless specific permissions are delegated.
                 </Text>
                 {micRequests.filter(r => r.status === "pending").length ? (
-                  <View style={{ padding: 12, borderRadius: 14, backgroundColor: "#F3EBE2", gap: 8 }}>
+                  <View style={{ padding: 12, borderRadius: 14, backgroundColor: colors.lac2, gap: 8 }}>
                     <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.ink }}>Mic requests</Text>
                     {micRequests.filter(r => r.status === "pending").map(request => (
                       <View key={request.user_id} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                         <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.ink }}>{request.display_name || request.user_id.slice(0, 8)} wants to speak.</Text>
-                        <Pressable onPress={() => void manage("approve_mic", request.user_id)} style={{ paddingHorizontal: 10, paddingVertical: 8, borderRadius: 9, backgroundColor: colors.brandDeep }}><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: "#fff" }}>Allow</Text></Pressable>
-                        <Pressable onPress={() => void manage("deny_mic", request.user_id)} style={{ paddingHorizontal: 10, paddingVertical: 8, borderRadius: 9, backgroundColor: "#F6F3F1" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.ink }}>Decline</Text></Pressable>
+                        <Pressable onPress={() => void manage("approve_mic", request.user_id)} style={{ paddingHorizontal: 10, paddingVertical: 8, borderRadius: 9, backgroundColor: colors.brandDeep }}><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.white }}>Allow</Text></Pressable>
+                        <Pressable onPress={() => void manage("deny_mic", request.user_id)} style={{ paddingHorizontal: 10, paddingVertical: 8, borderRadius: 9, backgroundColor: colors.stage }}><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.ink }}>Decline</Text></Pressable>
                       </View>
                     ))}
                   </View>
@@ -526,7 +526,7 @@ export function RealtimeSession({
                       </View>
                       {added ? (
                         <View style={{ alignItems: "flex-end", gap: 5 }}>
-                          <Pressable onPress={() => void manage("remove_cohost", person.user_id)} style={{ minHeight: 32, paddingHorizontal: 10, borderRadius: 9, backgroundColor: "#F3EBE2", alignItems: "center", justifyContent: "center" }}>
+                          <Pressable onPress={() => void manage("remove_cohost", person.user_id)} style={{ minHeight: 32, paddingHorizontal: 10, borderRadius: 9, backgroundColor: colors.lac2, alignItems: "center", justifyContent: "center" }}>
                             <X size={14} color={colors.brandDeep} />
                           </Pressable>
                           <View style={{ flexDirection: "row", gap: 5 }}>
@@ -540,7 +540,7 @@ export function RealtimeSession({
                         </View>
                       ) : (
                         <Pressable onPress={() => void manage("add_cohost", person.user_id)} style={{ minHeight: 34, paddingHorizontal: 11, borderRadius: 10, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
-                          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: "#fff" }}>Add</Text>
+                          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.white }}>Add</Text>
                         </Pressable>
                       )}
                     </View>
@@ -549,20 +549,28 @@ export function RealtimeSession({
               </View>
             ) : null}
 
-            <View style={{ borderWidth: 1, borderColor: "#EDE6E1", borderRadius: 20, overflow: "hidden", backgroundColor: "#fff" }}>
-              <View style={{ padding: 14, borderBottomWidth: 1, borderColor: "#EDE6E1", flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 20, overflow: "hidden", backgroundColor: colors.white }}>
+              <View style={{ padding: 14, borderBottomWidth: 1, borderColor: colors.line, flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <ChatCircleDots size={18} color={colors.brandDeep} />
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>Live conversation</Text>
               </View>
               <ScrollView style={{ maxHeight: 220 }} contentContainerStyle={{ padding: 14, gap: 10 }}>
-                {chat.length ? chat.map(item => <View key={item.id} style={{ gap: 2 }}><Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.brandDeep }}>{item.name}</Text><Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.ink }}>{item.text}</Text></View>) : <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>No messages yet. Say something useful.</Text>}
+                {chat.length ? chat.map(item => <View key={item.id} style={{ gap: 2 }}><Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.brandDeep }}>{item.name}</Text><Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.ink }}>{item.text}</Text></View>) : <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{anonymousListening ? "Anonymous listening is read-only." : "No messages yet. Say something useful."}</Text>}
               </ScrollView>
-              <View style={{ flexDirection: "row", gap: 8, padding: 10, borderTopWidth: 1, borderColor: "#EDE6E1" }}>
-                <TextInput value={message} onChangeText={setMessage} onSubmitEditing={() => void sendMessage()} placeholder="Say something…" style={{ flex: 1, minHeight: 42, borderRadius: 14, backgroundColor: "#F6F3F1", paddingHorizontal: 12, fontFamily: fonts.regular }} />
-                <Pressable onPress={() => void sendMessage()} style={{ minWidth: 68, minHeight: 42, borderRadius: 14, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ fontFamily: fonts.semibold, color: "#fff", fontSize: 13 }}>Send</Text>
-                </Pressable>
-              </View>
+              {anonymousListening ? (
+                <View style={{ padding: 13, backgroundColor: colors.stage, borderTopWidth: 1, borderColor: colors.line }}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft, textAlign: "center" }}>
+                    You’re listening anonymously · chat and reactions are off
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ flexDirection: "row", gap: 8, padding: 10, borderTopWidth: 1, borderColor: colors.line }}>
+                  <TextInput value={message} onChangeText={setMessage} onSubmitEditing={() => void sendMessage()} placeholder="Say something…" placeholderTextColor={colors.inkSoft} style={{ flex: 1, minHeight: 42, borderRadius: 14, backgroundColor: colors.stage, color: colors.ink, paddingHorizontal: 12, fontFamily: fonts.regular }} />
+                  <Pressable onPress={() => void sendMessage()} style={{ minWidth: 68, minHeight: 42, borderRadius: 14, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
+                    <Text style={{ fontFamily: fonts.semibold, color: colors.white, fontSize: 13 }}>Send</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
 
             {canEnd ? (
