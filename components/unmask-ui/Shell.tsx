@@ -113,7 +113,7 @@ export function AppShell({
               alignItems: "center",
               justifyContent: "center",
               borderRadius: 14,
-              backgroundColor: "#F5F0EC",
+              backgroundColor: colors.stage,
             }}
           >
             <Bell size={22} color={colors.ink} />
