@@ -46,8 +46,12 @@ export default function CreatorStudio() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.session.access_token}` },
         body: JSON.stringify({ action: "end", sessionId: activeSession.id }),
       });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Could not end the session.");
+      const raw = await response.text();
+      let payload: any = {};
+      try { payload = raw ? JSON.parse(raw) : {}; } catch {
+        throw new Error(raw.trim() || `Could not end the session (HTTP ${response.status}).`);
+      }
+      if (!response.ok) throw new Error(payload.error || `Could not end the session (HTTP ${response.status}).`);
       setActiveSession(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not end the session.");
@@ -75,8 +79,12 @@ export default function CreatorStudio() {
           description: description.trim(),
         }),
       });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Could not start the session.");
+      const raw = await response.text();
+      let payload: any = {};
+      try { payload = raw ? JSON.parse(raw) : {}; } catch {
+        throw new Error(raw.trim() || `Could not start the session (HTTP ${response.status}).`);
+      }
+      if (!response.ok) throw new Error(payload.error || `Could not start the session (HTTP ${response.status}).`);
       if (!payload?.id) throw new Error("The session was created without an id.");
       r.replace({ pathname: mode === "live" ? "/live/session" : "/room/session", params: { id: payload.id, host: "1" } } as Href);
     } catch (e) {
