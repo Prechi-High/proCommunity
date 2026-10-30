@@ -54,7 +54,7 @@ import { recordingCopy } from "@/lib/room/context";
 import type { RoomProductChip, RoomReactionKind, RoomSeat } from "@/lib/room/types";
 import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
 import { initials } from "@/lib/unmask/time";
-import type { RoomTimeline, RoomUltra, UltraPath } from "@/lib/room/cards";
+import type { RoomTimeline, RoomUltra } from "@/lib/room/cards";
 import { DragHandle, FloatEmoji, PartialSheet, PressScale, Tick } from "./motion";
 import { AttachPill, ExperienceCard, ExperienceSheet, TimelinePicker, UltraCard, UltraCreate } from "./RoomStories";
 
@@ -127,15 +127,17 @@ export type RoomExperienceProps = {
   timelines?: RoomTimeline[];
   ultras?: RoomUltra[];
   sparksBalance?: number | null;
+  thunderBalance?: number | null;
   onSendDetail?: (text: string, timeline: RoomTimeline | null) => void;
   onLoadTimelines?: () => Promise<RoomTimeline[]>;
   onCreateTimeline?: () => Promise<RoomTimeline | null>;
-  onStartUltra?: (input: { path: UltraPath; timeline?: RoomTimeline | null; title: string; amount: number }) => Promise<void>;
+  onStartUltra?: (input: { who: "company" | "expert"; question: string; timeline?: RoomTimeline | null; sparks: number; thunder: number }) => Promise<void>;
+  onPublishTimeline?: (item: RoomTimeline) => Promise<RoomTimeline | null>;
   onAddSparks?: (id: string, amount: number) => Promise<void>;
   onPinUltra?: (id: string) => void;
   onNudgeUltra?: (card: RoomUltra) => void;
   onClaimSparks?: () => Promise<number | null>;
-  focus?: "replies" | "replies-full" | "picker" | "card" | "timeline" | "timeline-full" | "full" | "ultra" | "ultra-sparks" | "ultra-seal" | "spark";
+  focus?: "replies" | "replies-full" | "picker" | "private" | "card" | "timeline" | "timeline-full" | "full" | "ultra" | "ultra-sparks" | "ultra-seal" | "spark";
   canManage: boolean;
   creators: CohostPerson[];
   cohostIds: string[];
@@ -178,7 +180,7 @@ export function RoomExperience(props: RoomExperienceProps) {
   useEffect(() => {
     if (focused.current || !props.focus) return;
     focused.current = true;
-    if (props.focus === "replies" || props.focus === "replies-full" || props.focus === "card" || props.focus === "spark" || props.focus === "picker") setChat(true);
+    if (props.focus === "replies" || props.focus === "replies-full" || props.focus === "card" || props.focus === "spark" || props.focus === "picker" || props.focus === "private") setChat(true);
     if (props.focus === "full" || props.focus === "replies-full" || props.focus === "timeline-full") setRoomFull(true);
     if (props.focus === "timeline" || props.focus === "timeline-full") {
       setOpenExperience(props.notes.find((note) => note.experience)?.experience || null);
@@ -365,19 +367,20 @@ export function RoomExperience(props: RoomExperienceProps) {
       <ExperienceSheet item={openExperience} full={experienceFull} onToggleFull={() => setExperienceFull((value) => !value)} onClose={() => { setOpenExperience(null); setExperienceFull(false); }} onDeeper={() => { setUltraTimeline(openExperience); setOpenExperience(null); setUltraOpen(true); }} />
       <UltraCreate
         open={ultraOpen}
-        step={props.focus === "ultra-sparks" ? 1 : props.focus === "ultra-seal" ? 2 : 0}
+        step={props.focus === "ultra-sparks" || props.focus === "ultra-seal" ? 1 : 0}
         productName={props.products[0]?.name || props.title}
         timeline={ultraTimeline}
         balance={props.sparksBalance ?? null}
+        thunderBalance={props.thunderBalance ?? null}
         busy={ultraBusy}
         error={ultraError}
         onClose={() => setUltraOpen(false)}
         onClaim={() => { void props.onClaimSparks?.(); }}
-        onCreate={(path, amount) => {
+        onCreate={(who, question, sparks, thunder) => {
           if (!props.onStartUltra) return;
           setUltraBusy(true);
           setUltraError("");
-          void props.onStartUltra({ path, timeline: ultraTimeline, title: props.products[0]?.name || props.title, amount }).then(() => {
+          void props.onStartUltra({ who, question, timeline: ultraTimeline, sparks, thunder }).then(() => {
             setUltraOpen(false);
           }).catch((error: unknown) => {
             setUltraError(error instanceof Error ? error.message : "The Ultra Unmask did not start.");
@@ -393,7 +396,8 @@ export function RoomExperience(props: RoomExperienceProps) {
           sparkErrorId={sparkErrorId}
           onMedia={() => setMediaNote("Photos and GIFs aren't part of this Room.")}
           onClose={() => setChat(false)}
-          initialPicker={props.focus === "picker"}
+          initialPicker={props.focus === "picker" || props.focus === "private"}
+          confirmPrivate={props.focus === "private"}
           initialFull={props.focus === "replies-full"}
           onOpenExperience={setOpenExperience}
           onDeeper={(timeline) => { setUltraTimeline(timeline); setUltraError(""); setUltraOpen(true); }}
@@ -1045,6 +1049,7 @@ function ChatSheet(props: RoomExperienceProps & {
   onClose: () => void;
   initialPicker?: boolean;
   initialFull?: boolean;
+  confirmPrivate?: boolean;
   onOpenExperience: (item: RoomTimeline) => void;
   onDeeper: (item: RoomTimeline) => void;
   onSpark: (id: string) => void;
@@ -1078,7 +1083,7 @@ function ChatSheet(props: RoomExperienceProps & {
   return (
     <Pressable onPress={props.onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center" }}>
       <PartialSheet onClose={props.onClose} expanded={full} onExpand={() => setFull(true)} onCollapse={() => setFull(false)}>
-        <Pressable onPress={() => undefined} style={{ width: "100%", height: full ? height : undefined, maxHeight: full ? height : Math.min(height * 0.62, 560), backgroundColor: colors.wine, borderTopLeftRadius: full ? 0 : 22, borderTopRightRadius: full ? 0 : 22, paddingBottom: 10 }}>
+        <Pressable onPress={() => undefined} style={{ position: "relative", width: "100%", height: full ? height : undefined, maxHeight: full ? height : Math.min(height * 0.62, 560), backgroundColor: colors.wine, borderTopLeftRadius: full ? 0 : 22, borderTopRightRadius: full ? 0 : 22, paddingBottom: 10 }}>
           <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 8 }}>
             <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.ink }}>Replies</Text>
             <AttachPill pulsing={!attached} label={attached?.productName} onPress={() => setPicker(true)} />
@@ -1135,7 +1140,9 @@ function ChatSheet(props: RoomExperienceProps & {
             busy={creating}
             error={createError}
             onClose={() => setPicker(false)}
-            onPick={(item) => { setAttached(item); setPicker(false); }}
+            onMakePublic={props.onPublishTimeline}
+            confirmPrivate={props.confirmPrivate}
+            onPick={(item) => { setAttached(item); setLoaded((current) => current ? current.map((row) => row.id === item.id ? item : row) : current); setPicker(false); }}
             onCreate={() => {
               if (!props.onCreateTimeline) {
                 setCreateError("Start a timeline from the product page, then attach it here.");

@@ -1,5 +1,7 @@
 /** Room cards travel on the LiveKit data channel. They never rewrite session metadata. */
 
+import { combinedSupport } from "@/lib/unmask/status";
+
 export type TimelineMoment = {
   id: string;
   at: string;
@@ -19,7 +21,17 @@ export type RoomTimeline = {
   reactions: string[];
   author: string;
   entries: TimelineMoment[];
+  visibility: "public" | "followers" | "private";
+  frequency?: string | null;
+  skinType?: string | null;
 };
+
+export const ULTRA_QUESTIONS = [
+  "Why this happens",
+  "Is it the formula?",
+  "Is this normal?",
+  "Did anything change?",
+] as const;
 
 export type UltraPath = "why" | "company" | "expert";
 
@@ -41,6 +53,7 @@ export type RoomUltra = {
   pinned: boolean;
   timelineId?: string;
   imageUrl?: string | null;
+  thunder: number;
 };
 
 export function journeyDuration(started?: string | null, now = Date.now()) {
@@ -62,21 +75,35 @@ export function timelineFromJourney(
     status?: string | null;
     frequency?: string | null;
     acquisition?: string | null;
+    skin_type?: string | null;
+    usage_duration?: string | null;
+    visibility?: string | null;
     unmask_catalog?: { name?: string | null; brand?: string | null; image_url?: string | null } | null;
   },
   author: string,
 ): RoomTimeline {
+  const visibility = journey.visibility === "public" || journey.visibility === "followers" ? journey.visibility : "private";
   return {
     id: journey.id,
     productName: journey.unmask_catalog?.name || "Product",
     brand: journey.unmask_catalog?.brand || null,
     imageUrl: journey.unmask_catalog?.image_url || null,
-    duration: journeyDuration(journey.started_on),
+    duration: journey.usage_duration?.trim() || journeyDuration(journey.started_on),
     outcome: journey.goal || journey.status || "In progress",
-    reactions: [journey.frequency, journey.acquisition].filter((item): item is string => !!item),
+    reactions: [journey.acquisition].filter((item): item is string => !!item),
     author,
     entries: [],
+    visibility,
+    frequency: journey.frequency?.trim() || null,
+    skinType: journey.skin_type?.trim() || null,
   };
+}
+
+export function questionTitle(question: string, productName: string) {
+  const name = productName.trim() || "this product";
+  const title = `${question.trim().replace(/\?$/, "")}: ${name}`.replace(/\s+/g, " ").trim();
+  if (title.length >= 10) return title.slice(0, 160);
+  return `Ultra Unmask: ${name}`.slice(0, 160);
 }
 
 export function momentsFromUpdates(
@@ -104,11 +131,13 @@ export function upsertById<T extends { id: string }>(list: T[], item: T): T[] {
 
 export function applySpark(
   list: RoomUltra[],
-  update: { id: string; sparks: number; supporters: { name: string }[] },
+  update: { id: string; sparks: number; thunder?: number; supporters: { name: string }[] },
 ): RoomUltra[] {
   return list.map((card) => {
-    if (card.id !== update.id || update.sparks < card.sparks) return card;
-    return { ...card, sparks: update.sparks, supporters: update.supporters };
+    if (card.id !== update.id) return card;
+    const thunder = typeof update.thunder === "number" ? update.thunder : card.thunder || 0;
+    if (combinedSupport(update.sparks, thunder) < combinedSupport(card.sparks, card.thunder || 0)) return card;
+    return { ...card, sparks: update.sparks, thunder, supporters: update.supporters };
   });
 }
 
@@ -121,6 +150,7 @@ export function mergeUltra(list: RoomUltra[], card: RoomUltra): RoomUltra[] {
     ...current,
     ...card,
     sparks: Math.max(current.sparks, card.sparks),
+    thunder: Math.max(current.thunder || 0, card.thunder || 0),
     supporters: card.supporters.length >= current.supporters.length ? card.supporters : current.supporters,
     pinned: current.pinned || card.pinned,
   };

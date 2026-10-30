@@ -29,8 +29,11 @@ const SAMPLE_TIMELINE: RoomTimeline = {
   imageUrl: productImage,
   duration: "3 weeks",
   outcome: "Tight feeling eased after week two. Still pills in humidity.",
-  reactions: ["Nightly", "Tightness eased"],
+  reactions: ["Tightness eased"],
   author: "Dee Patel",
+  visibility: "public",
+  frequency: "Nightly",
+  skinType: "Combination",
   entries: [
     { id: "e1", at: "2026-10-02", note: "Tight across the cheeks on night one.", reaction: "Sting" },
     { id: "e2", at: "2026-10-16", note: "Still pills when the room is humid.", reaction: "Pilling", photoUrl: chapterPhoto },
@@ -50,6 +53,17 @@ const SAMPLE_ULTRA: RoomUltra = {
   pinned: true,
   timelineId: "sample-journey",
   imageUrl: productImage,
+  thunder: 1,
+};
+
+const PRIVATE_TIMELINE: RoomTimeline = {
+  ...SAMPLE_TIMELINE,
+  id: "sample-private",
+  productName: "Night cream",
+  frequency: "Twice a day",
+  visibility: "private",
+  skinType: null,
+  entries: [],
 };
 
 const PEOPLE = [
@@ -66,7 +80,7 @@ const PEOPLE = [
   { id: "june", name: "June Park" },
 ];
 
-const PANELS = ["replies", "replies-full", "picker", "card", "timeline", "timeline-full", "full", "ultra", "ultra-sparks", "ultra-seal", "spark"] as const;
+const PANELS = ["replies", "replies-full", "picker", "private", "card", "timeline", "timeline-full", "full", "ultra", "ultra-sparks", "ultra-seal", "spark"] as const;
 type Panel = (typeof PANELS)[number];
 
 export function RoomPreview({ screen = "prejoin" }: { screen?: "prejoin" | "live" | "host" | Panel }) {
@@ -154,10 +168,11 @@ export function RoomPreview({ screen = "prejoin" }: { screen?: "prejoin" | "live
         setNotes((current) => [...current, { id: `n-${Date.now()}`, name: "You", text: text || "Shared a product timeline.", experience: timeline }]);
         setMessage("");
       }}
-      timelines={[SAMPLE_TIMELINE]}
+      timelines={[SAMPLE_TIMELINE, PRIVATE_TIMELINE]}
+      onPublishTimeline={async (item) => ({ ...item, visibility: "public" })}
       ultras={ultras}
       sparksBalance={50}
-      onLoadTimelines={async () => [SAMPLE_TIMELINE]}
+      onLoadTimelines={async () => [SAMPLE_TIMELINE, PRIVATE_TIMELINE]}
       onCreateTimeline={async () => SAMPLE_TIMELINE}
       onStartUltra={async () => { setUltras((current) => current.some((card) => card.id === SAMPLE_ULTRA.id) ? current : [SAMPLE_ULTRA, ...current]); }}
       onAddSparks={async (id) => {

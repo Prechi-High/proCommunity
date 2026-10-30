@@ -39,6 +39,9 @@ export function readTimeline(value: unknown): RoomTimeline | null {
       : [],
     author: row.author.slice(0, 80),
     entries: readMoments(row.entries),
+    visibility: row.visibility === "public" || row.visibility === "followers" ? row.visibility : "private",
+    frequency: clip(row.frequency, 40) || null,
+    skinType: clip(row.skinType, 40) || null,
   };
 }
 
@@ -85,6 +88,7 @@ function readUltra(value: unknown): RoomUltra | null {
     pinned: !!row.pinned,
     timelineId: clip(row.timelineId, 80) || undefined,
     imageUrl: clip(row.imageUrl, 400) || null,
+    thunder: typeof row.thunder === "number" && Number.isFinite(row.thunder) ? row.thunder : 0,
   };
 }
 
@@ -107,6 +111,7 @@ export function applyRoomUltras(list: RoomUltra[], raw: unknown): RoomUltra[] {
     return card ? mergeUltra(list, card) : list;
   }
   if (item.type === "spark" && typeof item.id === "string" && typeof item.sparks === "number" && Number.isFinite(item.sparks)) {
+    const thunder = typeof (item as { thunder?: unknown }).thunder === "number" ? (item as { thunder: number }).thunder : undefined;
     const supporters = Array.isArray(item.supporters)
       ? item.supporters
           .map((person) => {
@@ -116,7 +121,7 @@ export function applyRoomUltras(list: RoomUltra[], raw: unknown): RoomUltra[] {
           .filter((person): person is { name: string } => !!person)
           .slice(0, 12)
       : [];
-    return applySpark(list, { id: item.id, sparks: item.sparks, supporters });
+    return applySpark(list, { id: item.id, sparks: item.sparks, thunder, supporters });
   }
   if (item.type === "pin" && typeof item.id === "string") return pinUltra(list, item.id);
   return list;

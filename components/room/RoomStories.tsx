@@ -1,20 +1,29 @@
 import { useEffect, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from "react-native";
-import Animated, { FadeIn, FadeInDown, ZoomIn, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import Animated, { FadeInDown, ZoomIn, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 
-import { ArrowsIn, ArrowsOut, Clock, Lightning, MagnifyingGlass, Megaphone, SealCheck } from "@/components/icons";
+import { ArrowsIn, ArrowsOut, Clock, Globe, Lightning, Lock } from "@/components/icons";
 import { SparkBurst } from "@/components/unmask-ui/SparkBurst";
 import { colors, fonts } from "@/constants/theme";
 import { hapticSelect, hapticSuccess } from "@/lib/haptics";
 import { photoUrl } from "@/lib/living/api";
-import { ULTRA_PATHS, type RoomTimeline, type RoomUltra, type TimelineMoment, type UltraPath } from "@/lib/room/cards";
-import { ULTRA_UNMASK_SPARK_GOAL, sparkProgress } from "@/lib/unmask/status";
+import { ULTRA_PATHS, ULTRA_QUESTIONS, type RoomTimeline, type RoomUltra, type TimelineMoment } from "@/lib/room/cards";
+import { ULTRA_UNMASK_SPARK_GOAL, combinedSupport, sparkProgress } from "@/lib/unmask/status";
 
 import { PartialSheet, PressScale, RisingBar } from "./motion";
 
 const ULTRA_ART = require("@/assets/brand/ultra-veil.jpg");
-const PATH_ICON = { why: MagnifyingGlass, company: Megaphone, expert: SealCheck } as const;
 const SPARK_PRESETS = [10, 25, 50, 100];
+const THUNDER_PRESETS = [0, 1, 2];
+
+function DoubleBolt({ size = 14 }: { size?: number }) {
+  return (
+    <View style={{ width: size + 8, height: size, justifyContent: "center" }}>
+      <Lightning size={size} color={colors.gold} weight="fill" style={{ position: "absolute", left: 0 }} />
+      <Lightning size={size} color={colors.honey} weight="fill" style={{ position: "absolute", left: 6 }} />
+    </View>
+  );
+}
 
 function dateLabel(iso?: string | null) {
   if (!iso) return "Date not recorded";
@@ -54,57 +63,43 @@ export function AttachPill({
 
 export function ExperienceCard({ item, onOpen, onDeeper }: { item: RoomTimeline; onOpen: () => void; onDeeper: () => void }) {
   const reduced = useReducedMotion();
-  const marks = item.entries?.length ? item.entries : item.reactions.map((chip, index) => ({ id: chip, at: "", note: chip, reaction: chip }));
+  const facts = [item.frequency, item.skinType, item.duration].filter((fact): fact is string => !!fact);
+  const chips = item.reactions.filter((chip) => chip && chip !== item.frequency);
   return (
     <Animated.View entering={reduced ? undefined : FadeInDown.springify().damping(16)}>
-      <View style={{ borderRadius: 18, overflow: "hidden", borderWidth: 1, borderColor: colors.line, backgroundColor: colors.stage }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingTop: 10 }}>
-          <View style={{ paddingHorizontal: 8, minHeight: 22, borderRadius: 6, backgroundColor: colors.goldSoft, justifyContent: "center" }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 11, letterSpacing: 0.4, color: colors.honeyInk }}>EXPERIENCE</Text>
-          </View>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>{item.duration}</Text>
-        </View>
-        <View style={{ paddingHorizontal: 12, paddingTop: 8 }}>
-          <PressScale label="Unmask this" onPress={onDeeper}>
-            <View style={{ minHeight: 40, borderRadius: 999, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 }}>
-              <Lightning size={16} color={colors.white} weight="fill" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.white }}>Unmask this</Text>
-            </View>
-          </PressScale>
-        </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${item.author}'s timeline for ${item.productName}`} onPress={onOpen} style={{ padding: 12, gap: 10 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.white }}>{item.author.slice(0, 1)}</Text>
-            </View>
-            <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{item.author}'s timeline</Text>
-          </View>
+      <View style={{ borderRadius: 16, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.stage, overflow: "hidden" }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${item.author}'s timeline for ${item.productName}`} onPress={onOpen} style={{ flexDirection: "row", gap: 10, padding: 10 }}>
           {item.imageUrl ? (
-            <Image source={{ uri: item.imageUrl }} accessibilityLabel={item.productName} style={{ width: "100%", height: 88, borderRadius: 14 }} />
+            <Image source={{ uri: item.imageUrl }} style={{ width: 52, height: 52, borderRadius: 10 }} />
           ) : (
-            <View style={{ height: 88, borderRadius: 14, backgroundColor: colors.hiSoft, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 22, color: colors.brand }}>{item.productName.slice(0, 1)}</Text>
+            <View style={{ width: 52, height: 52, borderRadius: 10, backgroundColor: colors.hiSoft, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontFamily: fonts.bold, color: colors.brand }}>{item.productName.slice(0, 1)}</Text>
             </View>
           )}
-          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.ink }}>{item.productName}</Text>
+          <View style={{ flex: 1, gap: 3 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <View style={{ paddingHorizontal: 6, minHeight: 18, borderRadius: 4, backgroundColor: colors.goldSoft, justifyContent: "center" }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.honeyInk }}>EXPERIENCE</Text>
+              </View>
+              <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 13, color: colors.ink }}>{item.author}'s timeline</Text>
+            </View>
+            <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{item.productName}</Text>
+            {facts.length ? <Text numberOfLines={2} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{facts.join(" · ")}</Text> : null}
+            {chips.length ? (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
+                {chips.slice(0, 3).map((chip) => (
+                  <Text key={chip} style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand }}>{chip}</Text>
+                ))}
+              </View>
+            ) : null}
+          </View>
         </Pressable>
-        <View style={{ paddingHorizontal: 12, paddingBottom: 12, gap: 10 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 0 }}>
-            {marks.slice(0, 6).map((mark, index) => (
-              <View key={mark.id || index} style={{ flex: 1, alignItems: "center" }}>
-                <View style={{ height: 3, alignSelf: "stretch", backgroundColor: colors.brand, opacity: 0.35 + (index % 3) * 0.2 }} />
-                <View style={{ width: 10, height: 10, borderRadius: 5, marginTop: -6, backgroundColor: colors.gold, borderWidth: 2, borderColor: colors.stage }} />
-              </View>
-            ))}
+        <PressScale label="Unmask this" onPress={onDeeper}>
+          <View style={{ minHeight: 40, borderTopWidth: 1, borderTopColor: colors.line, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6 }}>
+            <Lightning size={14} color={colors.brand} weight="fill" />
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Unmask this</Text>
           </View>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            {item.reactions.slice(0, 3).map((chip) => (
-              <View key={chip} style={{ paddingHorizontal: 8, minHeight: 24, borderRadius: 999, backgroundColor: colors.hiSoft, justifyContent: "center" }}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.hiInk }}>{chip}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+        </PressScale>
       </View>
     </Animated.View>
   );
@@ -116,6 +111,8 @@ export function TimelinePicker({
   onClose,
   onPick,
   onCreate,
+  onMakePublic,
+  confirmPrivate,
   busy,
   error,
 }: {
@@ -124,36 +121,69 @@ export function TimelinePicker({
   onClose: () => void;
   onPick: (item: RoomTimeline) => void;
   onCreate: () => void;
+  onMakePublic?: (item: RoomTimeline) => Promise<RoomTimeline | null>;
+  confirmPrivate?: boolean;
   busy?: boolean;
   error?: string;
 }) {
+  const [pending, setPending] = useState<RoomTimeline | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [localError, setLocalError] = useState("");
+  const primed = useRef(false);
+  useEffect(() => {
+    if (!open) { primed.current = false; setPending(null); setLocalError(""); return; }
+    if (confirmPrivate && !primed.current) {
+      primed.current = true;
+      const hidden = items.find((item) => item.visibility !== "public");
+      if (hidden) setPending(hidden);
+    }
+  }, [confirmPrivate, items, open]);
   if (!open) return null;
+  function choose(item: RoomTimeline) {
+    if (item.visibility === "public") onPick(item);
+    else setPending(item);
+  }
   return (
-    <Pressable accessibilityLabel="Close timelines" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, justifyContent: "flex-end", alignItems: "center", zIndex: 4 }}>
+    <Pressable accessibilityLabel="Close timelines" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, justifyContent: "flex-end", alignItems: "center", zIndex: 8, backgroundColor: "rgba(0,0,0,0.35)" }}>
       <PartialSheet onClose={onClose}>
-        <View style={{ width: "100%", maxHeight: "78%", backgroundColor: colors.wine, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: 12 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.ink, paddingHorizontal: 16, paddingBottom: 8 }}>Your product timeline</Text>
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}>
-            {items.length ? items.map((item) => (
-              <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`Attach ${item.productName}`} onPress={() => onPick(item)} style={{ borderRadius: 18, overflow: "hidden", borderWidth: 1, borderColor: colors.line, backgroundColor: colors.stage }}>
-                {item.imageUrl ? (
-                  <Image source={{ uri: item.imageUrl }} accessibilityLabel="" style={{ width: "100%", height: 112 }} />
-                ) : (
-                  <View style={{ height: 96, alignItems: "center", justifyContent: "center", backgroundColor: colors.hiSoft }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.brand }}>{item.productName.slice(0, 1)}</Text>
-                  </View>
-                )}
-                <View style={{ padding: 12, gap: 2 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.ink }}>{item.productName}</Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{[item.brand, item.duration].filter(Boolean).join(" · ")}</Text>
+        <View style={{ width: "100%", maxHeight: 420, backgroundColor: colors.wine, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: 16 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.ink, paddingHorizontal: 16, paddingBottom: 8 }}>{pending ? "Make this public?" : "Your product timeline"}</Text>
+          {pending ? (
+            <View style={{ paddingHorizontal: 16, gap: 12 }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, color: colors.ink }}>This timeline is {pending.visibility === "followers" ? "only for followers" : "private"}. Make it public so people in the Room can see your experience.</Text>
+              {localError || error ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>{localError || error}</Text> : null}
+              <PressScale label="Make public and attach" disabled={publishing || busy} onPress={() => {
+                if (!onMakePublic) { setLocalError("This timeline can't be made public from here."); return; }
+                setPublishing(true);
+                setLocalError("");
+                void onMakePublic(pending).then((next) => { if (next) onPick(next); }).catch((cause: unknown) => {
+                  setLocalError(cause instanceof Error ? cause.message : "Could not make this timeline public.");
+                }).finally(() => setPublishing(false));
+              }}>
+                <View style={{ minHeight: 44, borderRadius: 999, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontFamily: fonts.bold, color: colors.white }}>{publishing ? "Making it public…" : "Make public and attach"}</Text>
                 </View>
-              </Pressable>
-            )) : <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>No timeline yet. Start one for the product in this Room.</Text>}
-            {error ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>{error}</Text> : null}
-          </ScrollView>
-          <PressScale label="Start a timeline" onPress={onCreate} disabled={busy} style={{ paddingHorizontal: 16, paddingTop: 4 }}>
-            <Text style={{ fontFamily: fonts.semibold, color: colors.brand }}>{busy ? "Starting…" : "Start a timeline"}</Text>
-          </PressScale>
+              </PressScale>
+              <PressScale label="Cancel" onPress={() => setPending(null)}><Text style={{ fontFamily: fonts.semibold, color: colors.ink, textAlign: "center" }}>Cancel</Text></PressScale>
+            </View>
+          ) : (
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, gap: 4, paddingBottom: 8 }}>
+              {items.length ? items.map((item) => (
+                <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`Attach ${item.productName}`} onPress={() => choose(item)} style={{ minHeight: 60, flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={{ width: 44, height: 44, borderRadius: 8 }} /> : <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: colors.hiSoft, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.bold, color: colors.brand }}>{item.productName.slice(0, 1)}</Text></View>}
+                  <View style={{ flex: 1 }}>
+                    <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{item.productName}</Text>
+                    <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{[item.brand, item.duration, item.frequency].filter(Boolean).join(" · ")}</Text>
+                  </View>
+                  {item.visibility === "public" ? <Globe size={16} color={colors.inkSoft} /> : <Lock size={16} color={colors.honeyInk} />}
+                </Pressable>
+              )) : <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>No timeline yet. Start one for the product in this Room.</Text>}
+              {error ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>{error}</Text> : null}
+              <PressScale label="Start a timeline" onPress={onCreate} disabled={busy} style={{ paddingTop: 8 }}>
+                <Text style={{ fontFamily: fonts.semibold, color: colors.brand }}>{busy ? "Starting…" : "Start a timeline"}</Text>
+              </PressScale>
+            </ScrollView>
+          )}
         </View>
       </PartialSheet>
     </Pressable>
@@ -250,7 +280,7 @@ export function UltraCard({
   shortfall?: string;
 }) {
   const reduced = useReducedMotion();
-  const progress = sparkProgress(card.sparks, card.goal || ULTRA_UNMASK_SPARK_GOAL);
+  const progress = sparkProgress(combinedSupport(card.sparks, card.thunder || 0), card.goal || ULTRA_UNMASK_SPARK_GOAL);
   const path = ULTRA_PATHS.find((item) => item.id === card.path)?.label || "Ultra Unmask";
   return (
     <Animated.View entering={reduced ? undefined : ZoomIn.springify().damping(16)} style={{ borderRadius: 18, overflow: "hidden", borderWidth: 1, borderColor: card.pinned ? colors.gold : colors.line, backgroundColor: colors.stage }}>
@@ -264,9 +294,18 @@ export function UltraCard({
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{card.productName} · {card.author}</Text>
           </View>
         </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Lightning size={14} color={colors.gold} weight="fill" />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>{card.sparks.toLocaleString()} of {progress.goal.toLocaleString()} Sparks · {progress.remaining.toLocaleString()} to the line</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Lightning size={14} color={colors.gold} weight="fill" />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>{card.sparks.toLocaleString()} Sparks</Text>
+          </View>
+          {card.thunder ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <DoubleBolt />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.honeyInk }}>{card.thunder.toLocaleString()} Thunder {card.thunder === 1 ? "Spark" : "Sparks"}</Text>
+            </View>
+          ) : null}
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>{progress.remaining.toLocaleString()} to the line</Text>
         </View>
         <RisingBar ratio={progress.ratio} />
         <View style={{ flexDirection: "row" }}>
@@ -298,59 +337,13 @@ export function UltraCard({
   );
 }
 
-function SealButton({ disabled, onSeal }: { disabled?: boolean; onSeal: () => void }) {
-  const reduced = useReducedMotion();
-  const [holding, setHolding] = useState(false);
-  const progress = useSharedValue(0);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  function stop() {
-    if (timer.current) clearInterval(timer.current);
-    timer.current = null;
-  }
-  function begin() {
-    if (disabled) return;
-    if (reduced) {
-      hapticSuccess();
-      onSeal();
-      return;
-    }
-    setHolding(true);
-    progress.value = withTiming(1, { duration: 880 });
-    let ticks = 0;
-    timer.current = setInterval(() => {
-      ticks += 1;
-      hapticSelect();
-      if (ticks >= 4) {
-        stop();
-        setHolding(false);
-        hapticSuccess();
-        onSeal();
-      }
-    }, 220);
-  }
-  function cancel() {
-    if (reduced || !timer.current) return;
-    stop();
-    setHolding(false);
-    progress.value = withTiming(0, { duration: 140 });
-  }
-  const bar = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={reduced ? "Seal this Ultra Unmask" : "Hold to seal this Ultra Unmask"} disabled={disabled} onPressIn={begin} onPressOut={cancel}>
-      <View style={{ minHeight: 56, borderRadius: 999, overflow: "hidden", backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
-        <Animated.View pointerEvents="none" style={[{ position: "absolute", left: 0, top: 0, bottom: 0, backgroundColor: colors.gold }, bar]} />
-        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.white }}>{holding ? "Sealing your case" : reduced ? "Seal this Ultra Unmask" : "Hold to seal"}</Text>
-      </View>
-    </Pressable>
-  );
-}
-
 export function UltraCreate({
   open,
   step = 0,
   productName,
   timeline,
   balance,
+  thunderBalance,
   busy,
   error,
   onClose,
@@ -358,91 +351,116 @@ export function UltraCreate({
   onClaim,
 }: {
   open: boolean;
-  step?: 0 | 1 | 2;
+  step?: 0 | 1;
   productName: string;
   timeline?: RoomTimeline | null;
   balance: number | null;
+  thunderBalance?: number | null;
   busy: boolean;
   error: string;
   onClose: () => void;
-  onCreate: (path: UltraPath, amount: number) => void;
+  onCreate: (who: "company" | "expert", question: string, sparks: number, thunder: number) => void;
   onClaim: () => void;
 }) {
   const { height } = useWindowDimensions();
-  const [path, setPath] = useState<UltraPath>("why");
-  const [amount, setAmount] = useState(10);
-  const [page, setPage] = useState<0 | 1 | 2>(step);
-  useEffect(() => { if (open) { setPath("why"); setAmount(10); setPage(step); } }, [open, step]);
+  const [question, setQuestion] = useState<string>(ULTRA_QUESTIONS[0]);
+  const [custom, setCustom] = useState(false);
+  const [own, setOwn] = useState("");
+  const [who, setWho] = useState<"company" | "expert">("company");
+  const [sparks, setSparks] = useState(10);
+  const [thunder, setThunder] = useState(0);
+  const [page, setPage] = useState<0 | 1>(step > 0 ? 1 : 0);
+  useEffect(() => {
+    if (!open) return;
+    setQuestion(ULTRA_QUESTIONS[0]);
+    setCustom(false);
+    setOwn("");
+    setWho("company");
+    setSparks(10);
+    setThunder(0);
+    setPage(step > 0 ? 1 : 0);
+  }, [open, step]);
   if (!open) return null;
-  const short = balance != null && amount > balance;
+  const asked = (custom ? own.trim() : question).trim();
+  const sparkShort = sparks > 0 && balance != null && sparks > balance;
+  const thunderShort = thunder > 0 && thunderBalance != null && thunder > thunderBalance;
+  const ready = asked.length >= 8 && (sparks >= 10 || thunder >= 1) && !sparkShort && !thunderShort;
   return (
     <Pressable accessibilityLabel="Close Ultra Unmask" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center", zIndex: 6 }}>
       <PartialSheet onClose={onClose}>
         <View style={{ width: "100%", maxHeight: height * 0.86, backgroundColor: colors.wine, borderTopLeftRadius: 22, borderTopRightRadius: 22 }}>
           <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 28 }}>
-            <Image source={ULTRA_ART} accessibilityLabel="Ultra Unmask" style={{ width: "100%", height: 120, borderRadius: 16 }} />
+            <Image source={ULTRA_ART} accessibilityLabel="Ultra Unmask" style={{ width: "100%", height: 96, borderRadius: 16 }} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.ink }}>Unmask this</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, color: colors.inkSoft }}>Your timeline is the evidence. Sparks move the question toward the line where a creator can take it on. They do not buy a conclusion.</Text>
             {page === 0 ? (
               <>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>YOUR CASE</Text>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>{timeline ? `${timeline.author}'s timeline · ${timeline.productName}` : productName}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.inkSoft }}>{timeline?.outcome || "No timeline attached. The question still stands."}</Text>
-                {ULTRA_PATHS.map((item) => {
-                  const Icon = PATH_ICON[item.id];
-                  const selected = path === item.id;
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>WHAT DO YOU WANT TO KNOW?</Text>
+                {timeline ? <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>{timeline.author}'s timeline · {timeline.productName}</Text> : <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>{productName}</Text>}
+                {ULTRA_QUESTIONS.map((item) => {
+                  const selected = !custom && question === item;
                   return (
-                    <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected }} onPress={() => { hapticSelect(); setPath(item.id); }} style={{ minHeight: 72, borderRadius: 16, borderWidth: 1, borderColor: selected ? colors.brand : colors.line, backgroundColor: selected ? colors.hiSoft : colors.stage, padding: 12, flexDirection: "row", gap: 10, alignItems: "center" }}>
-                      <Icon size={22} color={selected ? colors.brand : colors.ink} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>{item.label}</Text>
-                        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{item.detail}</Text>
-                      </View>
+                    <Pressable key={item} accessibilityRole="button" accessibilityState={{ selected }} onPress={() => { hapticSelect(); setCustom(false); setQuestion(item); }} style={{ minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: selected ? colors.brand : colors.line, backgroundColor: selected ? colors.hiSoft : colors.stage, paddingHorizontal: 14, justifyContent: "center" }}>
+                      <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>{item}</Text>
                     </Pressable>
                   );
                 })}
-                <PressScale label="Choose how hard you push" onPress={() => setPage(1)}>
+                <Pressable accessibilityRole="button" accessibilityState={{ selected: custom }} onPress={() => { hapticSelect(); setCustom(true); }} style={{ minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: custom ? colors.brand : colors.line, backgroundColor: custom ? colors.hiSoft : colors.stage, paddingHorizontal: 14, justifyContent: "center" }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>Write your own</Text>
+                </Pressable>
+                {custom ? <TextInput value={own} onChangeText={setOwn} placeholder="Your question" placeholderTextColor={colors.inkSoft} accessibilityLabel="Your question" style={{ minHeight: 48, borderRadius: 12, backgroundColor: colors.stage, color: colors.ink, paddingHorizontal: 12, fontFamily: fonts.regular }} /> : null}
+                <PressScale label="Choose who should answer" onPress={() => setPage(1)} disabled={asked.length < 8}>
                   <View style={{ minHeight: 48, borderRadius: 999, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ fontFamily: fonts.bold, color: colors.white }}>Choose how hard you push</Text>
+                    <Text style={{ fontFamily: fonts.bold, color: colors.white }}>Choose who should answer</Text>
                   </View>
                 </PressScale>
               </>
-            ) : null}
-            {page === 1 ? (
+            ) : (
               <>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>WHO SHOULD ANSWER?</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.ink }}>{asked}</Text>
+                <Pressable accessibilityRole="button" accessibilityState={{ selected: who === "company" }} onPress={() => { hapticSelect(); setWho("company"); }} style={{ borderRadius: 16, borderWidth: 1, borderColor: who === "company" ? colors.brand : colors.line, backgroundColor: who === "company" ? colors.hiSoft : colors.stage, padding: 14, gap: 6 }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>Ask the company</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>Put the question to the brand</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.inkSoft }}>This is not a guarantee the brand will respond. We will make sure the question reaches them and do everything we can to bring them on board.</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" accessibilityState={{ selected: who === "expert" }} onPress={() => { hapticSelect(); setWho("expert"); }} style={{ borderRadius: 16, borderWidth: 1, borderColor: who === "expert" ? colors.brand : colors.line, backgroundColor: who === "expert" ? colors.hiSoft : colors.stage, padding: 14, gap: 4 }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>Ask an expert</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>Bring in someone who knows</Text>
+                </Pressable>
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>SPARKS</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   {SPARK_PRESETS.map((preset) => {
-                    const on = amount === preset;
+                    const on = sparks === preset;
                     return (
-                      <Pressable key={preset} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => { hapticSelect(); setAmount(preset); }} style={{ minWidth: 76, minHeight: 44, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: on ? colors.gold : colors.line, backgroundColor: on ? colors.goldSoft : colors.stage, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                      <Pressable key={preset} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => { hapticSelect(); setSparks(preset); }} style={{ minHeight: 40, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: on ? colors.gold : colors.line, backgroundColor: on ? colors.goldSoft : colors.stage, flexDirection: "row", alignItems: "center", gap: 4 }}>
                         <Lightning size={14} color={colors.gold} weight="fill" />
                         <Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>{preset}</Text>
                       </Pressable>
                     );
                   })}
                 </View>
-                <TextInput value={String(amount)} onChangeText={(value) => setAmount(Number(value.replace(/\D/g, "")) || 0)} keyboardType="number-pad" accessibilityLabel="Opening Sparks" style={{ minHeight: 44, borderRadius: 12, backgroundColor: colors.stage, color: colors.ink, paddingHorizontal: 12, fontFamily: fonts.regular }} />
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{balance == null ? "Sparks balance is still loading." : `${balance.toLocaleString()} Sparks available`}. More Sparks move this closer to the line. They cannot buy the answer.</Text>
-                {short ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>Not enough Sparks for that opening. Claim this month's Sparks without leaving the Room.</Text> : null}
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {THUNDER_PRESETS.map((preset) => {
+                    const on = thunder === preset;
+                    return (
+                      <Pressable key={preset} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={preset ? `${preset} Thunder Sparks` : "No Thunder Sparks"} onPress={() => { hapticSelect(); setThunder(preset); }} style={{ minHeight: 40, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: on ? colors.gold : colors.line, backgroundColor: on ? colors.goldSoft : colors.stage, flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <DoubleBolt />
+                        <Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>{preset === 0 ? "None" : preset}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.inkSoft }}>{balance == null ? "Sparks balance is still loading." : `${balance.toLocaleString()} Sparks`}{thunderBalance == null ? "" : ` · ${thunderBalance.toLocaleString()} Thunder Sparks`}. One Thunder Spark counts as 100 Sparks toward the line. Neither buys the answer.</Text>
+                {sparkShort || thunderShort ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>Not enough for that opening. Claim this month's Sparks without leaving the Room.</Text> : null}
                 {error ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>{error}</Text> : null}
                 <PressScale label="Claim monthly Sparks" onPress={onClaim}><Text style={{ fontFamily: fonts.semibold, color: colors.brand }}>Claim monthly Sparks</Text></PressScale>
-                <PressScale label="Continue to the seal" onPress={() => setPage(2)} disabled={short || amount < 10}>
-                  <View style={{ minHeight: 48, borderRadius: 999, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ fontFamily: fonts.bold, color: colors.white }}>Continue to the seal</Text>
+                <PressScale label={busy ? "Sending" : "Unmask it"} disabled={!ready || busy} onPress={() => { hapticSuccess(); onCreate(who, asked, sparks >= 10 ? sparks : 0, thunder); }}>
+                  <View style={{ minHeight: 52, borderRadius: 999, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center", opacity: ready ? 1 : 0.45 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.white }}>{busy ? "Sending…" : "Unmask it"}</Text>
                   </View>
                 </PressScale>
               </>
-            ) : null}
-            {page === 2 ? (
-              <>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>{ULTRA_PATHS.find((item) => item.id === path)?.label} · {amount} Sparks</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.inkSoft }}>Hold to put this on the record. The Room will show the card, the progress, and who is already behind it.</Text>
-                {error ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>{error}</Text> : null}
-                <SealButton disabled={busy || short || amount < 10} onSeal={() => onCreate(path, amount)} />
-                {busy ? <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.inkSoft }}>Putting it on the record…</Text> : null}
-              </>
-            ) : null}
+            )}
           </ScrollView>
         </View>
       </PartialSheet>

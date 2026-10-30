@@ -12,14 +12,14 @@ import { ChatCircleDots, Play, UsersThree, X } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { applyRoomNote, applyRoomUltras } from "@/lib/room/channel";
-import { ULTRA_PATHS, momentsFromUpdates, timelineFromJourney, ultraConcern, ultraTitle, type RoomTimeline, type RoomUltra, type UltraPath } from "@/lib/room/cards";
+import { momentsFromUpdates, questionTitle, timelineFromJourney, type RoomTimeline, type RoomUltra } from "@/lib/room/cards";
 import { roomProducts, roomTopic } from "@/lib/room/context";
 import { useRoomDock } from "@/lib/room/dock";
 import { ROOM_EMOJI_IDS } from "@/lib/room/emoji";
 import { arrangeRoom } from "@/lib/room/seats";
 import type { RoomReactionKind } from "@/lib/room/types";
 import { contribute, create as createUltra, summary, validAmount, wallet } from "@/lib/investigations/api";
-import { journeys, saveJourney } from "@/lib/living/api";
+import { journeys, patchJourney, saveJourney } from "@/lib/living/api";
 import { updates as journeyUpdates } from "@/lib/tracking/api";
 import { monthlySparks } from "@/lib/membership";
 import { ULTRA_UNMASK_SPARK_GOAL } from "@/lib/unmask/status";
@@ -86,6 +86,7 @@ export function RealtimeSession({
   const [timelines, setTimelines] = useState<RoomTimeline[]>([]);
   const [ultras, setUltras] = useState<RoomUltra[]>([]);
   const [sparksBalance, setSparksBalance] = useState<number | null>(null);
+  const [thunderBalance, setThunderBalance] = useState<number | null>(null);
   const anonymousRef = useRef(false);
   anonymousRef.current = anonymousListening;
   const [sessionMeta, setSessionMeta] = useState<{ description: string; hostId: string | null; recordingStatus: string | null; metadata: unknown }>({
@@ -112,8 +113,8 @@ export function RealtimeSession({
       .then((rows) => { if (!dead) setTimelines(rows.map((row) => timelineFromJourney(row, youName))); })
       .catch(() => { if (!dead) setTimelines([]); });
     void wallet()
-      .then((pocket) => { if (!dead) setSparksBalance(pocket?.sparks ?? 0); })
-      .catch(() => { if (!dead) setSparksBalance(null); });
+      .then((pocket) => { if (!dead) { setSparksBalance(pocket?.sparks ?? 0); setThunderBalance(pocket?.thunder ?? 0); } })
+      .catch(() => { if (!dead) { setSparksBalance(null); setThunderBalance(null); } });
     return () => { dead = true; };
   }, [mode, state, youName]);
 
@@ -457,36 +458,53 @@ export function RealtimeSession({
     return card;
   }
 
-  async function startUltra(input: { path: UltraPath; timeline?: RoomTimeline | null; title: string; amount: number }) {
-    if (!ULTRA_PATHS.some((item) => item.id === input.path)) throw new Error("Pick what to investigate.");
-    if (!validAmount("sparks", String(input.amount))) throw new Error("Opening Sparks start at 10.");
-    if (sparksBalance != null && input.amount > sparksBalance) throw new Error("Not enough Sparks. Claim your monthly Sparks without leaving the Room.");
+  async function publishTimeline(item: RoomTimeline) {
+    await patchJourney(item.id, { visibility: "public" });
+    const next = { ...item, visibility: "public" as const };
+    setTimelines((current) => current.map((row) => row.id === item.id ? next : row));
+    return next;
+  }
+
+  async function startUltra(input: { who: "company" | "expert"; question: string; timeline?: RoomTimeline | null; sparks: number; thunder: number }) {
+    const sparks = input.sparks >= 10 ? input.sparks : 0;
+    const thunder = input.thunder >= 1 ? input.thunder : 0;
+    if (!sparks && !thunder) throw new Error("Add at least 10 Sparks or 1 Thunder Spark.");
+    if (sparks && sparksBalance != null && sparks > sparksBalance) throw new Error("Not enough Sparks. Claim your monthly Sparks without leaving the Room.");
+    if (thunder && thunderBalance != null && thunder > thunderBalance) throw new Error("Not enough Thunder Sparks.");
+    if (input.question.trim().length < 8) throw new Error("Write the question you want answered.");
     const product = roomProducts(sessionMeta.metadata)[0];
-    const name = input.timeline?.productName || product?.name || input.title || "this product";
+    const name = input.timeline?.productName || product?.name || "this product";
+    const opening = sparks
+      ? { kind: "sparks" as const, amount: sparks }
+      : { kind: "thunder" as const, amount: thunder };
     const investigation = await createUltra({
-      title: ultraTitle(input.path, name),
-      concern: ultraConcern(input.path, input.timeline?.outcome),
+      title: questionTitle(input.question, name),
+      concern: [input.question.trim(), input.timeline?.outcome].filter(Boolean).join("\n\n").slice(0, 3000),
       product_id: product?.id || null,
       question_id: null,
       experience_id: null,
       supporting_links: "",
       attached_journey_id: input.timeline?.id || null,
       attached_experience_id: null,
-    }, { kind: "sparks", amount: input.amount, key: freshId() });
-    let sparks = input.amount;
+    }, { ...opening, key: freshId() });
+    if (sparks && thunder) await contribute(investigation.id, "thunder", thunder, true, freshId());
+    let sparkCount = sparks;
+    let thunderCount = thunder;
     let supporters = [{ name: youName }];
     try {
       const totals = await summary(investigation.id);
-      sparks = totals.sparks;
+      sparkCount = totals.sparks;
+      thunderCount = totals.thunder;
       const named = totals.backers.map((person) => ({ name: person.name || "Unmasker" })).filter((person) => person.name);
       if (named.length) supporters = named;
-    } catch { /* the opening amount is the contribution that just landed */ }
+    } catch { /* the opening contribution is the one that just landed */ }
     const card: RoomUltra = {
       id: investigation.id,
-      title: investigation.title || ultraTitle(input.path, name),
-      path: input.path,
+      title: investigation.title || questionTitle(input.question, name),
+      path: input.who,
       productName: name,
-      sparks,
+      sparks: sparkCount,
+      thunder: thunderCount,
       goal: investigation.spark_goal || ULTRA_UNMASK_SPARK_GOAL,
       supporters,
       author: youName,
@@ -498,7 +516,7 @@ export function RealtimeSession({
     await publish(event);
     ingest(event, youName);
     const pocket = await wallet().catch(() => null);
-    if (pocket) setSparksBalance(pocket.sparks);
+    if (pocket) { setSparksBalance(pocket.sparks); setThunderBalance(pocket.thunder); }
   }
 
   async function addSparks(id: string, amount: number) {
@@ -506,11 +524,11 @@ export function RealtimeSession({
     if (sparksBalance != null && amount > sparksBalance) throw new Error("Not enough Sparks. Claim your monthly Sparks without leaving the Room.");
     const receipt = await contribute(id, "sparks", amount, true, freshId());
     const named = (receipt.summary?.backers || []).map((person) => ({ name: person.name || "Unmasker" })).filter((person) => person.name);
-    const event = { type: "spark", id, sparks: receipt.summary?.sparks ?? receipt.sparks, supporters: named };
+    const event = { type: "spark", id, sparks: receipt.summary?.sparks ?? receipt.sparks, thunder: receipt.summary?.thunder, supporters: named };
     await publish(event);
     ingest(event, youName);
     const pocket = await wallet().catch(() => null);
-    if (pocket) setSparksBalance(pocket.sparks);
+    if (pocket) { setSparksBalance(pocket.sparks); setThunderBalance(pocket.thunder); }
   }
 
   async function claimRoomSparks() {
@@ -739,7 +757,9 @@ export function RealtimeSession({
         timelines={timelines}
         ultras={ultras}
         sparksBalance={sparksBalance}
+        thunderBalance={thunderBalance}
         onLoadTimelines={loadTimelines}
+        onPublishTimeline={publishTimeline}
         onCreateTimeline={createTimeline}
         onStartUltra={startUltra}
         onAddSparks={addSparks}

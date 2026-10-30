@@ -14,6 +14,7 @@ const ultra: RoomUltra = {
   supporters: [{ name: "Ada" }],
   author: "Ada",
   pinned: false,
+  thunder: 0,
 };
 
 test("chat replays do not duplicate, and a timeline rides along", () => {

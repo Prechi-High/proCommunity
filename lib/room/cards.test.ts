@@ -24,7 +24,9 @@ test("a timeline snapshot only uses fields on the journey", () => {
   );
   assert.equal(card.productName, "Hydrating Cleanser");
   assert.equal(card.duration, "In progress");
-  assert.deepEqual(card.reactions, ["Nightly", "Bought"]);
+  assert.equal(card.frequency, "Nightly");
+  assert.equal(card.visibility, "private");
+  assert.deepEqual(card.reactions, ["Bought"]);
   assert.deepEqual(card.entries, []);
 });
 
@@ -43,7 +45,7 @@ test("cards upsert by id and sparks replace rather than increment", () => {
   const again = upsertById(first, { id: "a", sparks: 10 });
   assert.equal(again.length, 1);
   const sparked = applySpark(
-    [{ id: "a", title: "Why", path: "why", productName: "Cleanser", sparks: 10, goal: 500, supporters: [], author: "Ada", pinned: false }],
+    [{ id: "a", title: "Why", path: "why", productName: "Cleanser", sparks: 10, thunder: 0, goal: 500, supporters: [], author: "Ada", pinned: false }],
     { id: "a", sparks: 20, supporters: [{ name: "Bea" }] },
   );
   assert.equal(sparked[0].sparks, 20);
