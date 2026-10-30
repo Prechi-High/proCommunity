@@ -58,6 +58,40 @@ export function RealtimeSession({
   }, [speaking]);
 
   useEffect(() => {
+    if (!id || state !== "connected") return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const { data } = await db().from("unmask_realtime_sessions").select("metadata").eq("id", id).single();
+        if (cancelled || !data?.metadata) return;
+        const metadata = data.metadata as any;
+        const requests = Array.isArray(metadata.mic_requests) ? metadata.mic_requests as MicRequest[] : [];
+        const permissions = metadata.cohost_permissions && typeof metadata.cohost_permissions === "object" ? metadata.cohost_permissions : {};
+        setMicRequests(requests);
+        setCohostPermissions(permissions);
+        if (uid) {
+          const mine = requests.find(item => String(item.user_id) === uid);
+          if (mine?.status === "pending") setMicRequested(true);
+          if (mine?.status === "approved" && !micApproved) {
+            setMicApproved(true);
+            const room = roomRef.current;
+            if (room) {
+              try { await room.localParticipant.setMicrophoneEnabled(true); setMicOn(true); } catch {}
+            }
+          }
+          if (mine?.status === "denied") {
+            setMicRequested(false);
+            setMicApproved(false);
+          }
+        }
+      } catch {}
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), 2000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [id, state, uid, micApproved]);
+
+  useEffect(() => {
     if (!id) return;
     let dead = false;
     const attach = (track: RemoteTrack) => {
@@ -411,9 +445,25 @@ export function RealtimeSession({
                         <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.ink }}>{person.display_name}</Text>
                         <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>@{person.handle}</Text>
                       </View>
-                      <Pressable onPress={() => void manage(added ? "remove_cohost" : "add_cohost", person.user_id)} style={{ minHeight: 34, paddingHorizontal: 11, borderRadius: 10, backgroundColor: added ? "#F3EBE2" : colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
-                        {added ? <X size={14} color={colors.brandDeep} /> : <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: "#fff" }}>Add</Text>}
-                      </Pressable>
+                      {added ? (
+                        <View style={{ alignItems: "flex-end", gap: 5 }}>
+                          <Pressable onPress={() => void manage("remove_cohost", person.user_id)} style={{ minHeight: 32, paddingHorizontal: 10, borderRadius: 9, backgroundColor: "#F3EBE2", alignItems: "center", justifyContent: "center" }}>
+                            <X size={14} color={colors.brandDeep} />
+                          </Pressable>
+                          <View style={{ flexDirection: "row", gap: 5 }}>
+                            <Pressable onPress={() => void manage(cohostPermissions[person.user_id]?.can_end ? "revoke_end" : "grant_end", person.user_id)} style={{ paddingHorizontal: 7, paddingVertical: 6, borderRadius: 8, backgroundColor: cohostPermissions[person.user_id]?.can_end ? "#F2D25B" : "#F6F3F1" }}>
+                              <Text style={{ fontFamily: fonts.semibold, fontSize: 9, color: colors.ink }}>{cohostPermissions[person.user_id]?.can_end ? "End ✓" : "End"}</Text>
+                            </Pressable>
+                            <Pressable onPress={() => void manage(cohostPermissions[person.user_id]?.can_manage_cohosts ? "revoke_cohost_management" : "grant_cohost_management", person.user_id)} style={{ paddingHorizontal: 7, paddingVertical: 6, borderRadius: 8, backgroundColor: cohostPermissions[person.user_id]?.can_manage_cohosts ? "#9FD0AB" : "#F6F3F1" }}>
+                              <Text style={{ fontFamily: fonts.semibold, fontSize: 9, color: colors.ink }}>{cohostPermissions[person.user_id]?.can_manage_cohosts ? "Manage ✓" : "Manage"}</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      ) : (
+                        <Pressable onPress={() => void manage("add_cohost", person.user_id)} style={{ minHeight: 34, paddingHorizontal: 11, borderRadius: 10, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
+                          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: "#fff" }}>Add</Text>
+                        </Pressable>
+                      )}
                     </View>
                   );
                 }) : <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>No other active Unmask Creators are available right now.</Text>}
