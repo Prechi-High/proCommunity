@@ -83,8 +83,12 @@ export function RealtimeSession({
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.session.access_token}` },
           body: JSON.stringify({ sessionId: id, role: host ? "host" : "cohost" }),
         });
-        const payload = await res.json();
-        if (!res.ok) throw new Error(payload.error || "Could not join the session.");
+        const raw = await res.text();
+        let payload = {};
+        try { payload = raw ? JSON.parse(raw) : {}; } catch {
+          throw new Error(raw.trim() || `Could not join the session (HTTP ${res.status}).`);
+        }
+        if (!res.ok) throw new Error(payload.error || `Could not join the session (HTTP ${res.status}).`);
 
         const syncPresence = async (activeSpeakerCount = 0, activeSpeakerName = "") => {
           try {
@@ -234,8 +238,12 @@ export function RealtimeSession({
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
       body: JSON.stringify({ action, sessionId: id, targetUserId }),
     });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || "Could not update the session.");
+    const raw = await response.text();
+    let payload: any = {};
+    try { payload = raw ? JSON.parse(raw) : {}; } catch {
+      throw new Error(raw.trim() || `Could not update the session (HTTP ${response.status}).`);
+    }
+    if (!response.ok) throw new Error(payload.error || `Could not update the session (HTTP ${response.status}).`);
     if (action === "add_cohost") setCohostIds(payload.cohostIds || []);
     if (action === "remove_cohost") setCohostIds(payload.cohostIds || []);
     if (action === "end") {
@@ -245,7 +253,7 @@ export function RealtimeSession({
   }
 
   async function leave(end = false) {
-    if (end && host) {
+    if (end && isHostSession) {
       try { await manage("end"); } catch (e) { setState(e instanceof Error ? e.message : "Could not end the session."); }
       return;
     }
