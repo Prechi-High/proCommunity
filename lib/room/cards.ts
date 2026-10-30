@@ -35,6 +35,8 @@ export const ULTRA_QUESTIONS = [
 
 export type UltraPath = "why" | "company" | "expert";
 
+export const COMPANY_FALLBACK = "We will do everything we can to get this to the brand, but a reply is not guaranteed. If we cannot reach them, a knowledgeable expert picks it up instead.";
+
 export const ULTRA_PATHS: Array<{ id: UltraPath; label: string; detail: string; concern: string }> = [
   { id: "why", label: "Why it happens", detail: "Follow it to the cause.", concern: "Why does this happen with this product?" },
   { id: "company", label: "Ask the company", detail: "Put the question to the brand.", concern: "Ask the company what they know about this." },

@@ -7,7 +7,7 @@ import { SparkBurst } from "@/components/unmask-ui/SparkBurst";
 import { colors, fonts } from "@/constants/theme";
 import { hapticSelect, hapticSuccess } from "@/lib/haptics";
 import { photoUrl } from "@/lib/living/api";
-import { ULTRA_PATHS, ULTRA_QUESTIONS, type RoomTimeline, type RoomUltra, type TimelineMoment } from "@/lib/room/cards";
+import { COMPANY_FALLBACK, ULTRA_PATHS, ULTRA_QUESTIONS, type RoomTimeline, type RoomUltra, type TimelineMoment } from "@/lib/room/cards";
 import { ULTRA_UNMASK_SPARK_GOAL, combinedSupport, sparkProgress } from "@/lib/unmask/status";
 
 import { PartialSheet, PressScale, RisingBar } from "./motion";
@@ -307,6 +307,7 @@ export function UltraCard({
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{card.productName} · {card.author}</Text>
           </View>
         </View>
+        {card.path === "company" ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.inkSoft }}>{COMPANY_FALLBACK}</Text> : null}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
             <Lightning size={14} color={colors.gold} weight="fill" />
@@ -434,7 +435,7 @@ export function UltraCreate({
                 <Pressable accessibilityRole="button" accessibilityState={{ selected: who === "company" }} onPress={() => { hapticSelect(); setWho("company"); }} style={{ borderRadius: 16, borderWidth: 1, borderColor: who === "company" ? colors.brand : colors.line, backgroundColor: who === "company" ? colors.hiSoft : colors.stage, padding: 14, gap: 6 }}>
                   <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>Ask the company</Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>Put the question to the brand</Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.inkSoft }}>This is not a guarantee the brand will respond. We will make sure the question reaches them and do everything we can to bring them on board.</Text>
+                  {who === "company" ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.inkSoft }}>{COMPANY_FALLBACK}</Text> : null}
                 </Pressable>
                 <Pressable accessibilityRole="button" accessibilityState={{ selected: who === "expert" }} onPress={() => { hapticSelect(); setWho("expert"); }} style={{ borderRadius: 16, borderWidth: 1, borderColor: who === "expert" ? colors.brand : colors.line, backgroundColor: who === "expert" ? colors.hiSoft : colors.stage, padding: 14, gap: 4 }}>
                   <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>Ask an expert</Text>

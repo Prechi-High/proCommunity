@@ -44,7 +44,7 @@ const SAMPLE_TIMELINE: RoomTimeline = {
 const SAMPLE_ULTRA: RoomUltra = {
   id: "sample-ultra",
   title: "Why it happens: Hydrating Cleanser",
-  path: "why",
+  path: "company",
   productName: "Hydrating Cleanser",
   sparks: 40,
   goal: 500,
