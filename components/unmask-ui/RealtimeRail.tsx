@@ -90,7 +90,11 @@ export function RealtimeRail() {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
       body: JSON.stringify({ action: "end", sessionId: id }),
     });
-    if (!response.ok) return;
+    if (!response.ok) {
+      const raw = await response.text().catch(() => "");
+      console.error("Could not end realtime session", raw || response.status);
+      return;
+    }
     await qc.invalidateQueries({ queryKey: ["active-realtime"] });
   }
 
