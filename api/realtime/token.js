@@ -1,4 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
+const { nextMicRequests, presencePatch } = require("./mic-access");
 
 function env(name) {
   const value = process.env[name];
@@ -15,6 +16,53 @@ function websocketUrl(value) {
   if (url.protocol === "https:") url.protocol = "wss:";
   if (url.protocol === "http:") url.protocol = "ws:";
   return url.toString().replace(/\/$/, "");
+}
+
+async function patchMetadata(supabase, sessionId, patch) {
+  const { error } = await supabase.rpc("unmask_patch_realtime_metadata", {
+    p_id: sessionId,
+    p_patch: patch,
+  });
+  if (!error) return;
+  const missing = error.code === "PGRST202" || /unmask_patch_realtime_metadata/i.test(String(error.message || ""));
+  if (!missing) throw error;
+  const { data, error: readError } = await supabase.from("unmask_realtime_sessions").select("metadata").eq("id", sessionId).single();
+  if (readError) throw readError;
+  const metadata = data?.metadata && typeof data.metadata === "object" ? data.metadata : {};
+  const { error: updateError } = await supabase.from("unmask_realtime_sessions")
+    .update({ metadata: { ...metadata, ...patch } }).eq("id", sessionId);
+  if (updateError) throw updateError;
+}
+
+async function livekitRoom(roomName) {
+  const { RoomServiceClient } = await import("livekit-server-sdk");
+  return new RoomServiceClient(httpHost(env("LIVEKIT_URL")), env("LIVEKIT_API_KEY"), env("LIVEKIT_API_SECRET"));
+}
+
+async function setCanPublish(roomName, identity, canPublish) {
+  if (!roomName) throw new Error("This Room has no LiveKit room yet.");
+  const { TrackSource } = await import("@livekit/protocol");
+  const room = await livekitRoom(roomName);
+  await room.updateParticipant(roomName, identity, {
+    permission: {
+      canSubscribe: true,
+      canPublish: !!canPublish,
+      canPublishData: true,
+      canPublishSources: canPublish ? [TrackSource.MICROPHONE] : [],
+    },
+  });
+}
+
+async function muteSpeaker(roomName, identity) {
+  if (!roomName) return;
+  const { TrackType } = await import("@livekit/protocol");
+  const room = await livekitRoom(roomName);
+  const people = await room.listParticipants(roomName);
+  const person = people.find((item) => item.identity === identity);
+  const tracks = (person?.tracks || []).filter((track) => track.type === TrackType.AUDIO && track.sid);
+  for (const track of tracks) {
+    await room.mutePublishedTrack(roomName, identity, track.sid, true);
+  }
 }
 
 function httpHost(value) {
@@ -55,23 +103,12 @@ async function handler(req, res) {
 
         const metadata = requestSession.metadata && typeof requestSession.metadata === "object" ? requestSession.metadata : {};
         const requests = Array.isArray(metadata.mic_requests) ? metadata.mic_requests : [];
-        const existing = requests.find(item => String(item?.user_id) === userData.user.id);
-        if (existing?.status === "pending") return send(res, 200, { ok: true, request: existing });
         const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", userData.user.id).maybeSingle();
         const { data: creatorProfile } = await supabase.from("unmask_creators").select("display_name").eq("user_id", userData.user.id).maybeSingle();
-        const request = {
-          user_id: userData.user.id,
-          display_name: creatorProfile?.display_name || profile?.display_name || userData.user.user_metadata?.display_name || "Unmasker",
-          status: "pending",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        const nextRequests = requests.filter(item => String(item?.user_id) !== userData.user.id);
-        nextRequests.push(request);
-        const { error: updateError } = await supabase.from("unmask_realtime_sessions")
-          .update({ metadata: { ...metadata, mic_requests: nextRequests } }).eq("id", sessionId);
-        if (updateError) throw updateError;
-        return send(res, 200, { ok: true, request });
+        const displayName = creatorProfile?.display_name || profile?.display_name || userData.user.user_metadata?.display_name || "Unmasker";
+        const decision = nextMicRequests(requests, "request_mic", userData.user.id, displayName);
+        if (!decision.unchanged) await patchMetadata(supabase, sessionId, { mic_requests: decision.requests });
+        return send(res, 200, { ok: true, request: decision.requests.find((item) => String(item.user_id) === userData.user.id) });
       }
 
       if (action === "sync_presence") {
@@ -101,16 +138,12 @@ async function handler(req, res) {
           ? body.activeSpeakerName.slice(0, 120) : "";
         const metadata = presenceSession.metadata && typeof presenceSession.metadata === "object"
           ? presenceSession.metadata : {};
-
-        await supabase.from("unmask_realtime_sessions").update({
-          metadata: {
-            ...metadata,
-            participant_count: count,
-            active_speaker_count: activeSpeakerCount,
-            active_speaker_name: activeSpeakerCount > 0 ? activeSpeakerName : "",
-            last_activity_at: activeSpeakerCount > 0 ? new Date().toISOString() : (metadata.last_activity_at || null),
-          },
-        }).eq("id", sessionId);
+        await patchMetadata(supabase, sessionId, presencePatch({
+          participantCount: count,
+          activeSpeakerCount,
+          activeSpeakerName,
+          previousActivity: metadata.last_activity_at || null,
+        }));
 
         return send(res, 200, { ok: true, participantCount: count, activeSpeakerCount });
       }
@@ -149,7 +182,7 @@ async function handler(req, res) {
         return send(res, 200, { ok: true, action });
       }
 
-      if (["add_cohost","remove_cohost","grant_end","revoke_end","grant_cohost_management","revoke_cohost_management","approve_mic","deny_mic"].includes(action)) {
+      if (["add_cohost","remove_cohost","grant_end","revoke_end","grant_cohost_management","revoke_cohost_management","approve_mic","deny_mic","invite_speaker","remove_speaker","mute_speaker"].includes(action)) {
         const targetUserId = String(body.targetUserId || "");
         if (!targetUserId) return send(res, 400, { error: "A user is required." });
         const metadata = managedSession.metadata && typeof managedSession.metadata === "object" ? managedSession.metadata : {};
@@ -173,13 +206,14 @@ async function handler(req, res) {
           const nextPermissions = { ...permissions };
           if (action === "add_cohost") nextPermissions[targetUserId] = nextPermissions[targetUserId] || { can_end:false, can_manage_cohosts:false };
           else delete nextPermissions[targetUserId];
-          const { error } = await supabase.from("unmask_realtime_sessions").update({ metadata:{...metadata,cohost_ids:nextIds,cohost_permissions:nextPermissions} }).eq("id",sessionId);
-          if (error) throw error;
+          await patchMetadata(supabase, sessionId, { cohost_ids: nextIds, cohost_permissions: nextPermissions });
           if (managedSession.room_name && action === "add_cohost") {
-            try {
-              const { RoomServiceClient } = await import("livekit-server-sdk");
-              await new RoomServiceClient(httpHost(env("LIVEKIT_URL")),env("LIVEKIT_API_KEY"),env("LIVEKIT_API_SECRET")).updateParticipant(managedSession.room_name,targetUserId,{permission:{canPublish:true,canSubscribe:true,canPublishData:true},attributes:{anonymous:"false"}});
-            } catch (error) { console.error("livekit cohost permission update skipped",error); }
+            try { await setCanPublish(managedSession.room_name, targetUserId, true); }
+            catch (error) { console.error("livekit cohost permission update failed", error); }
+          }
+          if (managedSession.room_name && action === "remove_cohost") {
+            try { await setCanPublish(managedSession.room_name, targetUserId, false); await muteSpeaker(managedSession.room_name, targetUserId); }
+            catch (error) { console.error("livekit cohost removal failed", error); }
           }
           return send(res,200,{ok:true,action,creator:target,cohostIds:nextIds,cohostPermissions:nextPermissions});
         }
@@ -191,22 +225,22 @@ async function handler(req, res) {
             ...(action==="revoke_end"?{can_end:false}:{}),
             ...(action==="grant_cohost_management"?{can_manage_cohosts:true}:{}),
             ...(action==="revoke_cohost_management"?{can_manage_cohosts:false}:{})}};
-          const {error}=await supabase.from("unmask_realtime_sessions").update({metadata:{...metadata,cohost_permissions:nextPermissions}}).eq("id",sessionId);
-          if(error) throw error;
+          await patchMetadata(supabase, sessionId, { cohost_permissions: nextPermissions });
           return send(res,200,{ok:true,action,cohostPermissions:nextPermissions});
         }
 
-        if (["approve_mic","deny_mic"].includes(action)) {
-          const requests=Array.isArray(metadata.mic_requests)?metadata.mic_requests:[];
-          if(!requests.some(item=>String(item?.user_id)===targetUserId && item?.status==="pending")) return send(res,404,{error:"Mic request not found."});
-          const nextRequests=requests.map(item=>String(item?.user_id)===targetUserId&&item?.status==="pending"?{...item,status:action==="approve_mic"?"approved":"denied",updated_at:new Date().toISOString()}:item);
-          const {error}=await supabase.from("unmask_realtime_sessions").update({metadata:{...metadata,mic_requests:nextRequests}}).eq("id",sessionId);
-          if(error) throw error;
-          if(action==="approve_mic"&&managedSession.room_name){try{
-            const {RoomServiceClient}=await import("livekit-server-sdk");
-            await new RoomServiceClient(httpHost(env("LIVEKIT_URL")),env("LIVEKIT_API_KEY"),env("LIVEKIT_API_SECRET")).updateParticipant(managedSession.room_name,targetUserId,{permission:{canPublish:true,canSubscribe:true,canPublishData:true}});
-          }catch(error){console.error("livekit mic approval update skipped",error);}}
-          return send(res,200,{ok:true,action,micRequests:nextRequests});
+        if (["approve_mic","deny_mic","invite_speaker","remove_speaker","mute_speaker"].includes(action)) {
+          const decision = nextMicRequests(Array.isArray(metadata.mic_requests) ? metadata.mic_requests : [], action, targetUserId);
+          if (decision.error) return send(res, decision.status || 400, { error: decision.error });
+          try {
+            if (decision.canPublish !== undefined) await setCanPublish(managedSession.room_name, targetUserId, decision.canPublish);
+            if (decision.mute) await muteSpeaker(managedSession.room_name, targetUserId);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "LiveKit could not update speaking permission.";
+            return send(res, 502, { error: message });
+          }
+          if (decision.requests && action !== "mute_speaker") await patchMetadata(supabase, sessionId, { mic_requests: decision.requests });
+          return send(res, 200, { ok: true, action, micRequests: decision.requests });
         }
       }
 

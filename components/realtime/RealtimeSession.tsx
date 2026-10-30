@@ -19,7 +19,7 @@ import type { RoomReactionKind } from "@/lib/room/types";
 import { useAppStore } from "@/lib/store";
 
 type ChatItem = { id: string; name: string; text: string };
-type MicRequest = { user_id: string; display_name?: string; status: "pending" | "approved" | "denied" };
+type MicRequest = { user_id: string; display_name?: string; status: "pending" | "approved" | "denied" | "revoked" };
 type Creator = { user_id: string; display_name: string; handle: string; avatar_url: string | null; creator_mark: string; status: string; published: boolean };
 
 export function RealtimeSession({
@@ -104,17 +104,23 @@ export function RealtimeSession({
             setMicRequested(true);
             setMicDenied(false);
           }
-          if (mine?.status === "approved" && !micApproved) {
+          if (mine?.status === "approved") {
+            setMicRequested(false);
+            setMicDenied(false);
             setMicApproved(true);
             const room = roomRef.current;
-            if (room) {
+            if (room && !room.localParticipant.isMicrophoneEnabled) {
               try { await room.localParticipant.setMicrophoneEnabled(true); setMicOn(true); } catch {}
             }
           }
-          if (mine?.status === "denied") {
+          if (mine?.status === "denied" || mine?.status === "revoked") {
             setMicRequested(false);
             setMicApproved(false);
-            setMicDenied(true);
+            setMicDenied(mine.status === "denied");
+            const room = roomRef.current;
+            if (room?.localParticipant.isMicrophoneEnabled) {
+              try { await room.localParticipant.setMicrophoneEnabled(false); setMicOn(false); } catch {}
+            }
           }
         }
       } catch {}
@@ -274,6 +280,21 @@ export function RealtimeSession({
           .on(RoomEvent.TrackUnsubscribed, onUntrack)
           .on(RoomEvent.ActiveSpeakersChanged, onSpeaker)
           .on(RoomEvent.DataReceived, onChat)
+          .on(RoomEvent.ParticipantPermissionsChanged, (_prev, participant) => {
+            if (!participant || participant.identity !== room.localParticipant.identity) return;
+            if (payload.role === "host" || payload.role === "cohost") return;
+            const can = !!room.localParticipant.permissions?.canPublish;
+            if (can) {
+              setMicApproved(true);
+              setMicRequested(false);
+              setMicDenied(false);
+              room.localParticipant.setMicrophoneEnabled(true).then(() => { if (!dead) setMicOn(true); }).catch(() => {});
+            } else {
+              setMicApproved(false);
+              setMicRequested(false);
+              room.localParticipant.setMicrophoneEnabled(false).then(() => { if (!dead) setMicOn(false); }).catch(() => {});
+            }
+          })
           .on(RoomEvent.AudioPlaybackStatusChanged, ok => setCanPlayAudio(ok))
           .on(RoomEvent.Disconnected, () => !dead && setState("ended"));
 
@@ -613,6 +634,9 @@ export function RealtimeSession({
         pendingMics={micRequests.filter((ask) => ask.status === "pending")}
         onApproveMic={(userId) => void manage("approve_mic", userId).catch((error) => setManagementError(error instanceof Error ? error.message : "Could not update the mic request."))}
         onDenyMic={(userId) => void manage("deny_mic", userId).catch((error) => setManagementError(error instanceof Error ? error.message : "Could not update the mic request."))}
+        onInviteSpeaker={(userId) => void manage("invite_speaker", userId).catch((error) => setManagementError(error instanceof Error ? error.message : "Could not invite them to speak."))}
+        onRemoveSpeaker={(userId) => void manage("remove_speaker", userId).catch((error) => setManagementError(error instanceof Error ? error.message : "Could not move them to the audience."))}
+        onMuteSpeaker={(userId) => void manage("mute_speaker", userId).catch((error) => setManagementError(error instanceof Error ? error.message : "Could not mute them."))}
         canManage={canManageCohosts || isHostSession}
         creators={creators.map((person) => ({
           user_id: person.user_id,

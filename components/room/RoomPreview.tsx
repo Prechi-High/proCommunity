@@ -120,6 +120,9 @@ export function RoomPreview({ screen = "prejoin" }: { screen?: "prejoin" | "live
       pendingMics={host ? [{ user_id: "cal", display_name: "Cal Nguyen" }] : []}
       onApproveMic={() => undefined}
       onDenyMic={() => undefined}
+      onInviteSpeaker={() => undefined}
+      onRemoveSpeaker={() => undefined}
+      onMuteSpeaker={() => undefined}
       canManage={host}
       creators={[
         { user_id: "bea", display_name: "Bea Okonkwo", handle: "bea", creator_mark: "creator-bea" },

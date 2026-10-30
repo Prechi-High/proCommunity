@@ -113,6 +113,9 @@ export type RoomExperienceProps = {
   pendingMics: MicAsk[];
   onApproveMic: (userId: string) => void;
   onDenyMic: (userId: string) => void;
+  onInviteSpeaker: (userId: string) => void;
+  onRemoveSpeaker: (userId: string) => void;
+  onMuteSpeaker: (userId: string) => void;
   canManage: boolean;
   creators: CohostPerson[];
   cohostIds: string[];
@@ -139,6 +142,7 @@ export function RoomExperience(props: RoomExperienceProps) {
   const [reported, setReported] = useState(false);
   const [rules, setRules] = useState(false);
   const [mediaNote, setMediaNote] = useState("");
+  const [personMenu, setPersonMenu] = useState<RoomSeat | null>(null);
   const prejoin = props.phase === "prejoin" || props.phase === "connecting";
   const people = useMemo(() => [...props.stage, ...props.audience], [props.stage, props.audience]);
   const extraListeners = Math.max(props.anonymousCount, Math.max(0, props.listenerCount - people.length));
@@ -214,11 +218,19 @@ export function RoomExperience(props: RoomExperienceProps) {
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.brand }}>Tap to hear the Room</Text>
               </Pressable>
             ) : null}
+            {props.canManage && props.pendingMics.length ? (
+              <Pressable accessibilityRole="button" accessibilityLabel={`${props.pendingMics.length} mic requests`} onPress={() => setGuests(true)} style={{ minHeight: 44, borderRadius: 14, backgroundColor: colors.goldSoft, paddingHorizontal: 12, justifyContent: "center" }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.honeyInk }}>
+                  {props.pendingMics.length === 1 ? "1 person wants to speak" : `${props.pendingMics.length} people want to speak`}
+                </Text>
+              </Pressable>
+            ) : null}
             <PeopleGrid
               people={people.length ? people : hostFallback(props)}
               reactions={props.reactions}
               pending={props.pendingMics}
               micRequested={props.micRequested}
+              onPerson={props.canManage ? setPersonMenu : undefined}
             />
             {captions ? (
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>Captions aren't available for this Room yet.</Text>
@@ -277,6 +289,7 @@ export function RoomExperience(props: RoomExperienceProps) {
       </Animated.View>
       {share ? <ShareSheet onClose={() => setShare(false)} onShare={props.onShare} onCopy={props.onCopyLink} /> : null}
       {guests ? <GuestsSheet {...props} onClose={() => setGuests(false)} /> : null}
+      {personMenu ? <PersonMenu seat={personMenu} {...props} onClose={() => setPersonMenu(null)} /> : null}
       {chat ? (
         <ChatSheet
           {...props}
@@ -372,11 +385,13 @@ function PeopleGrid({
   reactions,
   pending,
   micRequested,
+  onPerson,
 }: {
   people: RoomSeat[];
   reactions: RoomReaction[];
   pending: MicAsk[];
   micRequested: boolean;
+  onPerson?: (seat: RoomSeat) => void;
 }) {
   const pendingIds = new Set(pending.map((ask) => ask.user_id));
   return (
@@ -384,16 +399,24 @@ function PeopleGrid({
       {people.map((seat) => {
         const burst = reactions.filter((item) => item.name === seat.name || (seat.you && item.name === "You")).slice(-1)[0];
         const hand = pendingIds.has(seat.id) || (seat.you && micRequested);
-        return <SpacePerson key={seat.id} seat={seat} emoji={burst ? roomEmoji(burst.kind)?.glyph : undefined} hand={hand} />;
+        return (
+          <SpacePerson
+            key={seat.id}
+            seat={seat}
+            emoji={burst ? roomEmoji(burst.kind)?.glyph : undefined}
+            hand={hand}
+            onPress={onPerson && !seat.you && seat.role !== "host" ? () => onPerson(seat) : undefined}
+          />
+        );
       })}
     </View>
   );
 }
 
-function SpacePerson({ seat, emoji, hand }: { seat: RoomSeat; emoji?: string; hand?: boolean }) {
+function SpacePerson({ seat, emoji, hand, onPress }: { seat: RoomSeat; emoji?: string; hand?: boolean; onPress?: () => void }) {
   const creator = seat.role === "host" || seat.role === "cohost" || !!seat.creatorMark;
   return (
-    <View style={{ width: "25%", alignItems: "center", paddingVertical: 8, gap: 4 }} accessibilityLabel={`${seat.you ? "You" : seat.name}, ${ROLE_LABEL[seat.role]}${seat.speaking ? ", speaking" : ""}`}>
+    <Pressable disabled={!onPress} onPress={() => { hapticSelect(); onPress?.(); }} style={{ width: "25%", alignItems: "center", paddingVertical: 8, gap: 4 }} accessibilityRole={onPress ? "button" : undefined} accessibilityLabel={`${seat.you ? "You" : seat.name}, ${ROLE_LABEL[seat.role]}${seat.speaking ? ", speaking" : ""}${onPress ? ". Open speaker actions" : ""}`}>
       <View style={{ width: 74, height: 74, alignItems: "center", justifyContent: "center" }}>
         {seat.speaking ? <SpeakRing /> : null}
         <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
@@ -407,7 +430,7 @@ function SpacePerson({ seat, emoji, hand }: { seat: RoomSeat; emoji?: string; ha
         {creator ? <CreatorMark mark={seat.creatorMark || seat.id} size={12} /> : null}
       </View>
       <RoleLine seat={seat} />
-    </View>
+    </Pressable>
   );
 }
 
@@ -551,7 +574,14 @@ function DockBar(props: RoomExperienceProps & {
           </View>
           {props.canSpeak ? null : <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft, marginTop: 4 }}>{props.micRequested ? "Asked" : "Request"}</Text>}
         </Pressable>
-        <IconHit label="Guests" onPress={props.onPeople}><UsersThree size={26} color={colors.ink} /></IconHit>
+        <View>
+          <IconHit label={props.canManage && props.pendingMics.length ? `Guests, ${props.pendingMics.length} raised hands` : "Guests"} onPress={props.onPeople}><UsersThree size={26} color={colors.ink} /></IconHit>
+          {props.canManage && props.pendingMics.length ? (
+            <View pointerEvents="none" style={{ position: "absolute", top: 2, right: 2, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.coral, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.white }}>{props.pendingMics.length}</Text>
+            </View>
+          ) : null}
+        </View>
         <IconHit label="Reactions" onPress={props.onEmoji}><Heart size={26} color={colors.ink} /><Text style={{ position: "absolute", right: 6, top: 8, fontSize: 12, color: colors.brand }}>+</Text></IconHit>
         <View style={{ flex: 1 }} />
         <Pressable accessibilityRole="button" accessibilityLabel={`Replies, ${props.noteCount}`} onPress={() => { hapticSelect(); props.onChat(); }} style={{ borderRadius: 999, overflow: "hidden" }}>
@@ -685,8 +715,33 @@ function ShareSheet({ onClose, onShare, onCopy }: { onClose: () => void; onShare
   );
 }
 
+function PersonMenu({ seat, onClose, ...props }: RoomExperienceProps & { seat: RoomSeat; onClose: () => void }) {
+  const cohost = seat.role === "cohost" || props.cohostIds.includes(seat.id);
+  const speaker = seat.role === "speaker" || seat.role === "cohost";
+  const actions = [
+    seat.role === "listener" ? { label: "Invite to speak", run: () => props.onInviteSpeaker(seat.id) } : null,
+    speaker ? { label: "Remove as speaker", run: () => props.onRemoveSpeaker(seat.id) } : null,
+    speaker ? { label: "Mute", run: () => props.onMuteSpeaker(seat.id) } : null,
+    cohost ? { label: "Remove co-host", run: () => props.onManage("remove_cohost", seat.id) } : { label: "Make co-host", run: () => props.onManage("add_cohost", seat.id) },
+  ].filter(Boolean) as Array<{ label: string; run: () => void }>;
+  return (
+    <Pressable accessibilityLabel="Close speaker actions" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center" }}>
+      <View style={{ width: "100%", maxWidth: 480, backgroundColor: colors.wine, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, gap: 8 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.ink }}>{seat.name}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{ROLE_LABEL[seat.role]}</Text>
+        {actions.map((action) => (
+          <Pressable key={action.label} accessibilityRole="button" accessibilityLabel={action.label} onPress={() => { hapticSelect(); action.run(); onClose(); }} style={{ minHeight: 48, justifyContent: "center" }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: action.label.startsWith("Remove") ? colors.coral : colors.ink }}>{action.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </Pressable>
+  );
+}
+
 function GuestsSheet(props: RoomExperienceProps & { onClose: () => void }) {
   const [query, setQuery] = useState("");
+  const [guestMenu, setGuestMenu] = useState<RoomSeat | null>(null);
   const [filter, setFilter] = useState<"All" | "Co-hosts" | "Speakers" | "Listening">("All");
   const people = [...props.stage, ...props.audience].filter((seat) => {
     const hay = `${seat.name} ${seat.handle || ""}`.toLowerCase();
@@ -721,17 +776,17 @@ function GuestsSheet(props: RoomExperienceProps & { onClose: () => void }) {
           })}
         </ScrollView>
         <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 14, paddingBottom: 12 }}>
-          {props.pendingMics.length && props.canManage ? (
-            <View style={{ gap: 8 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.ink }}>Wants to speak</Text>
+          {props.canManage && props.pendingMics.length ? (
+            <View style={{ gap: 8, padding: 12, borderRadius: 16, backgroundColor: colors.goldSoft }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.honeyInk }}>Raised hands · {props.pendingMics.length}</Text>
               {props.pendingMics.map((ask) => (
                 <View key={ask.user_id} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 15, color: colors.ink }}>{ask.display_name || "Listener"}</Text>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Bring ${ask.display_name || "listener"} up`} onPress={() => props.onApproveMic(ask.user_id)} style={{ minHeight: 36, paddingHorizontal: 10, borderRadius: 999, backgroundColor: colors.brandDeep, justifyContent: "center" }}>
-                    <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.white }}>Bring up</Text>
+                  <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{ask.display_name || "Listener"}</Text>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Approve ${ask.display_name || "listener"}`} onPress={() => props.onApproveMic(ask.user_id)} style={{ minHeight: 44, paddingHorizontal: 12, borderRadius: 999, backgroundColor: colors.brandDeep, justifyContent: "center" }}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.white }}>Approve</Text>
                   </Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel="Not now" onPress={() => props.onDenyMic(ask.user_id)} style={{ minHeight: 36, paddingHorizontal: 10, justifyContent: "center" }}>
-                    <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.inkSoft }}>Not now</Text>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Deny ${ask.display_name || "listener"}`} onPress={() => props.onDenyMic(ask.user_id)} style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: "center" }}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>Deny</Text>
                   </Pressable>
                 </View>
               ))}
@@ -753,6 +808,11 @@ function GuestsSheet(props: RoomExperienceProps & { onClose: () => void }) {
                     </View>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{seat.handle ? `@${seat.handle}` : ROLE_LABEL[seat.role]}</Text>
                   </View>
+                  {props.canManage && !seat.you && seat.role !== "host" ? (
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Actions for ${seat.name}`} onPress={() => setGuestMenu(seat)} style={{ minHeight: 44, paddingHorizontal: 10, justifyContent: "center" }}>
+                      <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Manage</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               ))}
             </View>
@@ -790,6 +850,7 @@ function GuestsSheet(props: RoomExperienceProps & { onClose: () => void }) {
             </View>
           ) : null}
         </ScrollView>
+        {guestMenu ? <PersonMenu seat={guestMenu} {...props} onClose={() => setGuestMenu(null)} /> : null}
       </Pressable>
     </Pressable>
   );
