@@ -12,6 +12,7 @@ import {
   Notice,
 } from "@/components/unmask/reference/ui";
 import { useAppStore, type HapticsMode } from "@/lib/store";
+import type { ThemeMode } from "@/constants/theme";
 export default function SettingDetails() {
   const { section } = useLocalSearchParams<{ section: string }>();
   const r = useRouter();
@@ -19,7 +20,9 @@ export default function SettingDetails() {
   const [confirm, setConfirm] = useState(false);
   const [notice, setNotice] = useState("");
   const title =
-    section === "data"
+    section === "appearance"
+      ? "Appearance"
+      : section === "data"
       ? "Data controls"
       : section === "security"
         ? "Sign-in and security"
@@ -32,7 +35,18 @@ export default function SettingDetails() {
               : "Privacy policy";
   return (
     <UtilityPage title={title}>
-      {section === "data" ? (
+      {section === "appearance" ? (
+        <Card>
+          <Heading>Theme</Heading>
+          <Copy>Choose how Unmask should look across the app, including Live and Rooms.</Copy>
+          <Chips
+            options={["system", "light", "dark"]}
+            value={s.themeMode}
+            onChange={(v) => s.setThemeMode(v as ThemeMode)}
+          />
+          <Copy small>Dark mode uses a near-black, warm surface so the experience stays focused without turning chocolate brown.</Copy>
+        </Card>
+      ) : section === "data" ? (
         <>
           <Card>
             <Heading>On this device</Heading>
