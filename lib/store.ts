@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import type { ThemeMode } from "@/constants/theme";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -49,6 +50,7 @@ export interface AppState {
   flaggedPostIds: string[];
   userThreads: DiscussionThread[];
   hapticsMode: HapticsMode;
+  themeMode: ThemeMode;
   notificationAckIds: string[];
   ackNotifications: (ids: string[]) => void;
   demoLikes: Record<string, boolean>;
@@ -67,6 +69,7 @@ export interface AppState {
   scans: Record<string, ScanRecord>;
   rememberScan: (productId: string, scan: ScanRecord) => void;
   setHapticsMode: (mode: HapticsMode) => void;
+  setThemeMode: (mode: ThemeMode) => void;
   setSaveSearchHistory: (on: boolean) => void;
   rememberProduct: (product: Product) => void;
   addRecentProduct: (productId: string) => void;
@@ -155,6 +158,7 @@ export const useAppStore = create<AppState>()(
         else set({ searchCategoryIds: [...cur, id] });
       },
       hapticsMode: "subtle" as HapticsMode,
+      themeMode: "system" as ThemeMode,
       notificationAckIds: [],
       ackNotifications: (ids) =>
         set((s) => ({
@@ -198,6 +202,7 @@ export const useAppStore = create<AppState>()(
         set({ scans: Object.fromEntries(entries) });
       },
       setHapticsMode: (mode) => set({ hapticsMode: mode }),
+      setThemeMode: (mode) => set({ themeMode: mode }),
       setSaveSearchHistory: (on) => set({ saveSearchHistory: on }),
       rememberProduct: (product) => {
         const known = { ...get().knownProducts, [product.id]: product };
