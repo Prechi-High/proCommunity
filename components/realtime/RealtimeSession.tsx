@@ -11,14 +11,29 @@ import { RoomExperience } from "@/components/room/RoomExperience";
 import { ChatCircleDots, Play, UsersThree, X } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
+import { applyRoomNote, applyRoomUltras } from "@/lib/room/channel";
+import { ULTRA_PATHS, timelineFromJourney, ultraConcern, ultraTitle, type RoomTimeline, type RoomUltra, type UltraPath } from "@/lib/room/cards";
 import { roomProducts, roomTopic } from "@/lib/room/context";
 import { useRoomDock } from "@/lib/room/dock";
 import { ROOM_EMOJI_IDS } from "@/lib/room/emoji";
 import { arrangeRoom } from "@/lib/room/seats";
 import type { RoomReactionKind } from "@/lib/room/types";
+import { contribute, create as createUltra, summary, validAmount, wallet } from "@/lib/investigations/api";
+import { journeys, saveJourney } from "@/lib/living/api";
+import { monthlySparks } from "@/lib/membership";
+import { ULTRA_UNMASK_SPARK_GOAL } from "@/lib/unmask/status";
 import { useAppStore } from "@/lib/store";
 
-type ChatItem = { id: string; name: string; text: string };
+type ChatItem = { id: string; name: string; text: string; experience?: RoomTimeline | null };
+
+function freshId() {
+  const cryptoRef = globalThis.crypto;
+  if (cryptoRef?.randomUUID) return cryptoRef.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (slot) => {
+    const value = Math.floor(Math.random() * 16);
+    return (slot === "x" ? value : (value & 0x3) | 0x8).toString(16);
+  });
+}
 type MicRequest = { user_id: string; display_name?: string; status: "pending" | "approved" | "denied" | "revoked" };
 type Creator = { user_id: string; display_name: string; handle: string; avatar_url: string | null; creator_mark: string; status: string; published: boolean };
 
@@ -67,6 +82,9 @@ export function RealtimeSession({
   const [outputOn, setOutputOn] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const [reactions, setReactions] = useState<Array<{ id: string; kind: RoomReactionKind; name: string }>>([]);
+  const [timelines, setTimelines] = useState<RoomTimeline[]>([]);
+  const [ultras, setUltras] = useState<RoomUltra[]>([]);
+  const [sparksBalance, setSparksBalance] = useState<number | null>(null);
   const anonymousRef = useRef(false);
   anonymousRef.current = anonymousListening;
   const [sessionMeta, setSessionMeta] = useState<{ description: string; hostId: string | null; recordingStatus: string | null; metadata: unknown }>({
@@ -85,6 +103,18 @@ export function RealtimeSession({
     const timer = setInterval(() => setPulse(v => (v + 1) % 2), 220);
     return () => clearInterval(timer);
   }, [speaking]);
+
+  useEffect(() => {
+    if (mode !== "room" || state !== "connected") return;
+    let dead = false;
+    void journeys()
+      .then((rows) => { if (!dead) setTimelines(rows.map((row) => timelineFromJourney(row, youName))); })
+      .catch(() => { if (!dead) setTimelines([]); });
+    void wallet()
+      .then((pocket) => { if (!dead) setSparksBalance(pocket?.sparks ?? 0); })
+      .catch(() => { if (!dead) setSparksBalance(null); });
+    return () => { dead = true; };
+  }, [mode, state, youName]);
 
   useEffect(() => {
     if (!id || state !== "connected") return;
@@ -268,8 +298,7 @@ export function RealtimeSession({
               setTimeout(() => setReactions(old => old.filter(entry => entry.id !== reaction.id)), 2600);
               return;
             }
-            if (item?.type !== "chat" || !item.text) return;
-            setChat(old => [...old, { id: item.id || String(Date.now()), name: personName, text: String(item.text) }].slice(-40));
+            ingest(item, personName);
           } catch {}
         };
         room.on(RoomEvent.ParticipantConnected, sync)
@@ -371,14 +400,111 @@ export function RealtimeSession({
     };
   }, [id, mode, host, decoder, uid, attempt, armed]);
 
-  async function sendMessage() {
+  function ingest(raw: unknown, author: string) {
+    setChat((notes) => applyRoomNote(notes, raw, author));
+    setUltras((list) => applyRoomUltras(list, raw));
+  }
+
+  async function publish(payload: object) {
     const room = roomRef.current;
-    const text = message.trim();
-    if (!room || !text) return;
-    setMessage("");
-    const payload = { type: "chat", id: `${Date.now()}-${Math.random()}`, text };
+    if (!room) throw new Error("The Room is not connected.");
     await room.localParticipant.publishData(encoder.encode(JSON.stringify(payload)), { reliable: true, topic: "unmask-chat" });
-    setChat(old => [...old, { id: payload.id, name: "You", text }].slice(-40));
+  }
+
+  async function sendMessage(textOverride?: string, timeline?: RoomTimeline | null) {
+    const text = (textOverride ?? message).trim();
+    if (!text && !timeline) return;
+    if (textOverride == null) setMessage("");
+    const payload = { type: "chat", id: freshId(), text, experience: timeline || null };
+    try {
+      await publish(payload);
+      ingest(payload, "You");
+    } catch (error) {
+      if (textOverride == null) setMessage(text);
+      setManagementError(error instanceof Error ? error.message : "Could not send that reply.");
+    }
+  }
+
+  async function loadTimelines() {
+    const cards = (await journeys()).map((row) => timelineFromJourney(row, youName));
+    setTimelines(cards);
+    return cards;
+  }
+
+  async function createTimeline() {
+    const product = roomProducts(sessionMeta.metadata)[0];
+    if (!product?.id) throw new Error("This Room has no product id yet, so a timeline can't start from here.");
+    const journey = await saveJourney({
+      product_id: product.id,
+      acquisition: "Using",
+      status: "active",
+      goal: "Tracking this in the Room",
+      visibility: "public",
+    });
+    const card = timelineFromJourney(journey, youName);
+    setTimelines((current) => [card, ...current.filter((item) => item.id !== card.id)]);
+    return card;
+  }
+
+  async function startUltra(input: { path: UltraPath; timeline?: RoomTimeline | null; title: string; amount: number }) {
+    if (!ULTRA_PATHS.some((item) => item.id === input.path)) throw new Error("Pick what to investigate.");
+    if (!validAmount("sparks", String(input.amount))) throw new Error("Opening Sparks start at 10.");
+    if (sparksBalance != null && input.amount > sparksBalance) throw new Error("Not enough Sparks. Claim your monthly Sparks without leaving the Room.");
+    const product = roomProducts(sessionMeta.metadata)[0];
+    const name = input.timeline?.productName || product?.name || input.title || "this product";
+    const investigation = await createUltra({
+      title: ultraTitle(input.path, name),
+      concern: ultraConcern(input.path, input.timeline?.outcome),
+      product_id: product?.id || null,
+      question_id: null,
+      experience_id: null,
+      supporting_links: "",
+      attached_journey_id: input.timeline?.id || null,
+      attached_experience_id: null,
+    }, { kind: "sparks", amount: input.amount, key: freshId() });
+    let sparks = input.amount;
+    let supporters = [{ name: youName }];
+    try {
+      const totals = await summary(investigation.id);
+      sparks = totals.sparks;
+      const named = totals.backers.map((person) => ({ name: person.name || "Unmasker" })).filter((person) => person.name);
+      if (named.length) supporters = named;
+    } catch { /* the opening amount is the contribution that just landed */ }
+    const card: RoomUltra = {
+      id: investigation.id,
+      title: investigation.title || ultraTitle(input.path, name),
+      path: input.path,
+      productName: name,
+      sparks,
+      goal: investigation.spark_goal || ULTRA_UNMASK_SPARK_GOAL,
+      supporters,
+      author: youName,
+      pinned: false,
+      timelineId: input.timeline?.id,
+    };
+    const event = { type: "ultra", card };
+    await publish(event);
+    ingest(event, youName);
+    const pocket = await wallet().catch(() => null);
+    if (pocket) setSparksBalance(pocket.sparks);
+  }
+
+  async function addSparks(id: string, amount: number) {
+    if (!validAmount("sparks", String(amount))) throw new Error("Sparks start at 10.");
+    if (sparksBalance != null && amount > sparksBalance) throw new Error("Not enough Sparks. Claim your monthly Sparks without leaving the Room.");
+    const receipt = await contribute(id, "sparks", amount, true, freshId());
+    const named = (receipt.summary?.backers || []).map((person) => ({ name: person.name || "Unmasker" })).filter((person) => person.name);
+    const event = { type: "spark", id, sparks: receipt.summary?.sparks ?? receipt.sparks, supporters: named };
+    await publish(event);
+    ingest(event, youName);
+    const pocket = await wallet().catch(() => null);
+    if (pocket) setSparksBalance(pocket.sparks);
+  }
+
+  async function claimRoomSparks() {
+    const result = await monthlySparks(true);
+    setSparksBalance(result.sparks);
+    return result.sparks;
   }
 
   async function toggleMic() {
@@ -597,6 +723,17 @@ export function RealtimeSession({
         message={message}
         onMessage={setMessage}
         onSend={() => void sendMessage()}
+        onSendDetail={(text, timeline) => void sendMessage(text, timeline)}
+        timelines={timelines}
+        ultras={ultras}
+        sparksBalance={sparksBalance}
+        onLoadTimelines={loadTimelines}
+        onCreateTimeline={createTimeline}
+        onStartUltra={startUltra}
+        onAddSparks={addSparks}
+        onPinUltra={(cardId) => void publish({ type: "pin", id: cardId }).then(() => ingest({ type: "pin", id: cardId }, youName)).catch((error) => setManagementError(error instanceof Error ? error.message : "Could not highlight that Ultra Unmask."))}
+        onNudgeUltra={(card) => void sendMessage(`${card.author}, add what changed and what you still don't know.`)}
+        onClaimSparks={claimRoomSparks}
         onToggleMic={() => void toggleMic()}
         onRequestMic={() => void requestMic()}
         onLeave={() => void leave(false)}

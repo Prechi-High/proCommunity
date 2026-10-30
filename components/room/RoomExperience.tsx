@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -12,7 +12,11 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   Easing,
+  FadeIn,
+  FadeOut,
   SlideInDown,
+  SlideInRight,
+  ZoomIn,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -49,8 +53,11 @@ import { recordingCopy } from "@/lib/room/context";
 import type { RoomProductChip, RoomReactionKind, RoomSeat } from "@/lib/room/types";
 import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
 import { initials } from "@/lib/unmask/time";
+import type { RoomTimeline, RoomUltra, UltraPath } from "@/lib/room/cards";
+import { FloatEmoji, PartialSheet, PressScale, Tick } from "./motion";
+import { AttachChip, ExperienceCard, ExperienceSheet, TimelinePicker, UltraCard, UltraCreate } from "./RoomStories";
 
-export type RoomNote = { id: string; name: string; text: string };
+export type RoomNote = { id: string; name: string; text: string; experience?: RoomTimeline | null };
 export type RoomReaction = { id: string; kind: RoomReactionKind; name: string };
 export type MicAsk = { user_id: string; display_name?: string };
 export type CohostPerson = {
@@ -116,6 +123,18 @@ export type RoomExperienceProps = {
   onInviteSpeaker: (userId: string) => void;
   onRemoveSpeaker: (userId: string) => void;
   onMuteSpeaker: (userId: string) => void;
+  timelines?: RoomTimeline[];
+  ultras?: RoomUltra[];
+  sparksBalance?: number | null;
+  onSendDetail?: (text: string, timeline: RoomTimeline | null) => void;
+  onLoadTimelines?: () => Promise<RoomTimeline[]>;
+  onCreateTimeline?: () => Promise<RoomTimeline | null>;
+  onStartUltra?: (input: { path: UltraPath; timeline?: RoomTimeline | null; title: string; amount: number }) => Promise<void>;
+  onAddSparks?: (id: string, amount: number) => Promise<void>;
+  onPinUltra?: (id: string) => void;
+  onNudgeUltra?: (card: RoomUltra) => void;
+  onClaimSparks?: () => Promise<number | null>;
+  focus?: "replies" | "card" | "timeline" | "ultra" | "spark";
   canManage: boolean;
   creators: CohostPerson[];
   cohostIds: string[];
@@ -132,7 +151,7 @@ export function RoomExperience(props: RoomExperienceProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
-  const sheetWidth = Math.min(width, 480);
+  const sheetWidth = Math.min(width, 430);
   const [menu, setMenu] = useState(false);
   const [share, setShare] = useState(false);
   const [guests, setGuests] = useState(false);
@@ -143,7 +162,23 @@ export function RoomExperience(props: RoomExperienceProps) {
   const [rules, setRules] = useState(false);
   const [mediaNote, setMediaNote] = useState("");
   const [personMenu, setPersonMenu] = useState<RoomSeat | null>(null);
+  const [openExperience, setOpenExperience] = useState<RoomTimeline | null>(null);
+  const [ultraOpen, setUltraOpen] = useState(false);
+  const [ultraTimeline, setUltraTimeline] = useState<RoomTimeline | null>(null);
+  const [ultraBusy, setUltraBusy] = useState(false);
+  const [ultraError, setUltraError] = useState("");
+  const [sparkBurst, setSparkBurst] = useState("");
+  const [sparkError, setSparkError] = useState("");
+  const [sparkErrorId, setSparkErrorId] = useState("");
   const prejoin = props.phase === "prejoin" || props.phase === "connecting";
+  const focused = useRef(false);
+  useEffect(() => {
+    if (focused.current || !props.focus) return;
+    focused.current = true;
+    if (props.focus === "replies" || props.focus === "card" || props.focus === "spark") setChat(true);
+    if (props.focus === "timeline") setOpenExperience(props.notes.find((note) => note.experience)?.experience || null);
+    if (props.focus === "ultra") setUltraOpen(true);
+  }, [props.focus, props.notes]);
   const people = useMemo(() => [...props.stage, ...props.audience], [props.stage, props.audience]);
   const extraListeners = Math.max(props.anonymousCount, Math.max(0, props.listenerCount - people.length));
 
@@ -212,7 +247,31 @@ export function RoomExperience(props: RoomExperienceProps) {
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>The host left you listening.</Text>
             ) : null}
             {props.notice ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>{props.notice}</Text> : null}
-            {!prejoin ? <Carousel {...props} width={sheetWidth - 32} /> : null}
+            {!prejoin ? (
+              <Carousel
+                {...props}
+                width={sheetWidth - 32}
+                burstId={sparkBurst}
+                sparkError={sparkError}
+                sparkErrorId={sparkErrorId}
+                onOpenUltra={() => { setUltraTimeline(null); setUltraError(""); setUltraOpen(true); }}
+                onSpark={(id) => {
+                  setSparkError("");
+                  void props.onAddSparks?.(id, 10).then(() => {
+                    setSparkBurst(id);
+                    setTimeout(() => setSparkBurst((current) => current === id ? "" : current), 1600);
+                  }).catch((error: unknown) => {
+                    setSparkErrorId(id);
+                    setSparkError(error instanceof Error ? error.message : "Could not add Sparks.");
+                  });
+                }}
+                onClaim={() => {
+                  void props.onClaimSparks?.().then(() => setSparkError("")).catch((error: unknown) => {
+                    setSparkError(error instanceof Error ? error.message : "Could not claim Sparks.");
+                  });
+                }}
+              />
+            ) : null}
             {!props.canHear && props.phase === "live" ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Tap to hear the Room" onPress={props.onStartAudio} style={{ minHeight: 44, justifyContent: "center" }}>
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.brand }}>Tap to hear the Room</Text>
@@ -283,6 +342,8 @@ export function RoomExperience(props: RoomExperienceProps) {
             onReport={() => setReported(true)}
             canEnd={!!props.onEnd}
             onEnd={props.onEnd}
+            canStartUltra={!!props.onStartUltra && props.canManage}
+            onUltra={() => { setMenu(false); setUltraTimeline(null); setUltraError(""); setUltraOpen(true); }}
           />
         ) : null}
         {rules ? <Rules onClose={() => setRules(false)} /> : null}
@@ -290,12 +351,53 @@ export function RoomExperience(props: RoomExperienceProps) {
       {share ? <ShareSheet onClose={() => setShare(false)} onShare={props.onShare} onCopy={props.onCopyLink} /> : null}
       {guests ? <GuestsSheet {...props} onClose={() => setGuests(false)} /> : null}
       {personMenu ? <PersonMenu seat={personMenu} {...props} onClose={() => setPersonMenu(null)} /> : null}
+      <ExperienceSheet item={openExperience} onClose={() => setOpenExperience(null)} onDeeper={() => { setUltraTimeline(openExperience); setOpenExperience(null); setUltraOpen(true); }} />
+      <UltraCreate
+        open={ultraOpen}
+        productName={props.products[0]?.name || props.title}
+        timeline={ultraTimeline}
+        balance={props.sparksBalance ?? null}
+        busy={ultraBusy}
+        error={ultraError}
+        onClose={() => setUltraOpen(false)}
+        onClaim={() => { void props.onClaimSparks?.(); }}
+        onCreate={(path, amount) => {
+          if (!props.onStartUltra) return;
+          setUltraBusy(true);
+          setUltraError("");
+          void props.onStartUltra({ path, timeline: ultraTimeline, title: props.products[0]?.name || props.title, amount }).then(() => {
+            setUltraOpen(false);
+          }).catch((error: unknown) => {
+            setUltraError(error instanceof Error ? error.message : "The Ultra Unmask did not start.");
+          }).finally(() => setUltraBusy(false));
+        }}
+      />
       {chat ? (
         <ChatSheet
           {...props}
           mediaNote={mediaNote}
+          burstId={sparkBurst}
+          sparkError={sparkError}
+          sparkErrorId={sparkErrorId}
           onMedia={() => setMediaNote("Photos and GIFs aren't part of this Room.")}
           onClose={() => setChat(false)}
+          onOpenExperience={setOpenExperience}
+          onDeeper={(timeline) => { setUltraTimeline(timeline); setUltraError(""); setUltraOpen(true); }}
+          onSpark={(id) => {
+            setSparkError("");
+            void props.onAddSparks?.(id, 10).then(() => {
+              setSparkBurst(id);
+              setTimeout(() => setSparkBurst((current) => current === id ? "" : current), 1600);
+            }).catch((error: unknown) => {
+              setSparkErrorId(id);
+              setSparkError(error instanceof Error ? error.message : "Could not add Sparks.");
+            });
+          }}
+          onClaim={() => {
+            void props.onClaimSparks?.().then(() => setSparkError("")).catch((error: unknown) => {
+              setSparkError(error instanceof Error ? error.message : "Could not claim Sparks.");
+            });
+          }}
         />
       ) : null}
     </View>
@@ -364,9 +466,9 @@ function Header({
 
 function IconHit({ label, onPress, children }: { label: string; onPress: () => void; children: ReactNode }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => { hapticSelect(); onPress(); }} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+    <PressScale label={label} onPress={onPress} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
       {children}
-    </Pressable>
+    </PressScale>
   );
 }
 
@@ -422,7 +524,7 @@ function SpacePerson({ seat, emoji, hand, onPress }: { seat: RoomSeat; emoji?: s
         <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
           <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: colors.white }}>{seat.you ? "You" : initials(seat.name)}</Text>
         </View>
-        {hand ? <Text style={{ position: "absolute", right: -2, bottom: 2, fontSize: 18 }}>✋</Text> : null}
+        {hand ? <Animated.Text entering={ZoomIn.springify().damping(12)} style={{ position: "absolute", right: -2, bottom: 2, fontSize: 18 }}>✋</Animated.Text> : null}
         {emoji ? <Text style={{ position: "absolute", right: -4, top: -2, fontSize: 18 }}>{emoji}</Text> : null}
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 3, maxWidth: 84 }}>
@@ -482,10 +584,20 @@ function EqBar({ index }: { index: number }) {
   return <Animated.View style={[{ width: 2, borderRadius: 1, backgroundColor: colors.brand }, style]} />;
 }
 
-function Carousel(props: RoomExperienceProps & { width: number }) {
+function Carousel(props: RoomExperienceProps & {
+  width: number;
+  burstId: string;
+  sparkError: string;
+  sparkErrorId: string;
+  onOpenUltra: () => void;
+  onSpark: (id: string) => void;
+  onClaim: () => void;
+}) {
   const slides = props.products.length
     ? props.products
     : [{ name: props.description || "No product pinned", brand: props.topic }];
+  const ultras = [...(props.ultras || [])].sort((a, b) => Number(b.pinned) - Number(a.pinned));
+  const dots = slides.length + ultras.length;
   return (
     <View style={{ gap: 8 }}>
       <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={{ width: props.width }}>
@@ -496,12 +608,31 @@ function Carousel(props: RoomExperienceProps & { width: number }) {
               <Text numberOfLines={3} style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.inkSoft }}>{props.description}</Text>
             ) : null}
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>Shared by {props.hostName}</Text>
+            {props.canManage && props.onStartUltra ? (
+              <PressScale label="Start an Ultra Unmask" onPress={props.onOpenUltra}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Start an Ultra Unmask</Text>
+              </PressScale>
+            ) : null}
+          </View>
+        ))}
+        {ultras.map((card) => (
+          <View key={card.id} style={{ width: props.width }}>
+            <UltraCard
+              card={card}
+              canPin={props.canManage}
+              burst={props.burstId === card.id}
+              shortfall={props.sparkErrorId === card.id ? props.sparkError : ""}
+              onSpark={() => props.onSpark(card.id)}
+              onPin={() => props.onPinUltra?.(card.id)}
+              onNudge={() => props.onNudgeUltra?.(card)}
+              onClaim={props.onClaim}
+            />
           </View>
         ))}
       </ScrollView>
       <View style={{ flexDirection: "row", justifyContent: "center", gap: 5 }}>
-        {slides.map((slide, index) => (
-          <View key={slide.name} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: index === 0 ? colors.ink : colors.line }} />
+        {Array.from({ length: Math.max(dots, 1) }, (_, index) => (
+          <View key={index} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: index === 0 ? colors.ink : colors.line }} />
         ))}
       </View>
     </View>
@@ -550,30 +681,33 @@ function DockBar(props: RoomExperienceProps & {
   onChat: () => void;
   onPick: (kind: RoomReactionKind) => void;
 }) {
+  const reduced = useReducedMotion();
   return (
     <View style={{ paddingHorizontal: 14, paddingTop: 6, gap: 8 }}>
       {props.emojiOpen ? (
-        <View style={{ borderRadius: 22, backgroundColor: colors.stage, borderWidth: 1, borderColor: colors.line, padding: 10, flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 6 }}>
+        <Animated.View entering={reduced ? undefined : FadeIn.duration(180)} exiting={reduced ? undefined : FadeOut.duration(160)} style={{ borderRadius: 22, backgroundColor: colors.stage, borderWidth: 1, borderColor: colors.line, padding: 10, flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 6 }}>
           {ROOM_EMOJIS.map((item) => (
-            <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={item.label} disabled={props.anonymous} onPress={() => props.onPick(item.id)} style={{ width: "18%", minHeight: 44, alignItems: "center", justifyContent: "center", opacity: props.anonymous ? 0.35 : 1 }}>
+            <PressScale key={item.id} label={item.label} disabled={props.anonymous} onPress={() => props.onPick(item.id)} style={{ width: "18%", minHeight: 44, alignItems: "center", justifyContent: "center", opacity: props.anonymous ? 0.35 : 1 }}>
               <Text style={{ fontSize: 26 }}>{item.glyph}</Text>
-            </Pressable>
+            </PressScale>
           ))}
-        </View>
+        </Animated.View>
       ) : null}
+      <View pointerEvents="none" style={{ position: "absolute", right: 24, bottom: 78, alignItems: "flex-end", gap: 4 }}>
+        {props.reactions.slice(-3).map((item) => <FloatEmoji key={item.id} glyph={roomEmoji(item.kind)?.glyph || ""} />)}
+      </View>
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={props.canSpeak ? (props.micOn ? "Mute microphone" : "Turn microphone on") : props.micRequested ? "Mic requested" : "Request to speak"}
+        <PressScale
+          label={props.canSpeak ? (props.micOn ? "Mute microphone" : "Turn microphone on") : props.micRequested ? "Mic requested" : "Request to speak"}
           disabled={!props.canSpeak && (props.micRequested || props.anonymous)}
-          onPress={() => { hapticSelect(); props.canSpeak ? props.onToggleMic() : props.onRequestMic(); }}
+          onPress={() => { props.canSpeak ? props.onToggleMic() : props.onRequestMic(); }}
           style={{ alignItems: "center", width: 72, opacity: !props.canSpeak && props.anonymous ? 0.4 : 1 }}
         >
           <View style={{ width: 62, height: 62, borderRadius: 31, borderWidth: 1, borderColor: colors.line, backgroundColor: props.canSpeak && props.micOn ? colors.brandDeep : colors.stage, alignItems: "center", justifyContent: "center" }}>
             {props.canSpeak && props.micOn ? <Microphone size={26} color={colors.white} weight="fill" /> : <MicrophoneSlash size={26} color={colors.ink} />}
           </View>
           {props.canSpeak ? null : <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft, marginTop: 4 }}>{props.micRequested ? "Asked" : "Request"}</Text>}
-        </Pressable>
+        </PressScale>
         <View>
           <IconHit label={props.canManage && props.pendingMics.length ? `Guests, ${props.pendingMics.length} raised hands` : "Guests"} onPress={props.onPeople}><UsersThree size={26} color={colors.ink} /></IconHit>
           {props.canManage && props.pendingMics.length ? (
@@ -584,12 +718,12 @@ function DockBar(props: RoomExperienceProps & {
         </View>
         <IconHit label="Reactions" onPress={props.onEmoji}><Heart size={26} color={colors.ink} /><Text style={{ position: "absolute", right: 6, top: 8, fontSize: 12, color: colors.brand }}>+</Text></IconHit>
         <View style={{ flex: 1 }} />
-        <Pressable accessibilityRole="button" accessibilityLabel={`Replies, ${props.noteCount}`} onPress={() => { hapticSelect(); props.onChat(); }} style={{ borderRadius: 999, overflow: "hidden" }}>
+        <PressScale label={`Replies, ${props.noteCount}`} onPress={props.onChat} style={{ borderRadius: 999, overflow: "hidden" }}>
           <LinearGradient colors={[colors.brand, colors.brandDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ minHeight: 44, paddingHorizontal: 16, borderRadius: 999, flexDirection: "row", alignItems: "center", gap: 8 }}>
             <ChatCircle size={18} color={colors.white} weight="fill" />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.white }}>{props.noteCount}</Text>
+            <Tick value={props.noteCount} color={colors.white} />
           </LinearGradient>
-        </Pressable>
+        </PressScale>
       </View>
     </View>
   );
@@ -602,8 +736,9 @@ function MiniPlayer(props: RoomExperienceProps & { width: number; bottom: number
     return () => clearInterval(timer);
   }, []);
   const label = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  const reduced = useReducedMotion();
   return (
-    <View style={{ width: props.width, alignSelf: "center", marginBottom: props.bottom, marginHorizontal: 12, minHeight: 64, borderRadius: 18, backgroundColor: colors.stage, borderWidth: 1, borderColor: colors.line, flexDirection: "row", alignItems: "center", paddingHorizontal: 10, gap: 10 }}>
+    <Animated.View entering={reduced ? undefined : SlideInDown.springify().damping(16)} style={{ width: props.width, alignSelf: "center", marginBottom: props.bottom, marginHorizontal: 12, minHeight: 64, borderRadius: 18, backgroundColor: colors.stage, borderWidth: 1, borderColor: colors.line, flexDirection: "row", alignItems: "center", paddingHorizontal: 10, gap: 10 }}>
       <Pressable accessibilityRole="button" accessibilityLabel={props.outputOn ? "Pause audio" : "Play audio"} onPress={() => { hapticSelect(); props.onToggleOutput(); }} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.wine, alignItems: "center", justifyContent: "center" }}>
         {props.outputOn ? <Pause size={18} color={colors.ink} weight="fill" /> : <Play size={18} color={colors.ink} weight="fill" />}
       </Pressable>
@@ -612,7 +747,7 @@ function MiniPlayer(props: RoomExperienceProps & { width: number; bottom: number
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{label}</Text>
       </Pressable>
       <IconHit label="Close Room" onPress={props.onLeave}><X size={18} color={colors.ink} /></IconHit>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -631,7 +766,7 @@ function Terminal(props: RoomExperienceProps) {
 }
 
 function MenuPopover({
-  captions, reported, onClose, onSettings, onFeedback, onRules, onCaptions, onNotInterested, onReport, canEnd, onEnd,
+  captions, reported, onClose, onSettings, onFeedback, onRules, onCaptions, onNotInterested, onReport, canEnd, onEnd, canStartUltra, onUltra,
 }: {
   captions: boolean;
   reported: boolean;
@@ -644,15 +779,18 @@ function MenuPopover({
   onReport: () => void;
   canEnd: boolean;
   onEnd?: () => void;
+  canStartUltra?: boolean;
+  onUltra?: () => void;
 }) {
   const rows = [
     { label: "Adjust settings", icon: <Gear size={18} color={colors.ink} />, onPress: onSettings },
     { label: "Share feedback", icon: <ChatCircle size={18} color={colors.ink} />, onPress: onFeedback },
     { label: "View rules", icon: <ListBullets size={18} color={colors.ink} />, onPress: onRules },
   ];
+  const reduced = useReducedMotion();
   return (
     <Pressable accessibilityLabel="Close menu" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
-      <View style={{ position: "absolute", top: 58, right: 16, width: 280, borderRadius: 16, backgroundColor: colors.wineDeep, borderWidth: 1, borderColor: colors.line, paddingVertical: 6 }}>
+      <Animated.View entering={reduced ? undefined : ZoomIn.springify().damping(16)} exiting={reduced ? undefined : FadeOut.duration(140)} style={{ position: "absolute", top: 58, right: 16, width: 280, borderRadius: 16, backgroundColor: colors.wineDeep, borderWidth: 1, borderColor: colors.line, paddingVertical: 6 }}>
         {rows.map((row) => (
           <Pressable key={row.label} accessibilityRole="button" accessibilityLabel={row.label} onPress={() => { hapticSelect(); row.onPress(); }} style={{ minHeight: 48, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 16, color: colors.ink }}>{row.label}</Text>
@@ -666,6 +804,11 @@ function MenuPopover({
         <Pressable accessibilityRole="button" accessibilityLabel="Not interested in this Room" onPress={() => { hapticSelect(); onNotInterested(); }} style={{ minHeight: 48, paddingHorizontal: 14, justifyContent: "center" }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 16, color: colors.ink }}>Not interested in this Room</Text>
         </Pressable>
+        {canStartUltra ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Start an Ultra Unmask" onPress={() => { hapticSelect(); onUltra?.(); }} style={{ minHeight: 48, paddingHorizontal: 14, justifyContent: "center" }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.brand }}>Start an Ultra Unmask</Text>
+          </Pressable>
+        ) : null}
         {canEnd ? (
           <Pressable accessibilityRole="button" accessibilityLabel="End Room for everyone" onPress={() => { hapticSelect(); onEnd?.(); }} style={{ minHeight: 48, paddingHorizontal: 14, justifyContent: "center" }}>
             <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.coral }}>End Room for everyone</Text>
@@ -675,7 +818,7 @@ function MenuPopover({
           <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 16, color: colors.coral }}>{reported ? "Report noted" : "Report this Room"}</Text>
           <Flag size={16} color={colors.coral} />
         </Pressable>
-      </View>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -703,7 +846,7 @@ function ShareSheet({ onClose, onShare, onCopy }: { onClose: () => void; onShare
   ];
   return (
     <Pressable accessibilityLabel="Close share" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center" }}>
-      <View style={{ width: "100%", maxWidth: 480, backgroundColor: colors.wine, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingVertical: 8 }}>
+      <View style={{ width: "100%", maxWidth: 430, backgroundColor: colors.wine, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingVertical: 8 }}>
         {rows.map((row) => (
           <Pressable key={row.label} accessibilityRole="button" accessibilityLabel={row.label} onPress={() => { hapticSelect(); row.onPress(); onClose(); }} style={{ minHeight: 52, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", gap: 12 }}>
             {row.icon}
@@ -726,7 +869,7 @@ function PersonMenu({ seat, onClose, ...props }: RoomExperienceProps & { seat: R
   ].filter(Boolean) as Array<{ label: string; run: () => void }>;
   return (
     <Pressable accessibilityLabel="Close speaker actions" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center" }}>
-      <View style={{ width: "100%", maxWidth: 480, backgroundColor: colors.wine, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, gap: 8 }}>
+      <View style={{ width: "100%", maxWidth: 430, backgroundColor: colors.wine, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, gap: 8 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.ink }}>{seat.name}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{ROLE_LABEL[seat.role]}</Text>
         {actions.map((action) => (
@@ -759,7 +902,7 @@ function GuestsSheet(props: RoomExperienceProps & { onClose: () => void }) {
   ].filter((section) => filter === "All" || section.rows.length || (filter === "Co-hosts" && section.title === "Co-hosts") || (filter === "Speakers" && section.title === "Speakers") || (filter === "Listening" && section.title === "Listening"));
   return (
     <Pressable onPress={props.onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center" }}>
-      <Pressable onPress={() => undefined} style={{ width: "100%", maxWidth: 480, maxHeight: "88%", backgroundColor: colors.wine, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: 16 }}>
+      <Pressable onPress={() => undefined} style={{ width: "100%", maxWidth: 430, maxHeight: "88%", backgroundColor: colors.wine, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: 16 }}>
         <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: fonts.bold, fontSize: 18, color: colors.ink, paddingVertical: 14 }}>Guests</Text>
         <View style={{ marginHorizontal: 16, minHeight: 44, borderRadius: 999, backgroundColor: colors.stage, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 8 }}>
           <Text style={{ color: colors.inkSoft }}>⌕</Text>
@@ -856,42 +999,117 @@ function GuestsSheet(props: RoomExperienceProps & { onClose: () => void }) {
   );
 }
 
-function ChatSheet(props: RoomExperienceProps & { mediaNote: string; onMedia: () => void; onClose: () => void }) {
+function ChatSheet(props: RoomExperienceProps & {
+  mediaNote: string;
+  burstId: string;
+  sparkError: string;
+  sparkErrorId: string;
+  onMedia: () => void;
+  onClose: () => void;
+  onOpenExperience: (item: RoomTimeline) => void;
+  onDeeper: (item: RoomTimeline) => void;
+  onSpark: (id: string) => void;
+  onClaim: () => void;
+}) {
+  const { height } = useWindowDimensions();
+  const reduced = useReducedMotion();
+  const [attached, setAttached] = useState<RoomTimeline | null>(null);
+  const [picker, setPicker] = useState(false);
+  const [loaded, setLoaded] = useState<RoomTimeline[] | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const loadTimelines = useRef(props.onLoadTimelines);
+  loadTimelines.current = props.onLoadTimelines;
+  useEffect(() => {
+    let live = true;
+    const pending = loadTimelines.current?.();
+    if (pending) void pending.then((rows) => { if (live) setLoaded(rows); }).catch(() => { if (live) setLoaded([]); });
+    return () => { live = false; };
+  }, []);
+  const items = loaded || props.timelines || [];
+  function send() {
+    const text = props.message.trim();
+    if (!text && !attached) return;
+    if (props.onSendDetail) props.onSendDetail(text, attached);
+    else props.onSend();
+    props.onMessage("");
+    setAttached(null);
+  }
   return (
     <Pressable onPress={props.onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center" }}>
-      <Pressable onPress={() => undefined} style={{ width: "100%", maxWidth: 480, maxHeight: "80%", backgroundColor: colors.wine, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 10 }}>
-        <Text style={{ textAlign: "center", fontFamily: fonts.bold, fontSize: 18, color: colors.ink, paddingVertical: 12 }}>Replies</Text>
-        <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
-          {props.notes.length ? props.notes.map((note) => (
-            <View key={note.id} style={{ gap: 2 }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{note.name}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, color: colors.inkSoft }}>{note.text}</Text>
-            </View>
-          )) : <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>No replies yet. Add what you're hearing about the product.</Text>}
-        </ScrollView>
-        {props.mediaNote ? <Text style={{ paddingHorizontal: 16, paddingTop: 8, fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{props.mediaNote}</Text> : null}
-        <View style={{ margin: 12, minHeight: 52, borderRadius: 26, backgroundColor: colors.stage, flexDirection: "row", alignItems: "center", paddingLeft: 14, paddingRight: 8, gap: 8 }}>
-          <TextInput
-            value={props.message}
-            onChangeText={props.onMessage}
-            editable={!props.anonymous}
-            placeholder={props.anonymous ? "Anonymous listening is quiet" : "Post your reply"}
-            placeholderTextColor={colors.inkSoft}
-            accessibilityLabel="Post your reply"
-            onSubmitEditing={props.onSend}
-            style={{ flex: 1, minHeight: 44, color: colors.ink, fontFamily: fonts.regular, fontSize: 16, ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as object) : null) }}
+      <PartialSheet onClose={props.onClose}>
+        <Pressable onPress={() => undefined} style={{ width: "100%", maxHeight: Math.min(height * 0.62, 560), backgroundColor: colors.wine, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: 10 }}>
+          <Text style={{ textAlign: "center", fontFamily: fonts.bold, fontSize: 18, color: colors.ink, paddingBottom: 8 }}>Replies</Text>
+          <ScrollView style={{ maxHeight: Math.min(height * 0.36, 320) }} contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}>
+            {(props.ultras || []).map((card) => (
+              <UltraCard
+                key={card.id}
+                card={card}
+                canPin={props.canManage}
+                burst={props.burstId === card.id}
+                shortfall={props.sparkErrorId === card.id ? props.sparkError : ""}
+                onSpark={() => props.onSpark(card.id)}
+                onPin={() => props.onPinUltra?.(card.id)}
+                onNudge={() => props.onNudgeUltra?.(card)}
+                onClaim={props.onClaim}
+              />
+            ))}
+            {props.notes.length ? props.notes.map((note) => (
+              <Animated.View key={note.id} entering={reduced ? undefined : SlideInRight.springify().damping(18)} style={{ gap: 6 }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{note.name}</Text>
+                {note.text ? <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, color: colors.inkSoft }}>{note.text}</Text> : null}
+                {note.experience ? (
+                  <ExperienceCard item={note.experience} onOpen={() => props.onOpenExperience(note.experience!)} onDeeper={() => props.onDeeper(note.experience!)} />
+                ) : null}
+              </Animated.View>
+            )) : (props.ultras || []).length ? null : <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>No replies yet. Add what you're hearing about the product.</Text>}
+          </ScrollView>
+          {props.mediaNote ? <Text style={{ paddingHorizontal: 16, paddingTop: 8, fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{props.mediaNote}</Text> : null}
+          <View style={{ margin: 12, minHeight: 52, borderRadius: 26, backgroundColor: colors.stage, flexDirection: "row", alignItems: "center", paddingLeft: 8, paddingRight: 8, gap: 4 }}>
+            <AttachChip attached={!!attached} label={attached?.productName} onPress={() => setPicker(true)} />
+            <TextInput
+              value={props.message}
+              onChangeText={props.onMessage}
+              editable={!props.anonymous}
+              placeholder={props.anonymous ? "Anonymous listening is quiet" : "Post your reply"}
+              placeholderTextColor={colors.inkSoft}
+              accessibilityLabel="Post your reply"
+              onSubmitEditing={send}
+              style={{ flex: 1, minHeight: 44, color: colors.ink, fontFamily: fonts.regular, fontSize: 16, ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as object) : null) }}
+            />
+            <PressScale label="Add image" onPress={props.onMedia} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
+              <ImageSquare size={20} color={colors.inkSoft} />
+            </PressScale>
+            <PressScale label="Add GIF" onPress={props.onMedia} style={{ minWidth: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.inkSoft }}>GIF</Text>
+            </PressScale>
+            <PressScale label="Send reply" onPress={send} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
+              <PaperPlaneRight size={18} color={colors.brand} />
+            </PressScale>
+          </View>
+          <TimelinePicker
+            open={picker}
+            items={items}
+            busy={creating}
+            error={createError}
+            onClose={() => setPicker(false)}
+            onPick={(item) => { setAttached(item); setPicker(false); }}
+            onCreate={() => {
+              if (!props.onCreateTimeline) {
+                setCreateError("Start a timeline from the product page, then attach it here.");
+                return;
+              }
+              setCreating(true);
+              setCreateError("");
+              void props.onCreateTimeline().then((item) => {
+                if (item) { setAttached(item); setLoaded((current) => current ? [item, ...current.filter((row) => row.id !== item.id)] : [item]); setPicker(false); }
+              }).catch((error: unknown) => {
+                setCreateError(error instanceof Error ? error.message : "Could not start a timeline.");
+              }).finally(() => setCreating(false));
+            }}
           />
-          <Pressable accessibilityRole="button" accessibilityLabel="Add image" onPress={props.onMedia} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
-            <ImageSquare size={20} color={colors.inkSoft} />
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Add GIF" onPress={props.onMedia} style={{ minWidth: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.inkSoft }}>GIF</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Send reply" onPress={() => { hapticSelect(); props.onSend(); }} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
-            <PaperPlaneRight size={18} color={colors.brand} />
-          </Pressable>
-        </View>
-      </Pressable>
+        </Pressable>
+      </PartialSheet>
     </Pressable>
   );
 }

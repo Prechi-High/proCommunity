@@ -21,5 +21,8 @@ export default function RoomSession() {
   if (preview === "1" || preview === "prejoin") return <RoomPreview screen="prejoin" />;
   if (preview === "live") return <RoomPreview screen="live" />;
   if (preview === "host") return <RoomPreview screen="host" />;
+  if (preview === "replies" || preview === "card" || preview === "timeline" || preview === "ultra" || preview === "spark") {
+    return <RoomPreview screen={preview} />;
+  }
   return null;
 }

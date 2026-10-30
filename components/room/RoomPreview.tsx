@@ -2,8 +2,32 @@ import { useState } from "react";
 import { Platform, Share } from "react-native";
 
 import { RoomExperience, type RoomNote, type RoomReaction } from "@/components/room/RoomExperience";
+import type { RoomTimeline, RoomUltra } from "@/lib/room/cards";
 import { arrangeRoom } from "@/lib/room/seats";
 import type { RoomReactionKind } from "@/lib/room/types";
+
+const SAMPLE_TIMELINE: RoomTimeline = {
+  id: "sample-journey",
+  productName: "Hydrating Cleanser",
+  brand: "CeraVe",
+  duration: "3 weeks",
+  outcome: "Tight feeling eased after week two. Still pills in humidity.",
+  reactions: ["Nightly", "Tightness eased"],
+  author: "Dee Patel",
+};
+
+const SAMPLE_ULTRA: RoomUltra = {
+  id: "sample-ultra",
+  title: "Why it happens: Hydrating Cleanser",
+  path: "why",
+  productName: "Hydrating Cleanser",
+  sparks: 40,
+  goal: 500,
+  supporters: [{ name: "Dee Patel" }, { name: "Cal Nguyen" }],
+  author: "Dee Patel",
+  pinned: true,
+  timelineId: "sample-journey",
+};
 
 const PEOPLE = [
   { id: "ada", name: "Ada Mensah", micOn: true, speaking: true, creatorMark: "creator-ada", handle: "ada" },
@@ -19,8 +43,9 @@ const PEOPLE = [
   { id: "june", name: "June Park" },
 ];
 
-export function RoomPreview({ screen = "prejoin" }: { screen?: "prejoin" | "live" | "host" }) {
-  const host = screen === "host";
+export function RoomPreview({ screen = "prejoin" }: { screen?: "prejoin" | "live" | "host" | "replies" | "card" | "timeline" | "ultra" | "spark" }) {
+  const host = screen === "host" || screen === "ultra" || screen === "spark";
+  const withCard = screen === "card" || screen === "timeline" || screen === "spark";
   const [phase, setPhase] = useState<"prejoin" | "connecting" | "live">(screen === "prejoin" ? "prejoin" : "live");
   const [minimized, setMinimized] = useState(false);
   const [micOn, setMicOn] = useState(host);
@@ -29,8 +54,9 @@ export function RoomPreview({ screen = "prejoin" }: { screen?: "prejoin" | "live
   const [outputOn, setOutputOn] = useState(true);
   const [message, setMessage] = useState("");
   const [notes, setNotes] = useState<RoomNote[]>([
-    { id: "n1", name: "Dee Patel", text: "Mine pilled on the second night, only in humidity." },
+    { id: "n1", name: "Dee Patel", text: "Mine pilled on the second night, only in humidity.", experience: withCard ? SAMPLE_TIMELINE : null },
   ]);
+  const [ultras, setUltras] = useState<RoomUltra[]>(screen === "spark" ? [SAMPLE_ULTRA] : []);
   const [reactions, setReactions] = useState<RoomReaction[]>([{ id: "r1", kind: "hundred", name: "Cal Nguyen" }]);
 
   const arranged = arrangeRoom({
@@ -97,6 +123,24 @@ export function RoomPreview({ screen = "prejoin" }: { screen?: "prejoin" | "live
         setNotes((current) => [...current, { id: `n-${Date.now()}`, name: "You", text }]);
         setMessage("");
       }}
+      onSendDetail={(text, timeline) => {
+        if (!text && !timeline) return;
+        setNotes((current) => [...current, { id: `n-${Date.now()}`, name: "You", text: text || "Shared a product timeline.", experience: timeline }]);
+        setMessage("");
+      }}
+      timelines={[SAMPLE_TIMELINE]}
+      ultras={ultras}
+      sparksBalance={50}
+      onLoadTimelines={async () => [SAMPLE_TIMELINE]}
+      onCreateTimeline={async () => SAMPLE_TIMELINE}
+      onStartUltra={async () => { setUltras((current) => current.some((card) => card.id === SAMPLE_ULTRA.id) ? current : [SAMPLE_ULTRA, ...current]); }}
+      onAddSparks={async (id) => {
+        setUltras((current) => current.map((card) => card.id === id ? { ...card, sparks: card.sparks + 10, supporters: card.supporters.some((person) => person.name === "You") ? card.supporters : [...card.supporters, { name: "You" }] } : card));
+      }}
+      onPinUltra={(id) => setUltras((current) => current.map((card) => ({ ...card, pinned: card.id === id })))}
+      onNudgeUltra={() => setNotes((current) => [...current, { id: `n-${Date.now()}`, name: "Ada Mensah", text: "Dee Patel, add what changed and what you still don't know." }])}
+      onClaimSparks={async () => 50}
+      focus={screen === "live" || screen === "host" || screen === "prejoin" ? undefined : screen}
       onToggleMic={() => setMicOn((value) => !value)}
       onRequestMic={() => setRequested(true)}
       onLeave={() => setMinimized(false)}
