@@ -61,6 +61,19 @@ export function AttachPill({
   );
 }
 
+export function TimelineDraft({ item, onPress }: { item: RoomTimeline; onPress: () => void }) {
+  const summary = [item.duration, item.frequency, item.reactions[0]].filter((part): part is string => !!part).join(" · ");
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`Attached timeline, ${item.productName}`} onPress={onPress} style={{ flexDirection: "row", gap: 10, alignItems: "center", padding: 8, borderRadius: 14, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.stage }}>
+      {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={{ width: 44, height: 44, borderRadius: 8 }} /> : <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: colors.hiSoft, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.bold, color: colors.brand }}>{item.productName.slice(0, 1)}</Text></View>}
+      <View style={{ flex: 1 }}>
+        <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{item.productName}</Text>
+        <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{item.author}'s timeline{summary ? ` · ${summary}` : ""}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
 export function ExperienceCard({ item, onOpen, onDeeper }: { item: RoomTimeline; onOpen: () => void; onDeeper: () => void }) {
   const reduced = useReducedMotion();
   const facts = [item.frequency, item.skinType, item.duration].filter((fact): fact is string => !!fact);

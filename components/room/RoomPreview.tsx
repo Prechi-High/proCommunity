@@ -80,13 +80,13 @@ const PEOPLE = [
   { id: "june", name: "June Park" },
 ];
 
-const PANELS = ["replies", "replies-full", "picker", "private", "card", "timeline", "timeline-full", "full", "ultra", "ultra-sparks", "ultra-seal", "spark"] as const;
+const PANELS = ["replies", "replies-full", "picker", "private", "draft", "card", "timeline", "timeline-full", "full", "ultra", "ultra-sparks", "ultra-seal", "spark", "notice"] as const;
 type Panel = (typeof PANELS)[number];
 
 export function RoomPreview({ screen = "prejoin" }: { screen?: "prejoin" | "live" | "host" | Panel }) {
   const host = screen === "host" || screen === "ultra" || screen === "spark";
   const withCard = screen === "card" || screen === "timeline" || screen === "timeline-full" || screen === "spark" || screen === "ultra" || screen === "ultra-sparks" || screen === "ultra-seal";
-  const [phase, setPhase] = useState<"prejoin" | "connecting" | "live">(screen === "prejoin" ? "prejoin" : "live");
+  const [phase, setPhase] = useState<"prejoin" | "connecting" | "live">(screen === "prejoin" || screen === "notice" ? "prejoin" : "live");
   const [minimized, setMinimized] = useState(false);
   const [micOn, setMicOn] = useState(host);
   const [anonymous, setAnonymous] = useState(false);

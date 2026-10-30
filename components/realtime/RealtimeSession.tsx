@@ -12,6 +12,7 @@ import { ChatCircleDots, Play, UsersThree, X } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { applyRoomNote, applyRoomUltras } from "@/lib/room/channel";
+import { foldRoomEvents, joinRoom, loadRoomEvents, postRoomEvent } from "@/lib/room/persist";
 import { momentsFromUpdates, questionTitle, timelineFromJourney, type RoomTimeline, type RoomUltra } from "@/lib/room/cards";
 import { roomProducts, roomTopic } from "@/lib/room/context";
 import { useRoomDock } from "@/lib/room/dock";
@@ -83,6 +84,7 @@ export function RealtimeSession({
   const [outputOn, setOutputOn] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const [reactions, setReactions] = useState<Array<{ id: string; kind: RoomReactionKind; name: string }>>([]);
+  const [reactionTotal, setReactionTotal] = useState(0);
   const [timelines, setTimelines] = useState<RoomTimeline[]>([]);
   const [ultras, setUltras] = useState<RoomUltra[]>([]);
   const [sparksBalance, setSparksBalance] = useState<number | null>(null);
@@ -105,6 +107,23 @@ export function RealtimeSession({
     const timer = setInterval(() => setPulse(v => (v + 1) % 2), 220);
     return () => clearInterval(timer);
   }, [speaking]);
+
+  useEffect(() => {
+    if (mode !== "room" || state !== "connected" || !id) return;
+    let dead = false;
+    void (async () => {
+      await joinRoom(id);
+      const rows = await loadRoomEvents(id);
+      if (dead) return;
+      const folded = foldRoomEvents(rows);
+      setChat((current) => folded.notes.reduce((notes, note) => applyRoomNote(notes, { type: "chat", id: note.id, text: note.text, experience: note.experience }, note.name), current));
+      setUltras((current) => folded.ultras.reduce((list, card) => applyRoomUltras(list, { type: "ultra", card }), current));
+      setReactionTotal((current) => Math.max(current, folded.reactionCount));
+    })().catch((error) => {
+      if (!dead) setManagementError(error instanceof Error ? error.message : "Could not load this Room's replies.");
+    });
+    return () => { dead = true; };
+  }, [id, mode, state]);
 
   useEffect(() => {
     if (mode !== "room" || state !== "connected") return;
@@ -296,6 +315,7 @@ export function RealtimeSession({
             const personName = anonymous ? "Anonymous" : participant?.name || participant?.identity || "Unmasker";
             if (item?.type === "reaction" && ROOM_EMOJI_IDS.includes(item.kind)) {
               const reaction = { id: String(item.id || Date.now()), kind: item.kind as RoomReactionKind, name: personName };
+              setReactionTotal((count) => count + 1);
               setReactions(old => [...old, reaction].slice(-8));
               setTimeout(() => setReactions(old => old.filter(entry => entry.id !== reaction.id)), 2600);
               return;
@@ -419,8 +439,9 @@ export function RealtimeSession({
     if (textOverride == null) setMessage("");
     const payload = { type: "chat", id: freshId(), text, experience: timeline || null };
     try {
+      if (mode === "room") await postRoomEvent(id, "chat", youName, { text, experience: timeline || null }, payload.id);
       await publish(payload);
-      ingest(payload, "You");
+      ingest(payload, youName);
     } catch (error) {
       if (textOverride == null) setMessage(text);
       setManagementError(error instanceof Error ? error.message : "Could not send that reply.");
@@ -513,6 +534,7 @@ export function RealtimeSession({
       imageUrl: input.timeline?.imageUrl || null,
     };
     const event = { type: "ultra", card };
+    if (mode === "room") await postRoomEvent(id, "ultra", youName, { card }, card.id);
     await publish(event);
     ingest(event, youName);
     const pocket = await wallet().catch(() => null);
@@ -525,6 +547,7 @@ export function RealtimeSession({
     const receipt = await contribute(id, "sparks", amount, true, freshId());
     const named = (receipt.summary?.backers || []).map((person) => ({ name: person.name || "Unmasker" })).filter((person) => person.name);
     const event = { type: "spark", id, sparks: receipt.summary?.sparks ?? receipt.sparks, thunder: receipt.summary?.thunder, supporters: named };
+    if (mode === "room") await postRoomEvent(id, "spark", youName, { id, sparks: event.sparks, thunder: event.thunder, supporters: named }, freshId());
     await publish(event);
     ingest(event, youName);
     const pocket = await wallet().catch(() => null);
@@ -598,10 +621,12 @@ export function RealtimeSession({
   async function sendReaction(kind: RoomReactionKind) {
     const room = roomRef.current;
     if (!room || anonymousListening) return;
-    const payload = { type: "reaction", id: `${Date.now()}-${Math.random()}`, kind };
+    const payload = { type: "reaction", id: freshId(), kind };
     try {
+      if (mode === "room") await postRoomEvent(id, "reaction", youName, { kind }, payload.id);
       await room.localParticipant.publishData(encoder.encode(JSON.stringify(payload)), { reliable: true, topic: "unmask-chat" });
-      setReactions(old => [...old, { id: payload.id, kind, name: "You" }].slice(-8));
+      setReactionTotal((count) => count + 1);
+      setReactions(old => [...old, { id: payload.id, kind, name: youName }].slice(-8));
       setTimeout(() => setReactions(old => old.filter(entry => entry.id !== payload.id)), 2600);
     } catch (error) {
       setManagementError(error instanceof Error ? error.message : "Could not send that reaction.");
@@ -748,6 +773,7 @@ export function RealtimeSession({
         invited={invited}
         onDismissInvite={() => setInvited(false)}
         reactions={reactions}
+        reactionTotal={reactionTotal}
         onReact={(kind) => void sendReaction(kind)}
         notes={chat}
         message={message}
@@ -763,7 +789,11 @@ export function RealtimeSession({
         onCreateTimeline={createTimeline}
         onStartUltra={startUltra}
         onAddSparks={addSparks}
-        onPinUltra={(cardId) => void publish({ type: "pin", id: cardId }).then(() => ingest({ type: "pin", id: cardId }, youName)).catch((error) => setManagementError(error instanceof Error ? error.message : "Could not highlight that Ultra Unmask."))}
+        onPinUltra={(cardId) => void (async () => {
+          if (mode === "room") await postRoomEvent(id, "pin", youName, { id: cardId }, `pin-${cardId}`);
+          await publish({ type: "pin", id: cardId });
+          ingest({ type: "pin", id: cardId }, youName);
+        })().catch((error) => setManagementError(error instanceof Error ? error.message : "Could not highlight that Ultra Unmask."))}
         onNudgeUltra={(card) => void sendMessage(`${card.author}, add what changed and what you still don't know.`)}
         onClaimSparks={claimRoomSparks}
         onToggleMic={() => void toggleMic()}

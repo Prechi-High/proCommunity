@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
   useWindowDimensions,
+  type ViewStyle,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
@@ -56,7 +57,7 @@ import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
 import { initials } from "@/lib/unmask/time";
 import type { RoomTimeline, RoomUltra } from "@/lib/room/cards";
 import { DragHandle, FloatEmoji, PartialSheet, PressScale, Tick } from "./motion";
-import { AttachPill, ExperienceCard, ExperienceSheet, TimelinePicker, UltraCard, UltraCreate } from "./RoomStories";
+import { AttachPill, ExperienceCard, ExperienceSheet, TimelineDraft, TimelinePicker, UltraCard, UltraCreate } from "./RoomStories";
 
 export type RoomNote = { id: string; name: string; text: string; experience?: RoomTimeline | null };
 export type RoomReaction = { id: string; kind: RoomReactionKind; name: string };
@@ -96,6 +97,7 @@ export type RoomExperienceProps = {
   invited: boolean;
   onDismissInvite: () => void;
   reactions: RoomReaction[];
+  reactionTotal?: number;
   onReact: (kind: RoomReactionKind) => void;
   notes: RoomNote[];
   message: string;
@@ -137,7 +139,7 @@ export type RoomExperienceProps = {
   onPinUltra?: (id: string) => void;
   onNudgeUltra?: (card: RoomUltra) => void;
   onClaimSparks?: () => Promise<number | null>;
-  focus?: "replies" | "replies-full" | "picker" | "private" | "card" | "timeline" | "timeline-full" | "full" | "ultra" | "ultra-sparks" | "ultra-seal" | "spark";
+  focus?: "replies" | "replies-full" | "picker" | "private" | "draft" | "card" | "timeline" | "timeline-full" | "full" | "ultra" | "ultra-sparks" | "ultra-seal" | "spark" | "notice";
   canManage: boolean;
   creators: CohostPerson[];
   cohostIds: string[];
@@ -148,6 +150,7 @@ export type RoomExperienceProps = {
 };
 
 const ROLE_LABEL = { host: "Host", cohost: "Co-host", speaker: "Speaker", listener: "Listener" } as const;
+const webFill = Platform.OS === "web" ? ({ position: "fixed", top: 0, right: 0, bottom: 0, left: 0, zIndex: 20 } as unknown as ViewStyle) : null;
 
 export function RoomExperience(props: RoomExperienceProps) {
   useUnmaskTheme();
@@ -163,6 +166,7 @@ export function RoomExperience(props: RoomExperienceProps) {
   const [captions, setCaptions] = useState(false);
   const [reported, setReported] = useState(false);
   const [rules, setRules] = useState(false);
+  const [dataUse, setDataUse] = useState(false);
   const [mediaNote, setMediaNote] = useState("");
   const [personMenu, setPersonMenu] = useState<RoomSeat | null>(null);
   const [openExperience, setOpenExperience] = useState<RoomTimeline | null>(null);
@@ -180,7 +184,8 @@ export function RoomExperience(props: RoomExperienceProps) {
   useEffect(() => {
     if (focused.current || !props.focus) return;
     focused.current = true;
-    if (props.focus === "replies" || props.focus === "replies-full" || props.focus === "card" || props.focus === "spark" || props.focus === "picker" || props.focus === "private") setChat(true);
+    if (props.focus === "replies" || props.focus === "replies-full" || props.focus === "card" || props.focus === "spark" || props.focus === "picker" || props.focus === "private" || props.focus === "draft") setChat(true);
+    if (props.focus === "notice") setDataUse(true);
     if (props.focus === "full" || props.focus === "replies-full" || props.focus === "timeline-full") setRoomFull(true);
     if (props.focus === "timeline" || props.focus === "timeline-full") {
       setOpenExperience(props.notes.find((note) => note.experience)?.experience || null);
@@ -196,7 +201,7 @@ export function RoomExperience(props: RoomExperienceProps) {
 
   if (props.minimized && props.phase !== "prejoin") {
     return (
-      <View pointerEvents="box-none" style={{ flex: 1, justifyContent: "flex-end" }}>
+      <View pointerEvents="box-none" style={[{ flex: 1, justifyContent: "flex-end" }, webFill]}>
         {props.audioHost}
         <MiniPlayer {...props} width={sheetWidth} bottom={Math.max(insets.bottom, 10)} />
       </View>
@@ -204,7 +209,7 @@ export function RoomExperience(props: RoomExperienceProps) {
   }
 
   return (
-    <View style={{ flex: 1, justifyContent: "flex-end", alignItems: "center" }}>
+    <View style={[{ flex: 1, justifyContent: "flex-end", alignItems: "center" }, webFill]}>
       {props.audioHost}
       <Pressable
         accessibilityLabel="Room is open"
@@ -318,7 +323,8 @@ export function RoomExperience(props: RoomExperienceProps) {
             ) : null}
             <AnonymousRow {...props} />
             <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.inkSoft }}>
-              {recordingNotice(props.recordingStatus)} <Text style={{ color: colors.brand }}>Learn more</Text>
+              {recordingNotice(props.recordingStatus)}{" "}
+              <Text style={{ color: colors.brand }} onPress={() => setDataUse(true)}>Learn more</Text>
             </Text>
             <GradientButton label="Start Listening" busy={props.phase === "connecting"} onPress={props.onStart} />
           </View>
@@ -360,6 +366,7 @@ export function RoomExperience(props: RoomExperienceProps) {
           />
         ) : null}
         {rules ? <Rules onClose={() => setRules(false)} /> : null}
+        {dataUse ? <DataUse status={props.recordingStatus} onClose={() => setDataUse(false)} /> : null}
       </Animated.View>
       {share ? <ShareSheet onClose={() => setShare(false)} onShare={props.onShare} onCopy={props.onCopyLink} /> : null}
       {guests ? <GuestsSheet {...props} onClose={() => setGuests(false)} /> : null}
@@ -398,6 +405,7 @@ export function RoomExperience(props: RoomExperienceProps) {
           onClose={() => setChat(false)}
           initialPicker={props.focus === "picker" || props.focus === "private"}
           confirmPrivate={props.focus === "private"}
+          initialDraft={props.focus === "draft" ? (props.timelines || []).find((item) => item.visibility === "public") || null : null}
           initialFull={props.focus === "replies-full"}
           onOpenExperience={setOpenExperience}
           onDeeper={(timeline) => { setUltraTimeline(timeline); setUltraError(""); setUltraOpen(true); }}
@@ -424,9 +432,30 @@ export function RoomExperience(props: RoomExperienceProps) {
 
 function recordingNotice(status?: string | null) {
   const copy = recordingCopy(status);
-  if (copy.active && status === "recording") return "This Room is being recorded. Your voice could be in a replay and heard after it ends.";
-  if (copy.failed) return "Recording didn't start. Your voice is not being saved right now.";
-  return "The host might save this recording. Your voice could be in a replay and heard by more people after this Room ends.";
+  if (copy.failed) return "Recording didn't start. Your voice is not being saved right now. Replies are still deleted when the Room ends.";
+  if (copy.active && status === "recording") return "This Room is being recorded. The audio and a transcript of what is said are kept after it ends. Replies and attached timelines are deleted when it ends. An Ultra Unmask you release stays.";
+  return "A recording is not running yet. If one is saved, the audio and a transcript are kept after the Room ends. Replies and attached timelines are deleted when it ends. An Ultra Unmask you release stays.";
+}
+
+function DataUse({ status, onClose }: { status?: string | null; onClose: () => void }) {
+  const recording = status === "recording" || status === "processing" || status === "ready";
+  return (
+    <Pressable accessibilityLabel="Close data use" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center", zIndex: 8 }}>
+      <Pressable onPress={() => undefined} style={{ width: "100%", maxWidth: 430, maxHeight: "80%", backgroundColor: colors.wine, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18, gap: 10 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.ink }}>How this Room uses what you share</Text>
+        <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={{ gap: 10 }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.ink }}>Your voice and the words said in the Room can be kept as audio and a transcript after the Room ends. They may be shown to other people and used to bring others in and help people understand the product.</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.ink }}>Replies, reactions, and product timelines attached inside replies are visible to everyone in the Room while it is live. They are deleted when the Room ends.</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.ink }}>An Ultra Unmask you release is a real request. It stays on Unmask after the Room ends, including on the community pages.</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.ink }}>Anonymous listening is quiet. You are not shown, you cannot speak or react, and your voice is not recorded. Your presence is not listed.</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.inkSoft }}>{recording ? "A recording has been requested for this Room. A file is kept only when the audio actually lands in storage." : "This Room is not recording yet. LiveKit egress and speech-to-text are not connected in this build, so no audio file or transcript is created until they are. Nothing here is a fake recording."}</Text>
+        </ScrollView>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={{ minHeight: 44, justifyContent: "center" }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.brand }}>Close</Text>
+        </Pressable>
+      </Pressable>
+    </Pressable>
+  );
 }
 
 function hostFallback(props: RoomExperienceProps): RoomSeat[] {
@@ -698,7 +727,7 @@ function AnonymousRow(props: RoomExperienceProps) {
         </Pressable>
       </View>
       <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.inkSoft }}>
-        While listening in anonymous mode, you will not be visible, able to speak, or send reactions. <Text style={{ color: colors.brand }}>Learn more</Text>
+        While listening in anonymous mode, you will not be visible, able to speak, or send reactions. Your voice is not recorded.
       </Text>
     </View>
   );
@@ -757,7 +786,10 @@ function DockBar(props: RoomExperienceProps & {
             </View>
           ) : null}
         </View>
-        <IconHit label="Reactions" onPress={props.onEmoji}><Heart size={26} color={colors.ink} /><Text style={{ position: "absolute", right: 6, top: 8, fontSize: 12, color: colors.brand }}>+</Text></IconHit>
+        <View style={{ alignItems: "center" }}>
+          <IconHit label="Reactions" onPress={props.onEmoji}><Heart size={26} color={colors.ink} /><Text style={{ position: "absolute", right: 6, top: 8, fontSize: 12, color: colors.brand }}>+</Text></IconHit>
+          {props.reactionTotal ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.inkSoft }}>{props.reactionTotal}</Text> : null}
+        </View>
         <View style={{ flex: 1 }} />
         <PressScale label={`Replies, ${props.noteCount}`} onPress={props.onChat} style={{ borderRadius: 999, overflow: "hidden" }}>
           <LinearGradient colors={[colors.brand, colors.brandDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ minHeight: 44, paddingHorizontal: 16, borderRadius: 999, flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -1050,6 +1082,7 @@ function ChatSheet(props: RoomExperienceProps & {
   initialPicker?: boolean;
   initialFull?: boolean;
   confirmPrivate?: boolean;
+  initialDraft?: RoomTimeline | null;
   onOpenExperience: (item: RoomTimeline) => void;
   onDeeper: (item: RoomTimeline) => void;
   onSpark: (id: string) => void;
@@ -1057,7 +1090,7 @@ function ChatSheet(props: RoomExperienceProps & {
 }) {
   const { height } = useWindowDimensions();
   const reduced = useReducedMotion();
-  const [attached, setAttached] = useState<RoomTimeline | null>(null);
+  const [attached, setAttached] = useState<RoomTimeline | null>(props.initialDraft || null);
   const [picker, setPicker] = useState(!!props.initialPicker);
   const [full, setFull] = useState(!!props.initialFull);
   const [loaded, setLoaded] = useState<RoomTimeline[] | null>(null);
@@ -1084,9 +1117,8 @@ function ChatSheet(props: RoomExperienceProps & {
     <Pressable onPress={props.onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center" }}>
       <PartialSheet onClose={props.onClose} expanded={full} onExpand={() => setFull(true)} onCollapse={() => setFull(false)}>
         <Pressable onPress={() => undefined} style={{ position: "relative", width: "100%", height: full ? height : undefined, maxHeight: full ? height : Math.min(height * 0.62, 560), backgroundColor: colors.wine, borderTopLeftRadius: full ? 0 : 22, borderTopRightRadius: full ? 0 : 22, paddingBottom: 10 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 8 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10, gap: 8 }}>
             <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.ink }}>Replies</Text>
-            <AttachPill pulsing={!attached} label={attached?.productName} onPress={() => setPicker(true)} />
             <PressScale label={full ? "Collapse replies" : "Expand replies"} onPress={() => setFull((value) => !value)} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
               {full ? <ArrowsIn size={18} color={colors.ink} /> : <ArrowsOut size={18} color={colors.ink} />}
             </PressScale>
@@ -1116,7 +1148,8 @@ function ChatSheet(props: RoomExperienceProps & {
             )) : (props.ultras || []).length ? null : <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>No replies yet. Add what you're hearing about the product.</Text>}
           </ScrollView>
           <View style={{ marginHorizontal: 12, marginTop: 8, gap: 8 }}>
-            <AttachPill pulsing={!attached} label={attached?.productName} onPress={() => setPicker(true)} />
+            {attached ? <TimelineDraft item={attached} onPress={() => setPicker(true)} /> : <AttachPill pulsing onPress={() => setPicker(true)} />}
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 16, color: colors.inkSoft }}>Replies are visible to everyone in this Room and disappear when it ends. An Ultra Unmask stays.</Text>
             {props.message.trim() && !attached ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>Attach your timeline. It strengthens what you're saying.</Text> : null}
             <View style={{ minHeight: 52, borderRadius: 26, backgroundColor: colors.stage, flexDirection: "row", alignItems: "center", paddingLeft: 14, paddingRight: 8, gap: 4 }}>
               <TextInput

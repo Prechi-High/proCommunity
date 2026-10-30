@@ -18,11 +18,11 @@ export default function RoomSession() {
     else router.replace("/room");
   }, [host, id, open, preview, router]);
 
-  if (preview === "1" || preview === "prejoin") return <RoomPreview screen="prejoin" />;
+  if (preview === "1" || preview === "prejoin" || preview === "notice") return <RoomPreview screen={preview === "notice" ? "notice" : "prejoin"} />;
   if (preview === "live") return <RoomPreview screen="live" />;
   if (preview === "host") return <RoomPreview screen="host" />;
   if (
-    preview === "replies" || preview === "replies-full" || preview === "picker" || preview === "private" || preview === "card" ||
+    preview === "replies" || preview === "replies-full" || preview === "picker" || preview === "private" || preview === "draft" || preview === "card" ||
     preview === "timeline" || preview === "timeline-full" || preview === "full" || preview === "ultra" ||
     preview === "ultra-sparks" || preview === "ultra-seal" || preview === "spark"
   ) {
