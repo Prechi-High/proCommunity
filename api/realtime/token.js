@@ -41,6 +41,7 @@ async function handler(req, res) {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
     const sessionId = String(body.sessionId || "");
     const action = String(body.action || "");
+    const anonymousListening = body.anonymous === true;
 
     if (action) {
       if (!sessionId) return send(res, 400, { error: "sessionId is required." });
@@ -177,7 +178,7 @@ async function handler(req, res) {
           if (managedSession.room_name && action === "add_cohost") {
             try {
               const { RoomServiceClient } = await import("livekit-server-sdk");
-              await new RoomServiceClient(httpHost(env("LIVEKIT_URL")),env("LIVEKIT_API_KEY"),env("LIVEKIT_API_SECRET")).updateParticipant(managedSession.room_name,targetUserId,{permission:{canPublish:true,canSubscribe:true,canPublishData:true}});
+              await new RoomServiceClient(httpHost(env("LIVEKIT_URL")),env("LIVEKIT_API_KEY"),env("LIVEKIT_API_SECRET")).updateParticipant(managedSession.room_name,targetUserId,{permission:{canPublish:true,canSubscribe:true,canPublishData:true},attributes:{anonymous:"false"}});
             } catch (error) { console.error("livekit cohost permission update skipped",error); }
           }
           return send(res,200,{ok:true,action,creator:target,cohostIds:nextIds,cohostPermissions:nextPermissions});
@@ -267,6 +268,7 @@ async function handler(req, res) {
         handle: creatorProfile?.handle || null,
         creator_mark: creatorProfile?.creator_mark || null,
       }),
+      attributes: { anonymous: anonymousListening ? "true" : "false" },
       ttl: "15m",
     });
 
