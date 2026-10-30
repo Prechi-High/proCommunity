@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { applySpark, journeyDuration, pinUltra, timelineFromJourney, ultraConcern, ultraTitle, upsertById } from "./cards";
+import { applySpark, journeyDuration, momentsFromUpdates, pinUltra, timelineFromJourney, ultraConcern, ultraTitle, upsertById } from "./cards";
 
 test("journey duration stays honest when the start date is missing", () => {
   assert.equal(journeyDuration(null), "In progress");
@@ -25,6 +25,17 @@ test("a timeline snapshot only uses fields on the journey", () => {
   assert.equal(card.productName, "Hydrating Cleanser");
   assert.equal(card.duration, "In progress");
   assert.deepEqual(card.reactions, ["Nightly", "Bought"]);
+  assert.deepEqual(card.entries, []);
+});
+
+test("timeline chapters keep the dated note and drop empty ones", () => {
+  const moments = momentsFromUpdates([
+    { id: "a", created_at: "2026-10-01", changed: "Tight on night one.", reaction: "Sting" },
+    { id: "b", created_at: "2026-10-14", changed: "   " },
+  ]);
+  assert.equal(moments.length, 1);
+  assert.equal(moments[0].note, "Tight on night one.");
+  assert.equal(moments[0].reaction, "Sting");
 });
 
 test("cards upsert by id and sparks replace rather than increment", () => {

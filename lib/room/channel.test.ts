@@ -24,11 +24,13 @@ test("chat replays do not duplicate, and a timeline rides along", () => {
     outcome: "Tightness eased",
     reactions: ["Nightly"],
     author: "Ada",
+    entries: [{ id: "e1", at: "2026-10-01", note: "Tight on night one." }],
   };
   const once = applyRoomNote([], { type: "chat", id: "c1", text: "Still pills", experience }, "Ada");
   const twice = applyRoomNote(once, { type: "chat", id: "c1", text: "Still pills", experience }, "Ada");
   assert.equal(twice.length, 1);
   assert.equal(twice[0].experience?.productName, "Hydrating Cleanser");
+  assert.equal(twice[0].experience?.entries[0]?.note, "Tight on night one.");
   assert.equal(applyRoomNote(twice, { type: "chat", id: "c2", text: "   " }, "Ada").length, 1);
 });
 

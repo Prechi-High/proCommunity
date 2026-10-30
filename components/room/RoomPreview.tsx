@@ -1,19 +1,41 @@
 import { useState } from "react";
-import { Platform, Share } from "react-native";
+import { Image, Platform, Share } from "react-native";
 
 import { RoomExperience, type RoomNote, type RoomReaction } from "@/components/room/RoomExperience";
 import type { RoomTimeline, RoomUltra } from "@/lib/room/cards";
 import { arrangeRoom } from "@/lib/room/seats";
 import type { RoomReactionKind } from "@/lib/room/types";
 
+function bundledUri(asset: unknown) {
+  if (typeof asset === "string") return asset;
+  if (asset && typeof asset === "object" && "uri" in asset && typeof (asset as { uri?: unknown }).uri === "string") return (asset as { uri: string }).uri;
+  if (typeof Image.resolveAssetSource === "function") {
+    try {
+      return Image.resolveAssetSource(asset as number)?.uri || null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+const productImage = bundledUri(require("@/assets/journal/cleansing.webp"));
+const chapterPhoto = bundledUri(require("@/assets/journal/shine.webp"));
+
 const SAMPLE_TIMELINE: RoomTimeline = {
   id: "sample-journey",
   productName: "Hydrating Cleanser",
   brand: "CeraVe",
+  imageUrl: productImage,
   duration: "3 weeks",
   outcome: "Tight feeling eased after week two. Still pills in humidity.",
   reactions: ["Nightly", "Tightness eased"],
   author: "Dee Patel",
+  entries: [
+    { id: "e1", at: "2026-10-02", note: "Tight across the cheeks on night one.", reaction: "Sting" },
+    { id: "e2", at: "2026-10-16", note: "Still pills when the room is humid.", reaction: "Pilling", photoUrl: chapterPhoto },
+    { id: "e3", at: "2026-10-28", note: "The tight feeling eased. The humidity problem stayed.", reaction: "Eased" },
+  ],
 };
 
 const SAMPLE_ULTRA: RoomUltra = {
@@ -27,6 +49,7 @@ const SAMPLE_ULTRA: RoomUltra = {
   author: "Dee Patel",
   pinned: true,
   timelineId: "sample-journey",
+  imageUrl: productImage,
 };
 
 const PEOPLE = [
@@ -43,9 +66,12 @@ const PEOPLE = [
   { id: "june", name: "June Park" },
 ];
 
-export function RoomPreview({ screen = "prejoin" }: { screen?: "prejoin" | "live" | "host" | "replies" | "card" | "timeline" | "ultra" | "spark" }) {
+const PANELS = ["replies", "replies-full", "picker", "card", "timeline", "timeline-full", "full", "ultra", "ultra-sparks", "ultra-seal", "spark"] as const;
+type Panel = (typeof PANELS)[number];
+
+export function RoomPreview({ screen = "prejoin" }: { screen?: "prejoin" | "live" | "host" | Panel }) {
   const host = screen === "host" || screen === "ultra" || screen === "spark";
-  const withCard = screen === "card" || screen === "timeline" || screen === "spark";
+  const withCard = screen === "card" || screen === "timeline" || screen === "timeline-full" || screen === "spark" || screen === "ultra" || screen === "ultra-sparks" || screen === "ultra-seal";
   const [phase, setPhase] = useState<"prejoin" | "connecting" | "live">(screen === "prejoin" ? "prejoin" : "live");
   const [minimized, setMinimized] = useState(false);
   const [micOn, setMicOn] = useState(host);
@@ -56,7 +82,7 @@ export function RoomPreview({ screen = "prejoin" }: { screen?: "prejoin" | "live
   const [notes, setNotes] = useState<RoomNote[]>([
     { id: "n1", name: "Dee Patel", text: "Mine pilled on the second night, only in humidity.", experience: withCard ? SAMPLE_TIMELINE : null },
   ]);
-  const [ultras, setUltras] = useState<RoomUltra[]>(screen === "spark" ? [SAMPLE_ULTRA] : []);
+  const [ultras, setUltras] = useState<RoomUltra[]>(screen === "spark" || screen === "live" ? [SAMPLE_ULTRA] : []);
   const [reactions, setReactions] = useState<RoomReaction[]>([{ id: "r1", kind: "hundred", name: "Cal Nguyen" }]);
 
   const arranged = arrangeRoom({
@@ -140,7 +166,7 @@ export function RoomPreview({ screen = "prejoin" }: { screen?: "prejoin" | "live
       onPinUltra={(id) => setUltras((current) => current.map((card) => ({ ...card, pinned: card.id === id })))}
       onNudgeUltra={() => setNotes((current) => [...current, { id: `n-${Date.now()}`, name: "Ada Mensah", text: "Dee Patel, add what changed and what you still don't know." }])}
       onClaimSparks={async () => 50}
-      focus={screen === "live" || screen === "host" || screen === "prejoin" ? undefined : screen}
+      focus={PANELS.includes(screen as Panel) ? (screen as Panel) : undefined}
       onToggleMic={() => setMicOn((value) => !value)}
       onRequestMic={() => setRequested(true)}
       onLeave={() => setMinimized(false)}

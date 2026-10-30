@@ -7,6 +7,7 @@ import {
   ULTRA_PATHS,
   type RoomTimeline,
   type RoomUltra,
+  type TimelineMoment,
   type UltraPath,
 } from "./cards";
 
@@ -37,7 +38,29 @@ export function readTimeline(value: unknown): RoomTimeline | null {
       ? row.reactions.filter((item): item is string => typeof item === "string").slice(0, 6).map((item) => item.slice(0, 40))
       : [],
     author: row.author.slice(0, 80),
+    entries: readMoments(row.entries),
   };
+}
+
+function readMoments(value: unknown): TimelineMoment[] {
+  if (!Array.isArray(value)) return [];
+  const moments: TimelineMoment[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as TimelineMoment;
+    const note = clip(row.note, 280);
+    if (typeof row.id !== "string" || !note) continue;
+    moments.push({
+      id: row.id.slice(0, 80),
+      at: clip(row.at, 40),
+      note,
+      reaction: clip(row.reaction, 40) || null,
+      photoPath: clip(row.photoPath, 240) || null,
+      photoUrl: clip(row.photoUrl, 400) || null,
+    });
+    if (moments.length === 8) break;
+  }
+  return moments;
 }
 
 function readUltra(value: unknown): RoomUltra | null {
@@ -61,6 +84,7 @@ function readUltra(value: unknown): RoomUltra | null {
     author: clip(row.author, 80) || "Unmasker",
     pinned: !!row.pinned,
     timelineId: clip(row.timelineId, 80) || undefined,
+    imageUrl: clip(row.imageUrl, 400) || null,
   };
 }
 

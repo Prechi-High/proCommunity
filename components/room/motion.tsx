@@ -75,33 +75,55 @@ export function FloatEmoji({ glyph }: { glyph: string }) {
   );
 }
 
-export function PartialSheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
-  const reduced = useReducedMotion();
-  const y = useSharedValue(0);
+export function DragHandle({
+  expanded,
+  onExpand,
+  onCollapse,
+  onDismiss,
+}: {
+  expanded: boolean;
+  onExpand: () => void;
+  onCollapse: () => void;
+  onDismiss?: () => void;
+}) {
   const pan = useMemo(
     () =>
-      Gesture.Pan()
-        .onUpdate((event) => {
-          y.value = Math.max(0, event.translationY);
-        })
-        .onEnd((event) => {
-          if (event.translationY > 72) runOnJS(onClose)();
-          else y.value = withSpring(0, { damping: 16, stiffness: 220 });
-        }),
-    [onClose, y],
+      Gesture.Pan().onEnd((event) => {
+        if (event.translationY < -28) runOnJS(onExpand)();
+        else if (event.translationY > 56) runOnJS(expanded ? onCollapse : onDismiss || onCollapse)();
+      }),
+    [expanded, onCollapse, onDismiss, onExpand],
   );
-  const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
+  return (
+    <GestureDetector gesture={pan}>
+      <View accessibilityRole="adjustable" accessibilityLabel={expanded ? "Drag down to collapse" : "Drag up to expand"} style={{ alignItems: "center", paddingTop: 8, paddingBottom: 6 }}>
+        <View style={{ width: 36, height: 5, borderRadius: 3, backgroundColor: colors.line }} />
+      </View>
+    </GestureDetector>
+  );
+}
+
+export function PartialSheet({
+  onClose,
+  onExpand,
+  onCollapse,
+  expanded,
+  children,
+}: {
+  onClose: () => void;
+  onExpand?: () => void;
+  onCollapse?: () => void;
+  expanded?: boolean;
+  children: ReactNode;
+}) {
+  const reduced = useReducedMotion();
   return (
     <Animated.View
       entering={reduced ? undefined : SlideInDown.springify().damping(18).stiffness(180)}
       exiting={reduced ? undefined : SlideOutDown.duration(220)}
-      style={[{ width: "100%", maxWidth: 430 }, style]}
+      style={{ width: "100%", maxWidth: 430 }}
     >
-      <GestureDetector gesture={pan}>
-        <View accessibilityRole="adjustable" accessibilityLabel="Drag down to close" style={{ alignItems: "center", paddingTop: 10, paddingBottom: 6 }}>
-          <View style={{ width: 36, height: 5, borderRadius: 3, backgroundColor: colors.line }} />
-        </View>
-      </GestureDetector>
+      <DragHandle expanded={!!expanded} onExpand={onExpand || (() => undefined)} onCollapse={onCollapse || onClose} onDismiss={onClose} />
       {children}
     </Animated.View>
   );

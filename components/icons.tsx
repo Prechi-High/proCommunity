@@ -118,6 +118,8 @@ import {
   CaretUp,
   Pause,
   Flag,
+  ArrowsOut,
+  ArrowsIn,
 } from "phosphor-react-native";
 
 export {
@@ -135,6 +137,8 @@ export {
   CaretUp,
   Pause,
   Flag,
+  ArrowsOut,
+  ArrowsIn,
   ArrowFatDown,
   BellRinging,
   ChatCircleDots,

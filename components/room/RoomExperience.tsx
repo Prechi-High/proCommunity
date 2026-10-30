@@ -26,6 +26,8 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
+  ArrowsIn,
+  ArrowsOut,
   CaretDown,
   ChatCircle,
   Check,
@@ -33,7 +35,6 @@ import {
   Flag,
   Gear,
   Heart,
-  ImageSquare,
   LinkSimple,
   ListBullets,
   Microphone,
@@ -54,8 +55,8 @@ import type { RoomProductChip, RoomReactionKind, RoomSeat } from "@/lib/room/typ
 import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
 import { initials } from "@/lib/unmask/time";
 import type { RoomTimeline, RoomUltra, UltraPath } from "@/lib/room/cards";
-import { FloatEmoji, PartialSheet, PressScale, Tick } from "./motion";
-import { AttachChip, ExperienceCard, ExperienceSheet, TimelinePicker, UltraCard, UltraCreate } from "./RoomStories";
+import { DragHandle, FloatEmoji, PartialSheet, PressScale, Tick } from "./motion";
+import { AttachPill, ExperienceCard, ExperienceSheet, TimelinePicker, UltraCard, UltraCreate } from "./RoomStories";
 
 export type RoomNote = { id: string; name: string; text: string; experience?: RoomTimeline | null };
 export type RoomReaction = { id: string; kind: RoomReactionKind; name: string };
@@ -134,7 +135,7 @@ export type RoomExperienceProps = {
   onPinUltra?: (id: string) => void;
   onNudgeUltra?: (card: RoomUltra) => void;
   onClaimSparks?: () => Promise<number | null>;
-  focus?: "replies" | "card" | "timeline" | "ultra" | "spark";
+  focus?: "replies" | "replies-full" | "picker" | "card" | "timeline" | "timeline-full" | "full" | "ultra" | "ultra-sparks" | "ultra-seal" | "spark";
   canManage: boolean;
   creators: CohostPerson[];
   cohostIds: string[];
@@ -170,14 +171,23 @@ export function RoomExperience(props: RoomExperienceProps) {
   const [sparkBurst, setSparkBurst] = useState("");
   const [sparkError, setSparkError] = useState("");
   const [sparkErrorId, setSparkErrorId] = useState("");
+  const [roomFull, setRoomFull] = useState(false);
+  const [experienceFull, setExperienceFull] = useState(false);
   const prejoin = props.phase === "prejoin" || props.phase === "connecting";
   const focused = useRef(false);
   useEffect(() => {
     if (focused.current || !props.focus) return;
     focused.current = true;
-    if (props.focus === "replies" || props.focus === "card" || props.focus === "spark") setChat(true);
-    if (props.focus === "timeline") setOpenExperience(props.notes.find((note) => note.experience)?.experience || null);
-    if (props.focus === "ultra") setUltraOpen(true);
+    if (props.focus === "replies" || props.focus === "replies-full" || props.focus === "card" || props.focus === "spark" || props.focus === "picker") setChat(true);
+    if (props.focus === "full" || props.focus === "replies-full" || props.focus === "timeline-full") setRoomFull(true);
+    if (props.focus === "timeline" || props.focus === "timeline-full") {
+      setOpenExperience(props.notes.find((note) => note.experience)?.experience || null);
+      if (props.focus === "timeline-full") setExperienceFull(true);
+    }
+    if (props.focus === "ultra" || props.focus === "ultra-sparks" || props.focus === "ultra-seal") {
+      setUltraTimeline(props.notes.find((note) => note.experience)?.experience || null);
+      setUltraOpen(true);
+    }
   }, [props.focus, props.notes]);
   const people = useMemo(() => [...props.stage, ...props.audience], [props.stage, props.audience]);
   const extraListeners = Math.max(props.anonymousCount, Math.max(0, props.listenerCount - people.length));
@@ -203,7 +213,8 @@ export function RoomExperience(props: RoomExperienceProps) {
         entering={reduced ? undefined : SlideInDown.springify().damping(18).stiffness(180)}
         style={{
           width: sheetWidth,
-          maxHeight: height * 0.94,
+          height: roomFull ? height : undefined,
+          maxHeight: roomFull ? height : height * 0.92,
           backgroundColor: colors.wine,
           borderTopLeftRadius: 22,
           borderTopRightRadius: 22,
@@ -211,9 +222,7 @@ export function RoomExperience(props: RoomExperienceProps) {
           paddingBottom: Math.max(insets.bottom, 8),
         }}
       >
-        <View style={{ alignItems: "center", paddingTop: 8 }}>
-          <View style={{ width: 36, height: 5, borderRadius: 3, backgroundColor: colors.line }} />
-        </View>
+        <DragHandle expanded={roomFull} onExpand={() => setRoomFull(true)} onCollapse={() => setRoomFull(false)} onDismiss={prejoin ? props.onExit : props.onMinimize} />
         {props.sample ? (
           <Text style={{ textAlign: "center", fontFamily: fonts.medium, fontSize: 11, color: colors.honeyInk, paddingTop: 4 }}>
             Sample layout. Not a live Room.
@@ -226,11 +235,13 @@ export function RoomExperience(props: RoomExperienceProps) {
           onShare={() => setShare(true)}
           onMenu={() => setMenu(true)}
           onLeave={props.onLeave}
+          full={roomFull}
+          onToggleFull={() => setRoomFull((value) => !value)}
         />
         {props.phase === "error" || props.phase === "ended" ? (
           <Terminal {...props} />
         ) : (
-          <ScrollView style={{ maxHeight: Math.max(220, height * 0.94 - (prejoin ? 430 : 250)) }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 12, gap: 14 }}>
+          <ScrollView style={{ maxHeight: Math.max(220, (roomFull ? height : height * 0.92) - (prejoin ? 430 : 180)) }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 12, gap: 14 }}>
             {props.phase === "connecting" ? (
               <Text style={{ textAlign: "center", fontFamily: fonts.semibold, fontSize: 16, color: colors.inkSoft }}>Connecting</Text>
             ) : null}
@@ -351,9 +362,10 @@ export function RoomExperience(props: RoomExperienceProps) {
       {share ? <ShareSheet onClose={() => setShare(false)} onShare={props.onShare} onCopy={props.onCopyLink} /> : null}
       {guests ? <GuestsSheet {...props} onClose={() => setGuests(false)} /> : null}
       {personMenu ? <PersonMenu seat={personMenu} {...props} onClose={() => setPersonMenu(null)} /> : null}
-      <ExperienceSheet item={openExperience} onClose={() => setOpenExperience(null)} onDeeper={() => { setUltraTimeline(openExperience); setOpenExperience(null); setUltraOpen(true); }} />
+      <ExperienceSheet item={openExperience} full={experienceFull} onToggleFull={() => setExperienceFull((value) => !value)} onClose={() => { setOpenExperience(null); setExperienceFull(false); }} onDeeper={() => { setUltraTimeline(openExperience); setOpenExperience(null); setUltraOpen(true); }} />
       <UltraCreate
         open={ultraOpen}
+        step={props.focus === "ultra-sparks" ? 1 : props.focus === "ultra-seal" ? 2 : 0}
         productName={props.products[0]?.name || props.title}
         timeline={ultraTimeline}
         balance={props.sparksBalance ?? null}
@@ -381,6 +393,8 @@ export function RoomExperience(props: RoomExperienceProps) {
           sparkErrorId={sparkErrorId}
           onMedia={() => setMediaNote("Photos and GIFs aren't part of this Room.")}
           onClose={() => setChat(false)}
+          initialPicker={props.focus === "picker"}
+          initialFull={props.focus === "replies-full"}
           onOpenExperience={setOpenExperience}
           onDeeper={(timeline) => { setUltraTimeline(timeline); setUltraError(""); setUltraOpen(true); }}
           onSpark={(id) => {
@@ -431,6 +445,8 @@ function Header({
   onShare,
   onMenu,
   onLeave,
+  full,
+  onToggleFull,
 }: {
   prejoin: boolean;
   connecting: boolean;
@@ -438,6 +454,8 @@ function Header({
   onShare: () => void;
   onMenu: () => void;
   onLeave: () => void;
+  full?: boolean;
+  onToggleFull?: () => void;
 }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8, minHeight: 48 }}>
@@ -447,6 +465,11 @@ function Header({
       <View style={{ flex: 1, alignItems: "center" }}>
         {connecting ? null : <View />}
       </View>
+      {prejoin ? null : (
+        <IconHit label={full ? "Collapse Room" : "Expand Room"} onPress={onToggleFull || onClose}>
+          {full ? <ArrowsIn size={20} color={colors.ink} /> : <ArrowsOut size={20} color={colors.ink} />}
+        </IconHit>
+      )}
       {prejoin ? null : (
         <IconHit label="Share" onPress={onShare}>
           <ShareNetwork size={22} color={colors.ink} />
@@ -593,30 +616,44 @@ function Carousel(props: RoomExperienceProps & {
   onSpark: (id: string) => void;
   onClaim: () => void;
 }) {
+  const peek = 28;
+  const slideWidth = Math.max(220, props.width - peek);
   const slides = props.products.length
     ? props.products
     : [{ name: props.description || "No product pinned", brand: props.topic }];
   const ultras = [...(props.ultras || [])].sort((a, b) => Number(b.pinned) - Number(a.pinned));
-  const dots = slides.length + ultras.length;
+  const count = slides.length + ultras.length;
+  const [page, setPage] = useState(0);
   return (
     <View style={{ gap: 8 }}>
-      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={{ width: props.width }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        decelerationRate="fast"
+        snapToInterval={slideWidth + 12}
+        snapToAlignment="start"
+        disableIntervalMomentum
+        scrollEventThrottle={16}
+        onScroll={(event) => setPage(Math.round(event.nativeEvent.contentOffset.x / (slideWidth + 12)))}
+        style={{ width: props.width }}
+        contentContainerStyle={{ gap: 12, alignItems: "flex-start" }}
+      >
         {slides.map((slide) => (
-          <View key={slide.name} style={{ width: props.width, borderWidth: 1, borderColor: colors.line, borderRadius: 16, padding: 12, gap: 6, backgroundColor: colors.stage }}>
+          <View key={slide.name} style={{ width: slideWidth, borderWidth: 1, borderColor: colors.line, borderRadius: 16, padding: 12, gap: 6, backgroundColor: colors.stage }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.ink }}>{slide.brand ? `${slide.brand} ${slide.name}` : slide.name}</Text>
             {props.description && slide.name !== props.description ? (
               <Text numberOfLines={3} style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.inkSoft }}>{props.description}</Text>
             ) : null}
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>Shared by {props.hostName}</Text>
             {props.canManage && props.onStartUltra ? (
-              <PressScale label="Start an Ultra Unmask" onPress={props.onOpenUltra}>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Start an Ultra Unmask</Text>
+              <PressScale label="Unmask this product" onPress={props.onOpenUltra}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Unmask this product</Text>
               </PressScale>
             ) : null}
           </View>
         ))}
         {ultras.map((card) => (
-          <View key={card.id} style={{ width: props.width }}>
+          <View key={card.id} style={{ width: slideWidth }}>
             <UltraCard
               card={card}
               canPin={props.canManage}
@@ -631,8 +668,8 @@ function Carousel(props: RoomExperienceProps & {
         ))}
       </ScrollView>
       <View style={{ flexDirection: "row", justifyContent: "center", gap: 5 }}>
-        {Array.from({ length: Math.max(dots, 1) }, (_, index) => (
-          <View key={index} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: index === 0 ? colors.ink : colors.line }} />
+        {Array.from({ length: Math.max(count, 1) }, (_, index) => (
+          <View key={index} style={{ width: index === page ? 14 : 6, height: 6, borderRadius: 3, backgroundColor: index === page ? colors.ink : colors.line }} />
         ))}
       </View>
     </View>
@@ -805,8 +842,8 @@ function MenuPopover({
           <Text style={{ fontFamily: fonts.regular, fontSize: 16, color: colors.ink }}>Not interested in this Room</Text>
         </Pressable>
         {canStartUltra ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="Start an Ultra Unmask" onPress={() => { hapticSelect(); onUltra?.(); }} style={{ minHeight: 48, paddingHorizontal: 14, justifyContent: "center" }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.brand }}>Start an Ultra Unmask</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Unmask this product" onPress={() => { hapticSelect(); onUltra?.(); }} style={{ minHeight: 48, paddingHorizontal: 14, justifyContent: "center" }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.brand }}>Unmask this product</Text>
           </Pressable>
         ) : null}
         {canEnd ? (
@@ -1006,6 +1043,8 @@ function ChatSheet(props: RoomExperienceProps & {
   sparkErrorId: string;
   onMedia: () => void;
   onClose: () => void;
+  initialPicker?: boolean;
+  initialFull?: boolean;
   onOpenExperience: (item: RoomTimeline) => void;
   onDeeper: (item: RoomTimeline) => void;
   onSpark: (id: string) => void;
@@ -1014,7 +1053,8 @@ function ChatSheet(props: RoomExperienceProps & {
   const { height } = useWindowDimensions();
   const reduced = useReducedMotion();
   const [attached, setAttached] = useState<RoomTimeline | null>(null);
-  const [picker, setPicker] = useState(false);
+  const [picker, setPicker] = useState(!!props.initialPicker);
+  const [full, setFull] = useState(!!props.initialFull);
   const [loaded, setLoaded] = useState<RoomTimeline[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
@@ -1037,10 +1077,16 @@ function ChatSheet(props: RoomExperienceProps & {
   }
   return (
     <Pressable onPress={props.onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center" }}>
-      <PartialSheet onClose={props.onClose}>
-        <Pressable onPress={() => undefined} style={{ width: "100%", maxHeight: Math.min(height * 0.62, 560), backgroundColor: colors.wine, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: 10 }}>
-          <Text style={{ textAlign: "center", fontFamily: fonts.bold, fontSize: 18, color: colors.ink, paddingBottom: 8 }}>Replies</Text>
-          <ScrollView style={{ maxHeight: Math.min(height * 0.36, 320) }} contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}>
+      <PartialSheet onClose={props.onClose} expanded={full} onExpand={() => setFull(true)} onCollapse={() => setFull(false)}>
+        <Pressable onPress={() => undefined} style={{ width: "100%", height: full ? height : undefined, maxHeight: full ? height : Math.min(height * 0.62, 560), backgroundColor: colors.wine, borderTopLeftRadius: full ? 0 : 22, borderTopRightRadius: full ? 0 : 22, paddingBottom: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 8 }}>
+            <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.ink }}>Replies</Text>
+            <AttachPill pulsing={!attached} label={attached?.productName} onPress={() => setPicker(true)} />
+            <PressScale label={full ? "Collapse replies" : "Expand replies"} onPress={() => setFull((value) => !value)} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
+              {full ? <ArrowsIn size={18} color={colors.ink} /> : <ArrowsOut size={18} color={colors.ink} />}
+            </PressScale>
+          </View>
+          <ScrollView style={{ maxHeight: full ? height - 180 : Math.min(height * 0.36, 320) }} contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}>
             {(props.ultras || []).map((card) => (
               <UltraCard
                 key={card.id}
@@ -1064,28 +1110,24 @@ function ChatSheet(props: RoomExperienceProps & {
               </Animated.View>
             )) : (props.ultras || []).length ? null : <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>No replies yet. Add what you're hearing about the product.</Text>}
           </ScrollView>
-          {props.mediaNote ? <Text style={{ paddingHorizontal: 16, paddingTop: 8, fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{props.mediaNote}</Text> : null}
-          <View style={{ margin: 12, minHeight: 52, borderRadius: 26, backgroundColor: colors.stage, flexDirection: "row", alignItems: "center", paddingLeft: 8, paddingRight: 8, gap: 4 }}>
-            <AttachChip attached={!!attached} label={attached?.productName} onPress={() => setPicker(true)} />
-            <TextInput
-              value={props.message}
-              onChangeText={props.onMessage}
-              editable={!props.anonymous}
-              placeholder={props.anonymous ? "Anonymous listening is quiet" : "Post your reply"}
-              placeholderTextColor={colors.inkSoft}
-              accessibilityLabel="Post your reply"
-              onSubmitEditing={send}
-              style={{ flex: 1, minHeight: 44, color: colors.ink, fontFamily: fonts.regular, fontSize: 16, ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as object) : null) }}
-            />
-            <PressScale label="Add image" onPress={props.onMedia} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
-              <ImageSquare size={20} color={colors.inkSoft} />
-            </PressScale>
-            <PressScale label="Add GIF" onPress={props.onMedia} style={{ minWidth: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.inkSoft }}>GIF</Text>
-            </PressScale>
-            <PressScale label="Send reply" onPress={send} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
-              <PaperPlaneRight size={18} color={colors.brand} />
-            </PressScale>
+          <View style={{ marginHorizontal: 12, marginTop: 8, gap: 8 }}>
+            <AttachPill pulsing={!attached} label={attached?.productName} onPress={() => setPicker(true)} />
+            {props.message.trim() && !attached ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>Attach your timeline. It strengthens what you're saying.</Text> : null}
+            <View style={{ minHeight: 52, borderRadius: 26, backgroundColor: colors.stage, flexDirection: "row", alignItems: "center", paddingLeft: 14, paddingRight: 8, gap: 4 }}>
+              <TextInput
+                value={props.message}
+                onChangeText={props.onMessage}
+                editable={!props.anonymous}
+                placeholder={props.anonymous ? "Anonymous listening is quiet" : "Post your reply"}
+                placeholderTextColor={colors.inkSoft}
+                accessibilityLabel="Post your reply"
+                onSubmitEditing={send}
+                style={{ flex: 1, minHeight: 44, color: colors.ink, fontFamily: fonts.regular, fontSize: 16, ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as object) : null) }}
+              />
+              <PressScale label="Send reply" onPress={send} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
+                <PaperPlaneRight size={18} color={colors.brand} />
+              </PressScale>
+            </View>
           </View>
           <TimelinePicker
             open={picker}

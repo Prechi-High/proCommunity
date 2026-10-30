@@ -12,7 +12,7 @@ import { ChatCircleDots, Play, UsersThree, X } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { applyRoomNote, applyRoomUltras } from "@/lib/room/channel";
-import { ULTRA_PATHS, timelineFromJourney, ultraConcern, ultraTitle, type RoomTimeline, type RoomUltra, type UltraPath } from "@/lib/room/cards";
+import { ULTRA_PATHS, momentsFromUpdates, timelineFromJourney, ultraConcern, ultraTitle, type RoomTimeline, type RoomUltra, type UltraPath } from "@/lib/room/cards";
 import { roomProducts, roomTopic } from "@/lib/room/context";
 import { useRoomDock } from "@/lib/room/dock";
 import { ROOM_EMOJI_IDS } from "@/lib/room/emoji";
@@ -20,6 +20,7 @@ import { arrangeRoom } from "@/lib/room/seats";
 import type { RoomReactionKind } from "@/lib/room/types";
 import { contribute, create as createUltra, summary, validAmount, wallet } from "@/lib/investigations/api";
 import { journeys, saveJourney } from "@/lib/living/api";
+import { updates as journeyUpdates } from "@/lib/tracking/api";
 import { monthlySparks } from "@/lib/membership";
 import { ULTRA_UNMASK_SPARK_GOAL } from "@/lib/unmask/status";
 import { useAppStore } from "@/lib/store";
@@ -426,7 +427,17 @@ export function RealtimeSession({
   }
 
   async function loadTimelines() {
-    const cards = (await journeys()).map((row) => timelineFromJourney(row, youName));
+    const rows = await journeys();
+    const cards = await Promise.all(rows.slice(0, 8).map(async (row) => {
+      const card = timelineFromJourney(row, youName);
+      try {
+        card.entries = momentsFromUpdates(await journeyUpdates(row.id));
+      } catch { card.entries = []; }
+      if (!card.entries.length) {
+        card.entries = [{ id: row.id, at: row.started_on || row.created_at || "", note: card.outcome || "No dated chapter yet." }];
+      }
+      return card;
+    }));
     setTimelines(cards);
     return cards;
   }
@@ -481,6 +492,7 @@ export function RealtimeSession({
       author: youName,
       pinned: false,
       timelineId: input.timeline?.id,
+      imageUrl: input.timeline?.imageUrl || null,
     };
     const event = { type: "ultra", card };
     await publish(event);

@@ -1,5 +1,14 @@
 /** Room cards travel on the LiveKit data channel. They never rewrite session metadata. */
 
+export type TimelineMoment = {
+  id: string;
+  at: string;
+  note: string;
+  reaction?: string | null;
+  photoPath?: string | null;
+  photoUrl?: string | null;
+};
+
 export type RoomTimeline = {
   id: string;
   productName: string;
@@ -9,14 +18,15 @@ export type RoomTimeline = {
   outcome: string;
   reactions: string[];
   author: string;
+  entries: TimelineMoment[];
 };
 
 export type UltraPath = "why" | "company" | "expert";
 
-export const ULTRA_PATHS: Array<{ id: UltraPath; label: string; concern: string }> = [
-  { id: "why", label: "Why it happens", concern: "Why does this happen with this product?" },
-  { id: "company", label: "Ask the company", concern: "Ask the company what they know about this." },
-  { id: "expert", label: "Ask an expert", concern: "Ask an expert to look at this experience." },
+export const ULTRA_PATHS: Array<{ id: UltraPath; label: string; detail: string; concern: string }> = [
+  { id: "why", label: "Why it happens", detail: "Follow it to the cause.", concern: "Why does this happen with this product?" },
+  { id: "company", label: "Ask the company", detail: "Put the question to the brand.", concern: "Ask the company what they know about this." },
+  { id: "expert", label: "Ask an expert", detail: "Bring in someone who knows.", concern: "Ask an expert to look at this experience." },
 ];
 
 export type RoomUltra = {
@@ -30,6 +40,7 @@ export type RoomUltra = {
   author: string;
   pinned: boolean;
   timelineId?: string;
+  imageUrl?: string | null;
 };
 
 export function journeyDuration(started?: string | null, now = Date.now()) {
@@ -64,7 +75,23 @@ export function timelineFromJourney(
     outcome: journey.goal || journey.status || "In progress",
     reactions: [journey.frequency, journey.acquisition].filter((item): item is string => !!item),
     author,
+    entries: [],
   };
+}
+
+export function momentsFromUpdates(
+  rows: Array<{ id: string; created_at?: string | null; changed?: string | null; reaction?: string | null; photo_path?: string | null }>,
+): TimelineMoment[] {
+  return rows
+    .filter((row) => typeof row.id === "string" && typeof row.changed === "string" && row.changed.trim())
+    .slice(0, 8)
+    .map((row) => ({
+      id: row.id.slice(0, 80),
+      at: typeof row.created_at === "string" ? row.created_at : "",
+      note: row.changed!.trim().slice(0, 280),
+      reaction: row.reaction?.trim().slice(0, 40) || null,
+      photoPath: row.photo_path?.trim().slice(0, 240) || null,
+    }));
 }
 
 export function upsertById<T extends { id: string }>(list: T[], item: T): T[] {
