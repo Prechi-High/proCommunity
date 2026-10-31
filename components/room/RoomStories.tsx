@@ -421,7 +421,7 @@ export function UltraCreate({
   const ready = asked.length >= 8 && experience.trim().length >= 10 && (sparks >= 10 || thunder >= 1) && !sparkShort && !thunderShort;
   // Normalize the optional prop before rendering so TypeScript keeps the timeline
   // collection's concrete RoomTimeline[] type through the JSX/map callback.
-  const availableTimelines: RoomTimeline[] = Array.isArray(timelines) ? timelines : [];
+  const availableTimelines = timelines ?? [];
   return (
     <Pressable accessibilityLabel="Close Ultra Unmask" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center", zIndex: 6 }}>
       <PartialSheet onClose={onClose}>
