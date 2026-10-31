@@ -486,7 +486,7 @@ export function RealtimeSession({
     return next;
   }
 
-  async function startUltra(input: { who: "company" | "expert"; question: string; timeline?: RoomTimeline | null; sparks: number; thunder: number }) {
+  async function startUltra(input: { who: "company" | "expert"; question: string; experience: string; timeline?: RoomTimeline | null; sparks: number; thunder: number }) {
     const sparks = input.sparks >= 10 ? input.sparks : 0;
     const thunder = input.thunder >= 1 ? input.thunder : 0;
     if (!sparks && !thunder) throw new Error("Add at least 10 Sparks or 1 Thunder Spark.");
@@ -500,7 +500,7 @@ export function RealtimeSession({
       : { kind: "thunder" as const, amount: thunder };
     const investigation = await createUltra({
       title: questionTitle(input.question, name),
-      concern: [input.question.trim(), input.timeline?.outcome].filter(Boolean).join("\n\n").slice(0, 3000),
+      concern: input.experience.trim().slice(0, 3000),
       product_id: product?.id || null,
       question_id: null,
       experience_id: null,
@@ -524,7 +524,7 @@ export function RealtimeSession({
       title: investigation.title || questionTitle(input.question, name),
       path: input.who,
       productName: name,
-      experience: input.timeline?.outcome || null,
+      experience: input.experience.trim() || input.timeline?.outcome || null,
       sparks: sparkCount,
       thunder: thunderCount,
       goal: investigation.spark_goal || ULTRA_UNMASK_SPARK_GOAL,
