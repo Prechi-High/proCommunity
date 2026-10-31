@@ -267,7 +267,7 @@ export function ExperienceSheet({
               </View>
             </PressScale>
           </ScrollView>
-        </View>
+        </Pressable>
       </PartialSheet>
     </Pressable>
   );
@@ -422,45 +422,175 @@ export function UltraCreate({
   return (
     <Pressable accessibilityLabel="Close Ultra Unmask" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center", zIndex: 6 }}>
       <PartialSheet onClose={onClose}>
-        <View style={{ width: "100%", maxHeight: height * 0.86, backgroundColor: colors.wine, borderTopLeftRadius: 22, borderTopRightRadius: 22 }}>
-          <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 28 }}>
+        <Pressable
+          onPress={() => undefined}
+          style={{
+            width: "100%",
+            maxHeight: height * 0.86,
+            backgroundColor: colors.wine,
+            borderTopLeftRadius: 22,
+            borderTopRightRadius: 22,
+          }}
+        >
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 28 }}
+          >
             <Image source={ULTRA_ART} accessibilityLabel="Ultra Unmask" style={{ width: "100%", height: 96, borderRadius: 16 }} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.ink }}>Unmask this</Text>
             {page === 0 ? (
               <>
+                {selectedTimeline ? (
+                  <View
+                    style={{
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: colors.brand,
+                      backgroundColor: colors.hiSoft,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {selectedTimeline.imageUrl ? (
+                      <Image
+                        source={{ uri: selectedTimeline.imageUrl }}
+                        accessibilityLabel="Selected product"
+                        style={{ width: "100%", height: 88 }}
+                      />
+                    ) : null}
+                    <View style={{ padding: 12, gap: 3 }}>
+                      <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.honeyInk }}>PRODUCT TIMELINE</Text>
+                      <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.ink }}>{selectedTimeline.productName}</Text>
+                      <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>
+                        {selectedTimeline.author}'s timeline · {selectedTimeline.duration}
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>PRODUCT TIMELINE</Text>
+                    {timelines?.length ? timelines.slice(0, 5).map((item) => {
+                      const selected = selectedTimeline?.id === item.id;
+                      return (
+                        <Pressable
+                          key={item.id}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected }}
+                          onPress={() => setSelectedTimeline(item)}
+                          style={{
+                            borderRadius: 14,
+                            borderWidth: 1,
+                            borderColor: selected ? colors.brand : colors.line,
+                            backgroundColor: selected ? colors.hiSoft : colors.stage,
+                            overflow: "hidden",
+                          }}
+                        >
+                          {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={{ width: "100%", height: 72 }} /> : null}
+                          <View style={{ padding: 12, gap: 3 }}>
+                            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{item.productName}</Text>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{item.author}'s timeline · {item.duration}</Text>
+                          </View>
+                        </Pressable>
+                      );
+                    }) : (
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>
+                        No timeline attached yet. You can add one from the Room replies before starting this Ultra.
+                      </Text>
+                    )}
+                  </>
+                )}
+
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>YOUR EXPERIENCE</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>Start with what happened. The question comes after the story.</Text>
-                <TextInput value={experience} onChangeText={setExperience} multiline maxLength={3000} placeholder="Tell us what the product did, what you noticed, and what happened next." placeholderTextColor={colors.inkSoft} style={{ minHeight: 130, borderRadius: 14, backgroundColor: colors.stage, color: colors.ink, padding: 14, fontFamily: fonts.regular, fontSize: 16, lineHeight: 23, textAlignVertical: "top" }} />
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>PRODUCT TIMELINE</Text>
-                {timelines?.length ? timelines.slice(0, 5).map((item) => {
-                  const selected = selectedTimeline?.id === item.id;
-                  return <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected }} onPress={() => setSelectedTimeline(item)} style={{ minHeight: 54, borderRadius: 14, borderWidth: 1, borderColor: selected ? colors.brand : colors.line, backgroundColor: selected ? colors.hiSoft : colors.stage, padding: 12, justifyContent: "center" }}>
-                    <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{item.productName}</Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{item.author}'s timeline · {item.duration}</Text>
-                  </Pressable>;
-                }) : timeline ? <Pressable accessibilityRole="button" accessibilityState={{ selected: true }} style={{ minHeight: 54, borderRadius: 14, borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.hiSoft, padding: 12, justifyContent: "center" }}>
-                  <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{timeline.productName}</Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>Attached product timeline · {timeline.duration}</Text>
-                </Pressable> : <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>No timeline attached yet. You can add one from the Room replies before starting this Ultra.</Text>}
+                <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>
+                  Now tell us what happened with the product shown above.
+                </Text>
+                <TextInput
+                  value={experience}
+                  onChangeText={setExperience}
+                  multiline
+                  maxLength={3000}
+                  placeholder="Tell us what the product did, what you noticed, and what happened next."
+                  placeholderTextColor={colors.inkSoft}
+                  style={{
+                    minHeight: 130,
+                    borderRadius: 14,
+                    backgroundColor: colors.stage,
+                    color: colors.ink,
+                    padding: 14,
+                    fontFamily: fonts.regular,
+                    fontSize: 16,
+                    lineHeight: 23,
+                    textAlignVertical: "top",
+                  }}
+                />
+
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>WHAT DO YOU WANT TO KNOW?</Text>
                 {ULTRA_QUESTIONS.map((item) => {
                   const selected = !custom && question === item;
                   return (
-                    <Pressable key={item} accessibilityRole="button" accessibilityState={{ selected }} onPress={() => { hapticSelect(); setCustom(false); setQuestion(item); }} style={{ minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: selected ? colors.brand : colors.line, backgroundColor: selected ? colors.hiSoft : colors.stage, paddingHorizontal: 14, justifyContent: "center" }}>
+                    <Pressable
+                      key={item}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => {
+                        hapticSelect();
+                        setCustom(false);
+                        setQuestion(item);
+                      }}
+                      style={{
+                        minHeight: 48,
+                        borderRadius: 14,
+                        borderWidth: 1,
+                        borderColor: selected ? colors.brand : colors.line,
+                        backgroundColor: selected ? colors.hiSoft : colors.stage,
+                        paddingHorizontal: 14,
+                        justifyContent: "center",
+                      }}
+                    >
                       <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>{item}</Text>
                     </Pressable>
                   );
                 })}
-                <Pressable accessibilityRole="button" accessibilityState={{ selected: custom }} onPress={() => { hapticSelect(); setCustom(true); }} style={{ minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: custom ? colors.brand : colors.line, backgroundColor: custom ? colors.hiSoft : colors.stage, paddingHorizontal: 14, justifyContent: "center" }}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: custom }}
+                  onPress={() => {
+                    hapticSelect();
+                    setCustom(true);
+                  }}
+                  style={{
+                    minHeight: 48,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    borderColor: custom ? colors.brand : colors.line,
+                    backgroundColor: custom ? colors.hiSoft : colors.stage,
+                    paddingHorizontal: 14,
+                    justifyContent: "center",
+                  }}
+                >
                   <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>Write your own</Text>
                 </Pressable>
-                {custom ? <TextInput value={own} onChangeText={setOwn} placeholder="Your question" placeholderTextColor={colors.inkSoft} accessibilityLabel="Your question" style={{ minHeight: 48, borderRadius: 12, backgroundColor: colors.stage, color: colors.ink, paddingHorizontal: 12, fontFamily: fonts.regular }} /> : null}
+                {custom ? (
+                  <TextInput
+                    value={own}
+                    onChangeText={setOwn}
+                    placeholder="Your question"
+                    placeholderTextColor={colors.inkSoft}
+                    accessibilityLabel="Your question"
+                    style={{
+                      minHeight: 48,
+                      borderRadius: 12,
+                      backgroundColor: colors.stage,
+                      color: colors.ink,
+                      paddingHorizontal: 12,
+                      fontFamily: fonts.regular,
+                    }}
+                  />
+                ) : null}
                 <PressScale label="Choose who should answer" onPress={() => setPage(1)} disabled={!ready}>
                   <View style={{ minHeight: 48, borderRadius: 999, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
                     <Text style={{ fontFamily: fonts.bold, color: colors.white }}>Choose who should answer</Text>
                   </View>
-                </PressScale>
-              </>
+                </PressScale>              </>
             ) : (
               <>
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>WHO SHOULD ANSWER?</Text>
