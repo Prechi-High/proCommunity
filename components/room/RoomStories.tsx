@@ -279,6 +279,7 @@ export function UltraCard({
   onPin,
   onNudge,
   onClaim,
+  onTimeline,
   canPin,
   burst,
   shortfall,
@@ -288,6 +289,7 @@ export function UltraCard({
   onPin?: () => void;
   onNudge?: () => void;
   onClaim?: () => void;
+  onTimeline?: () => void;
   canPin?: boolean;
   burst?: boolean;
   shortfall?: string;
@@ -302,11 +304,23 @@ export function UltraCard({
         <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.brand }}>{card.pinned ? "Highlighted · " : ""}{path}</Text>
         <View style={{ flexDirection: "row", gap: 10 }}>
           {card.imageUrl ? <Image source={{ uri: card.imageUrl }} style={{ width: 48, height: 48, borderRadius: 12 }} /> : null}
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.ink }}>{card.title}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{card.productName} · {card.author}</Text>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 22, color: colors.ink }}>{card.title}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>{card.productName} · {card.author}</Text>
           </View>
         </View>
+        {card.experience ? (
+          <Text numberOfLines={5} style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.inkSoft }}>
+            {card.experience}
+          </Text>
+        ) : null}
+        {card.timelineId && onTimeline ? (
+          <PressScale label="View attached product timeline" onPress={onTimeline}>
+            <View style={{ minHeight: 40, borderRadius: 12, backgroundColor: colors.goldSoft, borderWidth: 1, borderColor: colors.gold, paddingHorizontal: 12, justifyContent: "center" }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>View product timeline →</Text>
+            </View>
+          </PressScale>
+        ) : null}
         {card.path === "company" ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.inkSoft }}>{COMPANY_FALLBACK}</Text> : null}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
