@@ -557,29 +557,18 @@ export default function RequestUnmask() {
               <Text style={{ ...heading, fontSize: 25, lineHeight: 33 }}>
                 {d.title}
               </Text>
-              {d.concern ? <Text style={body}>{d.concern}</Text> : null}
-              {d.attachment ? (
-                <View
-                  style={{
-                    padding: 14,
-                    borderRadius: 18,
-                    backgroundColor: "#F5EDF2",
-                    gap: 4,
-                  }}
-                >
-                  <Text style={{ ...heading, fontSize: 14 }}>
-                    Attached{" "}
-                    {d.attachment.kind === "journey"
-                      ? "product timeline"
-                      : "product experience"}
-                  </Text>
-                  <Text style={body}>{d.attachment.title}</Text>
+              {d.concern ? (
+                <View style={{ gap: 7 }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 12, letterSpacing: 0.6, color: colors.brandDeep }}>THE EXPERIENCE</Text>
+                  <Text style={body}>{d.concern}</Text>
                 </View>
               ) : null}
-              {p.experience ? (
-                <Text style={{ ...body, fontSize: 13 }}>
-                  Your original experience is linked.
-                </Text>
+              {d.attachment ? (
+                <Pressable accessibilityRole="button" accessibilityLabel="View attached product timeline" onPress={() => r.push("/journey/" + d.attachment!.id as Href)} style={{ padding: 14, borderRadius: 18, backgroundColor: "#F5EDF2", gap: 4 }}>
+                  <Text style={{ ...heading, fontSize: 14 }}>Product timeline</Text>
+                  <Text style={body}>{d.attachment.title}</Text>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.brand }}>Open timeline →</Text>
+                </Pressable>
               ) : null}
             </View>
             <View style={surface}>
