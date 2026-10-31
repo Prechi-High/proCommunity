@@ -370,6 +370,7 @@ export function UltraCreate({
   step = 0,
   productName,
   timeline,
+  timelines,
   balance,
   thunderBalance,
   busy,
@@ -382,18 +383,21 @@ export function UltraCreate({
   step?: 0 | 1;
   productName: string;
   timeline?: RoomTimeline | null;
+  timelines?: RoomTimeline[];
   balance: number | null;
   thunderBalance?: number | null;
   busy: boolean;
   error: string;
   onClose: () => void;
-  onCreate: (who: "company" | "expert", question: string, sparks: number, thunder: number) => void;
+  onCreate: (who: "company" | "expert", question: string, experience: string, timeline: RoomTimeline | null, sparks: number, thunder: number) => void;
   onClaim: () => void;
 }) {
   const { height } = useWindowDimensions();
   const [question, setQuestion] = useState<string>(ULTRA_QUESTIONS[0]);
   const [custom, setCustom] = useState(false);
   const [own, setOwn] = useState("");
+  const [experience, setExperience] = useState("");
+  const [selectedTimeline, setSelectedTimeline] = useState<RoomTimeline | null>(timeline || null);
   const [who, setWho] = useState<"company" | "expert">("company");
   const [sparks, setSparks] = useState(10);
   const [thunder, setThunder] = useState(0);
@@ -403,6 +407,8 @@ export function UltraCreate({
     setQuestion(ULTRA_QUESTIONS[0]);
     setCustom(false);
     setOwn("");
+    setExperience("");
+    setSelectedTimeline(timeline || null);
     setWho("company");
     setSparks(10);
     setThunder(0);
@@ -412,7 +418,7 @@ export function UltraCreate({
   const asked = (custom ? own.trim() : question).trim();
   const sparkShort = sparks > 0 && balance != null && sparks > balance;
   const thunderShort = thunder > 0 && thunderBalance != null && thunder > thunderBalance;
-  const ready = asked.length >= 8 && (sparks >= 10 || thunder >= 1) && !sparkShort && !thunderShort;
+  const ready = asked.length >= 8 && experience.trim().length >= 10 && (sparks >= 10 || thunder >= 1) && !sparkShort && !thunderShort;
   return (
     <Pressable accessibilityLabel="Close Ultra Unmask" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center", zIndex: 6 }}>
       <PartialSheet onClose={onClose}>
@@ -422,8 +428,21 @@ export function UltraCreate({
             <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.ink }}>Unmask this</Text>
             {page === 0 ? (
               <>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>YOUR EXPERIENCE</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>Start with what happened. The question comes after the story.</Text>
+                <TextInput value={experience} onChangeText={setExperience} multiline maxLength={3000} placeholder="Tell us what the product did, what you noticed, and what happened next." placeholderTextColor={colors.inkSoft} style={{ minHeight: 130, borderRadius: 14, backgroundColor: colors.stage, color: colors.ink, padding: 14, fontFamily: fonts.regular, fontSize: 16, lineHeight: 23, textAlignVertical: "top" }} />
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>PRODUCT TIMELINE</Text>
+                {timelines?.length ? timelines.slice(0, 5).map((item) => {
+                  const selected = selectedTimeline?.id === item.id;
+                  return <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected }} onPress={() => setSelectedTimeline(item)} style={{ minHeight: 54, borderRadius: 14, borderWidth: 1, borderColor: selected ? colors.brand : colors.line, backgroundColor: selected ? colors.hiSoft : colors.stage, padding: 12, justifyContent: "center" }}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{item.productName}</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{item.author}'s timeline · {item.duration}</Text>
+                  </Pressable>;
+                }) : timeline ? <Pressable accessibilityRole="button" accessibilityState={{ selected: true }} style={{ minHeight: 54, borderRadius: 14, borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.hiSoft, padding: 12, justifyContent: "center" }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{timeline.productName}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>Attached product timeline · {timeline.duration}</Text>
+                </Pressable> : <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>No timeline attached yet. You can add one from the Room replies before starting this Ultra.</Text>}
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>WHAT DO YOU WANT TO KNOW?</Text>
-                {timeline ? <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>{timeline.author}'s timeline · {timeline.productName}</Text> : <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>{productName}</Text>}
                 {ULTRA_QUESTIONS.map((item) => {
                   const selected = !custom && question === item;
                   return (
@@ -436,7 +455,7 @@ export function UltraCreate({
                   <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: colors.ink }}>Write your own</Text>
                 </Pressable>
                 {custom ? <TextInput value={own} onChangeText={setOwn} placeholder="Your question" placeholderTextColor={colors.inkSoft} accessibilityLabel="Your question" style={{ minHeight: 48, borderRadius: 12, backgroundColor: colors.stage, color: colors.ink, paddingHorizontal: 12, fontFamily: fonts.regular }} /> : null}
-                <PressScale label="Choose who should answer" onPress={() => setPage(1)} disabled={asked.length < 8}>
+                <PressScale label="Choose who should answer" onPress={() => setPage(1)} disabled={!ready}>
                   <View style={{ minHeight: 48, borderRadius: 999, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
                     <Text style={{ fontFamily: fonts.bold, color: colors.white }}>Choose who should answer</Text>
                   </View>
