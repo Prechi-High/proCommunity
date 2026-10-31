@@ -138,6 +138,7 @@ export type RoomExperienceProps = {
   onAddSparks?: (id: string, amount: number) => Promise<void>;
   onPinUltra?: (id: string) => void;
   onNudgeUltra?: (card: RoomUltra) => void;
+  onOpenTimeline?: (timelineId: string) => void;
   onClaimSparks?: () => Promise<number | null>;
   focus?: "replies" | "replies-full" | "picker" | "private" | "draft" | "card" | "timeline" | "timeline-full" | "full" | "ultra" | "ultra-sparks" | "ultra-seal" | "spark" | "notice";
   canManage: boolean;
@@ -288,6 +289,7 @@ export function RoomExperience(props: RoomExperienceProps) {
                     setSparkError(error instanceof Error ? error.message : "Could not claim Sparks.");
                   });
                 }}
+                onOpenTimeline={(timelineId) => props.onOpenTimeline?.(timelineId)}
               />
             ) : null}
             {!props.canHear && props.phase === "live" ? (
@@ -648,6 +650,7 @@ function Carousel(props: RoomExperienceProps & {
   onOpenUltra: () => void;
   onSpark: (id: string) => void;
   onClaim: () => void;
+  onOpenTimeline?: (timelineId: string) => void;
 }) {
   const peek = 28;
   const slideWidth = Math.max(220, props.width - peek);
@@ -696,6 +699,7 @@ function Carousel(props: RoomExperienceProps & {
               onPin={() => props.onPinUltra?.(card.id)}
               onNudge={() => props.onNudgeUltra?.(card)}
               onClaim={props.onClaim}
+              onTimeline={card.timelineId && props.onOpenTimeline ? () => props.onOpenTimeline?.(card.timelineId!) : undefined}
             />
           </View>
         ))}
