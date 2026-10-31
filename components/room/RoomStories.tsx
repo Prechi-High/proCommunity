@@ -501,7 +501,7 @@ export function UltraCreate({
                 {sparkShort || thunderShort ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>Not enough for that opening. Claim this month's Sparks without leaving the Room.</Text> : null}
                 {error ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>{error}</Text> : null}
                 <PressScale label="Claim monthly Sparks" onPress={onClaim}><Text style={{ fontFamily: fonts.semibold, color: colors.brand }}>Claim monthly Sparks</Text></PressScale>
-                <PressScale label={busy ? "Sending" : "Unmask it"} disabled={!ready || busy} onPress={() => { hapticSuccess(); onCreate(who, asked, sparks >= 10 ? sparks : 0, thunder); }}>
+                <PressScale label={busy ? "Sending" : "Unmask it"} disabled={!ready || busy} onPress={() => { hapticSuccess(); onCreate(who, asked, experience.trim(), selectedTimeline, sparks >= 10 ? sparks : 0, thunder); }}>
                   <View style={{ minHeight: 52, borderRadius: 999, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center", opacity: ready ? 1 : 0.45 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.white }}>{busy ? "Sending…" : "Unmask it"}</Text>
                   </View>
