@@ -419,6 +419,9 @@ export function UltraCreate({
   const sparkShort = sparks > 0 && balance != null && sparks > balance;
   const thunderShort = thunder > 0 && thunderBalance != null && thunder > thunderBalance;
   const ready = asked.length >= 8 && experience.trim().length >= 10 && (sparks >= 10 || thunder >= 1) && !sparkShort && !thunderShort;
+  // Normalize the optional prop before rendering so TypeScript keeps the timeline
+  // collection's concrete RoomTimeline[] type through the JSX/map callback.
+  const availableTimelines: RoomTimeline[] = Array.isArray(timelines) ? timelines : [];
   return (
     <Pressable accessibilityLabel="Close Ultra Unmask" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center", zIndex: 6 }}>
       <PartialSheet onClose={onClose}>
@@ -468,7 +471,7 @@ export function UltraCreate({
                 ) : (
                   <>
                     <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>PRODUCT TIMELINE</Text>
-                    {timelines?.length ? timelines.slice(0, 5).map((item) => {
+                    {availableTimelines.length ? availableTimelines.slice(0, 5).map((item: RoomTimeline) => {
                       const selected = selectedTimeline?.id === item.id;
                       return (
                         <Pressable
