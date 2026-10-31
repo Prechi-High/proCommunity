@@ -27,10 +27,9 @@ export type RoomTimeline = {
 };
 
 export const ULTRA_QUESTIONS = [
-  "Why this happens",
-  "Is it the formula?",
+  "Why this happened",
+  "Is this abnormal?",
   "Is this normal?",
-  "Did anything change?",
 ] as const;
 
 export type UltraPath = "why" | "company" | "expert";
