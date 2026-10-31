@@ -56,6 +56,7 @@ export type RoomUltra = {
   timelineId?: string;
   imageUrl?: string | null;
   thunder: number;
+  experience?: string | null;
 };
 
 export function journeyDuration(started?: string | null, now = Date.now()) {
@@ -101,11 +102,10 @@ export function timelineFromJourney(
   };
 }
 
-export function questionTitle(question: string, productName: string) {
-  const name = productName.trim() || "this product";
-  const title = `${question.trim().replace(/\?$/, "")}: ${name}`.replace(/\s+/g, " ").trim();
+export function questionTitle(question: string, _productName?: string) {
+  const title = question.trim().replace(/\\s+/g, " ").trim();
   if (title.length >= 10) return title.slice(0, 160);
-  return `Ultra Unmask: ${name}`.slice(0, 160);
+  return "What should we understand about this product?";
 }
 
 export function momentsFromUpdates(
