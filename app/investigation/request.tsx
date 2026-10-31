@@ -161,7 +161,7 @@ export default function RequestUnmask() {
       ? wallet.data?.thunder || 0
       : wallet.data?.sparks || 0;
   const enough = openingValid && balance >= Number(d.openingAmount);
-  const valid = d.title.trim().length >= 10;
+  const valid = d.title.trim().length >= 10 && (d.concern.trim().length >= 10 || !!story.data?.body);
 
   async function submit() {
     if (!uid) {
@@ -214,7 +214,7 @@ export default function RequestUnmask() {
       const out = await api.create(
         {
           title: d.title.trim(),
-          concern: d.concern.trim() || d.title.trim(),
+          concern: d.concern.trim() || story.data?.body?.trim() || "",
           supporting_links: "",
           product_id: d.productId || null,
           attached_journey_id:
@@ -471,154 +471,43 @@ export default function RequestUnmask() {
                 </View>
                 <ChatCircle size={22} color={colors.brandDeep} />
               </View>
+              <Text style={heading}>Tell us what happened.</Text>
+              <Text style={body}>Start with your experience. What did the product do, what did you notice, and what happened next?</Text>
+              <TextInput accessibilityLabel="Describe my product experience" value={d.concern} onChangeText={(concern) => set({ concern })} multiline maxLength={3000} placeholder="This product burned my skin after three days…" placeholderTextColor={colors.inkSoft} style={{ fontFamily: fonts.regular, fontSize: 17, lineHeight: 25, minHeight: 150, color: colors.ink, padding: 14, borderRadius: 17, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E5DADC", textAlignVertical: "top" }} />
+              <Text style={{ ...body, fontSize: 11, textAlign: "right" }}>{d.concern.length}/3000</Text>
+            </View>
+            <View style={surface}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
+                <Files size={22} color={colors.brandDeep} />
+                <Text style={heading}>Now add the product timeline.</Text>
+              </View>
+              <Text style={body}>Let people open the history behind your experience — including progress photos and changes over time.</Text>
+              <EvidencePicker value={d.attachment} onChange={(attachment) => { set({ attachment }); if (!d.productId && attachment?.productId) set({ productId: attachment.productId }); }} buttonLabel={d.attachment?.kind === "journey" ? "Change product timeline" : "Attach product timeline"} kind="journey" />
+              {story.isLoading ? <ContentSkeleton rows={1} /> : story.data ? (
+                <View style={{ ...surface, backgroundColor: "#F3EAF0", padding: 14 }}>
+                  <Text style={{ ...heading, fontSize: 15 }}>Your original experience is linked</Text>
+                  <Text numberOfLines={4} style={body}>{story.data.body}</Text>
+                </View>
+              ) : null}
+            </View>
+            <View style={surface}>
+              <Text style={heading}>Then, what do you want answered?</Text>
+              <Text style={body}>Turn the experience into one clear question the creator should take further.</Text>
               <View style={{ flexDirection: "row", gap: 7, flexWrap: "wrap" }}>
                 {[
                   { label: "Loved it", Icon: Heart },
                   { label: "Let down", Icon: Lightning },
                   { label: "Curious", Icon: Question },
                 ].map(({ label, Icon }) => (
-                  <Pressable
-                    key={label}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: d.angle === label }}
-                    onPress={() => {
-                      hapticSelect();
-                      set({ angle: label });
-                    }}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 6,
-                      paddingHorizontal: 12,
-                      minHeight: 42,
-                      borderRadius: 99,
-                      backgroundColor:
-                        d.angle === label ? colors.brandDeep : "#EDE6E9",
-                    }}
-                  >
-                    <Icon
-                      size={16}
-                      color={d.angle === label ? "#fff" : colors.ink}
-                    />
-                    <Text
-                      style={{
-                        fontFamily: fonts.medium,
-                        fontSize: 13,
-                        color: d.angle === label ? "#fff" : colors.ink,
-                      }}
-                    >
-                      {label}
-                    </Text>
+                  <Pressable key={label} accessibilityRole="button" accessibilityState={{ selected: d.angle === label }} onPress={() => { hapticSelect(); set({ angle: label }); }} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, minHeight: 42, borderRadius: 99, backgroundColor: d.angle === label ? colors.brandDeep : "#EDE6E9" }}>
+                    <Icon size={16} color={d.angle === label ? "#fff" : colors.ink} />
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: d.angle === label ? "#fff" : colors.ink }}>{label}</Text>
                   </Pressable>
                 ))}
               </View>
-              <Text style={heading}>What would you like to understand?</Text>
-              <TextInput
-                accessibilityLabel="My Ultra Unmask question"
-                value={d.title}
-                onChangeText={(title) => set({ title })}
-                multiline
-                maxLength={160}
-                placeholder={
-                  d.angle === "Loved it"
-                    ? "This worked so well for me. Why—and who else could it help?"
-                    : d.angle === "Let down"
-                      ? "I expected something different. Why did this happen?"
-                      : "What’s the story behind this product?"
-                }
-                placeholderTextColor={colors.inkSoft}
-                style={{
-                  fontFamily: fonts.medium,
-                  fontSize: 21,
-                  lineHeight: 29,
-                  minHeight: 120,
-                  color: colors.ink,
-                  padding: 14,
-                  borderRadius: 17,
-                  backgroundColor: "#fff",
-                  borderWidth: 1,
-                  borderColor: "#E5DADC",
-                  textAlignVertical: "top",
-                }}
-              />
-              <Text style={{ ...body, fontSize: 11, textAlign: "right" }}>
-                {d.title.length}/160
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ expanded: details ?? !!d.concern }}
-                onPress={() => setDetails(!(details ?? !!d.concern))}
-                style={{
-                  minHeight: 44,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <CaretDown size={18} color={colors.ink} />
-                <Text style={{ ...heading, fontSize: 15 }}>
-                  Add a little context{" "}
-                  <Text style={{ ...body, fontSize: 12 }}>(optional)</Text>
-                </Text>
-              </Pressable>
-              {(details ?? !!d.concern) ? (
-                <TextInput
-                  accessibilityLabel="Extra context for my Ultra Unmask"
-                  value={d.concern}
-                  onChangeText={(concern) => set({ concern })}
-                  multiline
-                  maxLength={3000}
-                  placeholder="What happened? How did you use it? What would a useful answer look like?"
-                  placeholderTextColor={colors.inkSoft}
-                  style={{
-                    fontFamily: fonts.regular,
-                    fontSize: 16,
-                    lineHeight: 24,
-                    minHeight: 125,
-                    padding: 14,
-                    borderRadius: 17,
-                    backgroundColor: "#fff",
-                    borderWidth: 1,
-                    borderColor: "#E5DADC",
-                    color: colors.ink,
-                    textAlignVertical: "top",
-                  }}
-                />
-              ) : null}
+              <TextInput accessibilityLabel="My Ultra Unmask question" value={d.title} onChangeText={(title) => set({ title })} multiline maxLength={160} placeholder={d.angle === "Loved it" ? "Why did this work so well for me?" : d.angle === "Let down" ? "Why did this happen to me?" : "Was it the formula, or something else?"} placeholderTextColor={colors.inkSoft} style={{ fontFamily: fonts.medium, fontSize: 21, lineHeight: 29, minHeight: 110, color: colors.ink, padding: 14, borderRadius: 17, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E5DADC", textAlignVertical: "top" }} />
+              <Text style={{ ...body, fontSize: 11, textAlign: "right" }}>{d.title.length}/160</Text>
             </View>
-            <View style={surface}>
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 9 }}
-              >
-                <Files size={22} color={colors.brandDeep} />
-                <Text style={heading}>Bring your experience along.</Text>
-              </View>
-              <Text style={body}>
-                Already shared an experience or kept a product timeline? Attach
-                it so your story has context.
-              </Text>
-              <EvidencePicker
-                value={d.attachment}
-                onChange={(attachment) => {
-                  set({ attachment });
-                  if (!d.productId && attachment?.productId)
-                    set({ productId: attachment.productId });
-                }}
-                buttonLabel="Attach an experience or timeline"
-              />
-            </View>
-            {story.isLoading ? (
-              <ContentSkeleton rows={1} />
-            ) : story.data ? (
-              <View style={{ ...surface, backgroundColor: "#F3EAF0" }}>
-                <Text style={{ ...heading, fontSize: 15 }}>
-                  Your original experience is linked
-                </Text>
-                <Text numberOfLines={3} style={body}>
-                  {story.data.body}
-                </Text>
-              </View>
-            ) : null}
             <ActionButton
               label="Preview my Ultra Unmask"
               disabled={!valid}
