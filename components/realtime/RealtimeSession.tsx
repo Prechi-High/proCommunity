@@ -524,6 +524,7 @@ export function RealtimeSession({
       title: investigation.title || questionTitle(input.question, name),
       path: input.who,
       productName: name,
+      experience: input.timeline?.outcome || null,
       sparks: sparkCount,
       thunder: thunderCount,
       goal: investigation.spark_goal || ULTRA_UNMASK_SPARK_GOAL,
