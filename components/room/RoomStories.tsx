@@ -267,7 +267,7 @@ export function ExperienceSheet({
               </View>
             </PressScale>
           </ScrollView>
-        </Pressable>
+        </View>
       </PartialSheet>
     </Pressable>
   );
@@ -639,7 +639,7 @@ export function UltraCreate({
               </>
             )}
           </ScrollView>
-        </View>
+        </Pressable>
       </PartialSheet>
     </Pressable>
   );
