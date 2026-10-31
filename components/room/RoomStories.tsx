@@ -471,7 +471,8 @@ export function UltraCreate({
                 ) : (
                   <>
                     <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>PRODUCT TIMELINE</Text>
-                    {availableTimelines.length ? availableTimelines.slice(0, 5).map((item: RoomTimeline) => {
+                    {availableTimelines.length ? availableTimelines.slice(0, 5).map((rawItem: unknown) => {
+                      const item = rawItem as RoomTimeline;
                       const selected = selectedTimeline?.id === item.id;
                       return (
                         <Pressable
