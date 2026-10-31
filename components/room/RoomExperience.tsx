@@ -133,7 +133,7 @@ export type RoomExperienceProps = {
   onSendDetail?: (text: string, timeline: RoomTimeline | null) => void;
   onLoadTimelines?: () => Promise<RoomTimeline[]>;
   onCreateTimeline?: () => Promise<RoomTimeline | null>;
-  onStartUltra?: (input: { who: "company" | "expert"; question: string; timeline?: RoomTimeline | null; sparks: number; thunder: number }) => Promise<void>;
+  onStartUltra?: (input: { who: "company" | "expert"; question: string; experience: string; timeline?: RoomTimeline | null; sparks: number; thunder: number }) => Promise<void>;
   onPublishTimeline?: (item: RoomTimeline) => Promise<RoomTimeline | null>;
   onAddSparks?: (id: string, amount: number) => Promise<void>;
   onPinUltra?: (id: string) => void;
@@ -383,17 +383,18 @@ export function RoomExperience(props: RoomExperienceProps) {
         step={props.focus === "ultra-sparks" || props.focus === "ultra-seal" ? 1 : 0}
         productName={props.products[0]?.name || props.title}
         timeline={ultraTimeline}
+        timelines={props.timelines}
         balance={props.sparksBalance ?? null}
         thunderBalance={props.thunderBalance ?? null}
         busy={ultraBusy}
         error={ultraError}
         onClose={() => setUltraOpen(false)}
         onClaim={() => { void props.onClaimSparks?.(); }}
-        onCreate={(who, question, sparks, thunder) => {
+        onCreate={(who, question, experience, timeline, sparks, thunder) => {
           if (!props.onStartUltra) return;
           setUltraBusy(true);
           setUltraError("");
-          void props.onStartUltra({ who, question, timeline: ultraTimeline, sparks, thunder }).then(() => {
+          void props.onStartUltra({ who, question, experience, timeline: timeline || ultraTimeline, sparks, thunder }).then(() => {
             setUltraOpen(false);
           }).catch((error: unknown) => {
             setUltraError(error instanceof Error ? error.message : "The Ultra Unmask did not start.");
