@@ -311,7 +311,12 @@ export function RoomExperience(props: RoomExperienceProps) {
                     setSparkError(error instanceof Error ? error.message : "Could not claim Sparks.");
                   });
                 }}
-                onOpenTimeline={(timelineId) => {\n                  const timeline = props.timelines?.find((item) => item.id === timelineId);\n                  if (timeline) setOpenExperience(timeline);\n                  props.onOpenTimeline?.(timelineId);\n                }}               onNudgeUltra={(card) => {
+                onOpenTimeline={(timelineId) => {
+                  const timeline = props.timelines?.find((item) => item.id === timelineId);
+                  if (timeline) setOpenExperience(timeline);
+                  props.onOpenTimeline?.(timelineId);
+                }}
+                onNudgeUltra={(card) => {
                   setDetailCard(card);
                   setDetailText("");
                   setDetailImage(null);
