@@ -312,7 +312,7 @@ export function UltraCard({
           {card.imageUrl ? <Image source={{ uri: card.imageUrl }} style={{ width: 48, height: 48, borderRadius: 12 }} /> : null}
           <View style={{ flex: 1, gap: 3 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 21, lineHeight: 26, color: colors.ink }}>{card.title.includes(":") ? card.title.split(":").slice(1).join(":").trim() : card.title}</Text>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>{card.productName} · {card.author}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>{card.productName}</Text><Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{card.author} experience</Text>
           </View>
         </View>
         {card.experience ? (
