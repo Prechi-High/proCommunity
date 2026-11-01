@@ -16,6 +16,7 @@ export type RoomChatNote = {
   name: string;
   text: string;
   experience?: RoomTimeline | null;
+  authorId?: string | null;
 };
 
 const PATHS = new Set(ULTRA_PATHS.map((item) => item.id));
