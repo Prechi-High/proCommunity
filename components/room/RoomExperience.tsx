@@ -1217,6 +1217,7 @@ function ChatSheet(props: RoomExperienceProps & {
   confirmPrivate?: boolean;
   initialDraft?: RoomTimeline | null;
   onOpenExperience: (item: RoomTimeline) => void;
+  onOpenUltraCard: (card: RoomUltra) => void;
   onDeeper: (item: RoomTimeline) => void;
   onSpark: (id: string) => void;
   onClaim: () => void;
@@ -1286,6 +1287,7 @@ function ChatSheet(props: RoomExperienceProps & {
                       onOpen={() => props.onOpenExperience(experience)}
                       onDeeper={isOwner ? () => props.onDeeper(experience) : undefined}
                       started={!!activeUltra}
+                      onOpenUltra={activeUltra ? () => props.onOpenUltraCard(activeUltra) : undefined}
                       isOwner={isOwner}
                       requestStatus={requestStatus}
                       onRequest={!activeUltra && !isOwner && experience.authorId && props.onRequestExperienceUltra ? () => void props.onRequestExperienceUltra?.(experience) : undefined}
