@@ -188,11 +188,11 @@ export function RealtimeSession({
     const pollUltraRequests = async () => {
       try {
         const [sent, received] = await Promise.all([
-          db().from("unmask_support_requests").select("id,investigation_id,status").eq("user_id", uid).eq("kind", "unmask_request"),
-          db().from("unmask_support_requests").select("id,investigation_id,status").eq("recipient_user_id", uid).eq("kind", "unmask_request"),
+          db().from("unmask_support_requests").select("id,investigation_id,timeline_id,status,kind").eq("user_id", uid).in("kind", ["unmask_request","experience_ultra_request"]),
+          db().from("unmask_support_requests").select("id,investigation_id,timeline_id,status,kind").eq("recipient_user_id", uid).in("kind", ["unmask_request","experience_ultra_request"]),
         ]);
         if (dead) return;
-        const rows = [...(sent.data || []), ...(received.data || [])] as Array<{ id: string; investigation_id: string | null; status: string }>;
+        const rows = [...(sent.data || []), ...(received.data || [])] as Array<{ id: string; investigation_id: string | null; timeline_id: string | null; status: string; kind: string }>;
         const statusMap: Record<string, "pending" | "approved" | "declined"> = {};
         const idMap: Record<string, string> = {};
         for (const row of rows) {
@@ -515,6 +515,18 @@ export function RealtimeSession({
     const next = { ...item, visibility: "public" as const };
     setTimelines((current) => current.map((row) => row.id === item.id ? next : row));
     return next;
+  }
+
+  async function requestExperienceUltra(item: RoomTimeline) {
+    if (!item.authorId || item.authorId === uid) throw new Error("You can start the Ultra yourself.");
+    const result = await db().rpc("request_experience_ultra", {
+      p_timeline_id: item.id,
+      p_recipient: item.authorId,
+      p_message: youName + " wants permission to start an Ultra Unmask on your " + item.productName + " experience.",
+    });
+    if (result.error) throw new Error(result.error.message);
+    setUltraRequestStatus((current) => ({ ...current, ["timeline:" + item.id]: "pending" }));
+    if (result.data) setUltraRequestIds((current) => ({ ...current, ["timeline:" + item.id]: String(result.data) }));
   }
 
   async function requestUltra(card: RoomUltra) {
