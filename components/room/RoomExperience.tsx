@@ -1232,9 +1232,29 @@ function ChatSheet(props: RoomExperienceProps & {
               <Animated.View key={note.id} entering={reduced ? undefined : SlideInRight.springify().damping(18)} style={{ gap: 6 }}>
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{note.name}</Text>
                 {note.text ? <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, color: colors.inkSoft }}>{note.text}</Text> : null}
-                {note.experience ? (
-                  <ExperienceCard item={note.experience} onOpen={() => props.onOpenExperience(note.experience!)} onDeeper={() => props.onDeeper(note.experience!)} />
-                ) : null}
+                {note.experience ? (() => {
+                  const experience = note.experience!;
+                  const activeUltra = (props.ultras || []).find((card) => card.timelineId === experience.id);
+                  const requestKey = "timeline:" + experience.id;
+                  const requestStatus = props.ultraRequestStatus?.[requestKey] || "none";
+                  const isOwner = !!props.viewerId && experience.authorId === props.viewerId;
+                  return (
+                    <ExperienceCard
+                      item={experience}
+                      onOpen={() => props.onOpenExperience(experience)}
+                      onDeeper={() => props.onDeeper(experience)}
+                      started={!!activeUltra}
+                      isOwner={isOwner}
+                      requestStatus={requestStatus}
+                      onRequest={!activeUltra && !isOwner && experience.authorId && props.onRequestExperienceUltra ? () => void props.onRequestExperienceUltra?.(experience) : undefined}
+                      onRespondRequest={isOwner && requestStatus === "pending" ? (status) => {
+                        const requestId = props.ultraRequestIds?.[requestKey];
+                        if (requestId) void props.onRespondUltraRequest?.(requestId, status);
+                      } : undefined}
+                      onApproved={!activeUltra && requestStatus === "approved" ? () => props.onDeeper(experience) : undefined}
+                    />
+                  );
+                })() : null}
               </Animated.View>
             )) : (props.ultras || []).length ? null : <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>No replies yet. Add what you're hearing about the product.</Text>}
           </ScrollView>
