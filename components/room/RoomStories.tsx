@@ -221,19 +221,15 @@ export function ExperienceSheet({
   full,
   onToggleFull,
   onClose,
-  onDeeper,
-  hasUltra,
 }: {
   item: RoomTimeline | null;
   full?: boolean;
   onToggleFull?: () => void;
   onClose: () => void;
-  onDeeper: () => void;
-  hasUltra?: boolean;
 }) {
   const { height } = useWindowDimensions();
   if (!item) return null;
-  const entries = item.entries?.length ? item.entries : [{ id: item.id, at: "", note: item.outcome || "No dated chapter was shared with this timeline.", reaction: null }];
+  const entries = item.entries?.length ? item.entries : [];
   return (
     <Pressable accessibilityLabel="Close experience" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center", zIndex: 5 }}>
       <PartialSheet onClose={onClose}>
@@ -263,17 +259,7 @@ export function ExperienceSheet({
                 </View>
               </View>
             ))}
-            {hasUltra ? (
-              <View style={{ minHeight: 44, borderRadius: 12, backgroundColor: colors.goldSoft, alignItems: "center", justifyContent: "center" }}>
-                <Text style={{ fontFamily: fonts.semibold, color: colors.honeyInk }}>Ultra Unmask is already active for this experience.</Text>
-              </View>
-            ) : (
-              <PressScale label="Unmask this product" onPress={onDeeper}>
-                <View style={{ minHeight: 48, borderRadius: 999, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ fontFamily: fonts.bold, color: colors.white }}>Unmask this product</Text>
-                </View>
-              </PressScale>
-            )}
+
           </ScrollView>
         </View>
       </PartialSheet>
