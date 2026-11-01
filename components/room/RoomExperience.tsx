@@ -779,12 +779,6 @@ function Carousel(props: RoomExperienceProps & {
               onSpark={() => props.onSpark(card.id)}
               onPin={() => props.onPinUltra?.(card.id)}
               onNudge={() => props.onNudgeUltra?.(card)}
-              isCreator={!!props.viewerId && card.authorId === props.viewerId}
-              requestStatus={props.ultraRequestStatus?.[card.id] || "none"}
-              requestId={props.ultraRequestIds?.[card.id] || null}
-              onRespondRequest={(status) => { const requestId = props.ultraRequestIds?.[card.id]; if (requestId) void props.onRespondUltraRequest?.(requestId, status); }}
-              onApproved={() => props.onOpenApprovedUltra?.(card)}
-              onRequest={props.onRequestUltra ? () => void props.onRequestUltra?.(card) : undefined}
               onClaim={props.onClaim}
               onTimeline={card.timelineId && props.onOpenTimeline ? () => props.onOpenTimeline?.(card.timelineId!) : undefined}
             />
