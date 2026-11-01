@@ -452,7 +452,7 @@ export function RoomExperience(props: RoomExperienceProps) {
           </Pressable>
         </Pressable>
       ) : null}
-      <ExperienceSheet item={openExperience} full={experienceFull} onToggleFull={() => setExperienceFull((value) => !value)} onClose={() => { setOpenExperience(null); setExperienceFull(false); }} onDeeper={() => { setUltraTimeline(openExperience); setOpenExperience(null); setUltraOpen(true); }} />
+      <ExperienceSheet item={openExperience} full={experienceFull} hasUltra={!!openExperience && (props.ultras || []).some((card) => card.timelineId === openExperience.id)} onToggleFull={() => setExperienceFull((value) => !value)} onClose={() => { setOpenExperience(null); setExperienceFull(false); }} onDeeper={() => { if (openExperience && !(props.ultras || []).some((card) => card.timelineId === openExperience.id)) { setUltraTimeline(openExperience); setOpenExperience(null); setUltraOpen(true); } }} />
       <UltraCreate
         open={ultraOpen}
         initialExperience={ultraExperience}
