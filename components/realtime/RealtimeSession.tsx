@@ -468,7 +468,7 @@ export function RealtimeSession({
     const text = (textOverride ?? message).trim();
     if (!text && !timeline) return;
     if (textOverride == null) setMessage("");
-    const payload = { type: "chat", id: freshId(), text, experience: timeline || null };
+    const payload = { type: "chat", id: freshId(), text, experience: timeline ? { ...timeline, authorId: uid } : null, authorId: uid };
     try {
       if (mode === "room") await postRoomEvent(id, "chat", youName, { text, experience: timeline || null }, payload.id);
       await publish(payload);
@@ -482,7 +482,7 @@ export function RealtimeSession({
   async function loadTimelines() {
     const rows = await journeys();
     const cards = await Promise.all(rows.slice(0, 8).map(async (row) => {
-      const card = timelineFromJourney(row, youName);
+      const card = timelineFromJourney(row, youName, uid);
       try {
         card.entries = momentsFromUpdates(await journeyUpdates(row.id));
       } catch { card.entries = []; }
@@ -505,7 +505,7 @@ export function RealtimeSession({
       goal: "Tracking this in the Room",
       visibility: "public",
     });
-    const card = timelineFromJourney(journey, youName);
+    const card = timelineFromJourney(journey, youName, uid);
     setTimelines((current) => [card, ...current.filter((item) => item.id !== card.id)]);
     return card;
   }
