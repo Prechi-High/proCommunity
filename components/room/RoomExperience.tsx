@@ -143,6 +143,8 @@ export type RoomExperienceProps = {
   onOpenTimeline?: (timelineId: string) => void;
   onClaimSparks?: () => Promise<number | null>;
   focus?: "replies" | "replies-full" | "picker" | "private" | "draft" | "card" | "timeline" | "timeline-full" | "full" | "ultra" | "ultra-sparks" | "ultra-seal" | "spark" | "notice";
+  viewerId?: string | null;
+  onRequestUltra?: (card: RoomUltra) => Promise<void>;
   canManage: boolean;
   creators: CohostPerson[];
   cohostIds: string[];
@@ -710,6 +712,8 @@ function Carousel(props: RoomExperienceProps & {
               onSpark={() => props.onSpark(card.id)}
               onPin={() => props.onPinUltra?.(card.id)}
               onNudge={() => { setDetailCard(card); setDetailText(""); setDetailImage(null); setDetailProduct(""); props.onNudgeUltra?.(card); }}
+              isCreator={!!props.viewerId && card.authorId === props.viewerId}
+              onRequest={props.onRequestUltra ? () => void props.onRequestUltra?.(card) : undefined}
               onClaim={props.onClaim}
               onTimeline={card.timelineId && props.onOpenTimeline ? () => props.onOpenTimeline?.(card.timelineId!) : undefined}
             />
