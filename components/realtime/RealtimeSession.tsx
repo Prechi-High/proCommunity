@@ -536,10 +536,16 @@ export function RealtimeSession({
     if (card) setUltraRequestStatus((current) => ({ ...current, [card.id]: status }));
   }
 
+  async function loadContextTimelines(card: RoomUltra) {
+    const result = await db().rpc("list_unmask_context_timelines", { p_investigation_id: card.id, p_session_id: id });
+    if (result.error) throw new Error(result.error.message);
+    return (result.data || []) as Array<{ id: string; product_name: string; brand: string | null; image_url: string | null; visibility: string }>;
+  }
+
   async function requestUltraContext(
     card: RoomUltra,
     question: string,
-    timeline: RoomTimeline | null,
+    timelineId: string | null,
     customProductName: string,
     customProductPhotoPath: string | null,
   ) {
@@ -550,7 +556,7 @@ export function RealtimeSession({
       p_investigation_id: card.id,
       p_session_id: id,
       p_question: question,
-      p_timeline_id: timeline?.id || null,
+      p_timeline_id: timelineId || null,
       p_custom_product_name: customProductName || null,
       p_custom_product_photo_path: customProductPhotoPath || null,
     });
@@ -871,6 +877,7 @@ export function RealtimeSession({
         onNudgeUltra={(card) => { /* handled by the Room detail sheet */ }}
         onRequestUltra={requestUltra}
         onRequestUltraContext={requestUltraContext}
+        onLoadContextTimelines={loadContextTimelines}
         ultraRequestStatus={ultraRequestStatus}
         ultraRequestIds={ultraRequestIds}
         onRespondUltraRequest={respondUnmaskRequest}
