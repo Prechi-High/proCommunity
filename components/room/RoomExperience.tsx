@@ -138,6 +138,7 @@ export type RoomExperienceProps = {
   onRequestUltraContext?: (card: RoomUltra, question: string, timelineId: string | null, customProductName: string, customProductPhotoPath: string | null) => Promise<void>;
   onLoadContextTimelines?: (card: RoomUltra) => Promise<ContextTimeline[]>;
   onLoadTimelines?: () => Promise<RoomTimeline[]>;
+  onLoadTimelineById?: (timelineId: string, fallback?: { author?: string | null; authorId?: string | null }) => Promise<RoomTimeline>;
   onCreateTimeline?: () => Promise<RoomTimeline | null>;
   onStartUltra?: (input: { who: "company" | "expert"; question: string; experience: string; timeline?: RoomTimeline | null; sparks: number; thunder: number }) => Promise<void>;
   onPublishTimeline?: (item: RoomTimeline) => Promise<RoomTimeline | null>;
@@ -228,8 +229,21 @@ export function RoomExperience(props: RoomExperienceProps) {
     const timelineId = card.timelineId;
     let timeline = timelineId ? props.timelines?.find((item) => item.id === timelineId) : undefined;
 
-    // Room timelines can be loaded lazily, so don't make the button a no-op
-    // just because the timeline isn't in the current in-memory list.
+    // Ultra cards can point to another person's journey. The normal Room
+    // timeline loader only returns the current user's journeys, so load the
+    // exact journey by ID when it isn't already in memory.
+    if (!timeline && timelineId && props.onLoadTimelineById) {
+      try {
+        timeline = await props.onLoadTimelineById(timelineId, {
+          author: card.author,
+          authorId: card.authorId,
+        });
+      } catch {
+        timeline = undefined;
+      }
+    }
+
+    // Keep the existing loader as a fallback for older/sample Room data.
     if (!timeline && props.onLoadTimelines) {
       try {
         const loaded = await props.onLoadTimelines();
