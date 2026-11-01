@@ -27,6 +27,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 
 import {
   ArrowsIn,
@@ -170,6 +171,7 @@ export function RoomExperience(props: RoomExperienceProps) {
   useUnmaskTheme();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const reduced = useReducedMotion();
   const sheetWidth = Math.min(width, 430);
   const [menu, setMenu] = useState(false);
@@ -312,8 +314,8 @@ export function RoomExperience(props: RoomExperienceProps) {
                   });
                 }}
                 onOpenTimeline={(timelineId) => {
-                  const timeline = props.timelines?.find((item) => item.id === timelineId);
-                  if (timeline) setOpenExperience(timeline);
+                  // Use the same canonical product-timeline screen as My Products.
+                  if (timelineId) router.push(`/journey/${timelineId}` as any);
                   props.onOpenTimeline?.(timelineId);
                 }}
                 onNudgeUltra={(card) => {

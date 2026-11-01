@@ -79,8 +79,11 @@ export function ExperienceCard({ item, onOpen, onDeeper, started, onRequest, req
   onRequest?: () => void; requestStatus?: "none" | "pending" | "approved" | "declined"; onApproved?: () => void; isOwner?: boolean; onRespondRequest?: (status: "approved" | "declined") => void;
 }) {
   const reduced = useReducedMotion();
-  const facts = [item.frequency, item.skinType, item.duration].filter((fact): fact is string => !!fact);
-  const chips = item.reactions.filter((chip) => chip && chip !== item.frequency);
+  const context = [
+    item.skinType ? `${item.skinType} skin` : null,
+    item.frequency ? `Routine: ${item.frequency}` : null,
+    item.duration && item.duration !== "In progress" ? item.duration : null,
+  ].filter((fact): fact is string => !!fact);
   return (
     <Animated.View entering={reduced ? undefined : FadeInDown.springify().damping(16)}>
       <View style={{ borderRadius: 16, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.stage, overflow: "hidden" }}>
@@ -94,8 +97,15 @@ export function ExperienceCard({ item, onOpen, onDeeper, started, onRequest, req
             </View>
           </View>
           {item.entries?.[0]?.note ? <Text numberOfLines={4} style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.ink }}>{item.entries[0].note}</Text> : null}
-          {facts.length ? <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{facts.join(" · ")}</Text> : null}
-          {chips.length ? <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>{chips.slice(0, 3).map((chip) => <Text key={chip} style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand }}>{chip}</Text>)}</View> : null}
+          {context.length ? (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {context.map((fact) => (
+                <View key={fact} style={{ paddingHorizontal: 8, minHeight: 26, borderRadius: 999, backgroundColor: colors.hiSoft, justifyContent: "center" }}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand }}>{fact}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
         </Pressable>
         {started ? <PressScale label="View Ultra Unmask" onPress={onOpen}><View style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.line, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Ultra Unmask is active · View</Text></View></PressScale>
         : requestStatus === "approved" && isOwner ? <View style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.line, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>Ultra request approved · the requester can now start the investigation.</Text></View>
