@@ -20,6 +20,7 @@ export type RoomTimeline = {
   outcome: string;
   reactions: string[];
   author: string;
+  authorId?: string | null;
   entries: TimelineMoment[];
   visibility: "public" | "followers" | "private";
   frequency?: string | null;
@@ -95,6 +96,7 @@ export function timelineFromJourney(
     outcome: journey.goal || journey.status || "In progress",
     reactions: [journey.acquisition].filter((item): item is string => !!item),
     author,
+    authorId: null,
     entries: [],
     visibility,
     frequency: journey.frequency?.trim() || null,
