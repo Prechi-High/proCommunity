@@ -292,12 +292,13 @@ export function UltraCard({
   onClaim?: () => void;
   onTimeline?: () => void;
   onRequest?: () => void;
-  isCreator?: boolean;
-  hasRequested?: boolean;
+  onApproved?: () => void;
+  onRespondRequest?: (status: "approved" | "declined") => void;
+  requestStatus?: "none" | "pending" | "approved" | "declined";
+  requestId?: string | null;
   canPin?: boolean;
   burst?: boolean;
   isCreator?: boolean;
-  hasRequested?: boolean;
   shortfall?: string;
 }) {
   const reduced = useReducedMotion();
@@ -327,7 +328,7 @@ export function UltraCard({
             </View>
           </PressScale>
         ) : null}
-        {card.path === "company" ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.inkSoft }}>{COMPANY_FALLBACK}</Text> : null}
+        {card.path === "company" ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.inkSoft }}>Brand response requested · expert backup if the company cannot respond.</Text> : null}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
             <Lightning size={14} color={colors.gold} weight="fill" />
@@ -359,7 +360,45 @@ export function UltraCard({
           {canPin && onPin ? <PressScale label="Highlight this Ultra Unmask" onPress={onPin}><Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>Highlight</Text></PressScale> : null}
           {canPin && onNudge ? <PressScale label="Ask for more detail" onPress={onNudge}><Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>Ask for more detail</Text></PressScale> : null}
         </View>
-        {mine ? <View style={{ minHeight: 42, borderRadius: 12, backgroundColor: colors.goldSoft, paddingHorizontal: 12, justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>Your Unmask is active</Text><Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>People can support this investigation.</Text></View> : null}\n        {isCreator ? <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.honeyInk }}>Your Unmask is active · people can support it</Text> : hasRequested ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>Request sent to {card.author}.</Text> : onRequest ? <PressScale label="Request an Unmask" onPress={onRequest}><Text style={{ fontFamily: fonts.semibold, color: colors.brand }}>Request an Unmask</Text></PressScale> : null}
+        {isCreator ? (
+          <View style={{ minHeight: 42, borderRadius: 12, backgroundColor: colors.goldSoft, paddingHorizontal: 12, justifyContent: "center", gap: 2 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>Your Unmask is active</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>People can support this investigation.</Text>
+          </View>
+        ) : requestStatus === "approved" ? (
+          <PressScale label="Unmask this approved experience" onPress={onApproved}>
+            <View style={{ minHeight: 42, borderRadius: 12, backgroundColor: colors.brandDeep, paddingHorizontal: 14, justifyContent: "center", alignItems: "center" }}>
+              <Text style={{ fontFamily: fonts.semibold, color: colors.white }}>Permission granted · Unmask this</Text>
+            </View>
+          </PressScale>
+        ) : requestStatus === "pending" ? (
+          <View style={{ minHeight: 40, borderRadius: 12, backgroundColor: colors.stage, paddingHorizontal: 12, justifyContent: "center" }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>Request sent to {card.author} · waiting for permission.</Text>
+          </View>
+        ) : onRequest ? (
+          <PressScale label="Request an Unmask" onPress={onRequest}>
+            <View style={{ minHeight: 42, borderRadius: 12, backgroundColor: colors.brandDeep, paddingHorizontal: 14, justifyContent: "center", alignItems: "center" }}>
+              <Text style={{ fontFamily: fonts.semibold, color: colors.white }}>Request an Unmask</Text>
+            </View>
+          </PressScale>
+        ) : null}
+        {isCreator && requestStatus === "pending" && requestId && onRespondRequest ? (
+          <View style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.gold, backgroundColor: colors.goldSoft, padding: 10, gap: 8 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.honeyInk }}>Someone wants permission to Unmask this experience.</Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <PressScale label="Allow Unmask request" onPress={() => onRespondRequest("approved")}>
+                <View style={{ minHeight: 34, paddingHorizontal: 12, borderRadius: 999, backgroundColor: colors.brandDeep, justifyContent: "center" }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.white }}>Allow</Text>
+                </View>
+              </PressScale>
+              <PressScale label="Decline Unmask request" onPress={() => onRespondRequest("declined")}>
+                <View style={{ minHeight: 34, paddingHorizontal: 12, borderRadius: 999, backgroundColor: colors.stage, justifyContent: "center" }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.ink }}>Decline</Text>
+                </View>
+              </PressScale>
+            </View>
+          </View>
+        ) : null}
         {shortfall ? (
           <View style={{ gap: 4 }}>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>{shortfall}</Text>
