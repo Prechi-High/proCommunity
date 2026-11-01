@@ -274,129 +274,51 @@ export function ExperienceSheet({
 }
 
 export function UltraCard({
-  card,
-  onSpark,
-  onPin,
-  onNudge,
-  onClaim,
-  onTimeline,
-  onRequest,
-  onApproved,
-  isCreator,
-  onRespondRequest,
-  requestStatus,
-  requestId,
-  canPin,
-  burst,
-  shortfall,
+  card, onSpark, onPin, onNudge, onClaim, onTimeline, canPin, burst, shortfall,
 }: {
-  card: RoomUltra;
-  onSpark: () => void;
-  onPin?: () => void;
-  onNudge?: () => void;
-  onClaim?: () => void;
-  onTimeline?: () => void;
-  onRequest?: () => void;
-  onApproved?: () => void;
-  onRespondRequest?: (status: "approved" | "declined") => void;
-  requestStatus?: "none" | "pending" | "approved" | "declined";
-  requestId?: string | null;
-  canPin?: boolean;
-  burst?: boolean;
-  isCreator?: boolean;
-  shortfall?: string;
+  card: RoomUltra; onSpark: () => void; onPin?: () => void; onNudge?: () => void; onClaim?: () => void; onTimeline?: () => void; canPin?: boolean; burst?: boolean; shortfall?: string;
 }) {
   const reduced = useReducedMotion();
   const progress = sparkProgress(combinedSupport(card.sparks, card.thunder || 0), card.goal || ULTRA_UNMASK_SPARK_GOAL);
   const path = ULTRA_PATHS.find((item) => item.id === card.path)?.label || "Ultra Unmask";
+  const question = card.title.includes(":") ? card.title.split(":").slice(1).join(":").trim() : card.title;
   return (
     <Animated.View entering={reduced ? undefined : ZoomIn.springify().damping(16)} style={{ borderRadius: 18, overflow: "hidden", borderWidth: 1, borderColor: card.pinned ? colors.gold : colors.line, backgroundColor: colors.stage }}>
       <Image source={ULTRA_ART} accessibilityLabel="Ultra Unmask" style={{ width: "100%", height: 92 }} />
-      <View style={{ padding: 12, gap: 8, backgroundColor: colors.wine }}>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.brand }}>{card.pinned ? "Highlighted · " : ""}{path}</Text>
-        <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
-          {card.imageUrl ? <Image source={{ uri: card.imageUrl }} style={{ width: 56, height: 56, borderRadius: 12 }} /> : null}
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.inkSoft }}>ASK THE {path === "company" ? "COMPANY" : "EXPERT"}</Text>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 21, lineHeight: 26, color: colors.ink }}>
-              {card.title.includes(":") ? card.title.split(":").slice(1).join(":").trim() : card.title}
-            </Text>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>{card.productName}</Text>
+      <View style={{ padding: 14, gap: 10, backgroundColor: colors.wine }}>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.brand }}>{card.pinned ? "Highlighted · " : ""}ULTRA UNMASK</Text>
+        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+          {card.imageUrl ? <Image source={{ uri: card.imageUrl }} style={{ width: 58, height: 58, borderRadius: 12 }} /> : <View style={{ width: 58, height: 58, borderRadius: 12, backgroundColor: colors.hiSoft, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.brand }}>{card.productName.slice(0, 1)}</Text></View>}
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.ink }}>{card.productName}</Text>
+            <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>The product at the centre of this case</Text>
           </View>
         </View>
-        {card.experience ? (
-          <View style={{ gap: 6, paddingTop: 2 }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.inkSoft }}>WHAT HAPPENED</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.ink }}>{card.experience}</Text>
-          </View>
-        ) : null}
-        {card.timelineId && onTimeline ? (
-          <PressScale label="View attached product timeline" onPress={onTimeline}>
-            <View style={{ minHeight: 40, borderRadius: 12, backgroundColor: colors.goldSoft, borderWidth: 1, borderColor: colors.gold, paddingHorizontal: 12, justifyContent: "center" }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>View product timeline →</Text>
-            </View>
-          </PressScale>
-        ) : null}
-        {card.path === "company" ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.inkSoft }}>Brand response requested · expert backup if the company cannot respond.</Text> : null}
+        <View style={{ gap: 4 }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 0.4, color: colors.inkSoft }}>ASK THE {path === "company" ? "COMPANY" : "EXPERT"}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 21, lineHeight: 27, color: colors.ink }}>{question}</Text>
+        </View>
+        {card.experience ? <View style={{ gap: 5, paddingTop: 2 }}><Text style={{ fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 0.4, color: colors.inkSoft }}>THE EXPERIENCE</Text><Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.ink }}>{card.experience}</Text></View> : null}
+        {card.timelineId && onTimeline ? <PressScale label="View product timeline" onPress={onTimeline}><View style={{ minHeight: 38, borderRadius: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.stage, paddingHorizontal: 11, justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.brand }}>View product timeline →</Text></View></PressScale> : null}
+        {card.path === "company" ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, lineHeight: 16, color: colors.inkSoft }}>Company response requested · an expert can step in if the brand cannot respond.</Text> : null}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Lightning size={14} color={colors.gold} weight="fill" />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>{card.sparks.toLocaleString()} Sparks</Text>
-          </View>
-          {card.thunder ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <DoubleBolt />
-              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.honeyInk }}>{card.thunder.toLocaleString()} Thunder {card.thunder === 1 ? "Spark" : "Sparks"}</Text>
-            </View>
-          ) : null}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Lightning size={14} color={colors.gold} weight="fill" /><Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>{card.sparks.toLocaleString()} Sparks</Text></View>
+          {card.thunder ? <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><DoubleBolt /><Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.honeyInk }}>{card.thunder.toLocaleString()} Thunder {card.thunder === 1 ? "Spark" : "Sparks"}</Text></View> : null}
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>{progress.remaining.toLocaleString()} to the line</Text>
         </View>
         <RisingBar ratio={progress.ratio} />
-        <View style={{ flexDirection: "row" }}>
-          {card.supporters.slice(0, 5).map((person, index) => (
-            <View key={`${person.name}-${index}`} style={{ width: 24, height: 24, borderRadius: 12, marginRight: -6, backgroundColor: colors.brandDeep, borderWidth: 1, borderColor: colors.wine, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.white }}>{person.name.slice(0, 1)}</Text>
-            </View>
-          ))}
-        </View>
+        <View style={{ flexDirection: "row" }}>{card.supporters.slice(0, 5).map((person, index) => <View key={person.name + "-" + index} style={{ width: 24, height: 24, borderRadius: 12, marginRight: -6, backgroundColor: colors.brandDeep, borderWidth: 1, borderColor: colors.wine, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: colors.white }}>{person.name.slice(0, 1)}</Text></View>)}</View>
         <View style={{ flexDirection: "row", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <PressScale label="Add Sparks" onPress={onSpark}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, minHeight: 36, borderRadius: 999, backgroundColor: colors.goldSoft }}>
-              <Lightning size={14} color={colors.honeyInk} weight="fill" />
-              <Text style={{ fontFamily: fonts.semibold, color: colors.honeyInk }}>Add Sparks</Text>
-            </View>
-          </PressScale>
+          <PressScale label="Add Sparks" onPress={onSpark}><View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, minHeight: 36, borderRadius: 999, backgroundColor: colors.goldSoft }}><Lightning size={14} color={colors.honeyInk} weight="fill" /><Text style={{ fontFamily: fonts.semibold, color: colors.honeyInk }}>Add Sparks</Text></View></PressScale>
           {canPin && onPin ? <PressScale label="Highlight this Ultra Unmask" onPress={onPin}><Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>Highlight</Text></PressScale> : null}
           {canPin && onNudge ? <PressScale label="Ask for more detail" onPress={onNudge}><Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>Ask for more detail</Text></PressScale> : null}
         </View>
-        {isCreator ? (
-          <View style={{ minHeight: 42, borderRadius: 12, backgroundColor: colors.goldSoft, paddingHorizontal: 12, justifyContent: "center", gap: 2 }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>Ultra Unmask is active</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>You already started this investigation. View it to follow the case.</Text>
-          </View>
-        ) : requestStatus === "approved" && onApproved ? (
-          <PressScale label="View approved Ultra Unmask" onPress={onApproved}>
-            <View style={{ minHeight: 42, borderRadius: 12, backgroundColor: colors.brandDeep, paddingHorizontal: 14, justifyContent: "center", alignItems: "center" }}>
-              <Text style={{ fontFamily: fonts.semibold, color: colors.white }}>View Ultra Unmask</Text>
-            </View>
-          </PressScale>
-        ) : requestStatus === "pending" ? (
-          <View style={{ minHeight: 40, borderRadius: 12, backgroundColor: colors.stage, paddingHorizontal: 12, justifyContent: "center" }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>Unmask access requested · waiting for {card.author}'s permission.</Text>
-          </View>
-        ) : null}
-        {shortfall ? (
-          <View style={{ gap: 4 }}>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>{shortfall}</Text>
-            {onClaim ? <PressScale label="Claim monthly Sparks" onPress={onClaim}><Text style={{ fontFamily: fonts.semibold, color: colors.brand }}>Claim monthly Sparks</Text></PressScale> : null}
-          </View>
-        ) : null}
+        {shortfall ? <View style={{ gap: 4 }}><Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>{shortfall}</Text>{onClaim ? <PressScale label="Claim monthly Sparks" onPress={onClaim}><Text style={{ fontFamily: fonts.semibold, color: colors.brand }}>Claim monthly Sparks</Text></PressScale> : null}</View> : null}
         <SparkBurst show={!!burst} />
       </View>
     </Animated.View>
   );
 }
-
 export function UltraCreate({
   open,
   step = 0,
