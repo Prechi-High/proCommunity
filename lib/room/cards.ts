@@ -85,6 +85,7 @@ export function timelineFromJourney(
     unmask_catalog?: { name?: string | null; brand?: string | null; image_url?: string | null } | null;
   },
   author: string,
+  authorId?: string | null,
 ): RoomTimeline {
   const visibility = journey.visibility === "public" || journey.visibility === "followers" ? journey.visibility : "private";
   return {
@@ -96,7 +97,7 @@ export function timelineFromJourney(
     outcome: journey.goal || journey.status || "In progress",
     reactions: [journey.acquisition].filter((item): item is string => !!item),
     author,
-    authorId: null,
+    authorId: authorId || null,
     entries: [],
     visibility,
     frequency: journey.frequency?.trim() || null,
