@@ -194,6 +194,9 @@ export function RoomExperience(props: RoomExperienceProps) {
   const [detailImage, setDetailImage] = useState<string | null>(null);
   const [detailProduct, setDetailProduct] = useState("");
   const [detailTimeline, setDetailTimeline] = useState<RoomTimeline | null>(null);
+  const [detailCard, setDetailCard] = useState<RoomUltra | null>(null);
+  const [detailText, setDetailText] = useState("");
+  const [detailImage, setDetailImage] = useState<string | null>(null);
   const [detailSending, setDetailSending] = useState(false);
   const [experienceFull, setExperienceFull] = useState(false);
   const [ultraExperience, setUltraExperience] = useState("");
