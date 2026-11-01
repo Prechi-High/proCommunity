@@ -74,50 +74,38 @@ export function TimelineDraft({ item, onPress }: { item: RoomTimeline; onPress: 
   );
 }
 
-export function ExperienceCard({ item, onOpen, onDeeper, started }: { item: RoomTimeline; onOpen: () => void; onDeeper: () => void; started?: boolean }) {
+export function ExperienceCard({ item, onOpen, onDeeper, started, onRequest, requestStatus = "none", onApproved }: {
+  item: RoomTimeline; onOpen: () => void; onDeeper: () => void; started?: boolean;
+  onRequest?: () => void; requestStatus?: "none" | "pending" | "approved" | "declined"; onApproved?: () => void;
+}) {
   const reduced = useReducedMotion();
   const facts = [item.frequency, item.skinType, item.duration].filter((fact): fact is string => !!fact);
   const chips = item.reactions.filter((chip) => chip && chip !== item.frequency);
   return (
     <Animated.View entering={reduced ? undefined : FadeInDown.springify().damping(16)}>
       <View style={{ borderRadius: 16, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.stage, overflow: "hidden" }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${item.author}'s timeline for ${item.productName}`} onPress={onOpen} style={{ flexDirection: "row", gap: 10, padding: 10 }}>
-          {item.imageUrl ? (
-            <Image source={{ uri: item.imageUrl }} style={{ width: 52, height: 52, borderRadius: 10 }} />
-          ) : (
-            <View style={{ width: 52, height: 52, borderRadius: 10, backgroundColor: colors.hiSoft, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontFamily: fonts.bold, color: colors.brand }}>{item.productName.slice(0, 1)}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={item.author + "'s experience for " + item.productName} onPress={onOpen} style={{ gap: 10, padding: 12 }}>
+          <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+            {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={{ width: 56, height: 56, borderRadius: 10 }} /> : <View style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: colors.hiSoft, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.bold, color: colors.brand }}>{item.productName.slice(0, 1)}</Text></View>}
+            <View style={{ flex: 1, gap: 3 }}>
+              <View style={{ paddingHorizontal: 6, minHeight: 18, alignSelf: "flex-start", borderRadius: 4, backgroundColor: colors.goldSoft, justifyContent: "center" }}><Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.honeyInk }}>EXPERIENCE</Text></View>
+              <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.ink }}>{item.productName}</Text>
+              <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{item.author}'s product experience</Text>
             </View>
-          )}
-          <View style={{ flex: 1, gap: 3 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <View style={{ paddingHorizontal: 6, minHeight: 18, borderRadius: 4, backgroundColor: colors.goldSoft, justifyContent: "center" }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.honeyInk }}>EXPERIENCE</Text>
-              </View>
-              <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 13, color: colors.ink }}>{item.author}'s timeline</Text>
-            </View>
-            <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{item.productName}</Text>
-            {facts.length ? <Text numberOfLines={2} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{facts.join(" · ")}</Text> : null}
-            {chips.length ? (
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
-                {chips.slice(0, 3).map((chip) => (
-                  <Text key={chip} style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand }}>{chip}</Text>
-                ))}
-              </View>
-            ) : null}
           </View>
+          {item.entries?.[0]?.note ? <Text numberOfLines={4} style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.ink }}>{item.entries[0].note}</Text> : null}
+          {facts.length ? <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{facts.join(" · ")}</Text> : null}
+          {chips.length ? <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>{chips.slice(0, 3).map((chip) => <Text key={chip} style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand }}>{chip}</Text>)}</View> : null}
         </Pressable>
-        <PressScale label={started ? "Open investigation" : "Unmask this"} onPress={started ? onOpen : onDeeper}>
-          <View style={{ minHeight: 40, borderTopWidth: 1, borderTopColor: colors.line, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6 }}>
-            <Lightning size={14} color={colors.brand} weight="fill" />
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>{started ? "Open investigation" : "Unmask this"}</Text>
-          </View>
-        </PressScale>
+        {started ? <PressScale label="View Ultra Unmask" onPress={onOpen}><View style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.line, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Ultra Unmask is active · View</Text></View></PressScale>
+        : requestStatus === "approved" && onApproved ? <PressScale label="Start approved Ultra Unmask" onPress={onApproved}><View style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.line, alignItems: "center", justifyContent: "center", backgroundColor: colors.hiSoft }}><Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Permission granted · Start Ultra Unmask</Text></View></PressScale>
+        : requestStatus === "pending" ? <View style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.line, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>Ultra Unmask requested · waiting for {item.author}'s permission.</Text></View>
+        : onRequest ? <PressScale label="Request an Ultra Unmask" onPress={onRequest}><View style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.line, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Request an Ultra Unmask</Text></View></PressScale>
+        : <PressScale label="Unmask this product" onPress={onDeeper}><View style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.line, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Unmask this product</Text></View></PressScale>}
       </View>
     </Animated.View>
   );
 }
-
 export function TimelinePicker({
   open,
   items,
