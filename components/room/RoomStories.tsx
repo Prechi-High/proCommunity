@@ -75,7 +75,7 @@ export function TimelineDraft({ item, onPress }: { item: RoomTimeline; onPress: 
 }
 
 export function ExperienceCard({ item, onOpen, onDeeper, started, onRequest, requestStatus = "none", onApproved }: {
-  item: RoomTimeline; onOpen: () => void; onDeeper: () => void; started?: boolean;
+  item: RoomTimeline; onOpen: () => void; onDeeper?: () => void; started?: boolean;
   onRequest?: () => void; requestStatus?: "none" | "pending" | "approved" | "declined"; onApproved?: () => void; isOwner?: boolean; onRespondRequest?: (status: "approved" | "declined") => void;
 }) {
   const reduced = useReducedMotion();
@@ -103,7 +103,7 @@ export function ExperienceCard({ item, onOpen, onDeeper, started, onRequest, req
         : requestStatus === "pending" && isOwner && onRespondRequest ? <View style={{ minHeight: 54, borderTopWidth: 1, borderTopColor: colors.line, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 }}><Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>Someone requested an Ultra Unmask for this experience.</Text><Pressable onPress={() => onRespondRequest("declined")} style={{ minHeight: 36, paddingHorizontal: 10, justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, color: colors.coral }}>Decline</Text></Pressable><Pressable onPress={() => onRespondRequest("approved")} style={{ minHeight: 36, paddingHorizontal: 12, borderRadius: 999, backgroundColor: colors.brandDeep, justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, color: colors.white }}>Allow</Text></Pressable></View>
         : requestStatus === "pending" ? <View style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.line, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>Ultra Unmask requested · waiting for {item.author}'s permission.</Text></View>
         : onRequest ? <PressScale label="Request an Ultra Unmask" onPress={onRequest}><View style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.line, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Request an Ultra Unmask</Text></View></PressScale>
-        : <PressScale label="Unmask this product" onPress={onDeeper}><View style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.line, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Unmask this product</Text></View></PressScale>}
+        : onDeeper ? <PressScale label="Unmask this product" onPress={onDeeper}><View style={{ minHeight: 44, borderTopWidth: 1, borderTopColor: colors.line, alignItems: "center", justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Unmask this product</Text></View></PressScale>}
       </View>
     </Animated.View>
   );
