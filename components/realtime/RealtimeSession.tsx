@@ -486,7 +486,7 @@ export function RealtimeSession({
     return next;
   }
 
-  async function startUltra(input: { who: "company" | "expert"; question: string; experience: string; timeline?: RoomTimeline | null; sparks: number; thunder: number }) {
+  async function requestUltra(card: RoomUltra) {\n    if (!card.authorId || card.authorId === uid) return;\n    const result = await db().rpc("request_unmask", { p_investigation_id: card.id, p_recipient: card.authorId, p_message: youName + " wants to request an Unmask for " + card.productName });\n    if (result.error) throw new Error(result.error.message);\n  }\n\n  async function startUltra(input: { who: "company" | "expert"; question: string; experience: string; timeline?: RoomTimeline | null; sparks: number; thunder: number }) {
     const sparks = input.sparks >= 10 ? input.sparks : 0;
     const thunder = input.thunder >= 1 ? input.thunder : 0;
     if (!sparks && !thunder) throw new Error("Add at least 10 Sparks or 1 Thunder Spark.");
