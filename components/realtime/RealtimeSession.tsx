@@ -544,8 +544,8 @@ export function RealtimeSession({
   async function respondUnmaskRequest(requestId: string, status: "approved" | "declined") {
     const result = await db().rpc("respond_unmask_request", { p_request_id: requestId, p_status: status });
     if (result.error) throw new Error(result.error.message);
-    const card = ultras.find((item) => ultraRequestIds[item.id] === requestId);
-    if (card) setUltraRequestStatus((current) => ({ ...current, [card.id]: status }));
+    const key = Object.keys(ultraRequestIds).find((item) => ultraRequestIds[item] === requestId);
+    if (key) setUltraRequestStatus((current) => ({ ...current, [key]: status }));
   }
 
   async function loadContextTimelines(card: RoomUltra) {
@@ -890,6 +890,7 @@ export function RealtimeSession({
         onRequestUltra={requestUltra}
         onRequestUltraContext={requestUltraContext}
         onLoadContextTimelines={loadContextTimelines}
+        onRequestExperienceUltra={requestExperienceUltra}
         ultraRequestStatus={ultraRequestStatus}
         ultraRequestIds={ultraRequestIds}
         onRespondUltraRequest={respondUnmaskRequest}
