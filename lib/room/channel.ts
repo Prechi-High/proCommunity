@@ -88,6 +88,7 @@ function readUltra(value: unknown): RoomUltra | null {
     author: clip(row.author, 80) || "Unmasker",
     authorId: typeof row.authorId === "string" ? row.authorId.slice(0, 80) : null,
     pinned: !!row.pinned,
+    experience: clip(row.experience, 3000) || null,
     timelineId: clip(row.timelineId, 80) || undefined,
     imageUrl: clip(row.imageUrl, 400) || null,
     thunder: typeof row.thunder === "number" && Number.isFinite(row.thunder) ? row.thunder : 0,
