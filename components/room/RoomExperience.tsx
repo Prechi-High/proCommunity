@@ -150,6 +150,7 @@ export type RoomExperienceProps = {
   viewerId?: string | null;
   onRequestUltra?: (card: RoomUltra) => Promise<void>;
   onOpenApprovedUltra?: (card: RoomUltra) => void;
+  onRequestExperienceUltra?: (item: RoomTimeline) => Promise<void>;
   ultraRequestStatus?: Record<string, "pending" | "approved" | "declined">;
   ultraRequestIds?: Record<string, string>;
   onRespondUltraRequest?: (requestId: string, status: "approved" | "declined") => Promise<void>;
