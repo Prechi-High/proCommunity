@@ -281,6 +281,7 @@ export function UltraCard({
   onClaim,
   onTimeline,
   canPin,
+  foo,
   burst,
   shortfall,
 }: {
@@ -291,6 +292,7 @@ export function UltraCard({
   onClaim?: () => void;
   onTimeline?: () => void;
   canPin?: boolean;
+  foo?: boolean;
   burst?: boolean;
   shortfall?: string;
 }) {
