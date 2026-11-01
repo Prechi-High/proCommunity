@@ -359,7 +359,7 @@ export function UltraCard({
           {highlightAllowed && onPin ? <PressScale label="Highlight this Ultra Unmask" onPress={onPin}><Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>Highlight</Text></PressScale> : null}
           {canPin && onNudge ? <PressScale label="Ask for more detail" onPress={onNudge}><Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>Ask for more detail</Text></PressScale> : null}
         </View>
-        {shortfall ? (
+        {mine ? <View style={{ minHeight: 42, borderRadius: 12, backgroundColor: colors.goldSoft, paddingHorizontal: 12, justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>Your Unmask is active</Text><Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>People can support this investigation.</Text></View> : null}\n        {shortfall ? (
           <View style={{ gap: 4 }}>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>{shortfall}</Text>
             {onClaim ? <PressScale label="Claim monthly Sparks" onPress={onClaim}><Text style={{ fontFamily: fonts.semibold, color: colors.brand }}>Claim monthly Sparks</Text></PressScale> : null}
