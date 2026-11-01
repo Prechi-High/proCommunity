@@ -224,6 +224,32 @@ export function RoomExperience(props: RoomExperienceProps) {
   const extraListeners = Math.max(props.anonymousCount, Math.max(0, props.listenerCount - people.length));
   const hasProductUltra = (props.ultras || []).some((card) => (card.productName || "").trim().toLowerCase() === (props.products[0]?.name || "").trim().toLowerCase());
 
+  const openUltraProductTimeline = async (card: RoomUltra) => {
+    const timelineId = card.timelineId;
+    let timeline = timelineId ? props.timelines?.find((item) => item.id === timelineId) : undefined;
+
+    // Room timelines can be loaded lazily, so don't make the button a no-op
+    // just because the timeline isn't in the current in-memory list.
+    if (!timeline && props.onLoadTimelines) {
+      try {
+        const loaded = await props.onLoadTimelines();
+        timeline = timelineId
+          ? loaded.find((item) => item.id === timelineId)
+          : loaded.find((item) =>
+              (item.productName || "").trim().toLowerCase() === (card.productName || "").trim().toLowerCase()
+            );
+      } catch {
+        timeline = undefined;
+      }
+    }
+
+    if (!timeline) return;
+    setOpenUltraCard(null);
+    setExperienceFull(false);
+    setOpenExperience(timeline);
+    props.onOpenTimeline?.(timeline.id);
+  };
+
   if (props.minimized && props.phase !== "prejoin") {
     return (
       <View pointerEvents="box-none" style={[{ flex: 1, justifyContent: "flex-end" }, webFill]}>
@@ -489,11 +515,7 @@ export function RoomExperience(props: RoomExperienceProps) {
                 burst={sparkBurst === openUltraCard.id}
                 shortfall={sparkErrorId === openUltraCard.id ? sparkError : ""}
                 onTimeline={() => {
-                  const timeline = props.timelines?.find((item) => item.id === openUltraCard.timelineId);
-                  if (timeline) {
-                    setOpenUltraCard(null);
-                    setOpenExperience(timeline);
-                  }
+                  void openUltraProductTimeline(openUltraCard);
                 }}
               />
             </ScrollView>
