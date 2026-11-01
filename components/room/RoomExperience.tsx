@@ -1247,7 +1247,7 @@ function ChatSheet(props: RoomExperienceProps & {
                         const requestId = props.ultraRequestIds?.[requestKey];
                         if (requestId) void props.onRespondUltraRequest?.(requestId, status);
                       } : undefined}
-                      onApproved={!activeUltra && requestStatus === "approved" ? () => props.onDeeper(experience) : undefined}
+                      onApproved={!activeUltra && requestStatus === "approved" && !isOwner ? () => props.onDeeper(experience) : undefined}
                     />
                   );
                 })() : null}
