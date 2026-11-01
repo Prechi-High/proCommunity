@@ -150,6 +150,7 @@ export type RoomExperienceProps = {
   viewerId?: string | null;
   onRequestUltra?: (card: RoomUltra) => Promise<void>;
   onOpenApprovedUltra?: (card: RoomUltra) => void;
+  onRequestExperienceUltra?: (item: RoomTimeline) => Promise<void>;
   ultraRequestStatus?: Record<string, "pending" | "approved" | "declined">;
   ultraRequestIds?: Record<string, string>;
   onRespondUltraRequest?: (requestId: string, status: "approved" | "declined") => Promise<void>;
@@ -219,6 +220,7 @@ export function RoomExperience(props: RoomExperienceProps) {
   }, [props.focus, props.notes]);
   const people = useMemo(() => [...props.stage, ...props.audience], [props.stage, props.audience]);
   const extraListeners = Math.max(props.anonymousCount, Math.max(0, props.listenerCount - people.length));
+  const hasProductUltra = (props.ultras || []).some((card) => (card.productName || "").trim().toLowerCase() === (props.products[0]?.name || "").trim().toLowerCase());
 
   if (props.minimized && props.phase !== "prejoin") {
     return (
@@ -402,7 +404,7 @@ export function RoomExperience(props: RoomExperienceProps) {
             onReport={() => setReported(true)}
             canEnd={!!props.onEnd}
             onEnd={props.onEnd}
-            canStartUltra={!!props.onStartUltra && props.canManage}
+            canStartUltra={!!props.onStartUltra && props.canManage && !hasProductUltra}
             onUltra={() => { setMenu(false); setUltraTimeline(null); setUltraError(""); setUltraOpen(true); }}
           />
         ) : null}
@@ -451,7 +453,7 @@ export function RoomExperience(props: RoomExperienceProps) {
           </Pressable>
         </Pressable>
       ) : null}
-      <ExperienceSheet item={openExperience} full={experienceFull} onToggleFull={() => setExperienceFull((value) => !value)} onClose={() => { setOpenExperience(null); setExperienceFull(false); }} onDeeper={() => { setUltraTimeline(openExperience); setOpenExperience(null); setUltraOpen(true); }} />
+      <ExperienceSheet item={openExperience} full={experienceFull} hasUltra={!!openExperience && (props.ultras || []).some((card) => card.timelineId === openExperience.id)} onToggleFull={() => setExperienceFull((value) => !value)} onClose={() => { setOpenExperience(null); setExperienceFull(false); }} onDeeper={() => { if (openExperience && !(props.ultras || []).some((card) => card.timelineId === openExperience.id)) { setUltraTimeline(openExperience); setOpenExperience(null); setUltraOpen(true); } }} />
       <UltraCreate
         open={ultraOpen}
         initialExperience={ultraExperience}
@@ -761,11 +763,12 @@ function Carousel(props: RoomExperienceProps & {
               <Text numberOfLines={3} style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.inkSoft }}>{props.description}</Text>
             ) : null}
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>Shared by {props.hostName}</Text>
-            {props.canManage && props.onStartUltra ? (
-              <PressScale label="Unmask this product" onPress={props.onOpenUltra}>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Unmask this product</Text>
-              </PressScale>
-            ) : null}
+            {(() => {
+              const active = ultras.find((card) => (card.productName || "").trim().toLowerCase() === slide.name.trim().toLowerCase());
+              if (active) return <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.honeyInk }}>Ultra Unmask is already active for this product.</Text>;
+              if (!props.canManage || !props.onStartUltra) return null;
+              return <PressScale label="Unmask this product" onPress={props.onOpenUltra}><Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Unmask this product</Text></PressScale>;
+            })()}
           </View>
         ))}
         {ultras.map((card) => (
@@ -778,12 +781,6 @@ function Carousel(props: RoomExperienceProps & {
               onSpark={() => props.onSpark(card.id)}
               onPin={() => props.onPinUltra?.(card.id)}
               onNudge={() => props.onNudgeUltra?.(card)}
-              isCreator={!!props.viewerId && card.authorId === props.viewerId}
-              requestStatus={props.ultraRequestStatus?.[card.id] || "none"}
-              requestId={props.ultraRequestIds?.[card.id] || null}
-              onRespondRequest={(status) => { const requestId = props.ultraRequestIds?.[card.id]; if (requestId) void props.onRespondUltraRequest?.(requestId, status); }}
-              onApproved={() => props.onOpenApprovedUltra?.(card)}
-              onRequest={props.onRequestUltra ? () => void props.onRequestUltra?.(card) : undefined}
               onClaim={props.onClaim}
               onTimeline={card.timelineId && props.onOpenTimeline ? () => props.onOpenTimeline?.(card.timelineId!) : undefined}
             />
@@ -1231,9 +1228,29 @@ function ChatSheet(props: RoomExperienceProps & {
               <Animated.View key={note.id} entering={reduced ? undefined : SlideInRight.springify().damping(18)} style={{ gap: 6 }}>
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{note.name}</Text>
                 {note.text ? <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, color: colors.inkSoft }}>{note.text}</Text> : null}
-                {note.experience ? (
-                  <ExperienceCard item={note.experience} onOpen={() => props.onOpenExperience(note.experience!)} onDeeper={() => props.onDeeper(note.experience!)} />
-                ) : null}
+                {note.experience ? (() => {
+                  const experience = note.experience!;
+                  const activeUltra = (props.ultras || []).find((card) => card.timelineId === experience.id);
+                  const requestKey = "timeline:" + experience.id;
+                  const requestStatus = props.ultraRequestStatus?.[requestKey] || "none";
+                  const isOwner = !!props.viewerId && experience.authorId === props.viewerId;
+                  return (
+                    <ExperienceCard
+                      item={experience}
+                      onOpen={() => props.onOpenExperience(experience)}
+                      onDeeper={isOwner ? () => props.onDeeper(experience) : undefined}
+                      started={!!activeUltra}
+                      isOwner={isOwner}
+                      requestStatus={requestStatus}
+                      onRequest={!activeUltra && !isOwner && experience.authorId && props.onRequestExperienceUltra ? () => void props.onRequestExperienceUltra?.(experience) : undefined}
+                      onRespondRequest={isOwner && requestStatus === "pending" ? (status) => {
+                        const requestId = props.ultraRequestIds?.[requestKey];
+                        if (requestId) void props.onRespondUltraRequest?.(requestId, status);
+                      } : undefined}
+                      onApproved={!activeUltra && requestStatus === "approved" && !isOwner ? () => props.onDeeper(experience) : undefined}
+                    />
+                  );
+                })() : null}
               </Animated.View>
             )) : (props.ultras || []).length ? null : <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>No replies yet. Add what you're hearing about the product.</Text>}
           </ScrollView>

@@ -16,6 +16,7 @@ export type RoomChatNote = {
   name: string;
   text: string;
   experience?: RoomTimeline | null;
+  authorId?: string | null;
 };
 
 const PATHS = new Set(ULTRA_PATHS.map((item) => item.id));
@@ -38,6 +39,7 @@ export function readTimeline(value: unknown): RoomTimeline | null {
       ? row.reactions.filter((item): item is string => typeof item === "string").slice(0, 6).map((item) => item.slice(0, 40))
       : [],
     author: row.author.slice(0, 80),
+    authorId: typeof row.authorId === "string" ? row.authorId.slice(0, 80) : null,
     entries: readMoments(row.entries),
     visibility: row.visibility === "public" || row.visibility === "followers" ? row.visibility : "private",
     frequency: clip(row.frequency, 40) || null,
@@ -85,7 +87,9 @@ function readUltra(value: unknown): RoomUltra | null {
     goal: row.goal,
     supporters,
     author: clip(row.author, 80) || "Unmasker",
+    authorId: typeof row.authorId === "string" ? row.authorId.slice(0, 80) : null,
     pinned: !!row.pinned,
+    experience: clip(row.experience, 3000) || null,
     timelineId: clip(row.timelineId, 80) || undefined,
     imageUrl: clip(row.imageUrl, 400) || null,
     thunder: typeof row.thunder === "number" && Number.isFinite(row.thunder) ? row.thunder : 0,
@@ -94,13 +98,13 @@ function readUltra(value: unknown): RoomUltra | null {
 
 export function applyRoomNote(notes: RoomChatNote[], raw: unknown, author: string): RoomChatNote[] {
   if (!raw || typeof raw !== "object") return notes;
-  const item = raw as { type?: string; id?: unknown; text?: unknown; experience?: unknown };
+  const item = raw as { type?: string; id?: unknown; text?: unknown; experience?: unknown; authorId?: unknown };
   if (item.type !== "chat" || typeof item.id !== "string") return notes;
   if (notes.some((note) => note.id === item.id)) return notes;
   const text = clip(item.text, 500);
   const experience = item.experience == null ? null : readTimeline(item.experience);
   if (!text && !experience) return notes;
-  return [...notes, { id: item.id.slice(0, 80), name: author.slice(0, 80) || "Unmasker", text: text || "Shared a product timeline.", experience }].slice(-40);
+  return [...notes, { id: item.id.slice(0, 80), name: author.slice(0, 80) || "Unmasker", text: text || "Shared a product timeline.", experience, authorId: typeof item.authorId === "string" ? item.authorId.slice(0, 80) : null }].slice(-40);
 }
 
 export function applyRoomUltras(list: RoomUltra[], raw: unknown): RoomUltra[] {

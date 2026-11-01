@@ -23,6 +23,7 @@ export function foldRoomEvents(rows: RoomEventRow[]) {
         id: row.idempotency_key,
         text: payload.text,
         experience: payload.experience,
+        authorId: payload.authorId,
       }, row.author_name);
     } else if (row.kind === "reaction") {
       reactionCount += 1;
