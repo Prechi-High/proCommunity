@@ -314,17 +314,21 @@ export function UltraCard({
       <Image source={ULTRA_ART} accessibilityLabel="Ultra Unmask" style={{ width: "100%", height: 92 }} />
       <View style={{ padding: 12, gap: 8, backgroundColor: colors.wine }}>
         <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.brand }}>{card.pinned ? "Highlighted · " : ""}{path}</Text>
-        <View style={{ flexDirection: "row", gap: 10 }}>
-          {card.imageUrl ? <Image source={{ uri: card.imageUrl }} style={{ width: 48, height: 48, borderRadius: 12 }} /> : null}
-          <View style={{ flex: 1, gap: 3 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 21, lineHeight: 26, color: colors.ink }}>{card.title.includes(":") ? card.title.split(":").slice(1).join(":").trim() : card.title}</Text>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>{card.productName}</Text><Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{card.author} experience</Text>
+        <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+          {card.imageUrl ? <Image source={{ uri: card.imageUrl }} style={{ width: 56, height: 56, borderRadius: 12 }} /> : null}
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.inkSoft }}>ASK THE {path === "company" ? "COMPANY" : "EXPERT"}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 21, lineHeight: 26, color: colors.ink }}>
+              {card.title.includes(":") ? card.title.split(":").slice(1).join(":").trim() : card.title}
+            </Text>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>{card.productName}</Text>
           </View>
         </View>
         {card.experience ? (
-          <Text numberOfLines={5} style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.inkSoft }}>
-            {card.experience}
-          </Text>
+          <View style={{ gap: 6, paddingTop: 2 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.inkSoft }}>WHAT HAPPENED</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.ink }}>{card.experience}</Text>
+          </View>
         ) : null}
         {card.timelineId && onTimeline ? (
           <PressScale label="View attached product timeline" onPress={onTimeline}>
@@ -367,41 +371,18 @@ export function UltraCard({
         </View>
         {isCreator ? (
           <View style={{ minHeight: 42, borderRadius: 12, backgroundColor: colors.goldSoft, paddingHorizontal: 12, justifyContent: "center", gap: 2 }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>Your Unmask is active</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>People can support this investigation.</Text>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>Ultra Unmask is active</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>You already started this investigation. View it to follow the case.</Text>
           </View>
         ) : requestStatus === "approved" && onApproved ? (
-          <PressScale label="Unmask this approved experience" onPress={onApproved}>
+          <PressScale label="View approved Ultra Unmask" onPress={onApproved}>
             <View style={{ minHeight: 42, borderRadius: 12, backgroundColor: colors.brandDeep, paddingHorizontal: 14, justifyContent: "center", alignItems: "center" }}>
-              <Text style={{ fontFamily: fonts.semibold, color: colors.white }}>Permission granted · Unmask this</Text>
+              <Text style={{ fontFamily: fonts.semibold, color: colors.white }}>View Ultra Unmask</Text>
             </View>
           </PressScale>
         ) : requestStatus === "pending" ? (
           <View style={{ minHeight: 40, borderRadius: 12, backgroundColor: colors.stage, paddingHorizontal: 12, justifyContent: "center" }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>Request sent to {card.author} · waiting for permission.</Text>
-          </View>
-        ) : onRequest ? (
-          <PressScale label="Request an Unmask" onPress={onRequest}>
-            <View style={{ minHeight: 42, borderRadius: 12, backgroundColor: colors.brandDeep, paddingHorizontal: 14, justifyContent: "center", alignItems: "center" }}>
-              <Text style={{ fontFamily: fonts.semibold, color: colors.white }}>Request an Unmask</Text>
-            </View>
-          </PressScale>
-        ) : null}
-        {isCreator && requestStatus === "pending" && requestId && onRespondRequest ? (
-          <View style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.gold, backgroundColor: colors.goldSoft, padding: 10, gap: 8 }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.honeyInk }}>Someone wants permission to Unmask this experience.</Text>
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <PressScale label="Allow Unmask request" onPress={() => onRespondRequest("approved")}>
-                <View style={{ minHeight: 34, paddingHorizontal: 12, borderRadius: 999, backgroundColor: colors.brandDeep, justifyContent: "center" }}>
-                  <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.white }}>Allow</Text>
-                </View>
-              </PressScale>
-              <PressScale label="Decline Unmask request" onPress={() => onRespondRequest("declined")}>
-                <View style={{ minHeight: 34, paddingHorizontal: 12, borderRadius: 999, backgroundColor: colors.stage, justifyContent: "center" }}>
-                  <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.ink }}>Decline</Text>
-                </View>
-              </PressScale>
-            </View>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>Unmask access requested · waiting for {card.author}'s permission.</Text>
           </View>
         ) : null}
         {shortfall ? (
