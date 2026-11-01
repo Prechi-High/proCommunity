@@ -87,6 +87,8 @@ export function RealtimeSession({
   const [reactionTotal, setReactionTotal] = useState(0);
   const [timelines, setTimelines] = useState<RoomTimeline[]>([]);
   const [ultras, setUltras] = useState<RoomUltra[]>([]);
+  const [ultraRequestStatus, setUltraRequestStatus] = useState<Record<string, "pending" | "approved" | "declined">>({});
+  const [ultraRequestIds, setUltraRequestIds] = useState<Record<string, string>>({});
   const [sparksBalance, setSparksBalance] = useState<number | null>(null);
   const [thunderBalance, setThunderBalance] = useState<number | null>(null);
   const anonymousRef = useRef(false);
@@ -180,6 +182,35 @@ export function RealtimeSession({
     const timer = setInterval(() => void poll(), 2000);
     return () => { cancelled = true; clearInterval(timer); };
   }, [id, state, uid, micApproved]);
+  useEffect(() => {
+    if (mode !== "room" || state !== "connected" || !uid) return;
+    let dead = false;
+    const pollUltraRequests = async () => {
+      try {
+        const [sent, received] = await Promise.all([
+          db().from("unmask_support_requests").select("id,investigation_id,status").eq("user_id", uid).eq("kind", "unmask_request"),
+          db().from("unmask_support_requests").select("id,investigation_id,status").eq("recipient_user_id", uid).eq("kind", "unmask_request"),
+        ]);
+        if (dead) return;
+        const rows = [...(sent.data || []), ...(received.data || [])] as Array<{ id: string; investigation_id: string | null; status: string }>;
+        const statusMap: Record<string, "pending" | "approved" | "declined"> = {};
+        const idMap: Record<string, string> = {};
+        for (const row of rows) {
+          if (!row.investigation_id) continue;
+          if (row.status === "pending" || row.status === "approved" || row.status === "declined") {
+            statusMap[row.investigation_id] = row.status;
+            idMap[row.investigation_id] = row.id;
+          }
+        }
+        setUltraRequestStatus(statusMap);
+        setUltraRequestIds(idMap);
+      } catch {}
+    };
+    void pollUltraRequests();
+    const timer = setInterval(() => void pollUltraRequests(), 2500);
+    return () => { dead = true; clearInterval(timer); };
+  }, [id, mode, state, uid]);
+
 
   useEffect(() => {
     if (mode !== "room" || !micApproved || liveRole !== "viewer" || inviteSeen.current) return;
@@ -486,6 +517,53 @@ export function RealtimeSession({
     return next;
   }
 
+  async function requestUltra(card: RoomUltra) {
+    if (!card.authorId || card.authorId === uid) return;
+    const result = await db().rpc("request_unmask", {
+      p_investigation_id: card.id,
+      p_recipient: card.authorId,
+      p_message: youName + " wants to request an Unmask for " + card.productName,
+    });
+    if (result.error) throw new Error(result.error.message);
+    setUltraRequestStatus((current) => ({ ...current, [card.id]: "pending" }));
+    if (result.data) setUltraRequestIds((current) => ({ ...current, [card.id]: String(result.data) }));
+  }
+
+  async function respondUnmaskRequest(requestId: string, status: "approved" | "declined") {
+    const result = await db().rpc("respond_unmask_request", { p_request_id: requestId, p_status: status });
+    if (result.error) throw new Error(result.error.message);
+    const card = ultras.find((item) => ultraRequestIds[item.id] === requestId);
+    if (card) setUltraRequestStatus((current) => ({ ...current, [card.id]: status }));
+  }
+
+  async function loadContextTimelines(card: RoomUltra) {
+    const result = await db().rpc("list_unmask_context_timelines", { p_investigation_id: card.id, p_session_id: id });
+    if (result.error) throw new Error(result.error.message);
+    return (result.data || []) as Array<{ id: string; product_name: string; brand: string | null; image_url: string | null; visibility: string }>;
+  }
+
+  async function requestUltraContext(
+    card: RoomUltra,
+    question: string,
+    timelineId: string | null,
+    customProductName: string,
+    customProductPhotoPath: string | null,
+  ) {
+    if (!isHostSession && !cohostIds.includes(uid || "")) {
+      throw new Error("Only the Room host or a co-host can request more detail.");
+    }
+    const result = await db().rpc("request_ultra_context", {
+      p_investigation_id: card.id,
+      p_session_id: id,
+      p_question: question,
+      p_timeline_id: timelineId || null,
+      p_custom_product_name: customProductName || null,
+      p_custom_product_photo_path: customProductPhotoPath || null,
+    });
+    if (result.error) throw new Error(result.error.message);
+    setManagementError("Detail request sent to " + card.author + ".");
+  }
+
   async function startUltra(input: { who: "company" | "expert"; question: string; experience: string; timeline?: RoomTimeline | null; sparks: number; thunder: number }) {
     const sparks = input.sparks >= 10 ? input.sparks : 0;
     const thunder = input.thunder >= 1 ? input.thunder : 0;
@@ -530,6 +608,7 @@ export function RealtimeSession({
       goal: investigation.spark_goal || ULTRA_UNMASK_SPARK_GOAL,
       supporters,
       author: youName,
+      authorId: uid,
       pinned: false,
       timelineId: input.timeline?.id,
       imageUrl: input.timeline?.imageUrl || null,
@@ -795,7 +874,14 @@ export function RealtimeSession({
           await publish({ type: "pin", id: cardId });
           ingest({ type: "pin", id: cardId }, youName);
         })().catch((error) => setManagementError(error instanceof Error ? error.message : "Could not highlight that Ultra Unmask."))}
-        onNudgeUltra={(card) => void sendMessage(`${card.author}, add what changed and what you still don't know.`)}
+        onNudgeUltra={(card) => { /* handled by the Room detail sheet */ }}
+        onRequestUltra={requestUltra}
+        onRequestUltraContext={requestUltraContext}
+        onLoadContextTimelines={loadContextTimelines}
+        ultraRequestStatus={ultraRequestStatus}
+        ultraRequestIds={ultraRequestIds}
+        onRespondUltraRequest={respondUnmaskRequest}
+        viewerId={uid}
         onClaimSparks={claimRoomSparks}
         onToggleMic={() => void toggleMic()}
         onRequestMic={() => void requestMic()}
