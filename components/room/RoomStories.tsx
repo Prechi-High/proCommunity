@@ -311,7 +311,7 @@ export function UltraCard({
         <View style={{ flexDirection: "row", gap: 10 }}>
           {card.imageUrl ? <Image source={{ uri: card.imageUrl }} style={{ width: 48, height: 48, borderRadius: 12 }} /> : null}
           <View style={{ flex: 1, gap: 3 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 22, color: colors.ink }}>{card.title}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 21, lineHeight: 26, color: colors.ink }}>{card.title.includes(":") ? card.title.split(":").slice(1).join(":").trim() : card.title}</Text>
             <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>{card.productName} · {card.author}</Text>
           </View>
         </View>
