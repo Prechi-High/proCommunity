@@ -517,7 +517,48 @@ export function RealtimeSession({
     return next;
   }
 
-  async function requestUltra(card: RoomUltra) {\n    if (!card.authorId || card.authorId === uid) return;\n    const result = await db().rpc("request_unmask", { p_investigation_id: card.id, p_recipient: card.authorId, p_message: youName + " wants to request an Unmask for " + card.productName });\n    if (result.error) throw new Error(result.error.message);\n  }\n\n  async function startUltra(input: { who: "company" | "expert"; question: string; experience: string; timeline?: RoomTimeline | null; sparks: number; thunder: number }) {
+  async function requestUltra(card: RoomUltra) {
+    if (!card.authorId || card.authorId === uid) return;
+    const result = await db().rpc("request_unmask", {
+      p_investigation_id: card.id,
+      p_recipient: card.authorId,
+      p_message: youName + " wants to request an Unmask for " + card.productName,
+    });
+    if (result.error) throw new Error(result.error.message);
+    setUltraRequestStatus((current) => ({ ...current, [card.id]: "pending" }));
+    if (result.data) setUltraRequestIds((current) => ({ ...current, [card.id]: String(result.data) }));
+  }
+
+  async function respondUnmaskRequest(requestId: string, status: "approved" | "declined") {
+    const result = await db().rpc("respond_unmask_request", { p_request_id: requestId, p_status: status });
+    if (result.error) throw new Error(result.error.message);
+    const card = ultras.find((item) => ultraRequestIds[item.id] === requestId);
+    if (card) setUltraRequestStatus((current) => ({ ...current, [card.id]: status }));
+  }
+
+  async function requestUltraContext(
+    card: RoomUltra,
+    question: string,
+    timeline: RoomTimeline | null,
+    customProductName: string,
+    customProductPhotoPath: string | null,
+  ) {
+    if (!isHostSession && !cohostIds.includes(uid || "")) {
+      throw new Error("Only the Room host or a co-host can request more detail.");
+    }
+    const result = await db().rpc("request_ultra_context", {
+      p_investigation_id: card.id,
+      p_session_id: id,
+      p_question: question,
+      p_timeline_id: timeline?.id || null,
+      p_custom_product_name: customProductName || null,
+      p_custom_product_photo_path: customProductPhotoPath || null,
+    });
+    if (result.error) throw new Error(result.error.message);
+    setManagementError("Detail request sent to " + card.author + ".");
+  }
+
+  async function startUltra(input: { who: "company" | "expert"; question: string; experience: string; timeline?: RoomTimeline | null; sparks: number; thunder: number }) {
     const sparks = input.sparks >= 10 ? input.sparks : 0;
     const thunder = input.thunder >= 1 ? input.thunder : 0;
     if (!sparks && !thunder) throw new Error("Add at least 10 Sparks or 1 Thunder Spark.");
