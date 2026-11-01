@@ -870,7 +870,7 @@ export function RealtimeSession({
         })().catch((error) => setManagementError(error instanceof Error ? error.message : "Could not highlight that Ultra Unmask."))}
         onNudgeUltra={(card) => { /* handled by the Room detail sheet */ }}
         onRequestUltra={requestUltra}
-        onOpenApprovedUltra={(card) => undefined}
+        onRequestUltraContext={requestUltraContext}
         ultraRequestStatus={ultraRequestStatus}
         ultraRequestIds={ultraRequestIds}
         onRespondUltraRequest={respondUnmaskRequest}
