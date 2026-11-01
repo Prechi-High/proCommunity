@@ -107,10 +107,10 @@ export function ExperienceCard({ item, onOpen, onDeeper, started }: { item: Room
             ) : null}
           </View>
         </Pressable>
-        <PressScale label="Unmask this" onPress={onDeeper}>
+        <PressScale label={started ? "Open investigation" : "Unmask this"} onPress={started ? onOpen : onDeeper}>
           <View style={{ minHeight: 40, borderTopWidth: 1, borderTopColor: colors.line, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6 }}>
             <Lightning size={14} color={colors.brand} weight="fill" />
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Unmask this</Text>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>{started ? "Open investigation" : "Unmask this"}</Text>
           </View>
         </PressScale>
       </View>
