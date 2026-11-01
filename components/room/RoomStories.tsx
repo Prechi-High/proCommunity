@@ -414,6 +414,7 @@ export function UltraCard({
 export function UltraCreate({
   open,
   step = 0,
+  initialExperience = "",
   productName,
   timeline,
   timelines,
@@ -427,6 +428,7 @@ export function UltraCreate({
 }: {
   open: boolean;
   step?: 0 | 1;
+  initialExperience?: string;
   productName: string;
   timeline?: RoomTimeline | null;
   timelines?: RoomTimeline[];
@@ -453,13 +455,13 @@ export function UltraCreate({
     setQuestion(ULTRA_QUESTIONS[0]);
     setCustom(false);
     setOwn("");
-    setExperience("");
+    setExperience(initialExperience || "");
     setSelectedTimeline(timeline || null);
     setWho("company");
     setSparks(10);
     setThunder(0);
     setPage(step > 0 ? 1 : 0);
-  }, [open, step]);
+  }, [open, step, initialExperience]);
   if (!open) return null;
   const asked = (custom ? own.trim() : question).trim();
   const sparkShort = sparks > 0 && balance != null && sparks > balance;
