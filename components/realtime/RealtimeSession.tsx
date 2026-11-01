@@ -486,13 +486,11 @@ export function RealtimeSession({
       try {
         card.entries = momentsFromUpdates(await journeyUpdates(row.id));
       } catch { card.entries = []; }
-      if (!card.entries.length) {
-        card.entries = [{ id: row.id, at: row.started_on || row.created_at || "", note: card.outcome || "No dated chapter yet." }];
-      }
       return card;
     }));
-    setTimelines(cards);
-    return cards;
+    const tracked = cards.filter((card) => card.entries.length > 0);
+    setTimelines(tracked);
+    return tracked;
   }
 
   async function createTimeline() {
