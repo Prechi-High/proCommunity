@@ -282,6 +282,7 @@ export function UltraCard({
   onTimeline,
   onRequest,
   onApproved,
+  isCreator,
   onRespondRequest,
   requestStatus,
   requestId,
@@ -369,7 +370,7 @@ export function UltraCard({
             <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>Your Unmask is active</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>People can support this investigation.</Text>
           </View>
-        ) : requestStatus === "approved" ? (
+        ) : requestStatus === "approved" && onApproved ? (
           <PressScale label="Unmask this approved experience" onPress={onApproved}>
             <View style={{ minHeight: 42, borderRadius: 12, backgroundColor: colors.brandDeep, paddingHorizontal: 14, justifyContent: "center", alignItems: "center" }}>
               <Text style={{ fontFamily: fonts.semibold, color: colors.white }}>Permission granted · Unmask this</Text>
