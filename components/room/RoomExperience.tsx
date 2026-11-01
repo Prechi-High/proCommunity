@@ -7,10 +7,12 @@ import {
   Text,
   TextInput,
   View,
+  Image,
   useWindowDimensions,
   type ViewStyle,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import * as ImagePicker from "expo-image-picker";
 import Animated, {
   Easing,
   FadeIn,
@@ -179,6 +181,10 @@ export function RoomExperience(props: RoomExperienceProps) {
   const [sparkError, setSparkError] = useState("");
   const [sparkErrorId, setSparkErrorId] = useState("");
   const [roomFull, setRoomFull] = useState(false);
+  const [detailCard, setDetailCard] = useState<RoomUltra | null>(null);
+  const [detailText, setDetailText] = useState("");
+  const [detailImage, setDetailImage] = useState<string | null>(null);
+  const [detailProduct, setDetailProduct] = useState("");
   const [experienceFull, setExperienceFull] = useState(false);
   const prejoin = props.phase === "prejoin" || props.phase === "connecting";
   const focused = useRef(false);
@@ -702,7 +708,7 @@ function Carousel(props: RoomExperienceProps & {
               shortfall={props.sparkErrorId === card.id ? props.sparkError : ""}
               onSpark={() => props.onSpark(card.id)}
               onPin={() => props.onPinUltra?.(card.id)}
-              onNudge={() => props.onNudgeUltra?.(card)}
+              onNudge={() => { setDetailCard(card); setDetailText(""); setDetailImage(null); setDetailProduct(""); props.onNudgeUltra?.(card); }}
               onClaim={props.onClaim}
               onTimeline={card.timelineId && props.onOpenTimeline ? () => props.onOpenTimeline?.(card.timelineId!) : undefined}
             />
