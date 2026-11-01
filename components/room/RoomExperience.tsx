@@ -134,7 +134,8 @@ export type RoomExperienceProps = {
   sparksBalance?: number | null;
   thunderBalance?: number | null;
   onSendDetail?: (text: string, timeline: RoomTimeline | null) => void;
-  onRequestUltraContext?: (card: RoomUltra, question: string, timeline: RoomTimeline | null, customProductName: string, customProductPhotoPath: string | null) => Promise<void>;
+  onRequestUltraContext?: (card: RoomUltra, question: string, timelineId: string | null, customProductName: string, customProductPhotoPath: string | null) => Promise<void>;
+  onLoadContextTimelines?: (card: RoomUltra) => Promise<ContextTimeline[]>;
   onLoadTimelines?: () => Promise<RoomTimeline[]>;
   onCreateTimeline?: () => Promise<RoomTimeline | null>;
   onStartUltra?: (input: { who: "company" | "expert"; question: string; experience: string; timeline?: RoomTimeline | null; sparks: number; thunder: number }) => Promise<void>;
@@ -193,7 +194,8 @@ export function RoomExperience(props: RoomExperienceProps) {
   const [detailText, setDetailText] = useState("");
   const [detailImage, setDetailImage] = useState<string | null>(null);
   const [detailProduct, setDetailProduct] = useState("");
-  const [detailTimeline, setDetailTimeline] = useState<RoomTimeline | null>(null);
+  const [detailTimelineId, setDetailTimelineId] = useState<string | null>(null);
+  const [contextTimelines, setContextTimelines] = useState<ContextTimeline[]>([]);
   const [detailSending, setDetailSending] = useState(false);
   const [experienceFull, setExperienceFull] = useState(false);
   const [ultraExperience, setUltraExperience] = useState("");
@@ -316,7 +318,9 @@ export function RoomExperience(props: RoomExperienceProps) {
                   setDetailText("");
                   setDetailImage(null);
                   setDetailProduct("");
-                  setDetailTimeline(null);
+                  setDetailTimelineId(null);
+                  setContextTimelines([]);
+                  void props.onLoadContextTimelines?.(card).then((rows) => setContextTimelines(rows)).catch(() => setContextTimelines([]));
                 }}
                 onOpenApprovedUltra={(card) => {
                   setUltraTimeline(props.timelines?.find((item) => item.id === card.timelineId) || null);
@@ -416,13 +420,13 @@ export function RoomExperience(props: RoomExperienceProps) {
               <TextInput value={detailText} onChangeText={setDetailText} multiline placeholder="What else do you need to understand?" placeholderTextColor={colors.inkSoft} style={{ minHeight: 90, borderRadius: 12, backgroundColor: colors.stage, color: colors.ink, padding: 12, textAlignVertical: "top" }} />
               <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.honeyInk }}>PRODUCT THEY USED ALONGSIDE THIS</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>Choose an existing tracked timeline, or enter a product they never tracked.</Text>
-              {(props.timelines || []).slice(0, 6).map((item) => (
-                <Pressable key={item.id} onPress={() => { setDetailTimeline(item); setDetailProduct(""); setDetailImage(null); }} style={{ borderRadius: 12, borderWidth: 1, borderColor: detailTimeline?.id === item.id ? colors.brand : colors.line, backgroundColor: detailTimeline?.id === item.id ? colors.hiSoft : colors.stage, padding: 10, flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={{ width: 42, height: 42, borderRadius: 8 }} /> : null}
-                  <View style={{ flex: 1 }}><Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>{item.productName}</Text><Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>Tracked timeline · {item.duration}</Text></View>
+              {contextTimelines.length ? contextTimelines.slice(0, 6).map((item) => (
+                <Pressable key={item.id} onPress={() => { setDetailTimelineId(item.id); setDetailProduct(""); setDetailImage(null); }} style={{ borderRadius: 12, borderWidth: 1, borderColor: detailTimelineId === item.id ? colors.brand : colors.line, backgroundColor: detailTimelineId === item.id ? colors.hiSoft : colors.stage, padding: 10, flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  {item.image_url ? <Image source={{ uri: item.image_url }} style={{ width: 42, height: 42, borderRadius: 8 }} /> : null}
+                  <View style={{ flex: 1 }}><Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>{item.brand ? item.brand + " " : ""}{item.product_name}</Text><Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>Public tracked timeline</Text></View>
                 </Pressable>
-              ))}
-              <TextInput value={detailProduct} onChangeText={(v) => { setDetailProduct(v); if (v.trim()) setDetailTimeline(null); }} placeholder="Or type an untracked product name" placeholderTextColor={colors.inkSoft} style={{ minHeight: 46, borderRadius: 12, backgroundColor: colors.stage, color: colors.ink, paddingHorizontal: 12 }} />
+              )) : <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>No public tracked timelines were found. You can request an untracked product by name below.</Text>}
+              <TextInput value={detailProduct} onChangeText={(v) => { setDetailProduct(v); if (v.trim()) setDetailTimelineId(null); }} placeholder="Or type an untracked product name" placeholderTextColor={colors.inkSoft} style={{ minHeight: 46, borderRadius: 12, backgroundColor: colors.stage, color: colors.ink, paddingHorizontal: 12 }} />
               <Pressable disabled={detailSending} onPress={async () => { const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.82 }); if (!result.canceled) setDetailImage(result.assets[0]?.uri || null); }} style={{ minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.line, justifyContent: "center", paddingHorizontal: 12, opacity: detailSending ? 0.5 : 1 }}><Text style={{ fontFamily: fonts.semibold, color: colors.brand }}>{detailImage ? "Product photo added" : "Add product photo (optional)"}</Text></Pressable>
               {detailImage ? <Image source={{ uri: detailImage }} style={{ width: "100%", height: 100, borderRadius: 12 }} /> : null}
               <Pressable disabled={detailSending || !detailText.trim() || !props.onRequestUltraContext} onPress={async () => {
@@ -430,9 +434,9 @@ export function RoomExperience(props: RoomExperienceProps) {
                 try {
                   setDetailSending(true);
                   const path = detailImage ? await uploadPhoto(detailImage) : null;
-                  await props.onRequestUltraContext(detailCard, detailText.trim(), detailTimeline, detailProduct.trim(), path);
+                  await props.onRequestUltraContext(detailCard, detailText.trim(), detailTimelineId, detailProduct.trim(), path);
                   setDetailCard(null);
-                  setDetailText(""); setDetailProduct(""); setDetailImage(null); setDetailTimeline(null);
+                  setDetailText(""); setDetailProduct(""); setDetailImage(null); setDetailTimelineId(null); setContextTimelines([]);
                 } catch (error: unknown) {
                   setSparkError(error instanceof Error ? error.message : "Could not send the detail request.");
                 } finally { setDetailSending(false); }
