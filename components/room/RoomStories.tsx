@@ -74,7 +74,7 @@ export function TimelineDraft({ item, onPress }: { item: RoomTimeline; onPress: 
   );
 }
 
-export function ExperienceCard({ item, onOpen, onDeeper }: { item: RoomTimeline; onOpen: () => void; onDeeper: () => void }) {
+export function ExperienceCard({ item, onOpen, onDeeper, started }: { item: RoomTimeline; onOpen: () => void; onDeeper: () => void; started?: boolean }) {
   const reduced = useReducedMotion();
   const facts = [item.frequency, item.skinType, item.duration].filter((fact): fact is string => !!fact);
   const chips = item.reactions.filter((chip) => chip && chip !== item.frequency);
