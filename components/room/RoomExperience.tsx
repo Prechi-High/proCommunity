@@ -184,6 +184,7 @@ export function RoomExperience(props: RoomExperienceProps) {
   const [mediaNote, setMediaNote] = useState("");
   const [personMenu, setPersonMenu] = useState<RoomSeat | null>(null);
   const [openExperience, setOpenExperience] = useState<RoomTimeline | null>(null);
+  const [openUltraCard, setOpenUltraCard] = useState<RoomUltra | null>(null);
   const [ultraOpen, setUltraOpen] = useState(false);
   const [ultraTimeline, setUltraTimeline] = useState<RoomTimeline | null>(null);
   const [ultraBusy, setUltraBusy] = useState(false);
@@ -454,6 +455,50 @@ export function RoomExperience(props: RoomExperienceProps) {
         </Pressable>
       ) : null}
       <ExperienceSheet item={openExperience} full={experienceFull} onToggleFull={() => setExperienceFull((value) => !value)} onClose={() => { setOpenExperience(null); setExperienceFull(false); }} />
+      {openUltraCard ? (
+        <Pressable onPress={() => setOpenUltraCard(null)} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center", zIndex: 11 }}>
+          <Pressable onPress={() => undefined} style={{ width: "100%", maxWidth: 430, maxHeight: height * 0.9, backgroundColor: colors.wine, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: "hidden" }}>
+            <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 20 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 4, paddingBottom: 8 }}>
+                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.ink }}>Ultra Unmask</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="Close Ultra Unmask" onPress={() => setOpenUltraCard(null)} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.ink }}>×</Text>
+                </Pressable>
+              </View>
+              <UltraCard
+                card={openUltraCard}
+                onSpark={() => {
+                  setSparkError("");
+                  void props.onAddSparks?.(openUltraCard.id, 10).then(() => {
+                    setSparkBurst(openUltraCard.id);
+                    setTimeout(() => setSparkBurst((current) => current === openUltraCard.id ? "" : current), 1600);
+                  }).catch((error: unknown) => {
+                    setSparkErrorId(openUltraCard.id);
+                    setSparkError(error instanceof Error ? error.message : "Could not add Sparks.");
+                  });
+                }}
+                onPin={props.canManage ? () => props.onPinUltra?.(openUltraCard.id) : undefined}
+                onNudge={props.canManage ? () => { setOpenUltraCard(null); props.onNudgeUltra?.(openUltraCard); } : undefined}
+                onClaim={() => {
+                  void props.onClaimSparks?.().catch((error: unknown) => {
+                    setSparkError(error instanceof Error ? error.message : "Could not claim Sparks.");
+                  });
+                }}
+                canPin={props.canManage}
+                burst={sparkBurst === openUltraCard.id}
+                shortfall={sparkErrorId === openUltraCard.id ? sparkError : ""}
+                onTimeline={() => {
+                  const timeline = props.timelines?.find((item) => item.id === openUltraCard.timelineId);
+                  if (timeline) {
+                    setOpenUltraCard(null);
+                    setOpenExperience(timeline);
+                  }
+                }}
+              />
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      ) : null}
       <UltraCreate
         open={ultraOpen}
         initialExperience={ultraExperience}
@@ -492,6 +537,7 @@ export function RoomExperience(props: RoomExperienceProps) {
           initialDraft={props.focus === "draft" ? (props.timelines || []).find((item) => item.visibility === "public") || null : null}
           initialFull={props.focus === "replies-full"}
           onOpenExperience={setOpenExperience}
+          onOpenUltraCard={setOpenUltraCard}
           onDeeper={(timeline) => { setUltraTimeline(timeline); setUltraError(""); setUltraOpen(true); }}
           onSpark={(id) => {
             setSparkError("");
