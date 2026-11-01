@@ -321,6 +321,12 @@ export function RoomExperience(props: RoomExperienceProps) {
                   setDetailProduct("");
                   setDetailTimeline(null);
                 }}
+                onOpenApprovedUltra={(card) => {
+                  setUltraTimeline(props.timelines?.find((item) => item.id === card.timelineId) || null);
+                  setUltraExperience(card.experience || "");
+                  setUltraError("");
+                  setUltraOpen(true);
+                }}
               />
             ) : null}
             {!props.canHear && props.phase === "live" ? (
@@ -771,7 +777,7 @@ function Carousel(props: RoomExperienceProps & {
               requestStatus={props.ultraRequestStatus?.[card.id] || "none"}
               requestId={props.ultraRequestIds?.[card.id] || null}
               onRespondRequest={(status) => { const requestId = props.ultraRequestIds?.[card.id]; if (requestId) void props.onRespondUltraRequest?.(requestId, status); }}
-              onApproved={() => { setUltraTimeline(props.timelines?.find((item) => item.id === card.timelineId) || null); setUltraExperience(card.experience || ""); setUltraError(""); setUltraOpen(true); }}
+              onApproved={() => props.onOpenApprovedUltra?.(card)}
               onRequest={props.onRequestUltra ? () => void props.onRequestUltra?.(card) : undefined}
               onClaim={props.onClaim}
               onTimeline={card.timelineId && props.onOpenTimeline ? () => props.onOpenTimeline?.(card.timelineId!) : undefined}
