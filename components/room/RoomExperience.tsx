@@ -220,6 +220,7 @@ export function RoomExperience(props: RoomExperienceProps) {
   }, [props.focus, props.notes]);
   const people = useMemo(() => [...props.stage, ...props.audience], [props.stage, props.audience]);
   const extraListeners = Math.max(props.anonymousCount, Math.max(0, props.listenerCount - people.length));
+  const hasProductUltra = (props.ultras || []).some((card) => (card.productName || "").trim().toLowerCase() === (props.products[0]?.name || "").trim().toLowerCase());
 
   if (props.minimized && props.phase !== "prejoin") {
     return (
@@ -403,7 +404,7 @@ export function RoomExperience(props: RoomExperienceProps) {
             onReport={() => setReported(true)}
             canEnd={!!props.onEnd}
             onEnd={props.onEnd}
-            canStartUltra={!!props.onStartUltra && props.canManage}
+            canStartUltra={!!props.onStartUltra && props.canManage && !hasProductUltra}
             onUltra={() => { setMenu(false); setUltraTimeline(null); setUltraError(""); setUltraOpen(true); }}
           />
         ) : null}
