@@ -1238,7 +1238,7 @@ function ChatSheet(props: RoomExperienceProps & {
                     <ExperienceCard
                       item={experience}
                       onOpen={() => props.onOpenExperience(experience)}
-                      onDeeper={() => props.onDeeper(experience)}
+                      onDeeper={isOwner ? () => props.onDeeper(experience) : undefined}
                       started={!!activeUltra}
                       isOwner={isOwner}
                       requestStatus={requestStatus}
