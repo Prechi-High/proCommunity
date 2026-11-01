@@ -280,6 +280,9 @@ export function UltraCard({
   onNudge,
   onClaim,
   onTimeline,
+  onRequest,
+  isCreator,
+  hasRequested,
   canPin,
   burst,
   shortfall,
@@ -290,6 +293,9 @@ export function UltraCard({
   onNudge?: () => void;
   onClaim?: () => void;
   onTimeline?: () => void;
+  onRequest?: () => void;
+  isCreator?: boolean;
+  hasRequested?: boolean;
   canPin?: boolean;
   burst?: boolean;
   shortfall?: string;
