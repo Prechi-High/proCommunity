@@ -763,11 +763,12 @@ function Carousel(props: RoomExperienceProps & {
               <Text numberOfLines={3} style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.inkSoft }}>{props.description}</Text>
             ) : null}
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>Shared by {props.hostName}</Text>
-            {props.canManage && props.onStartUltra ? (
-              <PressScale label="Unmask this product" onPress={props.onOpenUltra}>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Unmask this product</Text>
-              </PressScale>
-            ) : null}
+            {(() => {
+              const active = ultras.find((card) => (card.productName || "").trim().toLowerCase() === slide.name.trim().toLowerCase());
+              if (active) return <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.honeyInk }}>Ultra Unmask is already active for this product.</Text>;
+              if (!props.canManage || !props.onStartUltra) return null;
+              return <PressScale label="Unmask this product" onPress={props.onOpenUltra}><Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.brand }}>Unmask this product</Text></PressScale>;
+            })()}
           </View>
         ))}
         {ultras.map((card) => (
