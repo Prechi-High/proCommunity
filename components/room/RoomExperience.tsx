@@ -72,6 +72,7 @@ export type CohostPerson = {
   creator_mark: string;
 };
 export type CohostPowers = { can_end?: boolean; can_manage_cohosts?: boolean };
+type ContextTimeline = { id: string; product_name: string; brand: string | null; image_url: string | null; visibility: string };
 
 export type RoomExperienceProps = {
   phase: "prejoin" | "connecting" | "live" | "ended" | "error";
