@@ -211,12 +211,14 @@ export function ExperienceSheet({
   onToggleFull,
   onClose,
   onDeeper,
+  hasUltra,
 }: {
   item: RoomTimeline | null;
   full?: boolean;
   onToggleFull?: () => void;
   onClose: () => void;
   onDeeper: () => void;
+  hasUltra?: boolean;
 }) {
   const { height } = useWindowDimensions();
   if (!item) return null;
@@ -250,11 +252,17 @@ export function ExperienceSheet({
                 </View>
               </View>
             ))}
-            <PressScale label="Unmask this" onPress={onDeeper}>
-              <View style={{ minHeight: 48, borderRadius: 999, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
-                <Text style={{ fontFamily: fonts.bold, color: colors.white }}>Unmask this</Text>
+            {hasUltra ? (
+              <View style={{ minHeight: 44, borderRadius: 12, backgroundColor: colors.goldSoft, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontFamily: fonts.semibold, color: colors.honeyInk }}>Ultra Unmask is already active for this experience.</Text>
               </View>
-            </PressScale>
+            ) : (
+              <PressScale label="Unmask this product" onPress={onDeeper}>
+                <View style={{ minHeight: 48, borderRadius: 999, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontFamily: fonts.bold, color: colors.white }}>Unmask this product</Text>
+                </View>
+              </PressScale>
+            )}
           </ScrollView>
         </View>
       </PartialSheet>
