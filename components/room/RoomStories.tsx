@@ -75,7 +75,7 @@ export function TimelineDraft({ item, onPress }: { item: RoomTimeline; onPress: 
 }
 
 export function ExperienceCard({ item, onOpen, onDeeper, started, onRequest, requestStatus = "none", onApproved, isOwner, onRespondRequest }: {
-  item: RoomTimeline; onOpen: () => void; onDeeper?: () => void; started?: boolean;
+  item: RoomTimeline; onOpen: () => void; onDeeper?: () => void; started?: boolean; onOpenUltra?: () => void;
   onRequest?: () => void; requestStatus?: "none" | "pending" | "approved" | "declined"; onApproved?: () => void; isOwner?: boolean; onRespondRequest?: (status: "approved" | "declined") => void;
 }) {
   const reduced = useReducedMotion();
