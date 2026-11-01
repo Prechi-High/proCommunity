@@ -51,6 +51,7 @@ export type RoomUltra = {
   goal: number;
   supporters: { name: string }[];
   author: string;
+  authorId?: string | null;
   pinned: boolean;
   timelineId?: string;
   imageUrl?: string | null;
