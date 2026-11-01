@@ -20,7 +20,7 @@ import { ROOM_EMOJI_IDS } from "@/lib/room/emoji";
 import { arrangeRoom } from "@/lib/room/seats";
 import type { RoomReactionKind } from "@/lib/room/types";
 import { contribute, create as createUltra, summary, validAmount, wallet } from "@/lib/investigations/api";
-import { journeys, patchJourney, saveJourney } from "@/lib/living/api";
+import { journey, journeys, patchJourney, saveJourney } from "@/lib/living/api";
 import { updates as journeyUpdates } from "@/lib/tracking/api";
 import { monthlySparks } from "@/lib/membership";
 import { ULTRA_UNMASK_SPARK_GOAL } from "@/lib/unmask/status";
@@ -491,6 +491,21 @@ export function RealtimeSession({
     const tracked = cards.filter((card) => card.entries.length > 0);
     setTimelines(tracked);
     return tracked;
+  }
+
+  async function loadTimelineById(timelineId: string, fallback?: { author?: string | null; authorId?: string | null }) {
+    const row = await journey(timelineId);
+    const card = timelineFromJourney(
+      row,
+      fallback?.author?.trim() || youName,
+      fallback?.authorId || null,
+    );
+    try {
+      card.entries = momentsFromUpdates(await journeyUpdates(row.id));
+    } catch {
+      card.entries = [];
+    }
+    return card;
   }
 
   async function createTimeline() {
