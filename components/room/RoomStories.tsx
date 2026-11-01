@@ -354,7 +354,7 @@ export function UltraCard({
               <Text style={{ fontFamily: fonts.semibold, color: colors.honeyInk }}>Add Sparks</Text>
             </View>
           </PressScale>
-          {canPin && onPin ? <PressScale label="Highlight this Ultra Unmask" onPress={onPin}><Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>Highlight</Text></PressScale> : null}
+          {highlightAllowed && onPin ? <PressScale label="Highlight this Ultra Unmask" onPress={onPin}><Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>Highlight</Text></PressScale> : null}
           {canPin && onNudge ? <PressScale label="Ask for more detail" onPress={onNudge}><Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>Ask for more detail</Text></PressScale> : null}
         </View>
         {shortfall ? (
