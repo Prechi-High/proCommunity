@@ -291,7 +291,7 @@ export function RoomExperience(props: RoomExperienceProps) {
                     setSparkError(error instanceof Error ? error.message : "Could not claim Sparks.");
                   });
                 }}
-                onOpenTimeline={(timelineId) => {
+                viewerId={props.viewerId}\n                onRequestUltra={props.onRequestUltra}\n                onOpenTimeline={(timelineId) => {
                   const timeline = props.timelines?.find((item) => item.id === timelineId);
                   if (timeline) setOpenExperience(timeline);
                   props.onOpenTimeline?.(timelineId);
