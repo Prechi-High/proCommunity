@@ -150,7 +150,7 @@ export type RoomExperienceProps = {
   viewerId?: string | null;
   onRequestUltra?: (card: RoomUltra) => Promise<void>;
   onOpenApprovedUltra?: (card: RoomUltra) => void;
-  onOpenUltraCard: (card: RoomUltra) => void;
+  onOpenUltraCard?: (card: RoomUltra) => void;
   onRequestExperienceUltra?: (item: RoomTimeline) => Promise<void>;
   ultraRequestStatus?: Record<string, "pending" | "approved" | "declined">;
   ultraRequestIds?: Record<string, string>;
@@ -1288,7 +1288,7 @@ function ChatSheet(props: RoomExperienceProps & {
                       onOpen={() => props.onOpenExperience(experience)}
                       onDeeper={isOwner ? () => props.onDeeper(experience) : undefined}
                       started={!!activeUltra}
-                      onOpenUltra={activeUltra ? () => props.onOpenUltraCard(activeUltra) : undefined}
+                      onOpenUltra={activeUltra ? () => props.onOpenUltraCard?.(activeUltra) : undefined}
                       isOwner={isOwner}
                       requestStatus={requestStatus}
                       onRequest={!activeUltra && !isOwner && experience.authorId && props.onRequestExperienceUltra ? () => void props.onRequestExperienceUltra?.(experience) : undefined}
