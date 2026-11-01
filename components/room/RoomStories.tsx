@@ -280,6 +280,7 @@ export function UltraCard({
   onNudge,
   onClaim,
   onTimeline,
+  onRequest,
   canPin,
   burst,
   shortfall,
@@ -290,8 +291,13 @@ export function UltraCard({
   onNudge?: () => void;
   onClaim?: () => void;
   onTimeline?: () => void;
+  onRequest?: () => void;
+  isCreator?: boolean;
+  hasRequested?: boolean;
   canPin?: boolean;
   burst?: boolean;
+  isCreator?: boolean;
+  hasRequested?: boolean;
   shortfall?: string;
 }) {
   const reduced = useReducedMotion();
@@ -353,7 +359,8 @@ export function UltraCard({
           {canPin && onPin ? <PressScale label="Highlight this Ultra Unmask" onPress={onPin}><Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>Highlight</Text></PressScale> : null}
           {canPin && onNudge ? <PressScale label="Ask for more detail" onPress={onNudge}><Text style={{ fontFamily: fonts.semibold, color: colors.ink }}>Ask for more detail</Text></PressScale> : null}
         </View>
-        {mine ? <View style={{ minHeight: 42, borderRadius: 12, backgroundColor: colors.goldSoft, paddingHorizontal: 12, justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>Your Unmask is active</Text><Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>People can support this investigation.</Text></View> : null}\n        {shortfall ? (
+        {mine ? <View style={{ minHeight: 42, borderRadius: 12, backgroundColor: colors.goldSoft, paddingHorizontal: 12, justifyContent: "center" }}><Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.honeyInk }}>Your Unmask is active</Text><Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.inkSoft }}>People can support this investigation.</Text></View> : null}\n        {isCreator ? <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.honeyInk }}>Your Unmask is active · people can support it</Text> : hasRequested ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft }}>Request sent to {card.author}.</Text> : onRequest ? <PressScale label="Request an Unmask" onPress={onRequest}><Text style={{ fontFamily: fonts.semibold, color: colors.brand }}>Request an Unmask</Text></PressScale> : null}
+        {shortfall ? (
           <View style={{ gap: 4 }}>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.coral }}>{shortfall}</Text>
             {onClaim ? <PressScale label="Claim monthly Sparks" onPress={onClaim}><Text style={{ fontFamily: fonts.semibold, color: colors.brand }}>Claim monthly Sparks</Text></PressScale> : null}
