@@ -905,6 +905,7 @@ export function RealtimeSession({
         sparksBalance={sparksBalance}
         thunderBalance={thunderBalance}
         onLoadTimelines={loadTimelines}
+        onLoadTimelineById={loadTimelineById}
         onPublishTimeline={publishTimeline}
         onCreateTimeline={createTimeline}
         onStartUltra={startUltra}
