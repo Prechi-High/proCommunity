@@ -470,7 +470,7 @@ export function RealtimeSession({
     if (textOverride == null) setMessage("");
     const payload = { type: "chat", id: freshId(), text, experience: timeline ? { ...timeline, authorId: uid } : null, authorId: uid };
     try {
-      if (mode === "room") await postRoomEvent(id, "chat", youName, { text, experience: timeline || null }, payload.id);
+      if (mode === "room") await postRoomEvent(id, "chat", youName, { text, experience: timeline ? { ...timeline, authorId: uid } : null, authorId: uid }, payload.id);
       await publish(payload);
       ingest(payload, youName);
     } catch (error) {
