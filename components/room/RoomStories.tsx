@@ -282,6 +282,7 @@ export function UltraCard({
   onTimeline,
   canPin,
   highlightAllowed,
+  mine,
   foo,
   burst,
   shortfall,
@@ -294,6 +295,7 @@ export function UltraCard({
   onTimeline?: () => void;
   canPin?: boolean;
   highlightAllowed?: boolean;
+  mine?: boolean;
   foo?: boolean;
   burst?: boolean;
   shortfall?: string;
