@@ -27,7 +27,6 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 
 import {
   ArrowsIn,
@@ -171,7 +170,6 @@ export function RoomExperience(props: RoomExperienceProps) {
   useUnmaskTheme();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const reduced = useReducedMotion();
   const sheetWidth = Math.min(width, 430);
   const [menu, setMenu] = useState(false);
@@ -313,12 +311,7 @@ export function RoomExperience(props: RoomExperienceProps) {
                     setSparkError(error instanceof Error ? error.message : "Could not claim Sparks.");
                   });
                 }}
-                onOpenTimeline={(timelineId) => {
-                  // Use the same canonical product-timeline screen as My Products.
-                  if (timelineId) router.push(`/journey/${timelineId}` as any);
-                  props.onOpenTimeline?.(timelineId);
-                }}
-                onNudgeUltra={(card) => {
+                onOpenTimeline={(timelineId) => {\n                  const timeline = props.timelines?.find((item) => item.id === timelineId);\n                  if (timeline) setOpenExperience(timeline);\n                  props.onOpenTimeline?.(timelineId);\n                }}               onNudgeUltra={(card) => {
                   setDetailCard(card);
                   setDetailText("");
                   setDetailImage(null);
@@ -455,7 +448,7 @@ export function RoomExperience(props: RoomExperienceProps) {
           </Pressable>
         </Pressable>
       ) : null}
-      <ExperienceSheet item={openExperience} full={experienceFull} hasUltra={!!openExperience && (props.ultras || []).some((card) => card.timelineId === openExperience.id)} onToggleFull={() => setExperienceFull((value) => !value)} onClose={() => { setOpenExperience(null); setExperienceFull(false); }} onDeeper={() => { if (openExperience && !(props.ultras || []).some((card) => card.timelineId === openExperience.id)) { setUltraTimeline(openExperience); setOpenExperience(null); setUltraOpen(true); } }} />
+      <ExperienceSheet item={openExperience} full={experienceFull} onToggleFull={() => setExperienceFull((value) => !value)} onClose={() => { setOpenExperience(null); setExperienceFull(false); }} />
       <UltraCreate
         open={ultraOpen}
         initialExperience={ultraExperience}
