@@ -311,6 +311,13 @@ export function RoomExperience(props: RoomExperienceProps) {
                   if (timeline) setOpenExperience(timeline);
                   props.onOpenTimeline?.(timelineId);
                 }}
+                onNudgeUltra={(card) => {
+                  setDetailCard(card);
+                  setDetailText("");
+                  setDetailImage(null);
+                  setDetailProduct("");
+                  setDetailTimeline(null);
+                }}
               />
             ) : null}
             {!props.canHear && props.phase === "live" ? (
@@ -756,7 +763,7 @@ function Carousel(props: RoomExperienceProps & {
               shortfall={props.sparkErrorId === card.id ? props.sparkError : ""}
               onSpark={() => props.onSpark(card.id)}
               onPin={() => props.onPinUltra?.(card.id)}
-              onNudge={() => { setDetailCard(card); setDetailText(""); setDetailImage(null); setDetailProduct(""); setDetailTimeline(null); }}
+              onNudge={() => props.onNudgeUltra?.(card)}
               isCreator={!!props.viewerId && card.authorId === props.viewerId}
               requestStatus={props.ultraRequestStatus?.[card.id] || "none"}
               requestId={props.ultraRequestIds?.[card.id] || null}
