@@ -433,13 +433,13 @@ export function RealtimeSession({
     await room.localParticipant.publishData(encoder.encode(JSON.stringify(payload)), { reliable: true, topic: "unmask-chat" });
   }
 
-  async function sendMessage(textOverride?: string, timeline?: RoomTimeline | null) {
+  async function sendMessage(textOverride?: string, timeline?: RoomTimeline | null, customProduct?: { name: string; imageUrl?: string | null } | null) {
     const text = (textOverride ?? message).trim();
-    if (!text && !timeline) return;
+    if (!text && !timeline && !customProduct) return;
     if (textOverride == null) setMessage("");
-    const payload = { type: "chat", id: freshId(), text, experience: timeline || null };
+    const payload = { type: "chat", id: freshId(), text, experience: timeline || null, customProduct: customProduct || null };
     try {
-      if (mode === "room") await postRoomEvent(id, "chat", youName, { text, experience: timeline || null }, payload.id);
+      if (mode === "room") await postRoomEvent(id, "chat", youName, { text, experience: timeline || null, customProduct: customProduct || null }, payload.id);
       await publish(payload);
       ingest(payload, youName);
     } catch (error) {
@@ -780,7 +780,7 @@ export function RealtimeSession({
         message={message}
         onMessage={setMessage}
         onSend={() => void sendMessage()}
-        onSendDetail={(text, timeline) => void sendMessage(text, timeline)}
+        onSendDetail={(text, timeline, customProduct) => void sendMessage(text, timeline, customProduct)}
         timelines={timelines}
         ultras={ultras}
         sparksBalance={sparksBalance}
