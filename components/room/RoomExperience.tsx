@@ -137,10 +137,11 @@ export type RoomExperienceProps = {
   onPublishTimeline?: (item: RoomTimeline) => Promise<RoomTimeline | null>;
   onAddSparks?: (id: string, amount: number) => Promise<void>;
   onPinUltra?: (id: string) => void;
-  onNudgeUltra?: (card: RoomUltra) => void;
+  onNudgeUltra?: (card: RoomUltra) => void;\n  onRequestUltra?: (card: RoomUltra) => Promise<void>;
   onOpenTimeline?: (timelineId: string) => void;
   onClaimSparks?: () => Promise<number | null>;
   focus?: "replies" | "replies-full" | "picker" | "private" | "draft" | "card" | "timeline" | "timeline-full" | "full" | "ultra" | "ultra-sparks" | "ultra-seal" | "spark" | "notice";
+  viewerId?: string | null;
   canManage: boolean;
   creators: CohostPerson[];
   cohostIds: string[];
@@ -178,7 +179,7 @@ export function RoomExperience(props: RoomExperienceProps) {
   const [sparkBurst, setSparkBurst] = useState("");
   const [sparkError, setSparkError] = useState("");
   const [sparkErrorId, setSparkErrorId] = useState("");
-  const [roomFull, setRoomFull] = useState(false);
+  const [roomFull, setRoomFull] = useState(false);\n  const [detailCard, setDetailCard] = useState<RoomUltra | null>(null);\n  const [detailText, setDetailText] = useState("");\n  const [detailTimeline, setDetailTimeline] = useState<RoomTimeline | null>(null);\n  const [customProductName, setCustomProductName] = useState("");\n  const [customProductImage, setCustomProductImage] = useState<string | null>(null);\n  const [detailSending, setDetailSending] = useState(false);
   const [experienceFull, setExperienceFull] = useState(false);
   const prejoin = props.phase === "prejoin" || props.phase === "connecting";
   const focused = useRef(false);
@@ -377,7 +378,7 @@ export function RoomExperience(props: RoomExperienceProps) {
       {share ? <ShareSheet onClose={() => setShare(false)} onShare={props.onShare} onCopy={props.onCopyLink} /> : null}
       {guests ? <GuestsSheet {...props} onClose={() => setGuests(false)} /> : null}
       {personMenu ? <PersonMenu seat={personMenu} {...props} onClose={() => setPersonMenu(null)} /> : null}
-      <ExperienceSheet item={openExperience} full={experienceFull} onToggleFull={() => setExperienceFull((value) => !value)} onClose={() => { setOpenExperience(null); setExperienceFull(false); }} onDeeper={() => { setUltraTimeline(openExperience); setOpenExperience(null); setUltraOpen(true); }} />
+\n      {detailCard ? <DetailRequestSheet\n        card={detailCard}\n        text={detailText}\n        onText={setDetailText}\n        timeline={detailTimeline}\n        timelines={props.timelines || []}\n        onTimeline={setDetailTimeline}\n        customName={customProductName}\n        onCustomName={setCustomProductName}\n        customImage={customProductImage}\n        onPickImage={async () => {\n          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, quality: 0.82 });\n          if (!result.canceled) setCustomProductImage(result.assets[0]?.uri || null);\n        }}\n        sending={detailSending}\n        onClose={() => setDetailCard(null)}\n        onSend={async () => {\n          if (!detailText.trim() && !detailTimeline && !customProductName.trim()) return;\n          setDetailSending(true);\n          try {\n            props.onSendDetail?.(detailText.trim(), detailTimeline);\n            setDetailCard(null);\n          } finally { setDetailSending(false); }\n        }}\n      /> : null}\n      <ExperienceSheet item={openExperience} full={experienceFull} onToggleFull={() => setExperienceFull((value) => !value)} onClose={() => { setOpenExperience(null); setExperienceFull(false); }} onDeeper={() => { setUltraTimeline(openExperience); setOpenExperience(null); setUltraOpen(true); }} />
       <UltraCreate
         open={ultraOpen}
         step={props.focus === "ultra-sparks" || props.focus === "ultra-seal" ? 1 : 0}
@@ -702,8 +703,8 @@ function Carousel(props: RoomExperienceProps & {
               shortfall={props.sparkErrorId === card.id ? props.sparkError : ""}
               onSpark={() => props.onSpark(card.id)}
               onPin={() => props.onPinUltra?.(card.id)}
-              onNudge={() => props.onNudgeUltra?.(card)}
-              onClaim={props.onClaim}
+              onNudge={() => { setDetailCard(card); setDetailText(""); setDetailTimeline(null); setCustomProductName(""); setCustomProductImage(null); props.onNudgeUltra?.(card); }}\n              isCreator={!!props.viewerId && card.authorId === props.viewerId}\n              onRequest={props.onRequestUltra ? () => void props.onRequestUltra?.(card) : undefined}
+              onClaim={props.onClaim}\n              onTimeline={card.timelineId && props.onOpenTimeline ? () => props.onOpenTimeline?.(card.timelineId!) : undefined}
               onTimeline={card.timelineId && props.onOpenTimeline ? () => props.onOpenTimeline?.(card.timelineId!) : undefined}
             />
           </View>
