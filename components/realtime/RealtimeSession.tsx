@@ -58,6 +58,9 @@ export function RealtimeSession({
   const [count, setCount] = useState(0);
   const [micOn, setMicOn] = useState(false);
   const [cameraOn, setCameraOn] = useState(false);
+  const [screenShareOn, setScreenShareOn] = useState(false);
+  const [productTrayOpen, setProductTrayOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [videoAttached, setVideoAttached] = useState(false);
   const [canPlayAudio, setCanPlayAudio] = useState(true);
   const [message, setMessage] = useState("");
@@ -258,8 +261,9 @@ export function RealtimeSession({
       if (track.kind === Track.Kind.Video) {
         el.style.width = "100%";
         el.style.height = "100%";
-        el.style.objectFit = "cover";
+        el.style.objectFit = track.source === Track.Source.ScreenShare ? "contain" : "cover";
         el.style.position = "absolute";
+        el.style.zIndex = track.source === Track.Source.ScreenShare ? "5" : "1";
         el.style.inset = "0";
         el.style.borderRadius = "22px";
         setVideoAttached(true);
@@ -323,7 +327,7 @@ export function RealtimeSession({
           const el = track.attach();
           el.setAttribute("data-unmask-local-track", track.sid || "");
           if (track.kind === Track.Kind.Video) {
-            el.style.width = "100%"; el.style.height = "100%"; el.style.objectFit = "cover"; el.style.position = "absolute"; el.style.inset = "0"; el.style.borderRadius = "22px";
+            el.style.width = "100%"; el.style.height = "100%"; el.style.objectFit = track.source === Track.Source.ScreenShare ? "contain" : "cover"; el.style.position = "absolute"; el.style.inset = "0"; el.style.zIndex = track.source === Track.Source.ScreenShare ? "5" : "1"; el.style.borderRadius = "22px";
             el.muted = true;
             setVideoAttached(true);
             mediaRef.current.appendChild(el);
@@ -483,8 +487,9 @@ export function RealtimeSession({
         if (track.kind === Track.Kind.Video) {
           element.style.width = "100%";
           element.style.height = "100%";
-          element.style.objectFit = "cover";
+          element.style.objectFit = track.source === Track.Source.ScreenShare ? "contain" : "cover";
           element.style.position = "absolute";
+          element.style.zIndex = track.source === Track.Source.ScreenShare ? "5" : "1";
           element.style.inset = "0";
           element.style.borderRadius = "22px";
           if (local) element.muted = true;
@@ -733,6 +738,23 @@ export function RealtimeSession({
     const next = !cameraOn; await room.localParticipant.setCameraEnabled(next); setCameraOn(next);
   }
 
+  async function toggleScreenShare() {
+    const room = roomRef.current;
+    if (!room || (liveRole !== "host" && liveRole !== "cohost")) return;
+    if (Platform.OS !== "web") {
+      setManagementError("Screen broadcasting on iOS and Android needs the native LiveKit screen-capture extension. It is not enabled in this build yet.");
+      return;
+    }
+    try {
+      const next = !screenShareOn;
+      await room.localParticipant.setScreenShareEnabled(next);
+      setScreenShareOn(next);
+      setManagementError("");
+    } catch (error) {
+      setManagementError(error instanceof Error ? error.message : "Could not start screen sharing. Check your browser permission.");
+    }
+  }
+
   async function startAudio() {
     const room = roomRef.current;
     if (!room) return;
@@ -861,6 +883,8 @@ export function RealtimeSession({
   }
 
   const active = state === "connected";
+  const liveProducts = roomProducts(sessionMeta.metadata);
+  const featuredProduct = liveProducts.find((item) => item.id === selectedProductId) || liveProducts[0] || null;
   const canSpeak = liveRole === "host" || liveRole === "cohost" || micApproved;
   const canManageCohosts = isHostSession || !!cohostPermissions[uid || ""]?.can_manage_cohosts;
   const canEnd = isHostSession || !!cohostPermissions[uid || ""]?.can_end;
@@ -1035,6 +1059,91 @@ export function RealtimeSession({
           />
         }
       />
+    );
+  }
+
+  if (mode === "live") {
+    return (
+      <View style={{ flex: 1, minHeight: "100%", backgroundColor: "#10070B" }}>
+        <View style={{ flex: 1, position: "relative", backgroundColor: "#16090F" }}>
+          <View ref={mediaRef} collapsable={false} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, overflow: "hidden", backgroundColor: "#16090F" }}>
+            {!videoAttached ? (
+              <View pointerEvents="none" style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
+                <Play size={42} color="#F2D25B" weight="fill" />
+                <Text style={{ color: "#F3EBE2", fontFamily: fonts.medium, fontSize: 13 }}>{state === "connecting" ? "Connecting to the Live…" : "Waiting for the creator's video…"}</Text>
+              </View>
+            ) : null}
+          </View>
+          <View pointerEvents="box-none" style={{ position: "absolute", top: 12, left: 12, right: 12, gap: 10 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
+              <Pressable onPress={() => void leave(false)} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#16090FCC", alignItems: "center", justifyContent: "center" }}><X size={18} color="#fff" /></Pressable>
+              <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8, padding: 7, borderRadius: 22, backgroundColor: "#16090FCC" }}>
+                {creator ? <CreatorMark mark={creator.creator_mark || id} size={34} /> : null}
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={1} style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 12 }}>{creator?.display_name || "Unmask Creator"}</Text>
+                  <Text numberOfLines={1} style={{ color: "#E9D8E0", fontFamily: fonts.regular, fontSize: 10 }}>{creator?.handle ? "@" + creator.handle : title}</Text>
+                </View>
+                <View style={{ paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8, backgroundColor: "#D92D20" }}><Text style={{ color: "#fff", fontFamily: fonts.bold, fontSize: 10 }}>LIVE</Text></View>
+                <Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11, marginRight: 5 }}>{count}</Text>
+              </View>
+              <Pressable onPress={() => void shareRoom()} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#16090FCC", alignItems: "center", justifyContent: "center" }}><UsersThree size={18} color="#fff" /></Pressable>
+            </View>
+            {screenShareOn ? <View style={{ alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, backgroundColor: "#F2D25B" }}><Text style={{ color: "#2A0E16", fontFamily: fonts.semibold, fontSize: 10 }}>SCREEN PRESENTATION ON</Text></View> : null}
+          </View>
+
+          <View pointerEvents="box-none" style={{ position: "absolute", left: 12, right: 12, bottom: 14, gap: 12 }}>
+            {featuredProduct ? (
+              <Pressable onPress={() => setProductTrayOpen(true)} style={{ alignSelf: "flex-start", maxWidth: "88%", flexDirection: "row", alignItems: "center", gap: 10, padding: 10, paddingRight: 15, borderRadius: 15, backgroundColor: "#16090FEF", borderWidth: 1, borderColor: "#F2D25B77" }}>
+                <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: "#F3EBE2", alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#2A0E16", fontFamily: fonts.bold, fontSize: 17 }}>U</Text></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: "#F2D25B", fontFamily: fonts.semibold, fontSize: 9, letterSpacing: 0.7 }}>PRODUCT UNDER INVESTIGATION</Text>
+                  <Text numberOfLines={1} style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 13 }}>{featuredProduct.name}</Text>
+                  {featuredProduct.brand ? <Text style={{ color: "#E9D8E0", fontFamily: fonts.regular, fontSize: 10 }}>{featuredProduct.brand}</Text> : null}
+                </View>
+                <Text style={{ color: "#F2D25B", fontFamily: fonts.semibold, fontSize: 11 }}>View</Text>
+              </Pressable>
+            ) : null}
+            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 12 }}>
+              <View style={{ flex: 1, gap: 7 }}>
+                <Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 13 }}>{title}</Text>
+                <Text numberOfLines={2} style={{ color: "#F3EBE2", fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 }}>{sessionMeta.description || "A live product investigation. Share what you know and ask what you want to find out."}</Text>
+                {chat.slice(-3).map(item => <View key={item.id} style={{ alignSelf: "flex-start", maxWidth: "100%", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: "#16090FBF" }}><Text numberOfLines={2} style={{ color: "#fff", fontFamily: fonts.regular, fontSize: 11 }}><Text style={{ fontFamily: fonts.semibold }}>{item.name}: </Text>{item.text}</Text></View>)}
+              </View>
+              <View style={{ alignItems: "center", gap: 15 }}>
+                <View style={{ alignItems: "center", gap: 3 }}><View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: "#FFFFFF20", alignItems: "center", justifyContent: "center" }}><UsersThree size={20} color="#fff" /></View><Text style={{ color: "#fff", fontSize: 9, fontFamily: fonts.semibold }}> {count} </Text></View>
+                <Pressable onPress={() => setProductTrayOpen(true)} style={{ alignItems: "center", gap: 3 }}><View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: "#FFFFFF20", alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#F2D25B", fontSize: 19 }}>▣</Text></View><Text style={{ color: "#fff", fontSize: 9, fontFamily: fonts.semibold }}>PRODUCT</Text></Pressable>
+              </View>
+            </View>
+            {liveRole === "viewer" ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <TextInput value={message} onChangeText={setMessage} onSubmitEditing={() => void sendMessage()} placeholder="Ask a question…" placeholderTextColor="#D7C7CE" style={{ flex: 1, minHeight: 43, borderRadius: 24, paddingHorizontal: 15, color: "#fff", backgroundColor: "#16090FCC", fontFamily: fonts.regular }} />
+                <Pressable onPress={() => void sendMessage()} style={{ width: 43, height: 43, borderRadius: 22, backgroundColor: "#F2D25B", alignItems: "center", justifyContent: "center" }}><ChatCircleDots size={19} color="#2A0E16" /></Pressable>
+              </View>
+            ) : (
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Pressable onPress={() => void toggleMic()} style={{ flex: 1, minHeight: 42, borderRadius: 13, backgroundColor: "#FFFFFF20", alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{micOn ? "Mute mic" : "Unmute mic"}</Text></Pressable>
+                <Pressable onPress={() => void toggleCamera()} style={{ flex: 1, minHeight: 42, borderRadius: 13, backgroundColor: "#FFFFFF20", alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{cameraOn ? "Camera off" : "Camera on"}</Text></Pressable>
+                <Pressable onPress={() => void toggleScreenShare()} style={{ flex: 1, minHeight: 42, borderRadius: 13, backgroundColor: screenShareOn ? "#F2D25B" : "#FFFFFF20", alignItems: "center", justifyContent: "center" }}><Text style={{ color: screenShareOn ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{screenShareOn ? "Stop share" : "Share screen"}</Text></Pressable>
+              </View>
+            )}
+            {liveRole === "viewer" && !canPlayAudio ? <Pressable onPress={() => void startAudio()} style={{ alignSelf: "center", paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, backgroundColor: "#F2D25B" }}><Text style={{ color: "#2A0E16", fontFamily: fonts.semibold, fontSize: 11 }}>Tap to enable sound</Text></Pressable> : null}
+            {canEnd ? <Pressable onPress={() => void leave(true)} style={{ alignSelf: "center", padding: 7 }}><Text style={{ color: "#F3EBE2", fontFamily: fonts.medium, fontSize: 10 }}>End Live</Text></Pressable> : null}
+          </View>
+        </View>
+        {productTrayOpen ? (
+          <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: 20, paddingBottom: 30, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: "#fff", gap: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 18 }}>Products in this Live</Text><Pressable onPress={() => setProductTrayOpen(false)}><X size={20} color={colors.ink} /></Pressable></View>
+            {liveProducts.length ? liveProducts.map((product, index) => (
+              <Pressable key={product.id || product.name} onPress={() => { setSelectedProductId(product.id || null); setProductTrayOpen(false); }} style={{ flexDirection: "row", alignItems: "center", gap: 11, padding: 12, borderRadius: 15, backgroundColor: "#F7F4F2", borderWidth: 1, borderColor: featuredProduct?.name === product.name ? "#F2D25B" : "#E9E2DE" }}>
+                <View style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: "#EDE5E0", alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#2A0E16", fontFamily: fonts.bold, fontSize: 16 }}>{index + 1}</Text></View>
+                <View style={{ flex: 1 }}><Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 13 }}>{product.name}</Text><Text style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 11 }}>{product.brand || "Product being discussed"}</Text></View>
+                <Text style={{ color: colors.brandDeep, fontFamily: fonts.semibold, fontSize: 11 }}>Select</Text>
+              </Pressable>
+            )) : <Text style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 13 }}>The creator hasn't attached a product yet.</Text>}
+            <Text style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 11 }}>Product cards open the investigation context; checkout is not enabled in Unmask Live.</Text>
+          </View>
+        ) : null}
+      </View>
     );
   }
 
