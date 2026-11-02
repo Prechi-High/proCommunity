@@ -113,6 +113,7 @@ export default function Live() {
           </View>
         ) : rows.length ? (
           <ScrollView
+            style={{ flex: 1 }}
             nestedScrollEnabled
             snapToInterval={540}
             decelerationRate="fast"
