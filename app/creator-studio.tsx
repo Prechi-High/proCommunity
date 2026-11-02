@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { useAppStore } from "@/lib/store";
 import { db } from "@/lib/clarity/api";
@@ -21,10 +21,29 @@ export default function CreatorStudio() {
   const [error, setError] = useState("");
   const [activeSession, setActiveSession] = useState<any>(null);
   const [ending, setEnding] = useState(false);
+  const [availability, setAvailability] = useState<Array<{ day: string; enabled: boolean; start: string; end: string }>>([
+    { day: "Mon", enabled: true, start: "08:00", end: "22:00" },
+    { day: "Tue", enabled: true, start: "08:00", end: "22:00" },
+    { day: "Wed", enabled: true, start: "08:00", end: "22:00" },
+    { day: "Thu", enabled: true, start: "08:00", end: "22:00" },
+    { day: "Fri", enabled: true, start: "08:00", end: "22:00" },
+    { day: "Sat", enabled: true, start: "08:00", end: "22:00" },
+    { day: "Sun", enabled: true, start: "08:00", end: "22:00" },
+  ]);
+  const [savingAvailability, setSavingAvailability] = useState(false);
+  const [availabilitySaved, setAvailabilitySaved] = useState(false);
 
   useEffect(() => {
     if (!uid) return;
-    db().from("unmask_creators").select("*").eq("user_id", uid).maybeSingle().then(({ data }) => setCreator(data));
+    db().from("unmask_creators").select("*").eq("user_id", uid).maybeSingle().then(({ data }) => {
+      setCreator(data);
+      if (Array.isArray(data?.availability) && data.availability.length) {
+        setAvailability(current => current.map(day => {
+          const saved = data.availability.find((item: any) => item?.day === day.day);
+          return saved ? { ...day, enabled: saved.enabled !== false, start: saved.start || day.start, end: saved.end || day.end } : day;
+        }));
+      }
+    });
     db().from("unmask_realtime_sessions")
       .select("id,mode,title,description,status,metadata,started_at")
       .eq("host_creator_id", uid)
@@ -34,6 +53,35 @@ export default function CreatorStudio() {
       .maybeSingle()
       .then(({ data }) => setActiveSession(data || null));
   }, [uid]);
+
+
+  function patchAvailability(day: string, patch: Partial<{ enabled: boolean; start: string; end: string }>) {
+    setAvailability(current => current.map(item => item.day === day ? { ...item, ...patch } : item));
+    setAvailabilitySaved(false);
+  }
+
+  async function saveAvailability() {
+    if (!uid || savingAvailability) return;
+    setSavingAvailability(true);
+    setError("");
+    setAvailabilitySaved(false);
+    try {
+      const normalized = availability.map(item => {
+        const validTime = (value: string) => /^([01]\\d|2[0-3]):[0-5]\\d$/.test(value);
+        if (item.enabled && (!validTime(item.start) || !validTime(item.end))) throw new Error("Enter valid 24-hour times for " + item.day + ".");
+        if (item.enabled && item.start >= item.end) throw new Error(item.day + ": end time must be later than start time.");
+        return item;
+      });
+      const { error: saveError } = await db().from("unmask_creators").update({ availability: normalized }).eq("user_id", uid);
+      if (saveError) throw saveError;
+      setAvailabilitySaved(true);
+      setCreator((current: any) => current ? { ...current, availability: normalized } : current);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save availability.");
+    } finally {
+      setSavingAvailability(false);
+    }
+  }
 
   async function endActiveSession() {
     if (!activeSession || ending || !supabase) return;
@@ -100,6 +148,26 @@ export default function CreatorStudio() {
         <CreatorMark mark={creator.creator_mark || uid} size={58} label />
         <Text style={{ fontFamily: fonts.serifBold, fontSize: 27, color: colors.ink }}>{creator.display_name}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.inkSoft }}>@{creator.handle} · {creator.status}</Text>
+      </View>
+
+
+      <View style={{ padding: 18, borderRadius: 22, borderWidth: 1, borderColor: colors.line, backgroundColor: "#fff", gap: 12 }}>
+        <View style={{ gap: 4 }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: colors.ink }}>Your creator availability</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.inkSoft }}>Set the hours when you can take a Live shift or respond to an Unmask investigation. This is your availability, not an automatically assigned shift.</Text>
+        </View>
+        {availability.map((day) => (
+          <View key={day.day} style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
+            <Pressable onPress={() => patchAvailability(day.day, { enabled: !day.enabled })} accessibilityRole="checkbox" accessibilityState={{ checked: day.enabled }} style={{ width: 48, paddingVertical: 9, borderRadius: 11, alignItems: "center", backgroundColor: day.enabled ? "#2A0E16" : "#F2EFED" }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: day.enabled ? "#F2D25B" : colors.inkSoft }}>{day.day}</Text>
+            </Pressable>
+            <TextInput value={day.start} editable={day.enabled} onChangeText={value => patchAvailability(day.day, { start: value })} placeholder="08:00" keyboardType="numbers-and-punctuation" maxLength={5} style={[input, { flex: 1, paddingVertical: 10, textAlign: "center", opacity: day.enabled ? 1 : 0.45 }]} />
+            <Text style={{ fontFamily: fonts.medium, color: colors.inkSoft }}>to</Text>
+            <TextInput value={day.end} editable={day.enabled} onChangeText={value => patchAvailability(day.day, { end: value })} placeholder="22:00" keyboardType="numbers-and-punctuation" maxLength={5} style={[input, { flex: 1, paddingVertical: 10, textAlign: "center", opacity: day.enabled ? 1 : 0.45 }]} />
+          </View>
+        ))}
+        <ActionButton label={savingAvailability ? "Saving…" : "Save availability"} pending={savingAvailability} onPress={() => void saveAvailability()} />
+        {availabilitySaved ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: "#287A4B" }}>Availability saved.</Text> : null}
       </View>
 
       <View style={{ flexDirection: "row", gap: 10 }}>
