@@ -22,13 +22,13 @@ export default function CreatorStudio() {
   const [activeSession, setActiveSession] = useState<any>(null);
   const [ending, setEnding] = useState(false);
   const [availability, setAvailability] = useState<Array<{ day: string; enabled: boolean; start: string; end: string }>>([
-    { day: "Mon", enabled: true, start: "08:00", end: "22:00" },
-    { day: "Tue", enabled: true, start: "08:00", end: "22:00" },
-    { day: "Wed", enabled: true, start: "08:00", end: "22:00" },
-    { day: "Thu", enabled: true, start: "08:00", end: "22:00" },
-    { day: "Fri", enabled: true, start: "08:00", end: "22:00" },
-    { day: "Sat", enabled: true, start: "08:00", end: "22:00" },
-    { day: "Sun", enabled: true, start: "08:00", end: "22:00" },
+    { day: "Mon", enabled: false, start: "08:00", end: "22:00" },
+    { day: "Tue", enabled: false, start: "08:00", end: "22:00" },
+    { day: "Wed", enabled: false, start: "08:00", end: "22:00" },
+    { day: "Thu", enabled: false, start: "08:00", end: "22:00" },
+    { day: "Fri", enabled: false, start: "08:00", end: "22:00" },
+    { day: "Sat", enabled: false, start: "08:00", end: "22:00" },
+    { day: "Sun", enabled: false, start: "08:00", end: "22:00" },
   ]);
   const [savingAvailability, setSavingAvailability] = useState(false);
   const [availabilitySaved, setAvailabilitySaved] = useState(false);
