@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Platform, Text, View } from "react-native";
 import type { Participant } from "livekit-client";
 import { Track } from "livekit-client";
@@ -43,7 +43,7 @@ export function LiveVideoStage({ participants, localParticipant, layout = "panel
   localParticipant: Participant;
   layout?: "panel" | "grid";
 }) {
-  const tiles = useMemo(() => {
+  const tiles = (() => {
     const people = [localParticipant, ...participants];
     const result: Tile[] = [];
     for (const person of people) {
@@ -63,7 +63,7 @@ export function LiveVideoStage({ participants, localParticipant, layout = "panel
     }
     result.sort((a, b) => Number(b.screen) - Number(a.screen));
     return result;
-  }, [participants, localParticipant]);
+  })();
 
   const screen = tiles.find(tile => tile.screen);
   const cameras = tiles.filter(tile => !tile.screen);
