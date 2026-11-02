@@ -508,21 +508,6 @@ export function RealtimeSession({
     return card;
   }
 
-  async function loadTimelineById(timelineId: string, fallback?: { author?: string | null; authorId?: string | null }) {
-    const row = await journey(timelineId);
-    const card = timelineFromJourney(
-      row,
-      fallback?.author?.trim() || youName,
-      fallback?.authorId || null,
-    );
-    try {
-      card.entries = momentsFromUpdates(await journeyUpdates(row.id));
-    } catch {
-      card.entries = [];
-    }
-    return card;
-  }
-
   async function createTimeline() {
     const product = roomProducts(sessionMeta.metadata)[0];
     if (!product?.id) throw new Error("This Room has no product id yet, so a timeline can't start from here.");
