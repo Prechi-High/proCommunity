@@ -78,8 +78,8 @@ export default function Live() {
   };
 
   return (
-    <AppShell back title="Live" subtitle="Discover what the Unmask community is investigating.">
-      <View style={{ gap: 15 }}>
+    <AppShell back title="Live" subtitle="Discover what the Unmask community is investigating." scroll={false}>
+      <View style={{ flex: 1, gap: 15 }}>
         <View style={{ padding: 21, borderRadius: 25, backgroundColor: "#2A0E16", gap: 10 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <Text style={{ fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 1.2, color: "#F2D25B" }}>UNMASK LIVE</Text>
