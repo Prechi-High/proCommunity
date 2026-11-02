@@ -354,9 +354,31 @@ export function RoomExperience(props: RoomExperienceProps) {
                   });
                 }}
                 onOpenTimeline={(timelineId) => {
+                  // Ultra cards in the live carousel may reference another
+                  // member's timeline, which is not in props.timelines.
+                  // Route those clicks through the same exact-ID loader used
+                  // by the Ultra detail sheet instead of only notifying the
+                  // parent (which cannot open a timeline it has not loaded).
+                  const ultra = (props.ultras || []).find(
+                    (card) => card.timelineId === timelineId,
+                  );
+                  if (ultra) {
+                    void openUltraProductTimeline(ultra);
+                    return;
+                  }
                   const timeline = props.timelines?.find((item) => item.id === timelineId);
-                  if (timeline) setOpenExperience(timeline);
-                  props.onOpenTimeline?.(timelineId);
+                  if (timeline) {
+                    setOpenExperience(timeline);
+                    return;
+                  }
+                  if (props.onLoadTimelineById) {
+                    void props.onLoadTimelineById(timelineId)
+                      .then((loaded) => setOpenExperience(loaded))
+                      .catch((error: unknown) => {
+                        setUltraError(error instanceof Error ? error.message : "Could not load this product timeline.");
+                        setOpenUltraCard((props.ultras || []).find((card) => card.timelineId === timelineId) || null);
+                      });
+                  }
                 }}
                 onNudgeUltra={(card) => {
                   setDetailCard(card);
