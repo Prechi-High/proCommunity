@@ -258,7 +258,7 @@ export function RealtimeSession({
     }
     let dead = false;
     const attach = (track: RemoteTrack) => {
-      if (Platform.OS !== "web" || !mediaRef.current || mode === "live") return;
+      if (Platform.OS !== "web" || !mediaRef.current || (mode === "live" && track.kind === Track.Kind.Video)) return;
       const el = track.attach();
       el.setAttribute("data-unmask-track", track.sid || "");
       if (track.kind === Track.Kind.Video) {
@@ -1069,6 +1069,7 @@ export function RealtimeSession({
     return (
       <View style={{ flex: 1, minHeight: "100%", backgroundColor: "#10070B" }}>
         <View style={{ flex: 1, position: "relative", backgroundColor: "#16090F" }}>
+          <View ref={mediaRef} collapsable={false} pointerEvents="none" style={{ position: "absolute", width: 1, height: 1, opacity: 0, overflow: "hidden" }} />
           <View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, overflow: "hidden", backgroundColor: "#16090F" }}>
             {state === "connected" && roomRef.current ? <LiveVideoStage participants={participants} localParticipant={roomRef.current.localParticipant} layout={stageLayout} /> : (
               <View pointerEvents="none" style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
