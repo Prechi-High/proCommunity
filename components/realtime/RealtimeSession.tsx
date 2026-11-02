@@ -259,7 +259,10 @@ export function RealtimeSession({
         el.style.width = "100%";
         el.style.height = "100%";
         el.style.objectFit = "cover";
+        el.style.position = "absolute";
+        el.style.inset = "0";
         el.style.borderRadius = "22px";
+        setVideoAttached(true);
       } else {
         el.style.display = "none";
       }
@@ -320,8 +323,9 @@ export function RealtimeSession({
           const el = track.attach();
           el.setAttribute("data-unmask-local-track", track.sid || "");
           if (track.kind === Track.Kind.Video) {
-            el.style.width = "100%"; el.style.height = "100%"; el.style.objectFit = "cover"; el.style.borderRadius = "22px";
+            el.style.width = "100%"; el.style.height = "100%"; el.style.objectFit = "cover"; el.style.position = "absolute"; el.style.inset = "0"; el.style.borderRadius = "22px";
             el.muted = true;
+            setVideoAttached(true);
             mediaRef.current.appendChild(el);
           } else {
             el.style.display = "none";
