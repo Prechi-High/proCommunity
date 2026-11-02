@@ -58,6 +58,7 @@ export function RealtimeSession({
   const [count, setCount] = useState(0);
   const [micOn, setMicOn] = useState(false);
   const [cameraOn, setCameraOn] = useState(false);
+  const [videoAttached, setVideoAttached] = useState(false);
   const [canPlayAudio, setCanPlayAudio] = useState(true);
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState<ChatItem[]>([]);
@@ -452,6 +453,59 @@ export function RealtimeSession({
       roomRef.current = null;
     };
   }, [id, mode, host, decoder, uid, attempt, armed]);
+
+
+  // Tracks can arrive before the Live video surface mounts. Re-attach existing
+  // tracks after the connected UI has rendered so viewers do not see a blank stage.
+  useEffect(() => {
+    if (mode !== "live" || state !== "connected" || Platform.OS !== "web") return;
+    const surface = mediaRef.current;
+    const room = roomRef.current;
+    if (!surface || !room) return;
+
+    const attachOnce = (track: any, local = false) => {
+      if (!track || typeof track.attach !== "function") return;
+      const sid = String(track.sid || "");
+      const attribute = local ? "data-unmask-local-track" : "data-unmask-track";
+      const existing = Array.from(surface.children || []).some((child: any) =>
+        child?.getAttribute?.(attribute) === sid
+      );
+      if (existing) return;
+      try {
+        const element = track.attach();
+        element.setAttribute(attribute, sid);
+        element.autoplay = true;
+        element.playsInline = true;
+        if (track.kind === Track.Kind.Video) {
+          element.style.width = "100%";
+          element.style.height = "100%";
+          element.style.objectFit = "cover";
+          element.style.position = "absolute";
+          element.style.inset = "0";
+          element.style.borderRadius = "22px";
+          if (local) element.muted = true;
+          setVideoAttached(true);
+        } else {
+          element.style.display = "none";
+        }
+        surface.appendChild(element);
+        if (!local && track.kind === Track.Kind.Audio) {
+          void element.play?.().catch?.(() => setCanPlayAudio(false));
+        }
+      } catch {
+        // TrackSubscribed/LocalTrackPublished handlers remain responsible for later tracks.
+      }
+    };
+
+    for (const publication of room.localParticipant.trackPublications.values()) {
+      if (publication.track) attachOnce(publication.track, true);
+    }
+    for (const participant of room.remoteParticipants.values()) {
+      for (const publication of participant.trackPublications.values()) {
+        if (publication.isSubscribed && publication.track) attachOnce(publication.track, false);
+      }
+    }
+  }, [mode, state, attempt]);
 
   function ingest(raw: unknown, author: string) {
     setChat((notes) => applyRoomNote(notes, raw, author));
@@ -1017,8 +1071,13 @@ export function RealtimeSession({
 
         {active ? (
           <>
-            <View ref={mediaRef} style={{ height: mode === "live" ? 360 : 100, borderRadius: 22, backgroundColor: "#050404", overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
-              <Play size={34} color="#F2D25B" weight="fill" />
+            <View ref={mediaRef} collapsable={false} style={{ height: mode === "live" ? 520 : 100, borderRadius: 22, backgroundColor: "#050404", overflow: "hidden", alignItems: "center", justifyContent: "center", position: "relative" }}>
+              {!videoAttached ? (
+                <View pointerEvents="none" style={{ alignItems: "center", gap: 8 }}>
+                  <Play size={34} color="#F2D25B" weight="fill" />
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: "#E9D8E0" }}>Waiting for creator video…</Text>
+                </View>
+              ) : null}
             </View>
             <View style={{ padding: 18, borderRadius: 22, backgroundColor: colors.stage, gap: 16 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
