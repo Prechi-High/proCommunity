@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { AppShell, ActionButton, StatusMessage } from "@/components/unmask-ui";
 import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
 import { RoomExperience } from "@/components/room/RoomExperience";
+import { LiveVideoStage } from "@/components/realtime/LiveVideoStage";
 import { ChatCircleDots, Play, UsersThree, X } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
@@ -61,6 +62,7 @@ export function RealtimeSession({
   const [screenShareOn, setScreenShareOn] = useState(false);
   const [productTrayOpen, setProductTrayOpen] = useState(false);
   const [guestPanelOpen, setGuestPanelOpen] = useState(false);
+  const [stageLayout, setStageLayout] = useState<"panel" | "grid">("panel");
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [videoAttached, setVideoAttached] = useState(false);
   const [canPlayAudio, setCanPlayAudio] = useState(true);
@@ -256,7 +258,7 @@ export function RealtimeSession({
     }
     let dead = false;
     const attach = (track: RemoteTrack) => {
-      if (Platform.OS !== "web" || !mediaRef.current) return;
+      if (Platform.OS !== "web" || !mediaRef.current || mode === "live") return;
       const el = track.attach();
       el.setAttribute("data-unmask-track", track.sid || "");
       if (track.kind === Track.Kind.Video) {
@@ -324,7 +326,7 @@ export function RealtimeSession({
           void syncPresence(room.activeSpeakers.length, room.activeSpeakers[0]?.name || room.activeSpeakers[0]?.identity || "");
         };
         const attachLocal = (track: any) => {
-          if (Platform.OS !== "web" || !mediaRef.current) return;
+          if (Platform.OS !== "web" || !mediaRef.current || mode === "live") return;
           const el = track.attach();
           el.setAttribute("data-unmask-local-track", track.sid || "");
           if (track.kind === Track.Kind.Video) {
@@ -467,7 +469,7 @@ export function RealtimeSession({
   // Tracks can arrive before the Live video surface mounts. Re-attach existing
   // tracks after the connected UI has rendered so viewers do not see a blank stage.
   useEffect(() => {
-    if (mode !== "live" || state !== "connected" || Platform.OS !== "web") return;
+    if (mode !== "room" || state !== "connected" || Platform.OS !== "web") return;
     const surface = mediaRef.current;
     const room = roomRef.current;
     if (!surface || !room) return;
@@ -1067,13 +1069,13 @@ export function RealtimeSession({
     return (
       <View style={{ flex: 1, minHeight: "100%", backgroundColor: "#10070B" }}>
         <View style={{ flex: 1, position: "relative", backgroundColor: "#16090F" }}>
-          <View ref={mediaRef} collapsable={false} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, overflow: "hidden", backgroundColor: "#16090F" }}>
-            {!videoAttached ? (
+          <View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, overflow: "hidden", backgroundColor: "#16090F" }}>
+            {state === "connected" && roomRef.current ? <LiveVideoStage participants={participants} localParticipant={roomRef.current.localParticipant} layout={stageLayout} /> : (
               <View pointerEvents="none" style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
                 <Play size={42} color="#F2D25B" weight="fill" />
                 <Text style={{ color: "#F3EBE2", fontFamily: fonts.medium, fontSize: 13 }}>{state === "connecting" ? "Connecting to the Live…" : "Waiting for the creator's video…"}</Text>
               </View>
-            ) : null}
+            )}
           </View>
           <View pointerEvents="box-none" style={{ position: "absolute", top: 12, left: 12, right: 12, gap: 10 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
@@ -1089,7 +1091,11 @@ export function RealtimeSession({
               </View>
               <Pressable onPress={() => void shareRoom()} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#16090FCC", alignItems: "center", justifyContent: "center" }}><UsersThree size={18} color="#fff" /></Pressable>
             </View>
-            {screenShareOn ? <View style={{ alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, backgroundColor: "#F2D25B" }}><Text style={{ color: "#2A0E16", fontFamily: fonts.semibold, fontSize: 10 }}>SCREEN PRESENTATION ON</Text></View> : null}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+              <Pressable onPress={() => setStageLayout("panel")} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, backgroundColor: stageLayout === "panel" ? "#F2D25B" : "#16090FCC" }}><Text style={{ color: stageLayout === "panel" ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 10 }}>PANEL</Text></Pressable>
+              <Pressable onPress={() => setStageLayout("grid")} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, backgroundColor: stageLayout === "grid" ? "#F2D25B" : "#16090FCC" }}><Text style={{ color: stageLayout === "grid" ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 10 }}>GRID</Text></Pressable>
+              {screenShareOn ? <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, backgroundColor: "#F2D25B" }}><Text style={{ color: "#2A0E16", fontFamily: fonts.semibold, fontSize: 10 }}>SCREEN SHARING</Text></View> : null}
+            </View>
           </View>
 
           <View pointerEvents="box-none" style={{ position: "absolute", left: 12, right: 12, bottom: 14, gap: 12 }}>
