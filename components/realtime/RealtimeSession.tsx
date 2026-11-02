@@ -60,6 +60,7 @@ export function RealtimeSession({
   const [cameraOn, setCameraOn] = useState(false);
   const [screenShareOn, setScreenShareOn] = useState(false);
   const [productTrayOpen, setProductTrayOpen] = useState(false);
+  const [guestPanelOpen, setGuestPanelOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [videoAttached, setVideoAttached] = useState(false);
   const [canPlayAudio, setCanPlayAudio] = useState(true);
@@ -1127,9 +1128,35 @@ export function RealtimeSession({
               </View>
             )}
             {liveRole === "viewer" && !canPlayAudio ? <Pressable onPress={() => void startAudio()} style={{ alignSelf: "center", paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, backgroundColor: "#F2D25B" }}><Text style={{ color: "#2A0E16", fontFamily: fonts.semibold, fontSize: 11 }}>Tap to enable sound</Text></Pressable> : null}
+            {(liveRole === "host" || liveRole === "cohost") ? (
+              <Pressable onPress={() => setGuestPanelOpen(true)} style={{ alignSelf: "flex-start", paddingHorizontal: 13, paddingVertical: 9, borderRadius: 20, backgroundColor: "#FFFFFF24", borderWidth: 1, borderColor: "#FFFFFF45" }}>
+                <Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>＋ Invite a guest · {cohostIds.length} on stage</Text>
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => void requestMic()} style={{ alignSelf: "flex-start", paddingHorizontal: 13, paddingVertical: 9, borderRadius: 20, backgroundColor: "#FFFFFF24" }}>
+                <Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{micRequested ? "Stage request sent" : "Request to join the conversation"}</Text>
+              </Pressable>
+            )}
             {canEnd ? <Pressable onPress={() => void leave(true)} style={{ alignSelf: "center", padding: 7 }}><Text style={{ color: "#F3EBE2", fontFamily: fonts.medium, fontSize: 10 }}>End Live</Text></Pressable> : null}
           </View>
         </View>
+        {guestPanelOpen ? (
+          <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: 20, paddingBottom: 30, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: "#fff", gap: 12, maxHeight: "72%" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 18 }}>Bring someone on stage</Text><Pressable onPress={() => setGuestPanelOpen(false)}><X size={20} color={colors.ink} /></Pressable></View>
+            <Text style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18 }}>Invite an active Unmask Creator as a co-host. They can join with their own camera and microphone.</Text>
+            <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={{ gap: 8 }}>
+              {creators.map(person => {
+                const added = cohostIds.includes(person.user_id);
+                return <View key={person.user_id} style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 13, backgroundColor: "#F7F4F2" }}>
+                  <CreatorMark mark={person.creator_mark || person.user_id} size={34} />
+                  <View style={{ flex: 1 }}><Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 12 }}>{person.display_name}</Text><Text style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 10 }}>@{person.handle}</Text></View>
+                  <Pressable disabled={added} onPress={() => void manage("add_cohost", person.user_id).then(() => setGuestPanelOpen(false)).catch(error => setManagementError(error instanceof Error ? error.message : "Could not invite this guest."))} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: added ? "#E7E1DD" : "#2A0E16" }}><Text style={{ color: added ? colors.inkSoft : "#fff", fontFamily: fonts.semibold, fontSize: 10 }}>{added ? "On stage" : "Invite"}</Text></Pressable>
+                </View>;
+              })}
+              {!creators.length ? <Text style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 12 }}>No other active Unmask Creators are available to invite right now.</Text> : null}
+            </ScrollView>
+          </View>
+        ) : null}
         {productTrayOpen ? (
           <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: 20, paddingBottom: 30, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: "#fff", gap: 12 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 18 }}>Products in this Live</Text><Pressable onPress={() => setProductTrayOpen(false)}><X size={20} color={colors.ink} /></Pressable></View>
