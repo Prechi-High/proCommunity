@@ -342,8 +342,8 @@ export function RealtimeSession({
         const onLocalTrack = (publication: any) => {
           if (publication?.track) attachLocal(publication.track);
         };
-        const onTrack = (track: RemoteTrack) => attach(track);
-        const onUntrack = (track: RemoteTrack) => detach(track);
+        const onTrack = (track: RemoteTrack) => { attach(track); syncParticipants(); };
+        const onUntrack = (track: RemoteTrack) => { detach(track); syncParticipants(); };
         const onSpeaker = (people: Participant[]) => {
           const first = people[0];
           setActiveSpeakerIds(people.map(person => person.identity));
