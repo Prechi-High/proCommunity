@@ -9,6 +9,8 @@ import { AppShell, ActionButton, StatusMessage } from "@/components/unmask-ui";
 import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
 import { RoomExperience } from "@/components/room/RoomExperience";
 import { LiveVideoStage } from "@/components/realtime/LiveVideoStage";
+import { ProductShowcase } from "@/components/realtime/ProductShowcase";
+import { LiveGuestPanel } from "@/components/realtime/LiveGuestPanel";
 import { ChatCircleDots, Play, UsersThree, X } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
@@ -37,7 +39,7 @@ function freshId() {
     return (slot === "x" ? value : (value & 0x3) | 0x8).toString(16);
   });
 }
-type MicRequest = { user_id: string; display_name?: string; status: "pending" | "approved" | "denied" | "revoked" };
+type MicRequest = { user_id: string; display_name?: string; mode?: "audio" | "video" | "both"; status: "pending" | "approved" | "denied" | "revoked" };
 type Creator = { user_id: string; display_name: string; handle: string; avatar_url: string | null; creator_mark: string; status: string; published: boolean };
 
 export function RealtimeSession({
@@ -85,6 +87,8 @@ export function RealtimeSession({
   const [micRequested, setMicRequested] = useState(false);
   const [micApproved, setMicApproved] = useState(false);
   const [micDenied, setMicDenied] = useState(false);
+  const [guestMode, setGuestMode] = useState<"audio" | "video" | "both">("audio");
+  const [guestInvite, setGuestInvite] = useState<{ id: string; hostId: string; hostName: string; mode: "audio" | "video" | "both"; status: "pending" | "accepted" } | null>(null);
   const [invited, setInvited] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [armed, setArmed] = useState(mode !== "room" || host);
@@ -155,6 +159,11 @@ export function RealtimeSession({
         if (cancelled || !data?.metadata) return;
         const metadata = data.metadata as any;
         const requests = Array.isArray(metadata.mic_requests) ? metadata.mic_requests as MicRequest[] : [];
+        const invites = Array.isArray(metadata.guest_invites) ? metadata.guest_invites as any[] : [];
+        if (uid) {
+          const invite = invites.find((item) => String(item.user_id) === uid && (item.status === "pending" || item.status === "accepted"));
+          if (invite) setGuestInvite({ id: String(invite.id), hostId: String(invite.host_id || metadata.host_id || ""), hostName: String(invite.host_name || "Host"), mode: invite.mode === "video" || invite.mode === "both" ? invite.mode : "audio", status: invite.status === "accepted" ? "accepted" : "pending" });
+        }
         const permissions = metadata.cohost_permissions && typeof metadata.cohost_permissions === "object" ? metadata.cohost_permissions : {};
         setMicRequests(requests);
         setCohostPermissions(permissions);
@@ -168,6 +177,12 @@ export function RealtimeSession({
             setMicRequested(false);
             setMicDenied(false);
             setMicApproved(true);
+            const approvedRequest = requests.find((item) => String(item.user_id) === uid && item.status === "approved");
+            const approvedMode = approvedRequest?.mode || (guestInvite?.mode || "audio");
+            setGuestMode(approvedMode);
+            if ((approvedMode === "video" || approvedMode === "both") && roomRef.current && !roomRef.current.localParticipant.isCameraEnabled) {
+              try { await roomRef.current.localParticipant.setCameraEnabled(true); setCameraOn(true); } catch {}
+            }
             const room = roomRef.current;
             if (room && !room.localParticipant.isMicrophoneEnabled) {
               try { await room.localParticipant.setMicrophoneEnabled(true); setMicOn(true); } catch {}
@@ -317,7 +332,7 @@ export function RealtimeSession({
         setLiveRole(payload.role || "viewer");
         setAnonymousListening(Boolean(anonymousListening && payload.role === "viewer"));
         setIsHostSession(payload.role === "host");
-        const room = new Room({ adaptiveStream: true, dynacast: true, disconnectOnPageLeave: true });
+        const room = new Room({ adaptiveStream: true, dynacast: true, disconnectOnPageLeave: true, audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
         roomRef.current = room;
         const syncParticipants = () => setParticipants(Array.from(room.remoteParticipants.values()));
         const sync = () => {
@@ -737,7 +752,7 @@ export function RealtimeSession({
   }
 
   async function toggleCamera() {
-    const room = roomRef.current; if (!room || mode !== "live" || (liveRole !== "host" && liveRole !== "cohost")) return;
+    const room = roomRef.current; if (!room || mode !== "live" || ((liveRole !== "host" && liveRole !== "cohost") && !micApproved)) return;
     const next = !cameraOn; await room.localParticipant.setCameraEnabled(next); setCameraOn(next);
   }
 
@@ -773,6 +788,37 @@ export function RealtimeSession({
     } catch (error) {
       setManagementError(error instanceof Error ? error.message : "Could not update anonymous listening.");
     }
+  }
+
+  async function updateLiveMetadata(patch: Record<string, any>) {
+    const { data, error } = await db().from("unmask_realtime_sessions").select("metadata").eq("id", id).single();
+    if (error) throw error;
+    const meta = data?.metadata && typeof data.metadata === "object" ? data.metadata as any : {};
+    const next = { ...meta, ...patch };
+    const saved = await db().from("unmask_realtime_sessions").update({ metadata: next }).eq("id", id);
+    if (saved.error) throw saved.error;
+    setSessionMeta((current) => ({ ...current, metadata: next }));
+    return next;
+  }
+
+  async function inviteLiveUser(person: { user_id: string; display_name: string }, inviteMode: "audio" | "video" | "both") {
+    const invites = Array.isArray((sessionMeta.metadata as any)?.guest_invites) ? [...(sessionMeta.metadata as any).guest_invites] : [];
+    const next = invites.filter((item: any) => String(item.user_id) !== person.user_id);
+    next.push({ id: freshId(), user_id: person.user_id, host_id: uid, host_name: creator?.display_name || youName, mode: inviteMode, status: "pending", created_at: new Date().toISOString() });
+    await updateLiveMetadata({ guest_invites: next });
+    setManagementError("Invitation sent to @" + person.display_name + ".");
+  }
+
+  async function acceptGuestInvite() {
+    if (!guestInvite || !uid) return;
+    const invites = Array.isArray((sessionMeta.metadata as any)?.guest_invites) ? [...(sessionMeta.metadata as any).guest_invites] : [];
+    const nextInvites = invites.map((item: any) => String(item.id) === guestInvite.id ? { ...item, status: "accepted" } : item);
+    const requests = Array.isArray((sessionMeta.metadata as any)?.mic_requests) ? [...(sessionMeta.metadata as any).mic_requests] : [];
+    const nextRequests = requests.filter((item: any) => String(item.user_id) !== uid);
+    nextRequests.push({ user_id: uid, display_name: youName, mode: guestInvite.mode, status: "pending" });
+    await updateLiveMetadata({ guest_invites: nextInvites, mic_requests: nextRequests });
+    setGuestInvite({ ...guestInvite, status: "accepted" });
+    setMicRequested(true);
   }
 
   async function manage(action: string, targetUserId?: string) {
@@ -889,6 +935,7 @@ export function RealtimeSession({
   const liveProducts = roomProducts(sessionMeta.metadata);
   const featuredProduct = liveProducts.find((item) => item.id === selectedProductId) || liveProducts[0] || null;
   const canSpeak = liveRole === "host" || liveRole === "cohost" || micApproved;
+  const canUseCamera = liveRole === "host" || liveRole === "cohost" || (micApproved && (guestMode === "video" || guestMode === "both"));
   const canManageCohosts = isHostSession || !!cohostPermissions[uid || ""]?.can_manage_cohosts;
   const canEnd = isHostSession || !!cohostPermissions[uid || ""]?.can_end;
   const barHeights = speaking
@@ -1130,7 +1177,7 @@ export function RealtimeSession({
             ) : (
               <View style={{ flexDirection: "row", gap: 8 }}>
                 <Pressable onPress={() => void toggleMic()} style={{ flex: 1, minHeight: 42, borderRadius: 13, backgroundColor: "#FFFFFF20", alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{micOn ? "Mute mic" : "Unmute mic"}</Text></Pressable>
-                <Pressable onPress={() => void toggleCamera()} style={{ flex: 1, minHeight: 42, borderRadius: 13, backgroundColor: "#FFFFFF20", alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{cameraOn ? "Camera off" : "Camera on"}</Text></Pressable>
+                {canUseCamera ? <Pressable onPress={() => void toggleCamera()} style={{ flex: 1, minHeight: 42, borderRadius: 13, backgroundColor: "#FFFFFF20", alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{cameraOn ? "Camera off" : "Camera on"}</Text></Pressable> : null}
                 <Pressable onPress={() => void toggleScreenShare()} style={{ flex: 1, minHeight: 42, borderRadius: 13, backgroundColor: screenShareOn ? "#F2D25B" : "#FFFFFF20", alignItems: "center", justifyContent: "center" }}><Text style={{ color: screenShareOn ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{screenShareOn ? "Stop share" : "Share screen"}</Text></Pressable>
               </View>
             )}
@@ -1148,33 +1195,28 @@ export function RealtimeSession({
           </View>
         </View>
         {guestPanelOpen ? (
-          <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: 20, paddingBottom: 30, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: "#fff", gap: 12, maxHeight: "72%" }}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 18 }}>Bring someone on stage</Text><Pressable onPress={() => setGuestPanelOpen(false)}><X size={20} color={colors.ink} /></Pressable></View>
-            <Text style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18 }}>Invite an active Unmask Creator as a co-host. They can join with their own camera and microphone.</Text>
-            <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={{ gap: 8 }}>
-              {creators.map(person => {
-                const added = cohostIds.includes(person.user_id);
-                return <View key={person.user_id} style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 13, backgroundColor: "#F7F4F2" }}>
-                  <CreatorMark mark={person.creator_mark || person.user_id} size={34} />
-                  <View style={{ flex: 1 }}><Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 12 }}>{person.display_name}</Text><Text style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 10 }}>@{person.handle}</Text></View>
-                  <Pressable disabled={added} onPress={() => void manage("add_cohost", person.user_id).then(() => setGuestPanelOpen(false)).catch(error => setManagementError(error instanceof Error ? error.message : "Could not invite this guest."))} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: added ? "#E7E1DD" : "#2A0E16" }}><Text style={{ color: added ? colors.inkSoft : "#fff", fontFamily: fonts.semibold, fontSize: 10 }}>{added ? "On stage" : "Invite"}</Text></Pressable>
-                </View>;
-              })}
-              {!creators.length ? <Text style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 12 }}>No other active Unmask Creators are available to invite right now.</Text> : null}
-            </ScrollView>
-          </View>
+          <LiveGuestPanel sessionId={id} excludeUserId={uid} open={guestPanelOpen} onClose={() => setGuestPanelOpen(false)} onInvite={async (person, inviteMode) => { await inviteLiveUser(person, inviteMode); }} />
         ) : null}
-        {productTrayOpen ? (
-          <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: 20, paddingBottom: 30, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: "#fff", gap: 12 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 18 }}>Products in this Live</Text><Pressable onPress={() => setProductTrayOpen(false)}><X size={20} color={colors.ink} /></Pressable></View>
-            {liveProducts.length ? liveProducts.map((product, index) => (
-              <Pressable key={product.id || product.name} onPress={() => { setSelectedProductId(product.id || null); setProductTrayOpen(false); }} style={{ flexDirection: "row", alignItems: "center", gap: 11, padding: 12, borderRadius: 15, backgroundColor: "#F7F4F2", borderWidth: 1, borderColor: featuredProduct?.name === product.name ? "#F2D25B" : "#E9E2DE" }}>
-                <View style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: "#EDE5E0", alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#2A0E16", fontFamily: fonts.bold, fontSize: 16 }}>{index + 1}</Text></View>
-                <View style={{ flex: 1 }}><Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 13 }}>{product.name}</Text><Text style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 11 }}>{product.brand || "Product being discussed"}</Text></View>
-                <Text style={{ color: colors.brandDeep, fontFamily: fonts.semibold, fontSize: 11 }}>Select</Text>
-              </Pressable>
-            )) : <Text style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 13 }}>The creator hasn't attached a product yet.</Text>}
-            <Text style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 11 }}>Product cards open the investigation context; checkout is not enabled in Unmask Live.</Text>
+        <ProductShowcase
+          sessionId={id}
+          metadata={sessionMeta.metadata}
+          canManage={liveRole === "host" || liveRole === "cohost"}
+          open={productTrayOpen}
+          onClose={() => setProductTrayOpen(false)}
+          onChanged={(products, pinnedId) => {
+            const nextMeta = { ...(sessionMeta.metadata as any), products, pinned_product_id: pinnedId };
+            setSessionMeta((current) => ({ ...current, metadata: nextMeta }));
+            setSelectedProductId(pinnedId);
+          }}
+        />
+        {guestInvite && liveRole === "viewer" && guestInvite.status === "pending" ? (
+          <View style={{ position: "absolute", left: 12, right: 12, top: 80, padding: 14, borderRadius: 18, backgroundColor: "#fff", zIndex: 70, gap: 9 }}>
+            <Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 14 }}>{guestInvite.hostName} invited you to join the stage</Text>
+            <Text style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 11 }}>Your permission: {guestInvite.mode === "both" ? "camera + microphone" : guestInvite.mode}.</Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <Pressable onPress={() => void acceptGuestInvite()} style={{ flex: 1, padding: 10, borderRadius: 10, backgroundColor: colors.brandDeep }}><Text style={{ color: "#fff", textAlign: "center", fontFamily: fonts.semibold, fontSize: 10 }}>Accept & join</Text></Pressable>
+              <Pressable onPress={() => setGuestInvite(null)} style={{ flex: 1, padding: 10, borderRadius: 10, backgroundColor: "#F3EFEC" }}><Text style={{ color: colors.ink, textAlign: "center", fontFamily: fonts.semibold, fontSize: 10 }}>Not now</Text></Pressable>
+            </View>
           </View>
         ) : null}
       </View>
