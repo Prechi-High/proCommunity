@@ -197,8 +197,11 @@ export function RealtimeSession({
               try { await roomRef.current.localParticipant.setCameraEnabled(true); setCameraOn(true); } catch {}
             }
             const room = roomRef.current;
-            if (room && !room.localParticipant.isMicrophoneEnabled) {
+            if (room && (approvedMode === "audio" || approvedMode === "both") && !room.localParticipant.isMicrophoneEnabled) {
               try { await room.localParticipant.setMicrophoneEnabled(true); setMicOn(true); } catch {}
+            }
+            if (room && approvedMode === "video" && room.localParticipant.isMicrophoneEnabled) {
+              try { await room.localParticipant.setMicrophoneEnabled(false); setMicOn(false); } catch {}
             }
           }
           if (mine?.status === "denied" || mine?.status === "revoked") {
