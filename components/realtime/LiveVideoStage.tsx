@@ -4,7 +4,7 @@ import type { Participant } from "livekit-client";
 import { Track } from "livekit-client";
 import { fonts } from "@/constants/theme";
 
-type Tile = { key: string; participant: Participant; track: any; name: string; screen: boolean };
+type Tile = { key: string; participant: Participant; track: any; name: string; screen: boolean; tag?: string };
 
 function VideoTile({ tile, compact = false }: { tile: Tile; compact?: boolean }) {
   const surface = useRef<any>(null);
@@ -32,7 +32,7 @@ function VideoTile({ tile, compact = false }: { tile: Tile; compact?: boolean })
     <View ref={surface} collapsable={false} style={{ flex: 1, minWidth: compact ? 104 : 0, minHeight: compact ? 116 : 180, borderRadius: 16, overflow: "hidden", backgroundColor: "#24131B", position: "relative", borderWidth: 1, borderColor: "#FFFFFF24" }}>
       {Platform.OS !== "web" ? <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#fff", fontFamily: fonts.medium, fontSize: 11 }}>Native video renderer required</Text></View> : null}
       <View pointerEvents="none" style={{ position: "absolute", left: 7, bottom: 7, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "#10070BCC" }}>
-        <Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 10 }}>{tile.screen ? "SCREEN · " : ""}{tile.name}</Text>
+        <Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 10 }}>{tile.screen ? "SCREEN · " : ""}{tile.tag || tile.name}</Text>
       </View>
     </View>
   );
@@ -42,9 +42,11 @@ export function LiveVideoStage({ participants, localParticipant, layout = "panel
   participants: Participant[];
   localParticipant: Participant;
   layout?: "panel" | "grid";
+  stageTags?: Record<string, string>;
 }) {
   const tiles = (() => {
     const people = [localParticipant, ...participants];
+    const tags = stageTags || {};
     const result: Tile[] = [];
     for (const person of people) {
       for (const publication of person.videoTrackPublications.values()) {
@@ -58,6 +60,7 @@ export function LiveVideoStage({ participants, localParticipant, layout = "panel
           track,
           name: person.name || (person.isLocal ? "You" : "Guest"),
           screen,
+          tag: tags[person.identity],
         });
       }
     }
