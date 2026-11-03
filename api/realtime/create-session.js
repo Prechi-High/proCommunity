@@ -35,9 +35,11 @@ async function handler(req, res) {
     const mode = String(body.mode || "");
     const title = String(body.title || "").trim();
     const description = String(body.description || "").trim();
+    const investigationId = body.investigationId ? String(body.investigationId) : null;
 
     if (!["live", "room"].includes(mode)) return send(res, 400, { error: "Invalid session mode." });
     if (!title) return send(res, 400, { error: "A title is required." });
+    if (mode === "live" && !investigationId) return send(res, 400, { error: "Choose an Ultra Unmask before starting." });
 
     const { data: creator, error: creatorError } = await supabase
       .from("unmask_creators")
@@ -47,6 +49,14 @@ async function handler(req, res) {
 
     if (creatorError || !creator || creator.user_id !== userData.user.id || !creator.published || !["trial", "active", "expert", "verified_professional"].includes(creator.status)) {
       return send(res, 403, { error: "Creator access is not active." });
+    }
+
+    if (mode === "live") {
+      const { data: investigation, error: investigationError } = await supabase
+        .from("unmask_investigations").select("id,title,concern,user_id,creator_id,status,product_id,attached_journey_id,attached_experience_id,unmask_catalog(name,brand,image_url)")
+        .eq("id", investigationId).eq("creator_id", userData.user.id).single();
+      if (investigationError || !investigation) return send(res, 403, { error: "That Ultra Unmask is not assigned to you." });
+      if (["declined","cancelled","closed"].includes(String(investigation.status).toLowerCase())) return send(res, 409, { error: "That Ultra Unmask is no longer available." });
     }
 
     const { data: existingSession, error: existingSessionError } = await supabase
@@ -85,6 +95,7 @@ async function handler(req, res) {
       .insert({
         mode,
         host_creator_id: userData.user.id,
+        investigation_id: investigationId,
         title,
         description,
         status: "live",
@@ -100,6 +111,9 @@ async function handler(req, res) {
           cohost_ids: [],
           cohost_permissions: {},
           mic_requests: [],
+          stage_tags: {},
+          ultra_invites: {},
+          ultra_unmask: investigationId ? { investigation_id: investigationId } : null,
         },
       })
       .select("id,room_name,mode")
