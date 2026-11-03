@@ -28,6 +28,7 @@ import { updates as journeyUpdates } from "@/lib/tracking/api";
 import { monthlySparks } from "@/lib/membership";
 import { ULTRA_UNMASK_SPARK_GOAL } from "@/lib/unmask/status";
 import { useAppStore } from "@/lib/store";
+import { applyNoiseCancellation } from "@/lib/realtime/noiseCancellation";
 
 type ChatItem = { id: string; name: string; text: string; experience?: RoomTimeline | null };
 
@@ -746,26 +747,6 @@ export function RealtimeSession({
     const result = await monthlySparks(true);
     setSparksBalance(result.sparks);
     return result.sparks;
-  }
-
-  async function applyNoiseCancellation(track: any) {
-    if (!track || typeof track.setProcessor !== "function") return;
-    try {
-      if (Platform.OS === "web") {
-        const mod = await import("@livekit/krisp-noise-filter");
-        const supported = typeof mod.isKrispNoiseFilterSupported === "function" ? mod.isKrispNoiseFilterSupported() : true;
-        if (!supported) return;
-        const processor = mod.KrispNoiseFilter();
-        await track.setProcessor(processor);
-        await processor.setEnabled(true);
-      } else {
-        const mod = await import("@livekit/react-native-krisp-noise-filter");
-        const processor = mod.KrispNoiseFilter();
-        await track.setProcessor(processor);
-      }
-    } catch {
-      // WebRTC noise/echo suppression remains enabled as the fallback.
-    }
   }
 
   async function toggleMic() {
