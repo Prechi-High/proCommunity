@@ -871,7 +871,7 @@ export function RealtimeSession({
       const response = await fetch("/api/realtime/token", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` }, body: JSON.stringify({ action: "create_invite", sessionId: id, mode: "both" }) });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Could not create invite.");
-      const link = `/live/session?id=${encodeURIComponent(id)}&invite=${encodeURIComponent(payload.inviteId)}`;
+      const link = Linking.createURL(`/live/session?id=${encodeURIComponent(id)}&invite=${encodeURIComponent(payload.inviteId)}`);
       setInviteLink(link);
       await Share.share({ message: `Join my Ultra Unmask stage: ${link}` });
     } catch (error) {
