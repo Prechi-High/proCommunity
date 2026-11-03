@@ -48,7 +48,14 @@ export function ProductShowcase({ sessionId, metadata, canManage, open, onClose,
       setLocalProducts(products.slice(0, 12)); onChanged(products.slice(0, 12), nextPinned);
     } finally { setBusy(false); }
   };
-  const add = async (product: Product) => {\n    let nextProduct = product;\n    if (!product.url && !product.id.startsWith("manual-")) {\n      const listing = await db().from("listings").select("product_url,price,currency,in_stock").eq("product_id", product.id).eq("opted_out", false).order("in_stock", { ascending: false }).limit(1).maybeSingle();\n      if (listing.data) nextProduct = { ...product, url: listing.data.product_url || null, price: listing.data.price == null ? product.price : String(listing.data.price), currency: listing.data.currency || product.currency };\n    }\n    const next = [...localProducts.filter((p) => p.id !== nextProduct.id), nextProduct]; await write(next, nextProduct.id); setQuery("");\n  };
+  const add = async (product: Product) => {
+    let nextProduct = product;
+    if (!product.url && !product.id.startsWith("manual-")) {
+      const listing = await db().from("listings").select("product_url,price,currency,in_stock").eq("product_id", product.id).eq("opted_out", false).order("in_stock", { ascending: false }).limit(1).maybeSingle();
+      if (listing.data) nextProduct = { ...product, url: listing.data.product_url || null, price: listing.data.price == null ? product.price : String(listing.data.price), currency: listing.data.currency || product.currency };
+    }
+    const next = [...localProducts.filter((p) => p.id !== nextProduct.id), nextProduct]; await write(next, nextProduct.id); setQuery("");
+  };
   const pin = async (product: Product) => write(localProducts, product.id);
   const remove = async (product: Product) => { const next = localProducts.filter((p) => p.id !== product.id); await write(next, pinnedId === product.id ? null : pinnedId); };
   const addManual = async () => {
