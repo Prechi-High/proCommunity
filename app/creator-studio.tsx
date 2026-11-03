@@ -186,14 +186,6 @@ export default function CreatorStudio() {
         <TextInput value={title} onChangeText={setTitle} style={input} placeholder={mode === "live" ? "I'm investigating this product live" : "Let's talk about this product"} />
         <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.inkSoft }}>WHAT ARE WE DOING?</Text>
         <TextInput value={description} onChangeText={setDescription} style={[input, { minHeight: 100 }]} multiline placeholder="Give listeners enough context to decide whether to join." />
-        {mode === "live" ? (
-          <View style={{ gap: 8, padding: 15, borderRadius: 18, backgroundColor: "#F3EBE2" }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>Featured product</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.inkSoft }}>Attach the product you plan to investigate. Viewers will be able to open its product card during the Live.</Text>
-            <TextInput value={productName} onChangeText={setProductName} style={input} placeholder="Product name (e.g. CeraVe Moisturizing Cream)" />
-            <TextInput value={productBrand} onChangeText={setProductBrand} style={input} placeholder="Brand (optional)" />
-          </View>
-        ) : null}
       </View>
 
       {error ? <StatusMessage kind="error" title={error} /> : null}
