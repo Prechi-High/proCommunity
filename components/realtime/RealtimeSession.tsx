@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
+import { Image, Platform, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import * as Linking from "expo-linking";
 import { Room, RoomEvent, Track, type Participant, type RemoteTrack } from "livekit-client";
@@ -65,6 +65,7 @@ export function RealtimeSession({
   const [productTrayOpen, setProductTrayOpen] = useState(false);
   const [guestPanelOpen, setGuestPanelOpen] = useState(false);
   const [stageLayout, setStageLayout] = useState<"panel" | "grid">("panel");
+  const [stageMode, setStageMode] = useState<"camera" | "product" | "screen">("camera");
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [videoAttached, setVideoAttached] = useState(false);
   const [canPlayAudio, setCanPlayAudio] = useState(true);
@@ -1119,7 +1120,7 @@ export function RealtimeSession({
         <View style={{ flex: 1, position: "relative", backgroundColor: "#16090F" }}>
           <View ref={mediaRef} collapsable={false} pointerEvents="none" style={{ position: "absolute", width: 1, height: 1, opacity: 0, overflow: "hidden" }} />
           <View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, overflow: "hidden", backgroundColor: "#16090F" }}>
-            {state === "connected" && roomRef.current ? <LiveVideoStage participants={participants} localParticipant={roomRef.current.localParticipant} layout={stageLayout} /> : (
+            {state === "connected" && roomRef.current ? (stageMode === "product" && featuredProduct ? <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 28, backgroundColor: "#F3EBE2", gap: 16 }}>{(sessionMeta.metadata as any)?.products?.find((p: any) => String(p.id) === String(featuredProduct.id))?.image_url ? <Image source={{ uri: (sessionMeta.metadata as any)?.products?.find((p: any) => String(p.id) === String(featuredProduct.id))?.image_url }} style={{ width: "76%", height: "62%", borderRadius: 24 }} resizeMode="contain" /> : null}<Text style={{ color: "#2A0E16", fontFamily: fonts.semibold, fontSize: 18 }}>{featuredProduct.name}</Text><Text style={{ color: "#5F4B53", fontFamily: fonts.regular, fontSize: 11 }}>Product showcase</Text></View> : <LiveVideoStage participants={participants} localParticipant={roomRef.current.localParticipant} layout={stageLayout} />) : (
               <View pointerEvents="none" style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
                 <Play size={42} color="#F2D25B" weight="fill" />
                 <Text style={{ color: "#F3EBE2", fontFamily: fonts.medium, fontSize: 13 }}>{state === "connecting" ? "Connecting to the Live…" : "Waiting for the creator's video…"}</Text>
@@ -1142,6 +1143,8 @@ export function RealtimeSession({
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
               <Pressable onPress={() => setStageLayout("panel")} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, backgroundColor: stageLayout === "panel" ? "#F2D25B" : "#16090FCC" }}><Text style={{ color: stageLayout === "panel" ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 10 }}>PANEL</Text></Pressable>
+              <Pressable onPress={() => setStageMode("camera")} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, backgroundColor: stageMode === "camera" ? "#F2D25B" : "#16090FCC" }}><Text style={{ color: stageMode === "camera" ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 10 }}>CAMERA</Text></Pressable>
+              <Pressable onPress={() => setStageMode("product")} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, backgroundColor: stageMode === "product" ? "#F2D25B" : "#16090FCC" }}><Text style={{ color: stageMode === "product" ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 10 }}>PRODUCT</Text></Pressable>
               <Pressable onPress={() => setStageLayout("grid")} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, backgroundColor: stageLayout === "grid" ? "#F2D25B" : "#16090FCC" }}><Text style={{ color: stageLayout === "grid" ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 10 }}>GRID</Text></Pressable>
               {screenShareOn ? <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, backgroundColor: "#F2D25B" }}><Text style={{ color: "#2A0E16", fontFamily: fonts.semibold, fontSize: 10 }}>SCREEN SHARING</Text></View> : null}
             </View>
