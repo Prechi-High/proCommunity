@@ -5,10 +5,11 @@ import { colors, fonts } from "@/constants/theme";
 import { X } from "@/components/icons";
 type Person = { user_id: string; display_name: string; handle: string; avatar_url?: string | null };
 type Mode = "audio" | "video" | "both";
-type Props = { sessionId: string; open: boolean; onClose: () => void; onInvite: (person: Person, mode: Mode) => Promise<void>; }
-export function LiveGuestPanel({ sessionId, open, onClose, onInvite }: Props) {
+type Props = { sessionId: string; excludeUserId?: string | null; open: boolean; onClose: () => void; onInvite: (person: Person, mode: Mode) => Promise<void>; }
+export function LiveGuestPanel({ sessionId, excludeUserId, open, onClose, onInvite }: Props) {
  const [query,setQuery]=useState(""); const [people,setPeople]=useState<Person[]>([]); const [mode,setMode]=useState<Mode>("both"); const [busy,setBusy]=useState(false);
- useEffect(()=>{ if(!open)return; let dead=false; const timer=setTimeout(async()=>{ setBusy(true); try { const q=query.trim(); let req=db().from("unmask_public_profiles").select("user_id,display_name,handle,avatar_url").neq("user_id",(undefined as any)); if(q) req=req.or("display_name.ilike.%" + q + "%,handle.ilike.%" + q + "%"); const {data}=await req.limit(30); if(!dead)setPeople((data||[]) as Person[]); } finally {if(!dead)setBusy(false);} },200); return()=>{dead=true;clearTimeout(timer)}; },[query,open,sessionId]);
+ useEffect(()=>{ if(!open)return; let dead=false; const timer=setTimeout(async()=>{ setBusy(true); try { const q=query.trim(); let req=db().from("unmask_public_profiles").select("user_id,display_name,handle,avatar_url");
+ if(excludeUserId) req=req.neq("user_id",excludeUserId); if(q) req=req.or("display_name.ilike.%" + q + "%,handle.ilike.%" + q + "%"); const {data}=await req.limit(30); if(!dead)setPeople((data||[]) as Person[]); } finally {if(!dead)setBusy(false);} },200); return()=>{dead=true;clearTimeout(timer)}; },[query,open,sessionId]);
  if(!open)return null;
  return <View style={{position:"absolute",left:0,right:0,bottom:0,maxHeight:"82%",padding:18,paddingBottom:28,borderTopLeftRadius:26,borderTopRightRadius:26,backgroundColor:"#fff",gap:12,zIndex:60}}>
   <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}><View><Text style={{color:colors.ink,fontFamily:fonts.semibold,fontSize:19}}>Bring someone on stage</Text><Text style={{color:colors.inkSoft,fontFamily:fonts.regular,fontSize:11}}>Search any Unmask user, not only Creators.</Text></View><Pressable onPress={onClose}><X size={21} color={colors.ink}/></Pressable></View>
