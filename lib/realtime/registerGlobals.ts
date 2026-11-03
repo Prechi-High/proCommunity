@@ -1,1 +1,1 @@
-export { registerRealtimeGlobals } from './registerGlobals.web';\n
+export { registerRealtimeGlobals } from './registerGlobals.web';
