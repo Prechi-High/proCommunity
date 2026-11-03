@@ -48,7 +48,16 @@
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": false
         }
-      ]
+      ],
+      [
+        "@livekit/react-native-expo-plugin",
+        {
+          "android": {
+            "enableScreenShareService": true
+          }
+        }
+      ],
+      "@config-plugins/react-native-webrtc"
     ],
     "experiments": {
       "typedRoutes": true
