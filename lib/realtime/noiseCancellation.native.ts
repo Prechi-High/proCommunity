@@ -1,8 +1,5 @@
 export async function applyNoiseCancellation(track: any) {
-  if (!track || typeof track.setProcessor !== "function") return;
-  try {
-    const mod = await import("@livekit/react-native-krisp-noise-filter");
-    const processor = mod.KrispNoiseFilter();
-    await track.setProcessor(processor);
-  } catch {}
+  // Native LiveKit/WebRTC capture already enables echo cancellation, noise suppression, and auto gain control.
+  // Krisp native is intentionally omitted until a package version compatible with the installed LiveKit RN SDK is available.
+  return track;
 }
