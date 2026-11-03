@@ -1,4 +1,6 @@
 import 'react-native-gesture-handler';
+import { registerGlobals } from '@livekit/react-native';
+registerGlobals();
 import { ContentSkeleton } from '@/components/unmask-ui/Skeleton';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
