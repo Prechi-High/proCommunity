@@ -1185,8 +1185,13 @@ export function RealtimeSession({
             {liveRole === "viewer" && !canPlayAudio ? <Pressable onPress={() => void startAudio()} style={{ alignSelf: "center", paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, backgroundColor: "#F2D25B" }}><Text style={{ color: "#2A0E16", fontFamily: fonts.semibold, fontSize: 11 }}>Tap to enable sound</Text></Pressable> : null}
             {(liveRole === "host" || liveRole === "cohost") ? (
               <Pressable onPress={() => setGuestPanelOpen(true)} style={{ alignSelf: "flex-start", paddingHorizontal: 13, paddingVertical: 9, borderRadius: 20, backgroundColor: "#FFFFFF24", borderWidth: 1, borderColor: "#FFFFFF45" }}>
-                <Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>＋ Invite a guest · {cohostIds.length} on stage</Text>
+                <Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>＋ Bring someone on stage · {micRequests.filter((item) => item.status === "pending").length} requests</Text>
               </Pressable>
+            ) : canSpeak ? (
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Pressable onPress={() => void toggleMic()} style={{ flex: 1, minHeight: 42, borderRadius: 13, backgroundColor: micOn ? "#F2D25B" : "#FFFFFF20", alignItems: "center", justifyContent: "center" }}><Text style={{ color: micOn ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{micOn ? "Mute mic" : "Turn mic on"}</Text></Pressable>
+                {canUseCamera ? <Pressable onPress={() => void toggleCamera()} style={{ flex: 1, minHeight: 42, borderRadius: 13, backgroundColor: cameraOn ? "#F2D25B" : "#FFFFFF20", alignItems: "center", justifyContent: "center" }}><Text style={{ color: cameraOn ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{cameraOn ? "Camera off" : "Camera on"}</Text></Pressable> : null}
+              </View>
             ) : (
               <Pressable onPress={() => void requestMic()} style={{ alignSelf: "flex-start", paddingHorizontal: 13, paddingVertical: 9, borderRadius: 20, backgroundColor: "#FFFFFF24" }}>
                 <Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{micRequested ? "Stage request sent" : "Request to join the conversation"}</Text>
@@ -1196,7 +1201,7 @@ export function RealtimeSession({
           </View>
         </View>
         {guestPanelOpen ? (
-          <LiveGuestPanel sessionId={id} excludeUserId={uid} open={guestPanelOpen} onClose={() => setGuestPanelOpen(false)} onInvite={async (person, inviteMode) => { await inviteLiveUser(person, inviteMode); }} />
+          <LiveGuestPanel sessionId={id} excludeUserId={uid} open={guestPanelOpen} onClose={() => setGuestPanelOpen(false)} onInvite={async (person, inviteMode) => { await inviteLiveUser(person, inviteMode); }} requests={micRequests} onApprove={(userId) => void manage("approve_mic", userId)} onDeny={(userId) => void manage("deny_mic", userId)} />
         ) : null}
         <ProductShowcase
           sessionId={id}
