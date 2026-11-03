@@ -933,7 +933,8 @@ export function RealtimeSession({
 
   const active = state === "connected";
   const liveProducts = roomProducts(sessionMeta.metadata);
-  const featuredProduct = liveProducts.find((item) => item.id === selectedProductId) || liveProducts[0] || null;
+  const pinnedProductId = typeof (sessionMeta.metadata as any)?.pinned_product_id === "string" ? (sessionMeta.metadata as any).pinned_product_id : selectedProductId;
+  const featuredProduct = liveProducts.find((item) => item.id === pinnedProductId) || liveProducts[0] || null;
   const canSpeak = liveRole === "host" || liveRole === "cohost" || micApproved;
   const canUseCamera = liveRole === "host" || liveRole === "cohost" || (micApproved && (guestMode === "video" || guestMode === "both"));
   const canManageCohosts = isHostSession || !!cohostPermissions[uid || ""]?.can_manage_cohosts;
