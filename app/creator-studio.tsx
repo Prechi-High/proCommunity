@@ -192,13 +192,13 @@ export default function CreatorStudio() {
       </View>
 
       <View style={{ flexDirection: "row", gap: 10 }}>
-        <ActionButton label="Live video" tone={mode === "live" ? "primary" : "secondary"} onPress={() => setMode("live")} />
-        <ActionButton label="Audio Room" tone={mode === "room" ? "primary" : "secondary"} onPress={() => setMode("room")} />
+        <ActionButton label="Ultra Unmask" tone={mode === "ultra" ? "primary" : "secondary"} onPress={() => setMode("ultra")} />
+        <ActionButton label="Ultra Unmask Audio Room" tone={mode === "room" ? "primary" : "secondary"} onPress={() => setMode("room")} />
       </View>
 
       <View style={{ gap: 8 }}>
         <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.inkSoft }}>TITLE</Text>
-        <TextInput value={title} onChangeText={setTitle} style={input} placeholder={mode === "live" ? "I'm investigating this product live" : "Let's talk about this product"} />
+        <TextInput value={title} onChangeText={setTitle} style={input} placeholder={mode === "ultra" ? "Ultra Unmask: bring clarity to this experience" : "Let's talk about this product"} />
         <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.inkSoft }}>WHAT ARE WE DOING?</Text>
         <TextInput value={description} onChangeText={setDescription} style={[input, { minHeight: 100 }]} multiline placeholder={mode === "ultra" ? "Explain the clarity question being investigated." : "Give listeners enough context to decide whether to join."} />
       </View>
