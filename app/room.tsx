@@ -144,7 +144,7 @@ export default function RoomList() {
   }
 
   return (
-    <AppShell back title="Rooms" subtitle="Pause on a product and listen to the people who have used it.">
+    <AppShell back title="Ultra Unmask Audio" subtitle="Pause on a product and listen to the people who have used it.">
       <View style={{ gap: 18 }}>
         {sample ? (
           <View style={{ padding: 12, borderRadius: 14, backgroundColor: colors.goldSoft }}>
