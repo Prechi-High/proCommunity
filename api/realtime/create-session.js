@@ -36,6 +36,7 @@ async function handler(req, res) {
     const title = String(body.title || "").trim();
     const description = String(body.description || "").trim();
     const investigationId = body.investigationId ? String(body.investigationId) : null;
+    let investigationContext = null;
 
     if (!["live", "room"].includes(mode)) return send(res, 400, { error: "Invalid session mode." });
     if (!title) return send(res, 400, { error: "A title is required." });
@@ -57,6 +58,7 @@ async function handler(req, res) {
         .eq("id", investigationId).eq("creator_id", userData.user.id).single();
       if (investigationError || !investigation) return send(res, 403, { error: "That Ultra Unmask is not assigned to you." });
       if (["declined","cancelled","closed"].includes(String(investigation.status).toLowerCase())) return send(res, 409, { error: "That Ultra Unmask is no longer available." });
+      investigationContext = investigation;
     }
 
     const { data: existingSession, error: existingSessionError } = await supabase
@@ -113,7 +115,7 @@ async function handler(req, res) {
           mic_requests: [],
           stage_tags: {},
           ultra_invites: {},
-          ultra_unmask: investigationId ? { investigation_id: investigationId, requester_id: investigation?.user_id || null, title: investigation?.title || title, concern: investigation?.concern || description, product_name: (Array.isArray(investigation?.unmask_catalog) ? investigation?.unmask_catalog[0]?.name : investigation?.unmask_catalog?.name) || "", product_brand: (Array.isArray(investigation?.unmask_catalog) ? investigation?.unmask_catalog[0]?.brand : investigation?.unmask_catalog?.brand) || "", product_image_url: (Array.isArray(investigation?.unmask_catalog) ? investigation?.unmask_catalog[0]?.image_url : investigation?.unmask_catalog?.image_url) || null } : null,
+          ultra_unmask: investigationId ? { investigation_id: investigationId, requester_id: investigationContext?.user_id || null, title: investigationContext?.title || title, concern: investigationContext?.concern || description, product_name: (Array.isArray(investigationContext?.unmask_catalog) ? investigation?.unmask_catalog[0]?.name : investigation?.unmask_catalog?.name) || "", product_brand: (Array.isArray(investigation?.unmask_catalog) ? investigation?.unmask_catalog[0]?.brand : investigation?.unmask_catalog?.brand) || "", product_image_url: (Array.isArray(investigation?.unmask_catalog) ? investigation?.unmask_catalog[0]?.image_url : investigation?.unmask_catalog?.image_url) || null } : null,
         },
       })
       .select("id,room_name,mode")
