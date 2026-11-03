@@ -78,27 +78,27 @@ export default function Live() {
   };
 
   return (
-    <AppShell back title="Live" subtitle="Discover what the Unmask community is investigating." scroll={false}>
+    <AppShell back title="Ultra Unmask" subtitle="Watch clarity sessions as creators investigate real product experiences." scroll={false}>
       <View style={{ flex: 1, gap: 15 }}>
         <View style={{ padding: 21, borderRadius: 25, backgroundColor: "#2A0E16", gap: 10 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 1.2, color: "#F2D25B" }}>UNMASK LIVE</Text>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 1.2, color: "#F2D25B" }}>ULTRA UNMASK</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#EE8C7C" }} />
               <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: "#E9D8E0" }}>UPDATING LIVE</Text>
             </View>
           </View>
           <Text style={{ fontFamily: fonts.semibold, fontSize: 27, lineHeight: 32, color: "#fff" }}>Watch the investigation unfold.</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: "#E9D8E0" }}>Drop into creator broadcasts, ask questions, and follow product conversations as they happen.</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: "#E9D8E0" }}>Join an Ultra Unmask investigation, hear the experience behind the question, and watch the right people work toward clarity.</Text>
           <Pressable onPress={() => router.push("/creator-studio" as Href)} style={{ alignSelf: "flex-start", paddingHorizontal: 13, paddingVertical: 9, borderRadius: 999, backgroundColor: "#F2D25B" }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#2A0E16" }}>Go live</Text>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#2A0E16" }}>Open Creator Studio</Text>
           </Pressable>
         </View>
 
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ gap: 2 }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 19, color: colors.ink }}>For you · Live now</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>Swipe through broadcasts and join any stream.</Text>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 19, color: colors.ink }}>For you · Ultra Unmask now</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>Join an active Ultra Unmask session.</Text>
           </View>
           <Pressable onPress={() => { setRefreshing(true); void load(); }} accessibilityRole="button" style={{ padding: 9 }}>
             {refreshing ? <ActivityIndicator size="small" color={colors.brandDeep} /> : <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.brandDeep }}>Refresh</Text>}
