@@ -1,0 +1,1 @@
+export { registerRealtimeGlobals } from './registerGlobals.web';\n
