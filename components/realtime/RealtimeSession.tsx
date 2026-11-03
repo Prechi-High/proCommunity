@@ -47,10 +47,12 @@ export function RealtimeSession({
   id,
   mode,
   host,
+  inviteId,
 }: {
   id: string;
   mode: "live" | "room";
   host: boolean;
+  inviteId?: string;
 }) {
   const router = useRouter();
   const uid = useAppStore(s => s.profile?.id);
