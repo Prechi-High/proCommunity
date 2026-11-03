@@ -39,7 +39,7 @@ async function livekitRoom(roomName) {
   return new RoomServiceClient(httpHost(env("LIVEKIT_URL")), env("LIVEKIT_API_KEY"), env("LIVEKIT_API_SECRET"));
 }
 
-async function setCanPublish(roomName, identity, canPublish) {
+async function setCanPublish(roomName, identity, canPublish, mode = "audio") {
   if (!roomName) throw new Error("This Room has no LiveKit room yet.");
   const { TrackSource } = await import("@livekit/protocol");
   const room = await livekitRoom(roomName);
@@ -48,7 +48,7 @@ async function setCanPublish(roomName, identity, canPublish) {
       canSubscribe: true,
       canPublish: !!canPublish,
       canPublishData: true,
-      canPublishSources: canPublish ? [TrackSource.MICROPHONE] : [],
+      canPublishSources: canPublish ? (mode === "both" ? [TrackSource.MICROPHONE, TrackSource.CAMERA] : mode === "video" ? [TrackSource.CAMERA] : [TrackSource.MICROPHONE]) : [],
     },
   });
 }
@@ -99,14 +99,15 @@ async function handler(req, res) {
           .from("unmask_realtime_sessions").select("id,status,mode,metadata")
           .eq("id", sessionId).single();
         if (requestSessionError || !requestSession) return send(res, 404, { error: "Session not found." });
-        if (requestSession.status !== "live" || requestSession.mode !== "room") return send(res, 409, { error: "Mic requests are only available in live audio Rooms." });
+        if (requestSession.status !== "live") return send(res, 409, { error: "This session is no longer live." });
 
         const metadata = requestSession.metadata && typeof requestSession.metadata === "object" ? requestSession.metadata : {};
         const requests = Array.isArray(metadata.mic_requests) ? metadata.mic_requests : [];
         const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", userData.user.id).maybeSingle();
         const { data: creatorProfile } = await supabase.from("unmask_creators").select("display_name").eq("user_id", userData.user.id).maybeSingle();
         const displayName = creatorProfile?.display_name || profile?.display_name || userData.user.user_metadata?.display_name || "Unmasker";
-        const decision = nextMicRequests(requests, "request_mic", userData.user.id, displayName);
+        const requestedMode = body.mode === "video" || body.mode === "both" ? body.mode : "audio";
+        const decision = nextMicRequests(requests, "request_mic", userData.user.id, displayName, requestedMode);
         if (!decision.unchanged) await patchMetadata(supabase, sessionId, { mic_requests: decision.requests });
         return send(res, 200, { ok: true, request: decision.requests.find((item) => String(item.user_id) === userData.user.id) });
       }
@@ -182,6 +183,24 @@ async function handler(req, res) {
         return send(res, 200, { ok: true, action });
       }
 
+      if (action === "set_stage_tag") {
+        const targetUserId = String(body.targetUserId || "");
+        const tag = String(body.tag || "").trim().slice(0, 80);
+        if (!targetUserId || !tag) return send(res, 400, { error: "A user and tag are required." });
+        const metadata = managedSession.metadata && typeof managedSession.metadata === "object" ? managedSession.metadata : {};
+        const stageTags = metadata.stage_tags && typeof metadata.stage_tags === "object" ? metadata.stage_tags : {};
+        await patchMetadata(supabase, sessionId, { stage_tags: { ...stageTags, [targetUserId]: tag } });
+        return send(res, 200, { ok: true, stageTags: { ...stageTags, [targetUserId]: tag } });
+      }
+
+      if (action === "create_invite") {
+        const inviteId = crypto.randomUUID();
+        const metadata = managedSession.metadata && typeof managedSession.metadata === "object" ? managedSession.metadata : {};
+        const invites = metadata.ultra_invites && typeof metadata.ultra_invites === "object" ? metadata.ultra_invites : {};
+        await patchMetadata(supabase, sessionId, { ultra_invites: { ...invites, [inviteId]: { id: inviteId, host_id: userData.user.id, mode: body.mode === "video" || body.mode === "both" ? body.mode : "both", status: "open", created_at: new Date().toISOString() } } });
+        return send(res, 200, { ok: true, inviteId });
+      }
+
       if (["add_cohost","remove_cohost","grant_end","revoke_end","grant_cohost_management","revoke_cohost_management","approve_mic","deny_mic","invite_speaker","remove_speaker","mute_speaker"].includes(action)) {
         const targetUserId = String(body.targetUserId || "");
         if (!targetUserId) return send(res, 400, { error: "A user is required." });
@@ -233,7 +252,7 @@ async function handler(req, res) {
           const decision = nextMicRequests(Array.isArray(metadata.mic_requests) ? metadata.mic_requests : [], action, targetUserId);
           if (decision.error) return send(res, decision.status || 400, { error: decision.error });
           try {
-            if (decision.canPublish !== undefined) await setCanPublish(managedSession.room_name, targetUserId, decision.canPublish);
+            if (decision.canPublish !== undefined) await setCanPublish(managedSession.room_name, targetUserId, decision.canPublish, decision.requests?.find(item => String(item.user_id) === targetUserId)?.mode || "audio");
             if (decision.mute) await muteSpeaker(managedSession.room_name, targetUserId);
           } catch (error) {
             const message = error instanceof Error ? error.message : "LiveKit could not update speaking permission.";
