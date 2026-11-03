@@ -1,1 +1,1 @@
-export function registerRealtimeGlobals() {}\n
+export function registerRealtimeGlobals() {}
