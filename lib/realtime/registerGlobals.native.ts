@@ -1,0 +1,1 @@
+import { registerGlobals } from '@livekit/react-native';\n\nexport function registerRealtimeGlobals() {\n  registerGlobals();\n}\n
