@@ -84,7 +84,7 @@ export function RealtimeSession({
   const [speaker, setSpeaker] = useState("");
   const [speaking, setSpeaking] = useState(false);
   const [pulse, setPulse] = useState(0);
-  const [title, setTitle] = useState(mode === "live" ? "Live" : "Room");
+  const [title, setTitle] = useState(mode === "live" ? "Ultra Unmask" : "Room");
   const [creator, setCreator] = useState<any>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [activeSpeakerIds, setActiveSpeakerIds] = useState<string[]>([]);
@@ -1194,7 +1194,7 @@ export function RealtimeSession({
             {state === "connected" && roomRef.current ? (stageMode === "product" && featuredProduct ? <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 28, backgroundColor: "#F3EBE2", gap: 16 }}>{(sessionMeta.metadata as any)?.products?.find((p: any) => String(p.id) === String(featuredProduct.id))?.image_url ? <Image source={{ uri: (sessionMeta.metadata as any)?.products?.find((p: any) => String(p.id) === String(featuredProduct.id))?.image_url }} style={{ width: "76%", height: "62%", borderRadius: 24 }} resizeMode="contain" /> : null}<Text style={{ color: "#2A0E16", fontFamily: fonts.semibold, fontSize: 18 }}>{featuredProduct.name}</Text><Text style={{ color: "#5F4B53", fontFamily: fonts.regular, fontSize: 11 }}>Product showcase</Text></View> : <LiveVideoStage participants={participants} localParticipant={roomRef.current.localParticipant} layout={stageLayout} stageTags={stageTags} />) : (
               <View pointerEvents="none" style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
                 <Play size={42} color="#F2D25B" weight="fill" />
-                <Text style={{ color: "#F3EBE2", fontFamily: fonts.medium, fontSize: 13 }}>{state === "connecting" ? "Connecting to the Live…" : "Waiting for the creator's video…"}</Text>
+                <Text style={{ color: "#F3EBE2", fontFamily: fonts.medium, fontSize: 13 }}>{state === "connecting" ? "Connecting to Ultra Unmask…" : "Waiting for the creator's video…"}</Text>
               </View>
             )}
           </View>
@@ -1207,7 +1207,7 @@ export function RealtimeSession({
                   <Text numberOfLines={1} style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 12 }}>{creator?.display_name || "Unmask Creator"}</Text>
                   <Text numberOfLines={1} style={{ color: "#E9D8E0", fontFamily: fonts.regular, fontSize: 10 }}>{creator?.handle ? "@" + creator.handle : title}</Text>
                 </View>
-                <View style={{ paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8, backgroundColor: "#D92D20" }}><Text style={{ color: "#fff", fontFamily: fonts.bold, fontSize: 10 }}>LIVE</Text></View>
+                <View style={{ paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8, backgroundColor: "#D92D20" }}><Text style={{ color: "#fff", fontFamily: fonts.bold, fontSize: 10 }}>ULTRA</Text></View>
                 <Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11, marginRight: 5 }}>{count}</Text>
               </View>
               <Pressable onPress={() => void shareRoom()} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#16090FCC", alignItems: "center", justifyContent: "center" }}><UsersThree size={18} color="#fff" /></Pressable>
@@ -1271,7 +1271,7 @@ export function RealtimeSession({
                 <Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{micRequested ? "Stage request sent" : "Request to join the conversation"}</Text>
               </Pressable>
             )}
-            {canEnd ? <Pressable onPress={() => void leave(true)} style={{ alignSelf: "center", padding: 7 }}><Text style={{ color: "#F3EBE2", fontFamily: fonts.medium, fontSize: 10 }}>End Live</Text></Pressable> : null}
+            {canEnd ? <Pressable onPress={() => void leave(true)} style={{ alignSelf: "center", padding: 7 }}><Text style={{ color: "#F3EBE2", fontFamily: fonts.medium, fontSize: 10 }}>End Ultra Unmask</Text></Pressable> : null}
           </View>
         </View>
         {guestPanelOpen ? (
@@ -1304,14 +1304,14 @@ export function RealtimeSession({
   }
 
   return (
-    <AppShell back title={mode === "live" ? "Live" : "Room"} subtitle={title}>
+    <AppShell back title={mode === "live" ? "Ultra Unmask" : "Audio Room"} subtitle={title}>
       <View style={{ gap: 14 }}>
         <View style={{ padding: 20, borderRadius: 25, backgroundColor: mode === "live" ? "#2A0E16" : "#F3EBE2", gap: 10 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
             {creator ? <CreatorMark mark={creator.creator_mark || id} size={31} /> : null}
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 1, color: mode === "live" ? "#F2D25B" : colors.brandDeep }}>
-                {mode === "live" ? "LIVE NOW" : "ROOM LIVE"}
+                {mode === "live" ? "ULTRA UNMASK LIVE" : "AUDIO ROOM LIVE"}
               </Text>
               <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 22, color: mode === "live" ? "#fff" : colors.ink }}>{title}</Text>
             </View>
