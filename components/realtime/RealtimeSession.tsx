@@ -1270,12 +1270,14 @@ export function RealtimeSession({
                 {canUseCamera ? <Pressable onPress={() => void toggleCamera()} style={{ flex: 1, minHeight: 42, borderRadius: 13, backgroundColor: cameraOn ? "#F2D25B" : "#FFFFFF20", alignItems: "center", justifyContent: "center" }}><Text style={{ color: cameraOn ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{cameraOn ? "Camera off" : "Camera on"}</Text></Pressable> : null}
               </View>
             ) : (
+              <View style={{ gap: 8 }}>
               {!micRequested ? <View style={{ flexDirection: "row", gap: 6 }}>
                 {(["audio","video","both"] as const).map(item => <Pressable key={item} onPress={() => setGuestMode(item)} style={{ paddingHorizontal: 9, paddingVertical: 7, borderRadius: 9, backgroundColor: guestMode === item ? "#F2D25B" : "#FFFFFF20" }}><Text style={{ color: guestMode === item ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 9 }}>{item.toUpperCase()}</Text></Pressable>)}
               </View> : null}
               <Pressable onPress={() => void requestMic()} style={{ alignSelf: "flex-start", paddingHorizontal: 13, paddingVertical: 9, borderRadius: 20, backgroundColor: "#FFFFFF24" }}>
                 <Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{micRequested ? "Stage request sent" : "Request to join the conversation"}</Text>
               </Pressable>
+              </View>
             )}
             {canEnd ? <Pressable onPress={() => void leave(true)} style={{ alignSelf: "center", padding: 7 }}><Text style={{ color: "#F3EBE2", fontFamily: fonts.medium, fontSize: 10 }}>End Ultra Unmask</Text></Pressable> : null}
           </View>
