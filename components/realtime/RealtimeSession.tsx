@@ -177,7 +177,6 @@ export function RealtimeSession({
         }
         const permissions = metadata.cohost_permissions && typeof metadata.cohost_permissions === "object" ? metadata.cohost_permissions : {};
         const tags = metadata.stage_tags && typeof metadata.stage_tags === "object" ? metadata.stage_tags : {};
-        if (data.host_creator_id && joined?.handle && !tags[data.host_creator_id]) tags[data.host_creator_id] = `HOST · @${joined.handle}`;
         setStageTags(tags as Record<string, string>);
         setMicRequests(requests);
         setCohostPermissions(permissions);
@@ -271,6 +270,7 @@ export function RealtimeSession({
         });
         const joined = Array.isArray(data.unmask_creators) ? data.unmask_creators[0] : data.unmask_creators;
         setCreator(joined || null);
+        if (data.host_creator_id && joined?.handle) setStageTags(current => current[data.host_creator_id] ? current : { ...current, [data.host_creator_id]: `HOST · @${joined.handle}` });
         const ids = Array.isArray(data.metadata?.cohost_ids) ? data.metadata.cohost_ids.map(String) : [];
         setCohostIds(ids);
         const present = Number(data.metadata?.participant_count || 0);
