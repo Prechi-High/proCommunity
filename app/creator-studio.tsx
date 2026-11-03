@@ -196,6 +196,27 @@ export default function CreatorStudio() {
         <ActionButton label="Ultra Unmask Audio Room" tone={mode === "room" ? "primary" : "secondary"} onPress={() => setMode("room")} />
       </View>
 
+      {mode === "ultra" ? (
+        <View style={{ padding: 18, borderRadius: 22, borderWidth: 1, borderColor: colors.line, backgroundColor: "#fff", gap: 11 }}>
+          <View style={{ gap: 4 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: colors.ink }}>Choose an Ultra Unmask</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.inkSoft }}>Select an Ultra Unmask already assigned to you. This case becomes the investigation shown throughout the session.</Text>
+          </View>
+          {ultras.length ? ultras.map((item) => {
+            const product = Array.isArray(item.unmask_catalog) ? item.unmask_catalog[0] : item.unmask_catalog;
+            const selected = selectedUltra?.id === item.id;
+            return <Pressable key={item.id} onPress={() => { setSelectedUltra(item); setTitle(item.title || "Ultra Unmask"); setDescription(item.concern || ""); }} style={{ padding: 13, borderRadius: 16, borderWidth: 1, borderColor: selected ? colors.brandDeep : colors.line, backgroundColor: selected ? "#F3EBE2" : "#FAF8F6", gap: 5 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <Text numberOfLines={2} style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 14, color: colors.ink }}>{item.title}</Text>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 10, color: selected ? colors.brandDeep : colors.inkSoft }}>{selected ? "SELECTED" : String(item.status).toUpperCase()}</Text>
+              </View>
+              {product?.name ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.brandDeep }}>{product.brand ? product.brand + " · " : ""}{product.name}</Text> : null}
+              <Text numberOfLines={2} style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.inkSoft }}>{item.concern || "No question context added."}</Text>
+            </Pressable>;
+          }) : <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.inkSoft }}>No accepted Ultra Unmasks are assigned to you yet.</Text>}
+        </View>
+      ) : null}
+
       <View style={{ gap: 8 }}>
         <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.inkSoft }}>TITLE</Text>
         <TextInput value={title} onChangeText={setTitle} style={input} placeholder={mode === "ultra" ? "Ultra Unmask: bring clarity to this experience" : "Let's talk about this product"} />
@@ -204,7 +225,7 @@ export default function CreatorStudio() {
       </View>
 
       {error ? <StatusMessage kind="error" title={error} /> : null}
-      <ActionButton label={mode === "ultra" ? "Start Ultra Unmask" : "Start Ultra Unmask Audio Room"} pending={busy} pendingLabel="Starting…" disabled={!title.trim() || busy || !!activeSession} onPress={() => void start()} />
+      <ActionButton label={mode === "ultra" ? "Start Ultra Unmask" : "Start Ultra Unmask Audio Room"} pending={busy} pendingLabel="Starting…" disabled={!title.trim() || busy || !!activeSession || (mode === "ultra" && !selectedUltra)} onPress={() => void start()} />
       <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.inkSoft }}>
         {mode === "room" ? "Public audio-first Ultra Unmask sessions. The host controls who gets speaking access." : "A public Ultra Unmask investigation. The selected case stays pinned while you bring the right people on stage."}
       </Text>
@@ -212,7 +233,7 @@ export default function CreatorStudio() {
       {activeSession ? (
         <View style={{ padding: 18, borderRadius: 22, backgroundColor: activeSession.mode === "room" ? "#F3EBE2" : "#2A0E16", gap: 10 }}>
           <Text style={{ fontFamily: fonts.semibold, fontSize: 10, letterSpacing: 1, color: activeSession.mode === "room" ? colors.brandDeep : "#F2D25B" }}>
-            {activeSession.mode === "room" ? "YOUR ROOM IS LIVE" : "YOUR LIVE IS ON"}
+            {activeSession.mode === "room" ? "ULTRA UNMASK AUDIO IS LIVE" : "ULTRA UNMASK IS LIVE"}
           </Text>
           <Text style={{ fontFamily: fonts.semibold, fontSize: 20, color: activeSession.mode === "room" ? colors.ink : "#fff" }}>{activeSession.title}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: activeSession.mode === "room" ? colors.inkSoft : "#E9D8E0" }}>
