@@ -760,10 +760,6 @@ export function RealtimeSession({
   async function toggleScreenShare() {
     const room = roomRef.current;
     if (!room || (liveRole !== "host" && liveRole !== "cohost")) return;
-    if (Platform.OS !== "web") {
-      setManagementError("Screen broadcasting on iOS and Android needs the native LiveKit screen-capture extension. It is not enabled in this build yet.");
-      return;
-    }
     try {
       const next = !screenShareOn;
       await room.localParticipant.setScreenShareEnabled(next);
