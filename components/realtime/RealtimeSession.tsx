@@ -11,7 +11,7 @@ import { RoomExperience } from "@/components/room/RoomExperience";
 import { LiveVideoStage } from "@/components/realtime/LiveVideoStage";
 import { ProductShowcase } from "@/components/realtime/ProductShowcase";
 import { LiveGuestPanel } from "@/components/realtime/LiveGuestPanel";
-import { ChatCircleDots, Play, UsersThree, X } from "@/components/icons";
+import { ChatCircleDots, Play, UsersThree, X, ShareNetwork } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { hapticError, hapticSuccess } from "@/lib/haptics";
 import { applyRoomNote, applyRoomUltras } from "@/lib/room/channel";
@@ -65,6 +65,12 @@ export function RealtimeSession({
   const [screenShareOn, setScreenShareOn] = useState(false);
   const [productTrayOpen, setProductTrayOpen] = useState(false);
   const [guestPanelOpen, setGuestPanelOpen] = useState(false);
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [stageTags, setStageTags] = useState<Record<string, string>>({});
+  const [tagTarget, setTagTarget] = useState<string | null>(null);
+  const [tagText, setTagText] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
+  const [inviteBusy, setInviteBusy] = useState(false);
   const [stageLayout, setStageLayout] = useState<"panel" | "grid">("panel");
   const [stageMode, setStageMode] = useState<"camera" | "product" | "screen">("camera");
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -167,6 +173,8 @@ export function RealtimeSession({
           if (invite) setGuestInvite({ id: String(invite.id), hostId: String(invite.host_id || metadata.host_id || ""), hostName: String(invite.host_name || "Host"), mode: invite.mode === "video" || invite.mode === "both" ? invite.mode : "audio", status: invite.status === "accepted" ? "accepted" : "pending" });
         }
         const permissions = metadata.cohost_permissions && typeof metadata.cohost_permissions === "object" ? metadata.cohost_permissions : {};
+        const tags = metadata.stage_tags && typeof metadata.stage_tags === "object" ? metadata.stage_tags : {};
+        setStageTags(tags as Record<string, string>);
         setMicRequests(requests);
         setCohostPermissions(permissions);
         if (uid) {
@@ -850,6 +858,36 @@ export function RealtimeSession({
       else router.replace("/" as Href);
     }
   }
+  async function createStageInvite() {
+    if (!supabase || inviteBusy || !id) return;
+    setInviteBusy(true);
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.access_token) throw new Error("Sign in required.");
+      const response = await fetch("/api/realtime/token", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` }, body: JSON.stringify({ action: "create_invite", sessionId: id, mode: "both" }) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Could not create invite.");
+      const link = `/live/session?id=${encodeURIComponent(id)}&invite=${encodeURIComponent(payload.inviteId)}`;
+      setInviteLink(link);
+      await Share.share({ message: `Join my Ultra Unmask stage: ${link}` });
+    } catch (error) {
+      setManagementError(error instanceof Error ? error.message : "Could not create invite.");
+    } finally { setInviteBusy(false); }
+  }
+
+  async function saveStageTag(targetUserId: string) {
+    if (!supabase || !tagText.trim()) return;
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.access_token) throw new Error("Sign in required.");
+      const response = await fetch("/api/realtime/token", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` }, body: JSON.stringify({ action: "set_stage_tag", sessionId: id, targetUserId, tag: tagText.trim() }) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Could not save tag.");
+      setStageTags(payload.stageTags || {});
+      setTagTarget(null); setTagText("");
+    } catch (error) { setManagementError(error instanceof Error ? error.message : "Could not save tag."); }
+  }
+
 
   async function sendReaction(kind: RoomReactionKind) {
     const room = roomRef.current;
@@ -1117,8 +1155,31 @@ export function RealtimeSession({
       <View style={{ flex: 1, minHeight: "100%", backgroundColor: "#10070B" }}>
         <View style={{ flex: 1, position: "relative", backgroundColor: "#16090F" }}>
           <View ref={mediaRef} collapsable={false} pointerEvents="none" style={{ position: "absolute", width: 1, height: 1, opacity: 0, overflow: "hidden" }} />
+            {mode === "live" ? (
+              <View style={{ position: "absolute", top: 14, left: 14, right: 14, zIndex: 20, gap: 8 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <View style={{ flex: 1, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 16, backgroundColor: "#2A0E16E8" }}>
+                    <Text style={{ color: "#F2D25B", fontFamily: fonts.semibold, fontSize: 10, letterSpacing: 1 }}>ULTRA UNMASK · LIVE CLARITY</Text>
+                    <Text numberOfLines={1} style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 14 }}>{(sessionMeta.metadata as any)?.ultra_unmask?.title || title}</Text>
+                  </View>
+                  <Pressable onPress={() => setShareMenuOpen(v => !v)} style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: "#2A0E16E8", alignItems: "center", justifyContent: "center" }}>
+                    <ShareNetwork size={19} color="#fff" weight="bold" />
+                  </Pressable>
+                </View>
+                {shareMenuOpen ? (
+                  <View style={{ alignSelf: "flex-end", width: 250, padding: 12, borderRadius: 16, backgroundColor: "#fff", gap: 8 }}>
+                    <Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 13 }}>Share this Ultra Unmask</Text>
+                    <Pressable onPress={() => void Share.share({ message: `Join this Ultra Unmask: ${title}` })} style={{ padding: 10, borderRadius: 10, backgroundColor: colors.stage }}><Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 11 }}>Share with friends</Text></Pressable>
+                    <Pressable onPress={() => { setShareMenuOpen(false); setGuestPanelOpen(true); }} style={{ padding: 10, borderRadius: 10, backgroundColor: colors.brandDeep }}><Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>Invite an Unmasker</Text></Pressable>
+                    <Pressable onPress={() => void createStageInvite()} style={{ padding: 10, borderRadius: 10, backgroundColor: "#F3EBE2" }}><Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 11 }}>{inviteBusy ? "Generating…" : "Generate stage invite link"}</Text></Pressable>
+                    {inviteLink ? <Text selectable style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 10 }}>{inviteLink}</Text> : null}
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
           <View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, overflow: "hidden", backgroundColor: "#16090F" }}>
-            {state === "connected" && roomRef.current ? (stageMode === "product" && featuredProduct ? <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 28, backgroundColor: "#F3EBE2", gap: 16 }}>{(sessionMeta.metadata as any)?.products?.find((p: any) => String(p.id) === String(featuredProduct.id))?.image_url ? <Image source={{ uri: (sessionMeta.metadata as any)?.products?.find((p: any) => String(p.id) === String(featuredProduct.id))?.image_url }} style={{ width: "76%", height: "62%", borderRadius: 24 }} resizeMode="contain" /> : null}<Text style={{ color: "#2A0E16", fontFamily: fonts.semibold, fontSize: 18 }}>{featuredProduct.name}</Text><Text style={{ color: "#5F4B53", fontFamily: fonts.regular, fontSize: 11 }}>Product showcase</Text></View> : <LiveVideoStage participants={participants} localParticipant={roomRef.current.localParticipant} layout={stageLayout} />) : (
+            {state === "connected" && roomRef.current ? (stageMode === "product" && featuredProduct ? <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 28, backgroundColor: "#F3EBE2", gap: 16 }}>{(sessionMeta.metadata as any)?.products?.find((p: any) => String(p.id) === String(featuredProduct.id))?.image_url ? <Image source={{ uri: (sessionMeta.metadata as any)?.products?.find((p: any) => String(p.id) === String(featuredProduct.id))?.image_url }} style={{ width: "76%", height: "62%", borderRadius: 24 }} resizeMode="contain" /> : null}<Text style={{ color: "#2A0E16", fontFamily: fonts.semibold, fontSize: 18 }}>{featuredProduct.name}</Text><Text style={{ color: "#5F4B53", fontFamily: fonts.regular, fontSize: 11 }}>Product showcase</Text></View> : <LiveVideoStage participants={participants} localParticipant={roomRef.current.localParticipant} layout={stageLayout} stageTags={stageTags} />) : (
               <View pointerEvents="none" style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
                 <Play size={42} color="#F2D25B" weight="fill" />
                 <Text style={{ color: "#F3EBE2", fontFamily: fonts.medium, fontSize: 13 }}>{state === "connecting" ? "Connecting to the Live…" : "Waiting for the creator's video…"}</Text>
