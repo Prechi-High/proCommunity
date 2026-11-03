@@ -38,7 +38,7 @@ function VideoTile({ tile, compact = false }: { tile: Tile; compact?: boolean })
   );
 }
 
-export function LiveVideoStage({ participants, localParticipant, layout = "panel" }: {
+export function LiveVideoStage({ participants, localParticipant, layout = "panel", stageTags = {} }: {
   participants: Participant[];
   localParticipant: Participant;
   layout?: "panel" | "grid";
