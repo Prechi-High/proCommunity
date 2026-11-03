@@ -41,7 +41,7 @@ export function roomProducts(metadata: unknown): RoomProductChip[] {
     brand: text(meta.product_brand) || text(meta.brand) || undefined,
   });
 
-  return found.slice(0, 3);
+  return found.slice(0, 12);
 }
 
 export function roomTopic(metadata: unknown) {
