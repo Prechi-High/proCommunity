@@ -1,0 +1,21 @@
+import { useEffect, useState } from "react";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { db } from "@/lib/clarity/api";
+import { colors, fonts } from "@/constants/theme";
+import { X } from "@/components/icons";
+type Person = { user_id: string; display_name: string; handle: string; avatar_url?: string | null };
+type Mode = "audio" | "video" | "both";
+type Props = { sessionId: string; open: boolean; onClose: () => void; onInvite: (person: Person, mode: Mode) => Promise<void>; }
+export function LiveGuestPanel({ sessionId, open, onClose, onInvite }: Props) {
+ const [query,setQuery]=useState(""); const [people,setPeople]=useState<Person[]>([]); const [mode,setMode]=useState<Mode>("both"); const [busy,setBusy]=useState(false);
+ useEffect(()=>{ if(!open)return; let dead=false; const timer=setTimeout(async()=>{ setBusy(true); try { const q=query.trim(); let req=db().from("unmask_public_profiles").select("user_id,display_name,handle,avatar_url").neq("user_id",(undefined as any)); if(q) req=req.or("display_name.ilike.%" + q + "%,handle.ilike.%" + q + "%"); const {data}=await req.limit(30); if(!dead)setPeople((data||[]) as Person[]); } finally {if(!dead)setBusy(false);} },200); return()=>{dead=true;clearTimeout(timer)}; },[query,open,sessionId]);
+ if(!open)return null;
+ return <View style={{position:"absolute",left:0,right:0,bottom:0,maxHeight:"82%",padding:18,paddingBottom:28,borderTopLeftRadius:26,borderTopRightRadius:26,backgroundColor:"#fff",gap:12,zIndex:60}}>
+  <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}><View><Text style={{color:colors.ink,fontFamily:fonts.semibold,fontSize:19}}>Bring someone on stage</Text><Text style={{color:colors.inkSoft,fontFamily:fonts.regular,fontSize:11}}>Search any Unmask user, not only Creators.</Text></View><Pressable onPress={onClose}><X size={21} color={colors.ink}/></Pressable></View>
+  <View style={{flexDirection:"row",gap:6}}>{(["audio","video","both"] as Mode[]).map(item=><Pressable key={item} onPress={()=>setMode(item)} style={{flex:1,paddingVertical:9,borderRadius:10,backgroundColor:mode===item?colors.brandDeep:"#F3EFEC"}}><Text style={{textAlign:"center",color:mode===item?"#fff":colors.ink,fontFamily:fonts.semibold,fontSize:10}}>{item.toUpperCase()}</Text></Pressable>)}</View>
+  <TextInput value={query} onChangeText={setQuery} placeholder="Search by name or @handle…" placeholderTextColor={colors.inkSoft} style={{minHeight:44,borderRadius:13,backgroundColor:"#F7F4F2",paddingHorizontal:13,color:colors.ink,fontFamily:fonts.regular}}/>
+  {busy?<Text style={{color:colors.inkSoft,fontFamily:fonts.regular,fontSize:11}}>Searching users…</Text>:null}
+  <ScrollView style={{maxHeight:360}} contentContainerStyle={{gap:7}}>{people.map(person=><View key={person.user_id} style={{flexDirection:"row",alignItems:"center",gap:10,padding:10,borderRadius:13,backgroundColor:"#F7F4F2"}}><View style={{width:38,height:38,borderRadius:19,backgroundColor:colors.brandDeep,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontFamily:fonts.semibold,fontSize:10}}>{(person.display_name||"U").slice(0,2).toUpperCase()}</Text></View><View style={{flex:1}}><Text style={{color:colors.ink,fontFamily:fonts.semibold,fontSize:12}}>{person.display_name}</Text><Text style={{color:colors.inkSoft,fontFamily:fonts.regular,fontSize:10}}>@{person.handle}</Text></View><Pressable onPress={()=>void onInvite(person,mode)} style={{paddingHorizontal:11,paddingVertical:8,borderRadius:10,backgroundColor:colors.brandDeep}}><Text style={{color:"#fff",fontFamily:fonts.semibold,fontSize:10}}>Invite</Text></Pressable></View>)}{!people.length&&!busy?<Text style={{color:colors.inkSoft,fontFamily:fonts.regular,fontSize:12}}>No users found.</Text>:null}</ScrollView>
+  <Text style={{color:colors.inkSoft,fontFamily:fonts.regular,fontSize:10,lineHeight:15}}>The host chooses the privilege. The invited user can then choose camera, microphone, or both when permitted.</Text>
+ </View>
+}
