@@ -14,7 +14,9 @@ export default function CreatorStudio() {
   const r = useRouter();
   const uid = useAppStore(s => s.profile?.id);
   const [creator, setCreator] = useState<any>(null);
-  const [mode, setMode] = useState<"live" | "room">("live");
+  const [mode, setMode] = useState<"ultra" | "room">("ultra");
+  const [ultras, setUltras] = useState<any[]>([]);
+  const [selectedUltra, setSelectedUltra] = useState<any>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [productName, setProductName] = useState("");
@@ -34,6 +36,17 @@ export default function CreatorStudio() {
   ]);
   const [savingAvailability, setSavingAvailability] = useState(false);
   const [availabilitySaved, setAvailabilitySaved] = useState(false);
+
+  useEffect(() => {
+    if (!uid) return;
+    db().from("unmask_investigations")
+      .select("id,title,concern,status,user_id,product_id,attached_journey_id,attached_experience_id,created_at,unmask_catalog(name,brand,image_url)")
+      .eq("creator_id", uid)
+      .in("status", ["selected", "investigating", "published"])
+      .order("created_at", { ascending: false })
+      .limit(50)
+      .then(({ data }) => setUltras(data || []));
+  }, [uid]);
 
   useEffect(() => {
     if (!uid) return;
@@ -111,7 +124,7 @@ export default function CreatorStudio() {
   }
 
   async function start() {
-    if (!uid || !creator || busy || !title.trim()) return;
+    if (!uid || !creator || busy || !title.trim() || (mode === "ultra" && !selectedUltra)) return;
     setBusy(true); setError("");
     try {
       if (!supabase) throw new Error("Connection unavailable.");
@@ -136,11 +149,13 @@ export default function CreatorStudio() {
       }
       if (!response.ok) throw new Error(payload.error || `Could not start the session (HTTP ${response.status}).`);
       if (!payload?.id) throw new Error("The session was created without an id.");
-      if (mode === "live" && productName.trim()) {
-        const { error: metadataError } = await db().from("unmask_realtime_sessions").update({ metadata: { topic: description.trim(), products: [{ name: productName.trim(), brand: productBrand.trim() || undefined }] } }).eq("id", payload.id);
+      if (mode === "ultra") {
+        const chosen = selectedUltra;
+        const product = Array.isArray(chosen?.unmask_catalog) ? chosen.unmask_catalog[0] : chosen?.unmask_catalog;
+        const { error: metadataError } = await db().from("unmask_realtime_sessions").update({ metadata: { topic: description.trim(), products: product?.name ? [{ name: product.name, brand: product.brand, image_url: product.image_url }] : [], ultra_unmask: { investigation_id: chosen.id, title: chosen.title, concern: chosen.concern, product_name: product?.name || "", product_brand: product?.brand || "", product_image_url: product?.image_url || null, requester_id: chosen.user_id } } }).eq("id", payload.id);
         if (metadataError) throw metadataError;
       }
-      r.replace({ pathname: mode === "live" ? "/live/session" : "/room/session", params: { id: payload.id, host: "1" } } as Href);
+      r.replace({ pathname: mode === "ultra" ? "/live/session" : "/room/session", params: { id: payload.id, host: "1" } } as Href);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not start the session.");
     } finally { setBusy(false); }
@@ -185,13 +200,13 @@ export default function CreatorStudio() {
         <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.inkSoft }}>TITLE</Text>
         <TextInput value={title} onChangeText={setTitle} style={input} placeholder={mode === "live" ? "I'm investigating this product live" : "Let's talk about this product"} />
         <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.inkSoft }}>WHAT ARE WE DOING?</Text>
-        <TextInput value={description} onChangeText={setDescription} style={[input, { minHeight: 100 }]} multiline placeholder="Give listeners enough context to decide whether to join." />
+        <TextInput value={description} onChangeText={setDescription} style={[input, { minHeight: 100 }]} multiline placeholder={mode === "ultra" ? "Explain the clarity question being investigated." : "Give listeners enough context to decide whether to join."} />
       </View>
 
       {error ? <StatusMessage kind="error" title={error} /> : null}
-      <ActionButton label={mode === "live" ? "Start Live" : "Start Room"} pending={busy} pendingLabel="Starting…" disabled={!title.trim() || busy || !!activeSession} onPress={() => void start()} />
+      <ActionButton label={mode === "ultra" ? "Start Ultra Unmask" : "Start Ultra Unmask Audio Room"} pending={busy} pendingLabel="Starting…" disabled={!title.trim() || busy || !!activeSession} onPress={() => void start()} />
       <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.inkSoft }}>
-        {mode === "room" ? "Rooms are public and audio-first. Listeners join muted; the host controls who gets speaking access." : "Live broadcasts are public. Camera and microphone permissions will be requested when you enter."}
+        {mode === "room" ? "Public audio-first Ultra Unmask sessions. The host controls who gets speaking access." : "A public Ultra Unmask investigation. The selected case stays pinned while you bring the right people on stage."}
       </Text>
 
       {activeSession ? (
