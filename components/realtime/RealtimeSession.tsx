@@ -1210,7 +1210,7 @@ export function RealtimeSession({
                 <View style={{ paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8, backgroundColor: "#D92D20" }}><Text style={{ color: "#fff", fontFamily: fonts.bold, fontSize: 10 }}>ULTRA</Text></View>
                 <Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11, marginRight: 5 }}>{count}</Text>
               </View>
-              <Pressable onPress={() => void shareRoom()} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#16090FCC", alignItems: "center", justifyContent: "center" }}><UsersThree size={18} color="#fff" /></Pressable>
+              <Pressable onPress={() => setShareMenuOpen(v => !v)} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#16090FCC", alignItems: "center", justifyContent: "center" }}><ShareNetwork size={17} color="#fff" weight="bold" /></Pressable>
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
               <Pressable onPress={() => setStageLayout("panel")} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, backgroundColor: stageLayout === "panel" ? "#F2D25B" : "#16090FCC" }}><Text style={{ color: stageLayout === "panel" ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 10 }}>PANEL</Text></Pressable>
@@ -1267,6 +1267,9 @@ export function RealtimeSession({
                 {canUseCamera ? <Pressable onPress={() => void toggleCamera()} style={{ flex: 1, minHeight: 42, borderRadius: 13, backgroundColor: cameraOn ? "#F2D25B" : "#FFFFFF20", alignItems: "center", justifyContent: "center" }}><Text style={{ color: cameraOn ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{cameraOn ? "Camera off" : "Camera on"}</Text></Pressable> : null}
               </View>
             ) : (
+              {!micRequested ? <View style={{ flexDirection: "row", gap: 6 }}>
+                {(["audio","video","both"] as const).map(item => <Pressable key={item} onPress={() => setGuestMode(item)} style={{ paddingHorizontal: 9, paddingVertical: 7, borderRadius: 9, backgroundColor: guestMode === item ? "#F2D25B" : "#FFFFFF20" }}><Text style={{ color: guestMode === item ? "#2A0E16" : "#fff", fontFamily: fonts.semibold, fontSize: 9 }}>{item.toUpperCase()}</Text></Pressable>)}
+              </View> : null}
               <Pressable onPress={() => void requestMic()} style={{ alignSelf: "flex-start", paddingHorizontal: 13, paddingVertical: 9, borderRadius: 20, backgroundColor: "#FFFFFF24" }}>
                 <Text style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 11 }}>{micRequested ? "Stage request sent" : "Request to join the conversation"}</Text>
               </Pressable>
