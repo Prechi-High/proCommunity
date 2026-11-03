@@ -183,6 +183,26 @@ async function handler(req, res) {
         return send(res, 200, { ok: true, action });
       }
 
+      if (action === "accept_invite") {
+        const inviteId = String(body.inviteId || "");
+        const metadata = managedSession.metadata && typeof managedSession.metadata === "object" ? managedSession.metadata : {};
+        const invites = metadata.ultra_invites && typeof metadata.ultra_invites === "object" ? metadata.ultra_invites : {};
+        const invite = invites[inviteId];
+        if (!invite || invite.status !== "open") return send(res, 404, { error: "Invite not found or already used." });
+        const mode = invite.mode === "video" || invite.mode === "both" ? invite.mode : "audio";
+        const requests = Array.isArray(metadata.mic_requests) ? metadata.mic_requests : [];
+        const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", userData.user.id).maybeSingle();
+        const { data: creatorProfile } = await supabase.from("unmask_creators").select("display_name").eq("user_id", userData.user.id).maybeSingle();
+        const displayName = creatorProfile?.display_name || profile?.display_name || userData.user.user_metadata?.display_name || "Unmasker";
+        const decision = nextMicRequests(requests, "invite_speaker", userData.user.id, displayName, mode);
+        await setCanPublish(managedSession.room_name, userData.user.id, true, mode);
+        await patchMetadata(supabase, sessionId, {
+          mic_requests: decision.requests,
+          ultra_invites: { ...invites, [inviteId]: { ...invite, status: "accepted", accepted_by: userData.user.id, accepted_at: new Date().toISOString() } }
+        });
+        return send(res, 200, { ok: true, mode, micRequests: decision.requests });
+      }
+
       if (action === "set_stage_tag") {
         const targetUserId = String(body.targetUserId || "");
         const tag = String(body.tag || "").trim().slice(0, 80);
