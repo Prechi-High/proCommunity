@@ -73,6 +73,7 @@ export function RealtimeSession({
   const [tagText, setTagText] = useState("");
   const [inviteLink, setInviteLink] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
+  const [ultraDetailOpen, setUltraDetailOpen] = useState(false);
   const [stageLayout, setStageLayout] = useState<"panel" | "grid">("panel");
   const [stageMode, setStageMode] = useState<"camera" | "product" | "screen">("camera");
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -176,6 +177,7 @@ export function RealtimeSession({
         }
         const permissions = metadata.cohost_permissions && typeof metadata.cohost_permissions === "object" ? metadata.cohost_permissions : {};
         const tags = metadata.stage_tags && typeof metadata.stage_tags === "object" ? metadata.stage_tags : {};
+        if (data.host_creator_id && joined?.handle && !tags[data.host_creator_id]) tags[data.host_creator_id] = `HOST · @${joined.handle}`;
         setStageTags(tags as Record<string, string>);
         setMicRequests(requests);
         setCohostPermissions(permissions);
@@ -923,7 +925,7 @@ export function RealtimeSession({
     if (!data.session?.access_token) return;
     const response = await fetch("/api/realtime/token", {
       method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
-      body: JSON.stringify({ action: "request_mic", sessionId: id }),
+      body: JSON.stringify({ action: "request_mic", sessionId: id, mode: guestMode }),
     });
     const raw = await response.text(); let payload:any={}; try { payload=raw?JSON.parse(raw):{}; } catch {}
     if (!response.ok) {
@@ -1162,12 +1164,20 @@ export function RealtimeSession({
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <View style={{ flex: 1, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 16, backgroundColor: "#2A0E16E8" }}>
                     <Text style={{ color: "#F2D25B", fontFamily: fonts.semibold, fontSize: 10, letterSpacing: 1 }}>ULTRA UNMASK · LIVE CLARITY</Text>
-                    <Text numberOfLines={1} style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 14 }}>{(sessionMeta.metadata as any)?.ultra_unmask?.title || title}</Text>
+                    <Pressable onPress={() => setUltraDetailOpen(v => !v)}><Text numberOfLines={1} style={{ color: "#fff", fontFamily: fonts.semibold, fontSize: 14 }}>{(sessionMeta.metadata as any)?.ultra_unmask?.title || title}</Text></Pressable>
                   </View>
                   <Pressable onPress={() => setShareMenuOpen(v => !v)} style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: "#2A0E16E8", alignItems: "center", justifyContent: "center" }}>
                     <ShareNetwork size={19} color="#fff" weight="bold" />
                   </Pressable>
                 </View>
+                {ultraDetailOpen ? (
+                  <View style={{ padding: 12, borderRadius: 14, backgroundColor: "#fff", gap: 5 }}>
+                    <Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 12 }}>The experience we're unmasking</Text>
+                    <Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 14 }}>{(sessionMeta.metadata as any)?.ultra_unmask?.product_name || "Product experience"}</Text>
+                    <Text style={{ color: colors.inkSoft, fontFamily: fonts.regular, fontSize: 11, lineHeight: 16 }}>{(sessionMeta.metadata as any)?.ultra_unmask?.concern || sessionMeta.description || "Bring clarity to this experience."}</Text>
+                    <Text style={{ color: colors.brandDeep, fontFamily: fonts.medium, fontSize: 10 }}>Tap to close</Text>
+                  </View>
+                ) : null}
                 {shareMenuOpen ? (
                   <View style={{ alignSelf: "flex-end", width: 250, padding: 12, borderRadius: 16, backgroundColor: "#fff", gap: 8 }}>
                     <Text style={{ color: colors.ink, fontFamily: fonts.semibold, fontSize: 13 }}>Share this Ultra Unmask</Text>
