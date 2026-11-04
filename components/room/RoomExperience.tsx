@@ -178,6 +178,7 @@ export function RoomExperience(props: RoomExperienceProps) {
   const [share, setShare] = useState(false);
   const [guests, setGuests] = useState(false);
   const [emoji, setEmoji] = useState(false);
+  const [defaultReaction, setDefaultReaction] = useState<RoomReactionKind>("heart");
   const [chat, setChat] = useState(false);
   const [captions, setCaptions] = useState(false);
   const [reported, setReported] = useState(false);
@@ -283,11 +284,15 @@ export function RoomExperience(props: RoomExperienceProps) {
       />
       <Animated.View
         entering={reduced ? undefined : SlideInDown.springify().damping(18).stiffness(180)}
+        onStartShouldSetResponder={() => props.phase === "live" && !prejoin}
+        onResponderRelease={() => {
+          if (!props.anonymous && props.phase === "live") props.onReact(defaultReaction);
+        }}
         style={{
           width: sheetWidth,
           height: roomFull ? height : undefined,
           maxHeight: roomFull ? height : height * 0.92,
-          backgroundColor: colors.wine,
+          backgroundColor: "#FFFFFF",
           borderTopLeftRadius: 22,
           borderTopRightRadius: 22,
           overflow: "hidden",
@@ -439,11 +444,13 @@ export function RoomExperience(props: RoomExperienceProps) {
           <DockBar
             {...props}
             emojiOpen={emoji}
+            defaultReaction={defaultReaction}
             noteCount={props.notes.length}
             onPeople={() => setGuests(true)}
             onEmoji={() => setEmoji((open) => !open)}
             onChat={() => setChat(true)}
             onPick={(kind) => {
+              setDefaultReaction(kind);
               props.onReact(kind);
               setEmoji(false);
             }}
@@ -480,7 +487,7 @@ export function RoomExperience(props: RoomExperienceProps) {
       {personMenu ? <PersonMenu seat={personMenu} {...props} onClose={() => setPersonMenu(null)} /> : null}
       {detailCard ? (
         <Pressable onPress={() => !detailSending && setDetailCard(null)} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", zIndex: 12 }}>
-          <Pressable onPress={() => undefined} style={{ backgroundColor: colors.wine, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18, gap: 12, maxHeight: height * 0.86 }}>
+          <Pressable onPress={() => undefined} style={{ backgroundColor: "#FFFFFF", borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18, gap: 12, maxHeight: height * 0.86 }}>
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12, paddingBottom: 8 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.ink }}>Ask for more detail</Text>
               <Text style={{ fontFamily: fonts.regular, color: colors.inkSoft }}>{detailCard.author} will receive this as a direct request from the Room host/co-host.</Text>
@@ -520,7 +527,7 @@ export function RoomExperience(props: RoomExperienceProps) {
       <ExperienceSheet item={openExperience} full={experienceFull} onToggleFull={() => setExperienceFull((value) => !value)} onClose={() => { setOpenExperience(null); setExperienceFull(false); }} />
       {openUltraCard ? (
         <Pressable onPress={() => setOpenUltraCard(null)} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center", zIndex: 11 }}>
-          <Pressable onPress={() => undefined} style={{ width: "100%", maxWidth: 430, maxHeight: height * 0.9, backgroundColor: colors.wine, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: "hidden" }}>
+          <Pressable onPress={() => undefined} style={{ width: "100%", maxWidth: 430, maxHeight: height * 0.9, backgroundColor: "#FFFFFF", borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: "hidden" }}>
             <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 20 }}>
               <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 4, paddingBottom: 8 }}>
                 <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.ink }}>Ultra Unmask</Text>
@@ -630,7 +637,7 @@ function DataUse({ status, onClose }: { status?: string | null; onClose: () => v
   const recording = status === "recording" || status === "processing" || status === "ready";
   return (
     <Pressable accessibilityLabel="Close data use" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center", zIndex: 8 }}>
-      <Pressable onPress={() => undefined} style={{ width: "100%", maxWidth: 430, maxHeight: "80%", backgroundColor: colors.wine, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18, gap: 10 }}>
+      <Pressable onPress={() => undefined} style={{ width: "100%", maxWidth: 430, maxHeight: "80%", backgroundColor: "#FFFFFF", borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18, gap: 10 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.ink }}>How this Room uses what you share</Text>
         <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={{ gap: 10 }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.ink }}>Your voice and the words said in the Room can be kept as audio and a transcript after the Room ends. They may be shown to other people and used to bring others in and help people understand the product.</Text>
@@ -937,6 +944,7 @@ function GradientButton({ label, busy, onPress }: { label: string; busy?: boolea
 
 function DockBar(props: RoomExperienceProps & {
   emojiOpen: boolean;
+  defaultReaction: RoomReactionKind;
   noteCount: number;
   onPeople: () => void;
   onEmoji: () => void;
@@ -1004,7 +1012,7 @@ function MiniPlayer(props: RoomExperienceProps & { width: number; bottom: number
   const reduced = useReducedMotion();
   return (
     <Animated.View entering={reduced ? undefined : SlideInDown.springify().damping(16)} style={{ width: props.width, alignSelf: "center", marginBottom: props.bottom, marginHorizontal: 12, minHeight: 64, borderRadius: 18, backgroundColor: colors.stage, borderWidth: 1, borderColor: colors.line, flexDirection: "row", alignItems: "center", paddingHorizontal: 10, gap: 10 }}>
-      <Pressable accessibilityRole="button" accessibilityLabel={props.outputOn ? "Pause audio" : "Play audio"} onPress={() => { hapticSelect(); props.onToggleOutput(); }} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.wine, alignItems: "center", justifyContent: "center" }}>
+      <Pressable accessibilityRole="button" accessibilityLabel={props.outputOn ? "Pause audio" : "Play audio"} onPress={() => { hapticSelect(); props.onToggleOutput(); }} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" }}>
         {props.outputOn ? <Pause size={18} color={colors.ink} weight="fill" /> : <Play size={18} color={colors.ink} weight="fill" />}
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel="Expand Room" onPress={props.onExpand} style={{ flex: 1, gap: 2 }}>
@@ -1055,7 +1063,7 @@ function MenuPopover({
   const reduced = useReducedMotion();
   return (
     <Pressable accessibilityLabel="Close menu" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
-      <Animated.View entering={reduced ? undefined : ZoomIn.springify().damping(16)} exiting={reduced ? undefined : FadeOut.duration(140)} style={{ position: "absolute", top: 58, right: 16, width: 280, borderRadius: 16, backgroundColor: colors.wineDeep, borderWidth: 1, borderColor: colors.line, paddingVertical: 6 }}>
+      <Animated.View entering={reduced ? undefined : ZoomIn.springify().damping(16)} exiting={reduced ? undefined : FadeOut.duration(140)} style={{ position: "absolute", top: 58, right: 16, width: 280, borderRadius: 16, backgroundColor: "#FFFFFF"Deep, borderWidth: 1, borderColor: colors.line, paddingVertical: 6 }}>
         {rows.map((row) => (
           <Pressable key={row.label} accessibilityRole="button" accessibilityLabel={row.label} onPress={() => { hapticSelect(); row.onPress(); }} style={{ minHeight: 48, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 16, color: colors.ink }}>{row.label}</Text>
@@ -1091,7 +1099,7 @@ function MenuPopover({
 function Rules({ onClose }: { onClose: () => void }) {
   return (
     <Pressable onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" }}>
-      <View style={{ backgroundColor: colors.wine, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 18, gap: 8 }}>
+      <View style={{ backgroundColor: "#FFFFFF", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 18, gap: 8 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.ink }}>Room rules</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.inkSoft }}>Stay on the product. The host decides who speaks. Anonymous listening stays off stage, off the mic, and out of reactions.</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Close rules" onPress={onClose} style={{ minHeight: 44, justifyContent: "center" }}>
@@ -1111,7 +1119,7 @@ function ShareSheet({ onClose, onShare, onCopy }: { onClose: () => void; onShare
   ];
   return (
     <Pressable accessibilityLabel="Close share" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center" }}>
-      <View style={{ width: "100%", maxWidth: 430, backgroundColor: colors.wine, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingVertical: 8 }}>
+      <View style={{ width: "100%", maxWidth: 430, backgroundColor: "#FFFFFF", borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingVertical: 8 }}>
         {rows.map((row) => (
           <Pressable key={row.label} accessibilityRole="button" accessibilityLabel={row.label} onPress={() => { hapticSelect(); row.onPress(); onClose(); }} style={{ minHeight: 52, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", gap: 12 }}>
             {row.icon}
@@ -1134,7 +1142,7 @@ function PersonMenu({ seat, onClose, ...props }: RoomExperienceProps & { seat: R
   ].filter(Boolean) as Array<{ label: string; run: () => void }>;
   return (
     <Pressable accessibilityLabel="Close speaker actions" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center" }}>
-      <View style={{ width: "100%", maxWidth: 430, backgroundColor: colors.wine, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, gap: 8 }}>
+      <View style={{ width: "100%", maxWidth: 430, backgroundColor: "#FFFFFF", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, gap: 8 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.ink }}>{seat.name}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft }}>{ROLE_LABEL[seat.role]}</Text>
         {actions.map((action) => (
@@ -1167,7 +1175,7 @@ function GuestsSheet(props: RoomExperienceProps & { onClose: () => void }) {
   ].filter((section) => filter === "All" || section.rows.length || (filter === "Co-hosts" && section.title === "Co-hosts") || (filter === "Speakers" && section.title === "Speakers") || (filter === "Listening" && section.title === "Listening"));
   return (
     <Pressable onPress={props.onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center" }}>
-      <Pressable onPress={() => undefined} style={{ width: "100%", maxWidth: 430, maxHeight: "88%", backgroundColor: colors.wine, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: 16 }}>
+      <Pressable onPress={() => undefined} style={{ width: "100%", maxWidth: 430, maxHeight: "88%", backgroundColor: "#FFFFFF", borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: 16 }}>
         <Text accessibilityRole="header" style={{ textAlign: "center", fontFamily: fonts.bold, fontSize: 18, color: colors.ink, paddingVertical: 14 }}>Guests</Text>
         <View style={{ marginHorizontal: 16, minHeight: 44, borderRadius: 999, backgroundColor: colors.stage, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 8 }}>
           <Text style={{ color: colors.inkSoft }}>⌕</Text>
@@ -1309,7 +1317,7 @@ function ChatSheet(props: RoomExperienceProps & {
   return (
     <Pressable onPress={props.onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end", alignItems: "center" }}>
       <PartialSheet onClose={props.onClose} expanded={full} onExpand={() => setFull(true)} onCollapse={() => setFull(false)}>
-        <Pressable onPress={() => undefined} style={{ position: "relative", width: "100%", height: full ? height : undefined, maxHeight: full ? height : Math.min(height * 0.62, 560), backgroundColor: colors.wine, borderTopLeftRadius: full ? 0 : 22, borderTopRightRadius: full ? 0 : 22, paddingBottom: 10 }}>
+        <Pressable onPress={() => undefined} style={{ position: "relative", width: "100%", height: full ? height : undefined, maxHeight: full ? height : Math.min(height * 0.62, 560), backgroundColor: "#FFFFFF", borderTopLeftRadius: full ? 0 : 22, borderTopRightRadius: full ? 0 : 22, paddingBottom: 10 }}>
           <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10, gap: 8 }}>
             <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.ink }}>Replies</Text>
             <PressScale label={full ? "Collapse replies" : "Expand replies"} onPress={() => setFull((value) => !value)} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
