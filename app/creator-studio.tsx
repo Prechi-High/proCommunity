@@ -39,12 +39,12 @@ export default function CreatorStudio() {
 
   useEffect(() => {
     if (!uid) return;
+    // Creators can browse all Ultra Unmask cases for now; assignment is not required.
     db().from("unmask_investigations")
       .select("id,title,concern,status,user_id,product_id,attached_journey_id,attached_experience_id,created_at,unmask_catalog(name,brand,image_url)")
-      .eq("creator_id", uid)
       .in("status", ["selected", "investigating", "published"])
       .order("created_at", { ascending: false })
-      .limit(50)
+      .limit(100)
       .then(({ data }) => setUltras(data || []));
   }, [uid]);
 
@@ -200,7 +200,7 @@ export default function CreatorStudio() {
         <View style={{ padding: 18, borderRadius: 22, borderWidth: 1, borderColor: colors.line, backgroundColor: "#fff", gap: 11 }}>
           <View style={{ gap: 4 }}>
             <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: colors.ink }}>Choose an Ultra Unmask</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.inkSoft }}>Select an Ultra Unmask already assigned to you. This case becomes the investigation shown throughout the session.</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.inkSoft }}>Choose any available Ultra Unmask. It does not need to be assigned to you yet; the case you select becomes the investigation shown throughout the session.</Text>
           </View>
           {ultras.length ? ultras.map((item) => {
             const product = Array.isArray(item.unmask_catalog) ? item.unmask_catalog[0] : item.unmask_catalog;
@@ -213,7 +213,7 @@ export default function CreatorStudio() {
               {product?.name ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.brandDeep }}>{product.brand ? product.brand + " · " : ""}{product.name}</Text> : null}
               <Text numberOfLines={2} style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.inkSoft }}>{item.concern || "No question context added."}</Text>
             </Pressable>;
-          }) : <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.inkSoft }}>No accepted Ultra Unmasks are assigned to you yet.</Text>}
+          }) : <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.inkSoft }}>No Ultra Unmasks are available yet.</Text>}
         </View>
       ) : null}
 
