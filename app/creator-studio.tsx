@@ -137,7 +137,7 @@ export default function CreatorStudio() {
           Authorization: `Bearer ${auth.session.access_token}`,
         },
         body: JSON.stringify({
-          mode,
+          mode: mode === "ultra" ? "live" : "room",
           title: title.trim(),
           description: description.trim(),
           investigationId: mode === "ultra" ? selectedUltra?.id : undefined,
@@ -150,12 +150,6 @@ export default function CreatorStudio() {
       }
       if (!response.ok) throw new Error(payload.error || `Could not start the session (HTTP ${response.status}).`);
       if (!payload?.id) throw new Error("The session was created without an id.");
-      if (mode === "ultra") {
-        const chosen = selectedUltra;
-        const product = Array.isArray(chosen?.unmask_catalog) ? chosen.unmask_catalog[0] : chosen?.unmask_catalog;
-        const { error: metadataError } = await db().from("unmask_realtime_sessions").update({ metadata: { topic: description.trim(), products: product?.name ? [{ name: product.name, brand: product.brand, image_url: product.image_url }] : [], ultra_unmask: { investigation_id: chosen.id, title: chosen.title, concern: chosen.concern, product_name: product?.name || "", product_brand: product?.brand || "", product_image_url: product?.image_url || null, requester_id: chosen.user_id } } }).eq("id", payload.id);
-        if (metadataError) throw metadataError;
-      }
       r.replace({ pathname: mode === "ultra" ? "/live/session" : "/room/session", params: { id: payload.id, host: "1" } } as Href);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not start the session.");
