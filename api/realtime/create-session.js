@@ -55,8 +55,8 @@ async function handler(req, res) {
     if (mode === "live") {
       const { data: investigation, error: investigationError } = await supabase
         .from("unmask_investigations").select("id,title,concern,user_id,creator_id,status,product_id,attached_journey_id,attached_experience_id,unmask_catalog(name,brand,image_url)")
-        .eq("id", investigationId).eq("creator_id", userData.user.id).single();
-      if (investigationError || !investigation) return send(res, 403, { error: "That Ultra Unmask is not assigned to you." });
+        .eq("id", investigationId).single();
+      if (investigationError || !investigation) return send(res, 404, { error: "That Ultra Unmask could not be found." });
       if (["declined","cancelled","closed"].includes(String(investigation.status).toLowerCase())) return send(res, 409, { error: "That Ultra Unmask is no longer available." });
       investigationContext = investigation;
     }
