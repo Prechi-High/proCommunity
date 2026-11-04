@@ -198,7 +198,7 @@ export default function CreatorStudio() {
         {availabilitySaved ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: "#236044" }}>Availability saved.</Text> : null}
       </View>
 
-      <View style={{ flexDirection: "row", gap: 10 }}>      <View style={{ flexDirection: "row", gap: 10 }}>
+      <View style={{ flexDirection: "row", gap: 10 }}>
         <ActionButton label="Ultra Unmask" tone={mode === "ultra" ? "primary" : "secondary"} onPress={() => setMode("ultra")} />
         <ActionButton label="Ultra Unmask Audio Room" tone={mode === "room" ? "primary" : "secondary"} onPress={() => setMode("room")} />
       </View>
