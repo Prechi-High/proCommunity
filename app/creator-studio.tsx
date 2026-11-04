@@ -42,7 +42,7 @@ export default function CreatorStudio() {
     // Creators can browse all Ultra Unmask cases for now; assignment is not required.
     db().from("unmask_investigations")
       .select("id,title,concern,status,user_id,product_id,attached_journey_id,attached_experience_id,created_at,unmask_catalog(name,brand,image_url)")
-      .in("status", ["selected", "investigating", "published"])
+      .in("status", ["requested", "selected", "investigating", "published"])
       .order("created_at", { ascending: false })
       .limit(100)
       .then(({ data }) => setUltras(data || []));
@@ -140,6 +140,7 @@ export default function CreatorStudio() {
           mode,
           title: title.trim(),
           description: description.trim(),
+          investigationId: mode === "ultra" ? selectedUltra?.id : undefined,
         }),
       });
       const raw = await response.text();
