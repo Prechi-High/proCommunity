@@ -956,8 +956,12 @@ function DockBar(props: RoomExperienceProps & {
     <View style={{ paddingHorizontal: 14, paddingTop: 6, gap: 8 }}>
       {props.emojiOpen ? (
         <Animated.View entering={reduced ? undefined : FadeIn.duration(180)} exiting={reduced ? undefined : FadeOut.duration(160)} style={{ borderRadius: 22, backgroundColor: colors.stage, borderWidth: 1, borderColor: colors.line, padding: 10, flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 6 }}>
+          <View style={{ width: "100%", paddingHorizontal: 6, paddingVertical: 4, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.inkSoft }}>Default reaction</Text>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.brand }}>{roomEmoji(props.defaultReaction)?.glyph || "❤️"} · tap an icon to change</Text>
+          </View>
           {ROOM_EMOJIS.map((item) => (
-            <PressScale key={item.id} label={item.label} disabled={props.anonymous} onPress={() => props.onPick(item.id)} style={{ width: "18%", minHeight: 44, alignItems: "center", justifyContent: "center", opacity: props.anonymous ? 0.35 : 1 }}>
+            <PressScale key={item.id} label={item.label + (item.id === props.defaultReaction ? " · Default" : "")} disabled={props.anonymous} onPress={() => props.onPick(item.id)} style={{ width: "18%", minHeight: 44, alignItems: "center", justifyContent: "center", opacity: props.anonymous ? 0.35 : 1, borderRadius: 12, backgroundColor: item.id === props.defaultReaction ? colors.hiSoft : "transparent" }}>
               <Text style={{ fontSize: 26 }}>{item.glyph}</Text>
             </PressScale>
           ))}
