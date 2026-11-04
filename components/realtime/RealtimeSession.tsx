@@ -19,7 +19,7 @@ import { foldRoomEvents, joinRoom, loadRoomEvents, postRoomEvent } from "@/lib/r
 import { momentsFromUpdates, questionTitle, timelineFromJourney, type RoomTimeline, type RoomUltra } from "@/lib/room/cards";
 import { roomProducts, roomTopic } from "@/lib/room/context";
 import { useRoomDock } from "@/lib/room/dock";
-import { ROOM_EMOJI_IDS } from "@/lib/room/emoji";
+import { ROOM_EMOJI_IDS, ROOM_EMOJIS, roomEmoji } from "@/lib/room/emoji";
 import { arrangeRoom } from "@/lib/room/seats";
 import type { RoomReactionKind } from "@/lib/room/types";
 import { contribute, create as createUltra, summary, validAmount, wallet } from "@/lib/investigations/api";
@@ -106,6 +106,7 @@ export function RealtimeSession({
   const [outputOn, setOutputOn] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const [reactions, setReactions] = useState<Array<{ id: string; kind: RoomReactionKind; name: string }>>([]);
+  const [emojiPanelOpen, setEmojiPanelOpen] = useState(false);
   const [reactionTotal, setReactionTotal] = useState(0);
   const [timelines, setTimelines] = useState<RoomTimeline[]>([]);
   const [ultras, setUltras] = useState<RoomUltra[]>([]);
@@ -405,6 +406,8 @@ export function RealtimeSession({
           .on(RoomEvent.LocalTrackUnpublished, sync)
           .on(RoomEvent.TrackPublished, sync)
           .on(RoomEvent.TrackUnpublished, sync)
+          .on(RoomEvent.TrackMuted, sync)
+          .on(RoomEvent.TrackUnmuted, sync)
           .on(RoomEvent.TrackSubscribed, onTrack)
           .on(RoomEvent.TrackUnsubscribed, onUntrack)
           .on(RoomEvent.ActiveSpeakersChanged, onSpeaker)
@@ -1283,6 +1286,23 @@ export function RealtimeSession({
               </Pressable>
               </View>
             )}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 2 }}>
+              {ROOM_EMOJIS.slice(0, 6).map((item) => (
+                <Pressable key={item.id} onPress={() => void sendReaction(item.id)} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFFFFF18", alignItems: "center", justifyContent: "center" }} accessibilityLabel={item.label}>
+                  <Text style={{ fontSize: 19 }}>{item.glyph}</Text>
+                </Pressable>
+              ))}
+              <Pressable onPress={() => setEmojiPanelOpen(v => !v)} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFFFFF18", alignItems: "center", justifyContent: "center" }} accessibilityLabel="More reactions">
+                <Text style={{ color: "#fff", fontSize: 18 }}>＋</Text>
+              </Pressable>
+            </View>
+            {reactions.length ? (
+              <View pointerEvents="none" style={{ position: "absolute", right: 16, bottom: 150, gap: 4, alignItems: "flex-end" }}>
+                {reactions.slice(-5).map((item) => (
+                  <Text key={item.id} style={{ fontSize: 28 }}>{roomEmoji(item.kind)?.glyph || "❤️"}</Text>
+                ))}
+              </View>
+            ) : null}
             {canEnd ? <Pressable onPress={() => void leave(true)} style={{ alignSelf: "center", padding: 7 }}><Text style={{ color: "#F3EBE2", fontFamily: fonts.medium, fontSize: 10 }}>End Ultra Unmask</Text></Pressable> : null}
           </View>
         </View>
