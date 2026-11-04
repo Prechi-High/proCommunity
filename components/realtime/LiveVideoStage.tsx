@@ -45,7 +45,7 @@ export function LiveVideoStage({ participants, localParticipant, layout = "panel
   stageTags?: Record<string, string>;
 }) {
   const tiles = (() => {
-    const people = [localParticipant, ...participants];
+    const people = [localParticipant, ...participants.filter((person) => person.identity !== localParticipant.identity)];
     const tags = stageTags || {};
     const result: Tile[] = [];
     for (const person of people) {
@@ -53,6 +53,7 @@ export function LiveVideoStage({ participants, localParticipant, layout = "panel
         const track: any = publication.track;
         if (!track || track.kind !== Track.Kind.Video) continue;
         if (!person.isLocal && !publication.isSubscribed) continue;
+        if (publication.isMuted || publication.isEnabled === false) continue;
         const screen = track.source === Track.Source.ScreenShare;
         result.push({
           key: person.identity + ":" + (track.sid || track.source),
