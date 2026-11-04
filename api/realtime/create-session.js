@@ -115,7 +115,7 @@ async function handler(req, res) {
           mic_requests: [],
           stage_tags: {},
           ultra_invites: {},
-          ultra_unmask: investigationId ? { investigation_id: investigationId, requester_id: investigationContext?.user_id || null, title: investigationContext?.title || title, concern: investigationContext?.concern || description, product_name: (Array.isArray(investigationContext?.unmask_catalog) ? investigation?.unmask_catalog[0]?.name : investigation?.unmask_catalog?.name) || "", product_brand: (Array.isArray(investigation?.unmask_catalog) ? investigation?.unmask_catalog[0]?.brand : investigation?.unmask_catalog?.brand) || "", product_image_url: (Array.isArray(investigation?.unmask_catalog) ? investigation?.unmask_catalog[0]?.image_url : investigation?.unmask_catalog?.image_url) || null } : null,
+          ultra_unmask: investigationId ? { investigation_id: investigationId, requester_id: investigationContext?.user_id || null, title: investigationContext?.title || title, concern: investigationContext?.concern || description, product_name: (Array.isArray(investigationContext?.unmask_catalog) ? investigationContext.unmask_catalog[0]?.name : investigationContext?.unmask_catalog?.name) || "", product_brand: (Array.isArray(investigationContext?.unmask_catalog) ? investigationContext.unmask_catalog[0]?.brand : investigationContext?.unmask_catalog?.brand) || "", product_image_url: (Array.isArray(investigationContext?.unmask_catalog) ? investigationContext.unmask_catalog[0]?.image_url : investigationContext?.unmask_catalog?.image_url) || null } : null,
         },
       })
       .select("id,room_name,mode")
