@@ -82,7 +82,7 @@ export default function CreatorStudio() {
     setAvailabilitySaved(false);
     try {
       const normalized = availability.map(item => {
-        const validTime = (value: string) => /^([01]\\d|2[0-3]):[0-5]\\d$/.test(value);
+        const validTime = (value: string) => /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(value);
         if (item.enabled && (!validTime(item.start) || !validTime(item.end))) throw new Error("Enter valid 24-hour times for " + item.day + ".");
         if (item.enabled && item.start >= item.end) throw new Error(item.day + ": end time must be later than start time.");
         return item;
@@ -167,26 +167,38 @@ export default function CreatorStudio() {
       </View>
 
 
-      <View style={{ padding: 18, borderRadius: 22, borderWidth: 1, borderColor: colors.line, backgroundColor: "#fff", gap: 12 }}>
-        <View style={{ gap: 4 }}>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: colors.ink }}>Your creator availability</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.inkSoft }}>Set the hours when you can take a Live shift or respond to an Unmask investigation. This is your availability, not an automatically assigned shift.</Text>
+      <View style={{ width: "100%", maxWidth: "100%", minWidth: 0, padding: 14, borderRadius: 22, borderWidth: 1, borderColor: "#E8E2DF", backgroundColor: "#FFFFFF", gap: 14 }}>
+        <View style={{ gap: 5 }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 18, lineHeight: 25, color: "#1C1917" }}>Your creator availability</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: "#5C534F" }}>Set the hours when you can take a Live shift or respond to an Unmask investigation. This is your availability, not an automatically assigned shift.</Text>
         </View>
         {availability.map((day) => (
-          <View key={day.day} style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
-            <Pressable onPress={() => patchAvailability(day.day, { enabled: !day.enabled })} accessibilityRole="checkbox" accessibilityState={{ checked: day.enabled }} style={{ width: 48, paddingVertical: 9, borderRadius: 11, alignItems: "center", backgroundColor: day.enabled ? "#2A0E16" : "#F2EFED" }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: day.enabled ? "#F2D25B" : colors.inkSoft }}>{day.day}</Text>
-            </Pressable>
-            <TextInput value={day.start} editable={day.enabled} onChangeText={value => patchAvailability(day.day, { start: value })} placeholder="08:00" keyboardType="numbers-and-punctuation" maxLength={5} style={[input, { flex: 1, paddingVertical: 10, textAlign: "center", opacity: day.enabled ? 1 : 0.45 }]} />
-            <Text style={{ fontFamily: fonts.medium, color: colors.inkSoft }}>to</Text>
-            <TextInput value={day.end} editable={day.enabled} onChangeText={value => patchAvailability(day.day, { end: value })} placeholder="22:00" keyboardType="numbers-and-punctuation" maxLength={5} style={[input, { flex: 1, paddingVertical: 10, textAlign: "center", opacity: day.enabled ? 1 : 0.45 }]} />
+          <View key={day.day} style={{ width: "100%", minWidth: 0, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#E8E2DF", backgroundColor: "#FAF8F6", gap: 11 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <Pressable onPress={() => patchAvailability(day.day, { enabled: !day.enabled })} accessibilityRole="checkbox" accessibilityState={{ checked: day.enabled }} style={{ minWidth: 72, minHeight: 40, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: day.enabled ? "#2A0E16" : "#EEE9E5" }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: day.enabled ? "#F2D25B" : "#1C1917" }}>{day.day}</Text>
+              </Pressable>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: day.enabled ? "#236044" : "#746B66" }}>{day.enabled ? "Available" : "Unavailable"}</Text>
+            </View>
+            <View style={{ width: "100%", minWidth: 0, flexDirection: "row", gap: 10 }}>
+              <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: "#5C534F" }}>Start time</Text>
+                <TextInput value={day.start} editable={day.enabled} onChangeText={value => patchAvailability(day.day, { start: value })} accessibilityLabel={day.day + " start time"} placeholder="08:00" placeholderTextColor="#746B66" keyboardType="numbers-and-punctuation" maxLength={5} style={[input, { width: "100%", minWidth: 0, paddingHorizontal: 8, paddingVertical: 12, minHeight: 48, textAlign: "center", color: "#1C1917", backgroundColor: "#FFFFFF", borderColor: "#D8D0CB", opacity: day.enabled ? 1 : 0.6 }]} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: "#5C534F" }}>End time</Text>
+                <TextInput value={day.end} editable={day.enabled} onChangeText={value => patchAvailability(day.day, { end: value })} accessibilityLabel={day.day + " end time"} placeholder="22:00" placeholderTextColor="#746B66" keyboardType="numbers-and-punctuation" maxLength={5} style={[input, { width: "100%", minWidth: 0, paddingHorizontal: 8, paddingVertical: 12, minHeight: 48, textAlign: "center", color: "#1C1917", backgroundColor: "#FFFFFF", borderColor: "#D8D0CB", opacity: day.enabled ? 1 : 0.6 }]} />
+              </View>
+            </View>
           </View>
         ))}
-        <ActionButton label={savingAvailability ? "Saving…" : "Save availability"} pending={savingAvailability} onPress={() => void saveAvailability()} />
-        {availabilitySaved ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: "#287A4B" }}>Availability saved.</Text> : null}
+        <View style={{ width: "100%", minWidth: 0 }}>
+          <ActionButton label={savingAvailability ? "Saving…" : "Save availability"} pending={savingAvailability} onPress={() => void saveAvailability()} />
+        </View>
+        {availabilitySaved ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: "#236044" }}>Availability saved.</Text> : null}
       </View>
 
-      <View style={{ flexDirection: "row", gap: 10 }}>
+      <View style={{ flexDirection: "row", gap: 10 }}>      <View style={{ flexDirection: "row", gap: 10 }}>
         <ActionButton label="Ultra Unmask" tone={mode === "ultra" ? "primary" : "secondary"} onPress={() => setMode("ultra")} />
         <ActionButton label="Ultra Unmask Audio Room" tone={mode === "room" ? "primary" : "secondary"} onPress={() => setMode("room")} />
       </View>
