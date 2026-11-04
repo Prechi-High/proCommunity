@@ -290,7 +290,7 @@ export function RealtimeSession({
     }
     let dead = false;
     const attach = (track: RemoteTrack) => {
-      if (Platform.OS !== "web" || !mediaRef.current || (mode === "live" && track.kind === Track.Kind.Video)) return;
+      if (Platform.OS !== "web" || !mediaRef.current) return;
       const el = track.attach();
       el.setAttribute("data-unmask-track", track.sid || "");
       if (track.kind === Track.Kind.Video) {
@@ -358,7 +358,7 @@ export function RealtimeSession({
           void syncPresence(room.activeSpeakers.length, room.activeSpeakers[0]?.name || room.activeSpeakers[0]?.identity || "");
         };
         const attachLocal = (track: any) => {
-          if (Platform.OS !== "web" || !mediaRef.current || mode === "live") return;
+          if (Platform.OS !== "web" || !mediaRef.current) return;
           const el = track.attach();
           el.setAttribute("data-unmask-local-track", track.sid || "");
           if (track.kind === Track.Kind.Video) {
@@ -402,6 +402,9 @@ export function RealtimeSession({
           .on(RoomEvent.ParticipantDisconnected, sync)
           .on(RoomEvent.ParticipantAttributesChanged, syncParticipants)
           .on(RoomEvent.LocalTrackPublished, onLocalTrack)
+          .on(RoomEvent.LocalTrackUnpublished, sync)
+          .on(RoomEvent.TrackPublished, sync)
+          .on(RoomEvent.TrackUnpublished, sync)
           .on(RoomEvent.TrackSubscribed, onTrack)
           .on(RoomEvent.TrackUnsubscribed, onUntrack)
           .on(RoomEvent.ActiveSpeakersChanged, onSpeaker)
