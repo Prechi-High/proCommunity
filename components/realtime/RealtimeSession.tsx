@@ -106,7 +106,6 @@ export function RealtimeSession({
   const [outputOn, setOutputOn] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const [reactions, setReactions] = useState<Array<{ id: string; kind: RoomReactionKind; name: string }>>([]);
-  const [emojiPanelOpen, setEmojiPanelOpen] = useState(false);
   const [reactionTotal, setReactionTotal] = useState(0);
   const [timelines, setTimelines] = useState<RoomTimeline[]>([]);
   const [ultras, setUltras] = useState<RoomUltra[]>([]);
@@ -1292,9 +1291,6 @@ export function RealtimeSession({
                   <Text style={{ fontSize: 19 }}>{item.glyph}</Text>
                 </Pressable>
               ))}
-              <Pressable onPress={() => setEmojiPanelOpen(v => !v)} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFFFFF18", alignItems: "center", justifyContent: "center" }} accessibilityLabel="More reactions">
-                <Text style={{ color: "#fff", fontSize: 18 }}>＋</Text>
-              </Pressable>
             </View>
             {reactions.length ? (
               <View pointerEvents="none" style={{ position: "absolute", right: 16, bottom: 150, gap: 4, alignItems: "flex-end" }}>
@@ -1303,7 +1299,10 @@ export function RealtimeSession({
                 ))}
               </View>
             ) : null}
-            {canEnd ? <Pressable onPress={() => void leave(true)} style={{ alignSelf: "center", padding: 7 }}><Text style={{ color: "#F3EBE2", fontFamily: fonts.medium, fontSize: 10 }}>End Ultra Unmask</Text></Pressable> : null}
+            <Pressable onPress={() => void leave(false)} style={{ alignSelf: "center", minHeight: 40, paddingHorizontal: 18, paddingVertical: 9, borderRadius: 20, backgroundColor: "#FFFFFF18", borderWidth: 1, borderColor: "#FFFFFF30" }}>
+              <Text style={{ color: "#F3EBE2", fontFamily: fonts.semibold, fontSize: 11 }}>Leave session</Text>
+            </Pressable>
+            {canEnd ? <Pressable onPress={() => void leave(true)} style={{ alignSelf: "center", padding: 7 }}><Text style={{ color: "#EE8C7C", fontFamily: fonts.medium, fontSize: 10 }}>End Ultra Unmask</Text></Pressable> : null}
           </View>
         </View>
         {guestPanelOpen ? (
