@@ -122,7 +122,7 @@ export function applyThemeColors(mode: Exclude<ThemeMode, "system"> | "system", 
  */
 export const formTheme = {
   light: {
-    inputBg: "#FFFFFF",
+    inputBg: "#F7F3EF",
     inputText: "#1C1917",
     inputPlaceholder: "#746B66",
     inputBorder: "#D8D0CB",
