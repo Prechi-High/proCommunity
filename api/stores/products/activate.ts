@@ -13,7 +13,7 @@ export default async function handler(req:Req,res:Res){
   const product=await db.from('store_products').select('id,store_id,title,status,stores!inner(id,seller_id,status)').eq('id',productId).eq('stores.seller_id',seller.data.id).maybeSingle();
   if(product.error||!product.data){json(res,404,{error:'product_not_found'});return;}
   const next=req.body?.active===false?'draft':'active';
-  if(product.data.stores?.status!=='active'){json(res,409,{error:'store_not_active'});return;}
+  if(product.data.stores?.[0]?.status!=='active'){json(res,409,{error:'store_not_active'});return;}
   const updated=await db.from('store_products').update({status:next}).eq('id',productId).select('id,title,status').single();
   if(updated.error){json(res,400,{error:'product_update_failed',detail:updated.error.message});return;}
   json(res,200,{ok:true,product:updated.data});
