@@ -1,0 +1,3 @@
+import {useEffect} from 'react';import{View,ActivityIndicator}from'react-native';import{useRouter}from'expo-router';
+function slugFromHost(){if(typeof window==='undefined')return null;const host=window.location.hostname.toLowerCase(),base=(process.env.EXPO_PUBLIC_STORE_BASE_DOMAIN||'unmask.app').replace(/^https?:\/\//,'').replace(/\/$/,'');const suffix='.'+base;if(!host.endsWith(suffix))return null;const slug=host.slice(0,-suffix.length);return slug&&!slug.includes('.')?slug:null}
+export default function StoreHost(){const router=useRouter();useEffect(()=>{const slug=slugFromHost();if(slug)router.replace(('/store/'+slug) as never)},[router]);return <View style={{flex:1,alignItems:'center',justifyContent:'center'}}><ActivityIndicator/></View>}

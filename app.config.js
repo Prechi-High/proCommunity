@@ -5,8 +5,6 @@ function env(name, fallback = '') {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
-// Client-safe fallbacks so `expo export` still bakes a working web client when
-// Vercel is missing EXPO_PUBLIC_* vars. Never put the service role here.
 const PUBLIC_SUPABASE_URL = 'https://aqdptcuwpneuyzjavjak.supabase.co';
 const PUBLIC_SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxZHB0Y3V3cG5ldXl6amF2amFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NjQzNjYsImV4cCI6MjEwNTA0MDM2Nn0.jbIzvkqQ7qnYhH45uvIwDI97-tjdHsPY4S-0yv9XBXg';
@@ -20,6 +18,7 @@ module.exports = {
       supabaseAnonKey: env('EXPO_PUBLIC_SUPABASE_ANON_KEY', PUBLIC_SUPABASE_ANON_KEY),
       videoReviewEnabled: env('VIDEO_REVIEW_ENABLED', 'false') === 'true',
       authApiUrl: env('EXPO_PUBLIC_AUTH_API_URL', ''),
+      storeBaseDomain: env('EXPO_PUBLIC_STORE_BASE_DOMAIN', 'unmask.app'),
     },
   },
 };

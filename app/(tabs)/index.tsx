@@ -51,6 +51,8 @@ export default function Home() {
         <Text style={{ ...copy, fontSize: 12, lineHeight: 18 }}>Real experiences first. No answers yet? Ask your community.</Text>
       </View>
     </View>
+    <Pressable accessibilityRole="button" onPress={() => r.push("/seller/onboarding")} style={{ marginTop: 2, padding: 18, borderRadius: 24, backgroundColor: "#111", flexDirection: "row", alignItems: "center", gap: 14 }}><View style={{ flex: 1, gap: 4 }}><Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: "#fff" }}>Become a Seller Partner</Text><Text style={{ ...copy, color: "#CFCFC9", fontSize: 13, lineHeight: 19 }}>Create your Unmask storefront and sell with product intelligence behind it.</Text></View><ArrowRight size={20} color="#fff" /></Pressable>
+    <Pressable accessibilityRole="link" onPress={() => r.push("/seller/onboarding" as Href)} style={{ marginTop: 2, padding: 18, borderRadius: 24, backgroundColor: "#F1E8ED", borderWidth: 1, borderColor: "#E1CFD9", flexDirection: "row", alignItems: "center", gap: 14 }}><View style={{ flex: 1, gap: 4 }}><Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: colors.ink }}>Create your Unmask Store</Text><Text style={{ ...copy, fontSize: 13, lineHeight: 19 }}>Register as a seller, activate your storefront, and start adding products.</Text></View><ArrowRight size={20} color={colors.brandDeep} /></Pressable>
     <View style={{ marginHorizontal: -20, marginTop: 2 }}><CreatorUpdates /></View>
     <RealtimeRail />
     <MonthlySparkCard />

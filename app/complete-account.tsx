@@ -13,7 +13,7 @@ import {
   StatusMessage,
 } from "@/components/unmask-ui";
 import { Check, LockKey, UserCircle } from "@/components/icons";
-import { colors, fonts } from "@/constants/theme";
+import { colors, fonts, formFieldStyle, formColors } from "@/constants/theme";
 import { supabase } from "@/lib/supabase";
 import { currentSignIn, refreshAuthProfile } from "@/lib/auth";
 import { safeReturn, setup } from "@/lib/entry/api";
@@ -25,16 +25,7 @@ const text = {
   lineHeight: 23,
   color: colors.inkSoft,
 };
-const field = {
-  fontFamily: fonts.regular,
-  fontSize: 17,
-  padding: 17,
-  borderRadius: 17,
-  borderWidth: 1,
-  borderColor: colors.line,
-  color: colors.ink,
-  backgroundColor: "#FAF8F6",
-};
+const field = { ...formFieldStyle(), fontSize: 17, paddingVertical: 16, borderRadius: 17 };
 export default function CompleteAccount() {
   const r = useRouter(),
     p = useLocalSearchParams<{ returnTo?: string }>(),
