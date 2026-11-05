@@ -56,10 +56,10 @@ export function StoryCard({
         marginHorizontal: flush ? 20 : 0,
         marginBottom: 18,
         borderRadius: 24,
-        backgroundColor: "#fff",
+        backgroundColor: "#141F36",
         borderWidth: 1,
-        borderColor: ultra ? "#D5B783" : "#EAE3DE",
-        boxShadow: ultra ? "0 0 18px rgba(186, 139, 63, 0.13)" : undefined,
+        borderColor: ultra ? "#7D6945" : "#2B3955",
+        boxShadow: ultra ? "0 8px 24px rgba(0,0,0,0.18)" : undefined,
         overflow: "hidden",
       }}
     >
@@ -68,7 +68,7 @@ export function StoryCard({
           flexDirection: "row",
           alignItems: "center",
           gap: 9,
-          padding: 16,
+          padding: 15,
         }}
       >
         <PersonAvatar id={item.authorId} name={item.author} size={34} />
@@ -142,7 +142,7 @@ export function StoryCard({
             />
           </View>
         ) : null}
-        <View style={{ padding: 18, gap: 11 }}>
+        <View style={{ padding: 16, gap: 10 }}>
           <Text
             style={{
               fontFamily: fonts.semibold,
@@ -195,8 +195,8 @@ export function StoryCard({
                   style={{
                     paddingHorizontal: 9,
                     paddingVertical: 5,
-                    borderRadius: 8,
-                    backgroundColor: "#F5F1EE",
+                    borderRadius: 7,
+                    backgroundColor: "#202B46",
                   }}
                 >
                   <Text
