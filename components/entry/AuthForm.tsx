@@ -122,7 +122,8 @@ export default function AuthForm({ join = false }: { join?: boolean }) {
               autoCorrect={false}
               autoComplete="email"
               keyboardType="email-address"
-              placeholder="you@example.com"\n              placeholderTextColor={formColors.inputPlaceholder}
+              placeholder="you@example.com"
+              placeholderTextColor={formColors.inputPlaceholder}
               style={field}
             />
           </View>
@@ -136,7 +137,8 @@ export default function AuthForm({ join = false }: { join?: boolean }) {
                 secureTextEntry={!show}
                 autoCapitalize="none"
                 autoComplete="current-password"
-                placeholder="Your password"\n                placeholderTextColor={formColors.inputPlaceholder}
+                placeholder="Your password"
+                placeholderTextColor={formColors.inputPlaceholder}
                 style={field}
               />
               <Pressable
