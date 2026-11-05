@@ -99,8 +99,8 @@ export default function You() {
           <ActionButton label="Sign in" onPress={() => go("/(auth)/sign-in")} />
         </View>
       ) : (
-        <View style={{ gap: 28 }}>
-          <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
+        <View style={{ gap: 20 }}>
+          <View style={{ padding: 18, borderRadius: 18, backgroundColor: "#141F36", borderWidth: 1, borderColor: "#2B3955", gap: 15 }}>\n          <View style={{ flexDirection: "row", gap: 15, alignItems: "center" }}>
             <MemberAvatar name={name} uri={identity.data?.avatar_url} size={72} claimed={!!member.data} founding={!!founder.data} />
             <View style={{ flex: 1, gap: 4 }}>
               <Text
@@ -139,7 +139,7 @@ export default function You() {
               {identity.data.bio}
             </Text>
           ) : null}
-          <View style={{ flexDirection: "row", paddingVertical: 8 }}>
+          <View style={{ flexDirection: "row", paddingTop: 14, borderTopWidth: 1, borderTopColor: "#34435F" }}>
             <Stat
               value={
                 experiences.isLoading
