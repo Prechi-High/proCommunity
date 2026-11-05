@@ -12,17 +12,8 @@ import { requestEmailCode } from "@/lib/services/auth/requestEmailCode";
 import { currentSignIn } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { safeReturn, setup, markEntrySeen } from "@/lib/entry/api";
-import { colors, fonts } from "@/constants/theme";
-const field = {
-  fontFamily: fonts.regular,
-  fontSize: 17,
-  padding: 17,
-  borderWidth: 1,
-  borderColor: colors.line,
-  borderRadius: 17,
-  color: colors.ink,
-  backgroundColor: "#FAF8F6",
-};
+import { colors, fonts, formColors, formFieldStyle } from "@/constants/theme";
+const field = { ...formFieldStyle(), fontSize: 17, paddingVertical: 16, borderRadius: 17 };
 const copy = {
   fontFamily: fonts.regular,
   fontSize: 15,
@@ -132,6 +123,7 @@ export default function AuthForm({ join = false }: { join?: boolean }) {
               autoComplete="email"
               keyboardType="email-address"
               placeholder="you@example.com"
+              placeholderTextColor={formColors.inputPlaceholder}
               style={field}
             />
           </View>
@@ -146,6 +138,7 @@ export default function AuthForm({ join = false }: { join?: boolean }) {
                 autoCapitalize="none"
                 autoComplete="current-password"
                 placeholder="Your password"
+                placeholderTextColor={formColors.inputPlaceholder}
                 style={field}
               />
               <Pressable

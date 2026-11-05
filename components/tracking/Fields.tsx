@@ -2,7 +2,7 @@ import { durablePhoto } from "@/lib/tracking/photos";
 import { useState } from "react";
 import { Image, Platform, Switch, Text, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { colors, fonts } from "@/constants/theme";
+import { colors, fonts, formColors, formFieldStyle } from "@/constants/theme";
 import { ActionButton, FilterChips, MediaFrame } from "@/components/unmask-ui";
 export const durationOptions = [
   "Just started",
@@ -69,19 +69,8 @@ export function Input({
         onChangeText={onChange}
         multiline={multiline}
         placeholder={multiline ? "Tell it in your own words…" : ""}
-        placeholderTextColor={colors.inkSoft}
-        style={{
-          padding: 15,
-          minHeight: multiline ? 110 : 50,
-          borderWidth: 1,
-          borderColor: colors.line,
-          borderRadius: 16,
-          fontFamily: fonts.regular,
-          fontSize: 16,
-          lineHeight: 24,
-          color: colors.ink,
-          textAlignVertical: "top",
-        }}
+        placeholderTextColor={formColors.inputPlaceholder}
+        style={formFieldStyle(multiline)}
       />
     </View>
   );
