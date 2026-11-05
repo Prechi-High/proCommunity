@@ -2,6 +2,7 @@ import 'react-native-gesture-handler';
 import { registerRealtimeGlobals } from '@/lib/realtime/registerGlobals';
 registerRealtimeGlobals();
 import { ContentSkeleton } from '@/components/unmask-ui/Skeleton';
+import { GlobalFormTheme } from '@/components/unmask-ui/GlobalFormTheme';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -44,13 +45,14 @@ function CommerceHostGate({children}:{children:ReactNode}){
 function RootLayout(){
   const [loaded,error]=useFonts({'GeneralSans-Regular':require('../assets/fonts/GeneralSans-Regular.ttf'),'GeneralSans-Medium':require('../assets/fonts/GeneralSans-Medium.ttf'),'GeneralSans-Semibold':require('../assets/fonts/GeneralSans-Semibold.ttf'),'GeneralSans-Bold':require('../assets/fonts/GeneralSans-Bold.ttf'),'Boska-Medium':require('../assets/fonts/Boska-Medium.ttf'),'Boska-Bold':require('../assets/fonts/Boska-Bold.ttf')});
   const setHydrated=useAppStore((state)=>state.setHydrated); const persistHydrated=useAppStore((state)=>state.hydrated); const themeMode=useAppStore((state)=>state.themeMode); const systemScheme=useColorScheme();
+  const systemDark=systemScheme==='dark'||(typeof window!=='undefined'&&window.matchMedia?.('(prefers-color-scheme: dark)').matches);
   useEffect(()=>{if(error)throw error},[error]);
-  useEffect(()=>{const dark=systemScheme==='dark'||(typeof window!=='undefined'&&window.matchMedia?.('(prefers-color-scheme: dark)').matches);applyThemeColors(themeMode,!!dark)},[themeMode,systemScheme]);
+  useEffect(()=>{applyThemeColors(themeMode,!!systemDark)},[themeMode,systemDark]);
   useEffect(()=>{if(loaded)SplashScreen.hideAsync()},[loaded]);
   useEffect(()=>{const timeout=setTimeout(()=>{if(!useAppStore.getState().hydrated)setHydrated()},800);return()=>clearTimeout(timeout)},[setHydrated,persistHydrated]);
   if(!loaded)return <View style={{flex:1,backgroundColor:'#fff',padding:24,paddingTop:70}}><ContentSkeleton rows={5}/></View>;
   const stack = <Stack screenOptions={{headerShown:false,contentStyle:{backgroundColor:colors.wine},animation:'fade'}}><Stack.Screen name="(auth)"/><Stack.Screen name="(tabs)"/><Stack.Screen name="welcome"/><Stack.Screen name="results" options={{animation:'slide_from_right'}}/><Stack.Screen name="product" options={{animation:'slide_from_right'}}/><Stack.Screen name="story/[id]" options={{animation:'slide_from_right'}}/><Stack.Screen name="thread/[id]" options={{animation:'slide_from_right'}}/><Stack.Screen name="investigation" options={{animation:'slide_from_right'}}/><Stack.Screen name="contribute" options={{animation:'slide_from_bottom'}}/><Stack.Screen name="ask-community" options={{animation:'slide_from_bottom'}}/><Stack.Screen name="compare" options={{animation:'slide_from_bottom'}}/><Stack.Screen name="room/[id]" options={{animation:'slide_from_right'}}/><Stack.Screen name="member/[id]" options={{animation:'slide_from_right'}}/><Stack.Screen name="notifications" options={{animation:'slide_from_right'}}/><Stack.Screen name="research/index" options={{animation:'slide_from_right'}}/><Stack.Screen name="research/[id]" options={{animation:'slide_from_right'}}/><Stack.Screen name="settings/whatsapp" options={{animation:'slide_from_right'}}/><Stack.Screen name="seller"/><Stack.Screen name="seller/onboarding"/><Stack.Screen name="admin/index"/></Stack>;
-  if (Platform.OS === 'web') return <View style={{flex:1,backgroundColor:colors.white}}><QueryClientProvider client={queryClient}><CommerceHostGate><AuthGate><View style={{flex:1}}>{stack}</View></AuthGate></CommerceHostGate></QueryClientProvider></View>;
+  if (Platform.OS === 'web') return <View style={{flex:1,backgroundColor:colors.white}}><QueryClientProvider client={queryClient}><GlobalFormTheme mode={themeMode} systemDark={!!systemDark}/><CommerceHostGate><AuthGate><View style={{flex:1}}>{stack}</View></AuthGate></CommerceHostGate></QueryClientProvider></View>;
   return <GestureHandlerRootView style={{flex:1}}><QueryClientProvider client={queryClient}><ObservabilityProvider><WebShell><CommerceHostGate><AuthGate><View style={{flex:1}}>{stack}<RoomDock/></View></AuthGate></CommerceHostGate></WebShell></ObservabilityProvider></QueryClientProvider></GestureHandlerRootView>;
 }
 export default wrapRoot(RootLayout);
