@@ -80,7 +80,7 @@ function UpdateCircle({
             style={{
               padding: 3,
               borderRadius: 44,
-              backgroundColor: "#fff",
+              backgroundColor: "#101A2D",
               borderWidth: hasUpdate ? 0 : 1,
               borderStyle: "dashed",
               borderColor: "#B6A8A0",
@@ -100,7 +100,7 @@ function UpdateCircle({
               bottom: 0,
               right: 0,
               backgroundColor: colors.brand,
-              borderColor: "#fff",
+              borderColor: "#101A2D",
               borderWidth: 2,
               borderRadius: 12,
               padding: 3,
@@ -196,7 +196,7 @@ export function CreatorUpdates() {
     markSeen(readKey(p.user_id), update.id);
   }
   return (
-    <View style={{ gap: 14, paddingTop: 6 }}>
+    <View style={{ gap: 14, paddingTop: 4 }}>
       <View
         style={{
           paddingHorizontal: 20,
@@ -266,7 +266,7 @@ export function CreatorUpdates() {
             marginHorizontal: 20,
             padding: 16,
             borderRadius: 18,
-            backgroundColor: "#F7F2ED",
+            backgroundColor: "#141F36",
           }}
         >
           {people.isLoading ? <ContentSkeleton rows={1} /> : null}
@@ -326,7 +326,7 @@ export function CreatorUpdates() {
                     height: 3,
                     flex: 1,
                     borderRadius: 3,
-                    backgroundColor: i <= index ? colors.brand : "#E8DFD8",
+                    backgroundColor: i <= index ? colors.brand : "#34415B",
                   }}
                 />
               ))}
