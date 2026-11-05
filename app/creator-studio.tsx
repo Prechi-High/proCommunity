@@ -6,9 +6,9 @@ import { db } from "@/lib/clarity/api";
 import { supabase } from "@/lib/supabase";
 import { AppShell, ActionButton, StatusMessage } from "@/components/unmask-ui";
 import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
-import { colors, fonts } from "@/constants/theme";
+import { colors, fonts, formFieldStyle } from "@/constants/theme";
 
-const input = { fontFamily: fonts.regular, fontSize: 15, color: colors.ink, backgroundColor: "#FAF8F6", borderWidth: 1, borderColor: colors.line, borderRadius: 16, paddingHorizontal: 15, paddingVertical: 14 };
+const input = { ...formFieldStyle(), fontSize: 15, borderRadius: 16 };
 
 export default function CreatorStudio() {
   const r = useRouter();
