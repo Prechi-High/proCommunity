@@ -61,7 +61,7 @@ export default function Home() {
       <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}><Lightning size={17} weight="fill" color="#F2D25B" /><Text style={{ fontFamily: fonts.semibold, fontSize: 10, letterSpacing: 1.2, color: "#E7C983" }}>ULTRA UNMASK</Text></View>
       <Text accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 27, lineHeight: 32, letterSpacing: -0.7, color: "#fff", maxWidth: 290 }}>Your story deserves{"\n"}more than a comment.</Text>
       <Text style={{ ...copy, color: "#C2CBE0", maxWidth: 500 }}>Loved it? Let down? Spark a closer look. A creator can ask the company or an expert why.</Text>
-      <ActionButton tone="gold" label="Take my story further" onPress={() => r.push("/investigation/request")} />
+      <ActionButton tone="gold" label="Take my story further" onPress={() => r.push("/investigation/request")} />\n      <Pressable accessibilityRole="link" onPress={() => r.push("/contribute" as Href)} style={{ minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 }}><Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#C4B8FF" }}>Share an experience instead</Text><ArrowRight size={15} color="#C4B8FF" /></Pressable>
       <Pressable accessibilityRole="button" onPress={() => setGuide(true)} style={{ minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 }}><Play size={15} weight="fill" color="#fff" /><Text style={{ fontFamily: fonts.medium, fontSize: 13, color: "#fff" }}>See how Ultra Unmask works</Text></Pressable>
     </LinearGradient>
     <View style={{ padding: 18, borderRadius: 18, backgroundColor: "#141F36", borderWidth: 1, borderColor: "#2B3955", gap: 14 }}>
