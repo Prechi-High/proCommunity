@@ -38,7 +38,9 @@ export function FilterChips({
                 borderRadius: 999,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: on ? colors.brandDeep : "#17243B",\n                borderWidth: 1,\n                borderColor: on ? "#A18AFF" : colors.line,
+                backgroundColor: on ? colors.brandDeep : "#17243B",
+                borderWidth: 1,
+                borderColor: on ? "#A18AFF" : colors.line,
               }}
             >
               <Text
