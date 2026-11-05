@@ -6,10 +6,10 @@ import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
 import { ChatCircle, UsersThree, Play } from "@/components/icons";
 import { useAppStore } from "@/lib/store";
 import { db } from "@/lib/clarity/api";
-import { colors, fonts } from "@/constants/theme";
+import { colors, fonts, formFieldStyle } from "@/constants/theme";
 
 const body = { fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: colors.inkSoft };
-const input = { fontFamily: fonts.regular, fontSize: 15, color: colors.ink, backgroundColor: "#FAF8F6", borderWidth: 1, borderColor: colors.line, borderRadius: 16, paddingHorizontal: 15, paddingVertical: 14 };
+const input = { ...formFieldStyle(), fontSize: 15, borderRadius: 16 };
 
 export default function CreatorProgram() {
   const r = useRouter();
