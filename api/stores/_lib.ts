@@ -56,7 +56,7 @@ export function normalizeSlug(input: string): string {
 
 export function storeHostname(slug: string): string {
   const base = env('STORE_BASE_DOMAIN') || 'unmask.app';
-  return `${slug}.store.${base.replace(/^https?:\/\//, '').replace(/\/$/, '')}`;
+  return `${slug}.${base.replace(/^https?:\/\//, '').replace(/\/$/, '')}`;
 }
 
 export function webhookSecret(req: RequestLike): boolean {
