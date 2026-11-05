@@ -112,6 +112,7 @@ export type ThemeMode = "system" | "light" | "dark";
 export function applyThemeColors(mode: Exclude<ThemeMode, "system"> | "system", systemDark = false) {
   const palette = mode === "dark" || (mode === "system" && systemDark) ? darkColors : lightColors;
   Object.assign(colors, palette);
+  Object.assign(formColors, getFormTheme(mode, systemDark));
 }
 
 
@@ -143,6 +144,9 @@ export const formTheme = {
     surfaceSecondary: "#151010",
   },
 } as const;
+/** Mutable runtime form palette used by native TextInput-based controls. */
+export const formColors = { ...formTheme.light };
+
 
 export function getFormTheme(mode: ThemeMode, systemDark = false) {
   return mode === "dark" || (mode === "system" && systemDark)
@@ -263,3 +267,21 @@ export const fonts = {
 } as const;
 
 export const DISCLAIMER = BRAND_COPY.disclaimer;
+
+/** Shared React Native field styles; callers may extend layout without overriding colours. */
+export function formFieldStyle(multiline = false) {
+  return {
+    color: formColors.inputText,
+    backgroundColor: formColors.inputBg,
+    borderColor: formColors.inputBorder,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 15,
+    paddingVertical: 13,
+    minHeight: multiline ? 112 : 48,
+    fontFamily: fonts.regular,
+    fontSize: 16,
+    lineHeight: 23,
+    textAlignVertical: multiline ? "top" as const : "center" as const,
+  };
+}
