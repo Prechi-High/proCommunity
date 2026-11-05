@@ -24,9 +24,9 @@ export function SearchField({
         gap: 8,
         minHeight: 54,
         borderRadius: radii.search,
-        backgroundColor: "#F7F3EF",
+        backgroundColor: "#17243B",
         borderWidth: 1,
-        borderColor: colors.line,
+        borderColor: "#34435F",
         paddingHorizontal: 14,
       }}
     >
