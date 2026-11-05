@@ -1,4 +1,4 @@
-import { commerceSupabase, json, requireUser } from './_lib';
+import { commerceSupabase, json, requireUser } from '../_lib';
 
 type Req={method?:string;body?:{productId?:string;active?:boolean};headers?:Record<string,string|string[]|undefined>};
 type Res={status:(code:number)=>{json:(body:unknown)=>void;send:(body:string)=>void}};
