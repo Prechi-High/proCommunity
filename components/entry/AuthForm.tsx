@@ -12,7 +12,7 @@ import { requestEmailCode } from "@/lib/services/auth/requestEmailCode";
 import { currentSignIn } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { safeReturn, setup, markEntrySeen } from "@/lib/entry/api";
-import { colors, fonts } from "@/constants/theme";
+import { colors, fonts, formColors, formFieldStyle } from "@/constants/theme";
 const field = {
   fontFamily: fonts.regular,
   fontSize: 17,
