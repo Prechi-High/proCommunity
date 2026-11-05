@@ -70,18 +70,7 @@ export function Input({
         multiline={multiline}
         placeholder={multiline ? "Tell it in your own words…" : ""}
         placeholderTextColor={formColors.inputPlaceholder}
-        style={{
-          padding: 15,
-          minHeight: multiline ? 110 : 50,
-          borderWidth: 1,
-          borderColor: colors.line,
-          borderRadius: 16,
-          fontFamily: fonts.regular,
-          fontSize: 16,
-          lineHeight: 24,
-          color: colors.ink,
-          textAlignVertical: "top",
-        }}
+        style={formFieldStyle(multiline)}
       />
     </View>
   );
