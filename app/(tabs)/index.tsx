@@ -51,6 +51,7 @@ export default function Home() {
         <Text style={{ ...copy, fontSize: 12, lineHeight: 18 }}>Real experiences first. No answers yet? Ask your community.</Text>
       </View>
     </View>
+    <Pressable accessibilityRole="button" onPress={() => r.push("/seller/onboarding")} style={{ marginTop: 2, padding: 18, borderRadius: 24, backgroundColor: "#111", flexDirection: "row", alignItems: "center", gap: 14 }}><View style={{ flex: 1, gap: 4 }}><Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: "#fff" }}>Become a Seller Partner</Text><Text style={{ ...copy, color: "#CFCFC9", fontSize: 13, lineHeight: 19 }}>Create your Unmask storefront and sell with product intelligence behind it.</Text></View><ArrowRight size={20} color="#fff" /></Pressable>
     <View style={{ marginHorizontal: -20, marginTop: 2 }}><CreatorUpdates /></View>
     <RealtimeRail />
     <MonthlySparkCard />
