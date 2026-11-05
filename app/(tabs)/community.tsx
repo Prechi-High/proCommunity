@@ -64,11 +64,11 @@ export default function Community() {
   if (!uid && seen !== true) return <AppShell notify><StorySkeleton /></AppShell>;
   return (
     <AppShell notify flush>
-      <View style={{ gap: 20, paddingTop: 10 }}>
+      <View style={{ gap: 18, paddingTop: 6 }}>
         <CreatorUpdates />
         <RealtimeRail />
         <QuickActions />
-        <View style={{ paddingHorizontal: 20, gap: 14, paddingTop: 8 }}>
+        <View style={{ paddingHorizontal: 22, gap: 14, paddingTop: 12 }}>
           <View
             style={{
               flexDirection: "row",
@@ -86,7 +86,7 @@ export default function Community() {
             >
               Community
             </Text>
-            <UsersThree size={24} color={colors.brand} />
+            <UsersThree size={22} color="#B7A7FF" />
           </View>
           <DemoBanner />
           {filter === "Ultra Unmasks" ? <ActionButton tone="secondary" label="Explore Ultra Unmasks by stage" onPress={() => router.push("/ultra-unmask" as Href)} /> : null}
@@ -98,7 +98,7 @@ export default function Community() {
           />
         </View>
         {!demo && feed.isError ? (
-          <View style={{ paddingHorizontal: 20, gap: 10 }}>
+          <View style={{ paddingHorizontal: 22, gap: 10 }}>
             <StatusMessage
               kind="error"
               title="Stories couldn’t load."
@@ -111,7 +111,7 @@ export default function Community() {
             />
           </View>
         ) : filter === "Following" && !uid ? (
-          <View style={{ paddingHorizontal: 20 }}>
+          <View style={{ paddingHorizontal: 22 }}>
             <EmptyState
               title="Keep your people close."
               detail="Sign in to follow products and creators. Their updates will appear here."
@@ -154,7 +154,7 @@ export default function Community() {
             </Pressable>
           </View>
         )}
-        <View style={{ marginHorizontal: 20, paddingTop: 8, gap: 10 }}>
+        <View style={{ marginHorizontal: 22, paddingTop: 8, gap: 10 }}>
           {[
             {
               label: "Meet the Unmask Creators",
