@@ -6,11 +6,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, type ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
-import { ActivityIndicator, View } from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-
 import { WebShell } from '@/components/Screen';
 import { RoomDock } from '@/components/room/RoomDock';
 import { applyThemeColors, colors } from '@/constants/theme';
@@ -18,115 +16,39 @@ import { startAuth } from '@/lib/auth';
 import { recordSiteVisit } from '@/lib/siteAnalytics';
 import { ObservabilityProvider, wrapRoot } from '@/lib/observability';
 import { useAppStore } from '@/lib/store';
+import StoreHost from './store-host';
 
 export { ErrorBoundary } from 'expo-router';
-
-export const unstable_settings = {
-  initialRouteName: '(tabs)',
-};
-
+export const unstable_settings = { initialRouteName: '(tabs)' };
 SplashScreen.preventAutoHideAsync();
-
 const queryClient = new QueryClient();
 
 function AuthGate({ children }: { children: ReactNode }) {
   const hydrated = useAppStore((state) => state.hydrated);
-
-  // Search never needs an account; signing in (email code) unlocks community, saves sync, research and WhatsApp.
-  useEffect(() => {
-    if (!hydrated) return;
-    void recordSiteVisit('/');
-    return startAuth();
-  }, [hydrated]);
-
-  if (!hydrated) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.wine }}>
-        <ContentSkeleton rows={4}/>
-      </View>
-    );
-  }
-
+  useEffect(() => { if (!hydrated) return; void recordSiteVisit('/'); return startAuth(); }, [hydrated]);
+  if (!hydrated) return <View style={{flex:1,alignItems:'center',justifyContent:'center',backgroundColor:colors.wine}}><ContentSkeleton rows={4}/></View>;
   return <>{children}</>;
 }
-
-function RootLayout() {
-  const [loaded, error] = useFonts({
-    'GeneralSans-Regular': require('../assets/fonts/GeneralSans-Regular.ttf'),
-    'GeneralSans-Medium': require('../assets/fonts/GeneralSans-Medium.ttf'),
-    'GeneralSans-Semibold': require('../assets/fonts/GeneralSans-Semibold.ttf'),
-    'GeneralSans-Bold': require('../assets/fonts/GeneralSans-Bold.ttf'),
-    'Boska-Medium': require('../assets/fonts/Boska-Medium.ttf'),
-    'Boska-Bold': require('../assets/fonts/Boska-Bold.ttf'),
-  });
-  const setHydrated = useAppStore((state) => state.setHydrated);
-  const persistHydrated = useAppStore((state) => state.hydrated);
-  const themeMode = useAppStore((state) => state.themeMode);
-  const systemScheme = useColorScheme();
-
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
-
-  useEffect(() => {
-    const dark = systemScheme === 'dark' || (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
-    applyThemeColors(themeMode, !!dark);
-  }, [themeMode, systemScheme]);
-
-  useEffect(() => {
-    if (loaded) SplashScreen.hideAsync();
-  }, [loaded]);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (!useAppStore.getState().hydrated) setHydrated();
-    }, 800);
-    return () => clearTimeout(timeout);
-  }, [setHydrated, persistHydrated]);
-
-  if (!loaded) return <View style={{flex:1,backgroundColor:"#fff",padding:24,paddingTop:70}}><ContentSkeleton rows={5}/></View>;
-
-  return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <QueryClientProvider client={queryClient}>
-        <ObservabilityProvider>
-          <WebShell>
-            <AuthGate>
-              <View style={{ flex: 1 }}>
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: colors.wine },
-                  animation: 'fade',
-                }}
-              >
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="welcome" />
-                <Stack.Screen name="results" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="product" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="story/[id]" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="thread/[id]" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="investigation" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="contribute" options={{ animation: 'slide_from_bottom' }} />
-                <Stack.Screen name="ask-community" options={{ animation: 'slide_from_bottom' }} />
-                <Stack.Screen name="compare" options={{ animation: 'slide_from_bottom' }} />
-                <Stack.Screen name="room/[id]" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="member/[id]" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="research/index" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="research/[id]" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="settings/whatsapp" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="admin/index" />
-              </Stack>
-              <RoomDock />
-              </View>
-            </AuthGate>
-          </WebShell>
-        </ObservabilityProvider>
-      </QueryClientProvider>
-    </GestureHandlerRootView>
-  );
+function isStoreHost(){
+  if(typeof window==='undefined')return false;
+  const host=window.location.hostname.toLowerCase();
+  const base=(process.env.EXPO_PUBLIC_STORE_BASE_DOMAIN||'unmask.app').replace(/^https?:\/\//,'').replace(/\/$/,'');
+  return host.endsWith('.'+base) && host!==base;
 }
-
+function CommerceHostGate({children}:{children:ReactNode}){
+  const [storeHost,setStoreHost]=useState(false);
+  useEffect(()=>setStoreHost(isStoreHost()),[]);
+  if(storeHost)return <StoreHost/>;
+  return <>{children}</>;
+}
+function RootLayout(){
+  const [loaded,error]=useFonts({'GeneralSans-Regular':require('../assets/fonts/GeneralSans-Regular.ttf'),'GeneralSans-Medium':require('../assets/fonts/GeneralSans-Medium.ttf'),'GeneralSans-Semibold':require('../assets/fonts/GeneralSans-Semibold.ttf'),'GeneralSans-Bold':require('../assets/fonts/GeneralSans-Bold.ttf'),'Boska-Medium':require('../assets/fonts/Boska-Medium.ttf'),'Boska-Bold':require('../assets/fonts/Boska-Bold.ttf')});
+  const setHydrated=useAppStore((state)=>state.setHydrated); const persistHydrated=useAppStore((state)=>state.hydrated); const themeMode=useAppStore((state)=>state.themeMode); const systemScheme=useColorScheme();
+  useEffect(()=>{if(error)throw error},[error]);
+  useEffect(()=>{const dark=systemScheme==='dark'||(typeof window!=='undefined'&&window.matchMedia?.('(prefers-color-scheme: dark)').matches);applyThemeColors(themeMode,!!dark)},[themeMode,systemScheme]);
+  useEffect(()=>{if(loaded)SplashScreen.hideAsync()},[loaded]);
+  useEffect(()=>{const timeout=setTimeout(()=>{if(!useAppStore.getState().hydrated)setHydrated()},800);return()=>clearTimeout(timeout)},[setHydrated,persistHydrated]);
+  if(!loaded)return <View style={{flex:1,backgroundColor:'#fff',padding:24,paddingTop:70}}><ContentSkeleton rows={5}/></View>;
+  return <GestureHandlerRootView style={{flex:1}}><QueryClientProvider client={queryClient}><ObservabilityProvider><WebShell><CommerceHostGate><AuthGate><View style={{flex:1}}><Stack screenOptions={{headerShown:false,contentStyle:{backgroundColor:colors.wine},animation:'fade'}}><Stack.Screen name="(auth)"/><Stack.Screen name="(tabs)"/><Stack.Screen name="welcome"/><Stack.Screen name="results" options={{animation:'slide_from_right'}}/><Stack.Screen name="product" options={{animation:'slide_from_right'}}/><Stack.Screen name="story/[id]" options={{animation:'slide_from_right'}}/><Stack.Screen name="thread/[id]" options={{animation:'slide_from_right'}}/><Stack.Screen name="investigation" options={{animation:'slide_from_right'}}/><Stack.Screen name="contribute" options={{animation:'slide_from_bottom'}}/><Stack.Screen name="ask-community" options={{animation:'slide_from_bottom'}}/><Stack.Screen name="compare" options={{animation:'slide_from_bottom'}}/><Stack.Screen name="room/[id]" options={{animation:'slide_from_right'}}/><Stack.Screen name="member/[id]" options={{animation:'slide_from_right'}}/><Stack.Screen name="notifications" options={{animation:'slide_from_right'}}/><Stack.Screen name="research/index" options={{animation:'slide_from_right'}}/><Stack.Screen name="research/[id]" options={{animation:'slide_from_right'}}/><Stack.Screen name="settings/whatsapp" options={{animation:'slide_from_right'}}/><Stack.Screen name="seller"/><Stack.Screen name="seller/onboarding"/><Stack.Screen name="admin/index"/></Stack><RoomDock/></View></AuthGate></CommerceHostGate></WebShell></ObservabilityProvider></QueryClientProvider></GestureHandlerRootView>;
+}
 export default wrapRoot(RootLayout);
