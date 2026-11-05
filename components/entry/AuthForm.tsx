@@ -13,16 +13,7 @@ import { currentSignIn } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { safeReturn, setup, markEntrySeen } from "@/lib/entry/api";
 import { colors, fonts, formColors, formFieldStyle } from "@/constants/theme";
-const field = {
-  fontFamily: fonts.regular,
-  fontSize: 17,
-  padding: 17,
-  borderWidth: 1,
-  borderColor: colors.line,
-  borderRadius: 17,
-  color: colors.ink,
-  backgroundColor: "#FAF8F6",
-};
+const field = { ...formFieldStyle(), fontSize: 17, paddingVertical: 16, borderRadius: 17 };
 const copy = {
   fontFamily: fonts.regular,
   fontSize: 15,
