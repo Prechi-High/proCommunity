@@ -100,7 +100,8 @@ export default function You() {
         </View>
       ) : (
         <View style={{ gap: 20 }}>
-          <View style={{ padding: 18, borderRadius: 18, backgroundColor: "#141F36", borderWidth: 1, borderColor: "#2B3955", gap: 15 }}>\n          <View style={{ flexDirection: "row", gap: 15, alignItems: "center" }}>
+          <View style={{ padding: 18, borderRadius: 18, backgroundColor: "#141F36", borderWidth: 1, borderColor: "#2B3955", gap: 15 }}>
+          <View style={{ flexDirection: "row", gap: 15, alignItems: "center" }}>
             <MemberAvatar name={name} uri={identity.data?.avatar_url} size={72} claimed={!!member.data} founding={!!founder.data} />
             <View style={{ flex: 1, gap: 4 }}>
               <Text
@@ -170,6 +171,7 @@ export default function You() {
               }
               label="Sparks"
             />
+          </View>
           </View>
           <ActionButton
             tone="secondary"
