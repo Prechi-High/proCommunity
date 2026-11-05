@@ -1,7 +1,7 @@
 import { Pressable, TextInput, View } from "react-native";
 
 import { MagnifyingGlass, X, Camera, ArrowRight } from "@/components/icons";
-import { colors, fonts, radii } from "@/constants/theme";
+import { colors, fonts, radii, formColors } from "@/constants/theme";
 
 export function SearchField({
   value,
@@ -36,7 +36,7 @@ export function SearchField({
         onChangeText={onChange}
         onSubmitEditing={onSubmit}
         placeholder={placeholder}
-        placeholderTextColor={colors.bone3}
+        placeholderTextColor={formColors.inputPlaceholder}
         returnKeyType="search"
         accessibilityLabel={placeholder}
         style={{
@@ -44,7 +44,7 @@ export function SearchField({
           fontFamily: fonts.regular,
           fontSize: 16,
           lineHeight: 22,
-          color: colors.ink,
+          color: formColors.inputText,
           paddingVertical: 10,
         }}
       />
