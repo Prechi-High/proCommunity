@@ -1067,7 +1067,7 @@ function MenuPopover({
   const reduced = useReducedMotion();
   return (
     <Pressable accessibilityLabel="Close menu" onPress={onClose} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
-      <Animated.View entering={reduced ? undefined : ZoomIn.springify().damping(16)} exiting={reduced ? undefined : FadeOut.duration(140)} style={{ position: "absolute", top: 58, right: 16, width: 280, borderRadius: 16, backgroundColor: "#FFFFFF"Deep, borderWidth: 1, borderColor: colors.line, paddingVertical: 6 }}>
+      <Animated.View entering={reduced ? undefined : ZoomIn.springify().damping(16)} exiting={reduced ? undefined : FadeOut.duration(140)} style={{ position: "absolute", top: 58, right: 16, width: 280, borderRadius: 16, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: colors.line, paddingVertical: 6 }}>
         {rows.map((row) => (
           <Pressable key={row.label} accessibilityRole="button" accessibilityLabel={row.label} onPress={() => { hapticSelect(); row.onPress(); }} style={{ minHeight: 48, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 16, color: colors.ink }}>{row.label}</Text>
