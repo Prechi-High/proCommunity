@@ -38,14 +38,14 @@ export function FilterChips({
                 borderRadius: 999,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: on ? colors.brandDeep : colors.mist,
+                backgroundColor: on ? colors.brandDeep : "#17243B",\n                borderWidth: 1,\n                borderColor: on ? "#A18AFF" : colors.line,
               }}
             >
               <Text
                 style={{
                   fontFamily: fonts.medium,
                   fontSize: 14,
-                  color: on ? colors.white : colors.ink,
+                  color: on ? "#FFFFFF" : colors.inkSoft,
                 }}
               >
                 {opt}
@@ -61,7 +61,7 @@ export function FilterChips({
     <View
       style={{
         flexDirection: "row",
-        backgroundColor: colors.mist,
+        backgroundColor: "#111B30",
         borderRadius: 14,
         padding: 3,
       }}
@@ -85,7 +85,7 @@ export function FilterChips({
               borderRadius: 11,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: on ? colors.white : "transparent",
+              backgroundColor: on ? "#252044" : "transparent",
               ...(on ? elevation.raised : {}),
             }}
           >
