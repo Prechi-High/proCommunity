@@ -115,6 +115,42 @@ export function applyThemeColors(mode: Exclude<ThemeMode, "system"> | "system", 
 }
 
 
+/**
+ * Shared form tokens. Components may control layout, but field foreground,
+ * surface, placeholder, border and focus colours come from this one palette.
+ */
+export const formTheme = {
+  light: {
+    inputBg: "#FFFFFF",
+    inputText: "#1C1917",
+    inputPlaceholder: "#746B66",
+    inputBorder: "#D8D0CB",
+    inputFocus: "#8B78D1",
+    textPrimary: "#1C1917",
+    textSecondary: "#5C534F",
+    surface: "#FFFFFF",
+    surfaceSecondary: "#F6F3F1",
+  },
+  dark: {
+    inputBg: "#181113",
+    inputText: "#F4EEE9",
+    inputPlaceholder: "#B7ABA5",
+    inputBorder: "#49403D",
+    inputFocus: "#B99CFF",
+    textPrimary: "#F4EEE9",
+    textSecondary: "#B7ABA5",
+    surface: "#0B0909",
+    surfaceSecondary: "#151010",
+  },
+} as const;
+
+export function getFormTheme(mode: ThemeMode, systemDark = false) {
+  return mode === "dark" || (mode === "system" && systemDark)
+    ? formTheme.dark
+    : formTheme.light;
+}
+
+
 export const radii = {
   card: 22,
   button: 16,
