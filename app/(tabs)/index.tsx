@@ -51,8 +51,14 @@ export default function Home() {
         <Text style={{ ...copy, fontSize: 12, lineHeight: 18 }}>Real experiences first. No answers yet? Ask your community.</Text>
       </View>
     </View>
-    <Pressable accessibilityRole="button" onPress={() => r.push("/seller/onboarding")} style={{ marginTop: 0, padding: 16, borderRadius: 16, backgroundColor: "#1B2741", borderWidth: 1, borderColor: "#34435F", flexDirection: "row", alignItems: "center", gap: 14 }}><View style={{ flex: 1, gap: 4 }}><Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: "#fff" }}>Become a Seller Partner</Text><Text style={{ ...copy, color: "#CFCFC9", fontSize: 13, lineHeight: 19 }}>Create your Unmask storefront and sell with product intelligence behind it.</Text></View><ArrowRight size={20} color="#fff" /></Pressable>
-    <Pressable accessibilityRole="link" onPress={() => r.push("/seller/onboarding" as Href)} style={{ marginTop: 0, padding: 16, borderRadius: 16, backgroundColor: "#171D35", borderWidth: 1, borderColor: "#3A315C", flexDirection: "row", alignItems: "center", gap: 14 }}><View style={{ flex: 1, gap: 4 }}><Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: colors.ink }}>Create your Unmask Store</Text><Text style={{ ...copy, fontSize: 13, lineHeight: 19 }}>Register as a seller, activate your storefront, and start adding products.</Text></View><ArrowRight size={20} color={colors.brandDeep} /></Pressable>
+    <View style={{ gap: 9 }}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Become a Seller Partner and create your Unmask Store" onPress={() => r.push("/seller/onboarding" as Href)} style={({ pressed }) => ({ padding: 18, borderRadius: 18, backgroundColor: pressed ? "#202D49" : "#182640", borderWidth: 1, borderColor: "#3A4965", flexDirection: "row", alignItems: "center", gap: 14, minHeight: 112 })}>
+        <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: "#293650", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#40516F" }}><UsersThree size={23} color="#C4B8FF" weight="regular" /></View>
+        <View style={{ flex: 1, gap: 5 }}><Text style={{ fontFamily: fonts.semibold, fontSize: 18, lineHeight: 23, color: colors.ink }}>Become a Seller Partner</Text><Text style={{ ...copy, fontSize: 13, lineHeight: 19 }}>Build your Unmask Store, shape your beauty brand, and sell with product intelligence behind it.</Text></View>
+        <ArrowRight size={20} color="#C4B8FF" />
+      </Pressable>
+      <Pressable accessibilityRole="link" onPress={() => r.push("/seller/onboarding" as Href)} style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, opacity: pressed ? 0.7 : 1 })}><Text style={{ fontFamily: fonts.medium, fontSize: 13, color: "#B7A7FF" }}>Create your Unmask Store</Text><ArrowRight size={14} color="#B7A7FF" /></Pressable>
+    </View>
     <View style={{ marginHorizontal: -22, marginTop: 2, paddingVertical: 14, backgroundColor: "#0E1729", borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.line }}><CreatorUpdates /></View>
     <RealtimeRail />
     <MonthlySparkCard />
