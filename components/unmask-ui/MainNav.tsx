@@ -31,9 +31,9 @@ export function MainNav() {
               accessibilityState={{ selected: active }} onPress={() => { hapticSelect(); if (create) setOpen(true); else r.navigate(href as Href); }}
               style={({ pressed }) => ({ flex: 1, alignItems: "center", justifyContent: "center", gap: 4, minHeight: 54, opacity: pressed ? 0.72 : 1 })}>
               <View style={create
-                ? { width: 43, height: 43, borderRadius: 14, backgroundColor: colors.brandDeep, alignItems: "center", justifyContent: "center", transform: [{ translateY: -2 }] }
+                ? { width: 38, height: 38, borderRadius: 13, backgroundColor: "#211D3D", borderWidth: 1, borderColor: "#514477", alignItems: "center", justifyContent: "center", transform: [{ translateY: -1 }] }
                 : { height: 27, minWidth: 42, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: active ? "#252044" : "transparent" }}>
-                <Icon size={create ? 23 : 21} color={create ? "#FFFFFF" : active ? "#B7A7FF" : "#8996AF"} weight={create ? "bold" : active ? "fill" : "regular"} />
+                <Icon size={create ? 23 : 21} color={create ? "#C4B8FF" : active ? "#B7A7FF" : "#8996AF"} weight={create ? "regular" : active ? "fill" : "regular"} />
               </View>
               {!create ? <Text style={{ fontFamily: active ? fonts.semibold : fonts.medium, fontSize: 10, color: active ? "#C4B8FF" : "#8996AF" }}>{label}</Text> : null}
             </Pressable>
