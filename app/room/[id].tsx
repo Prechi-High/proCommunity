@@ -15,6 +15,7 @@ import { db } from '@/lib/clarity/api';
 import { fetchFeed, fetchRoom, KIND_LABEL } from '@/lib/community';
 import { hapticTap } from '@/lib/haptics';
 import { displayName, getKnownProduct, loadProduct } from '@/lib/products';
+import { features } from '@/lib/features';
 import { roomProducts } from '@/lib/room/context';
 import { useRoomDock } from '@/lib/room/dock';
 import { useUnmaskTheme } from '@/lib/useUnmaskTheme';
@@ -43,7 +44,7 @@ export default function RoomScreen() {
   const maxKind = Math.max(1, ...kinds.map(([, n]) => n));
   const audioRooms = useQuery({
     queryKey: ['product-audio-rooms', id, name],
-    enabled: Boolean(id),
+    enabled: features.audioRooms && Boolean(id),
     staleTime: 20_000,
     queryFn: async () => {
       const { data, error } = await db()
@@ -127,7 +128,7 @@ export default function RoomScreen() {
           </View>
         ) : null}
 
-        {audioRooms.data?.length ? (
+        {features.audioRooms && audioRooms.data?.length ? (
           <View style={{ backgroundColor: colors.stage, borderRadius: 20, padding: 16, gap: 10 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.bone }}>Listening live</Text>
             {audioRooms.data.map((room) => (

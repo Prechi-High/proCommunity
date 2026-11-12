@@ -16,6 +16,8 @@ import {
   Notice,
   Pill,
 } from "@/components/unmask/reference/ui";
+import { PausedLayer } from "@/components/movement/PausedLayer";
+import { features } from "@/lib/features";
 import { useAppStore } from "@/lib/store";
 import * as api from "@/lib/creator/api";
 function key() {
@@ -25,6 +27,10 @@ function key() {
   });
 }
 export default function Submit() {
+  if (!features.creatorStudio) return <PausedLayer surface="creator" />;
+  return <SubmitScreen />;
+}
+function SubmitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   return (
     <CreatorGate>

@@ -18,6 +18,7 @@ import {
 } from "@/components/unmask-ui";
 import { COPY } from "@/constants/brand";
 import { colors, fonts } from "@/constants/theme";
+import { features } from "@/lib/features";
 import { useAppStore } from "@/lib/store";
 import * as api from "@/lib/profiles/api";
 import * as community from "@/lib/community-v2/api";
@@ -209,7 +210,7 @@ export function PublicProfile({
             label="Edit profile"
             onPress={() => router.push("/profile/edit" as Href)}
           />
-          {unmasker ? <ActionButton label="Open Creator Studio" onPress={() => router.push("/creator-studio" as Href)} /> : null}
+          {features.creatorStudio && unmasker ? <ActionButton label="Open Creator Studio" onPress={() => router.push("/creator-studio" as Href)} /> : null}
         </>
       ) : sample ? (
         <ActionButton

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRef } from "react";
 import { View } from "react-native";
 import { sendSupport } from "@/lib/utilities/api";
+import { features } from "@/lib/features";
 import { useAppStore } from "@/lib/store";
 import { Chips } from "@/components/unmask/reference/ui";
 import { useRouter } from "expo-router";
@@ -88,7 +89,7 @@ export default function Help() {
           "Sparks and payments",
           "Investigations",
           "Experiences and privacy",
-          "Creator accounts",
+          ...(features.creatorStudio ? ["Creator accounts"] : []),
         ]}
         value={topic}
         onChange={(v) => {

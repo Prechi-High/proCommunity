@@ -14,6 +14,7 @@ import {
 } from "@/components/unmask/reference/ui";
 import { FollowButton } from "@/components/living/FollowButton";
 import * as api from "@/lib/profiles/api";
+import { features } from "@/lib/features";
 import { useAppStore } from "@/lib/store";
 export default function People() {
   const user = useAppStore((s) => s.profile);
@@ -81,10 +82,12 @@ export default function People() {
           </Copy>
         </>
       )}
-      <Card>
-        <Copy>Find your next curious mind.</Copy>
-        <Button label="Discover creators" onPress={() => r.push("/creators")} />
-      </Card>
+      {features.creatorStudio ? (
+        <Card>
+          <Copy>Find your next curious mind.</Copy>
+          <Button label="Discover creators" onPress={() => r.push("/creators")} />
+        </Card>
+      ) : null}
     </UtilityPage>
   );
 }

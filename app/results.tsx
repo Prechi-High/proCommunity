@@ -125,6 +125,11 @@ export default function Results() {
         />
       ) : null}
       {result.isLoading ? <ContentSkeleton /> : null}
+      {demo && products.length ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.inkSoft }}>
+          Sample products from the demo shelf. Not real reviews or community claims.
+        </Text>
+      ) : null}
       {products.map((p) => (
         <Pressable
           key={p.id}

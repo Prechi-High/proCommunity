@@ -38,7 +38,7 @@ export default function SettingDetails() {
       {section === "appearance" ? (
         <Card>
           <Heading>Theme</Heading>
-          <Copy>Choose how Unmask should look across the app, including Live and Rooms.</Copy>
+          <Copy>Choose how Unmask should look. Light, dark, or follow your device.</Copy>
           <Chips
             options={["system", "light", "dark"]}
             value={s.themeMode}

@@ -13,6 +13,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Sparkle, ArrowRight } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
+import { features } from "@/lib/features";
 import { useAppStore } from "@/lib/store";
 import { hapticSelect } from "@/lib/haptics";
 import * as community from "@/lib/community-v2/api";
@@ -137,17 +138,19 @@ export function CreatorUpdates() {
   const [selected, setSelected] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const [error, setError] = useState("");
+  const studio = features.creatorStudio;
   const people = useQuery({
     queryKey: ["creators"],
     queryFn: community.creators,
-    enabled: !demo,
+    enabled: studio && !demo,
   });
   const publications = useQuery({
     queryKey: ["creator-updates"],
     queryFn: () => community.publications(),
-    enabled: !demo,
+    enabled: studio && !demo,
     staleTime: 30000,
   });
+  if (!studio) return null;
   const persons: Person[] = demo ? SAMPLE_CREATORS : (people.data ?? []);
   const updates: Update[] = demo
     ? SAMPLE_FEED.filter((x) => x.creatorName).map((x) => ({

@@ -4,6 +4,8 @@ import { useRouter, type Href } from "expo-router";
 import { AppShell, ActionButton, StatusMessage } from "@/components/unmask-ui";
 import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
 import { ChatCircle, UsersThree, Play } from "@/components/icons";
+import { PausedLayer } from "@/components/movement/PausedLayer";
+import { features } from "@/lib/features";
 import { useAppStore } from "@/lib/store";
 import { db } from "@/lib/clarity/api";
 import { colors, fonts } from "@/constants/theme";
@@ -11,7 +13,7 @@ import { colors, fonts } from "@/constants/theme";
 const body = { fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: colors.inkSoft };
 const input = { fontFamily: fonts.regular, fontSize: 15, color: colors.ink, backgroundColor: "#FAF8F6", borderWidth: 1, borderColor: colors.line, borderRadius: 16, paddingHorizontal: 15, paddingVertical: 14 };
 
-export default function CreatorProgram() {
+function CreatorProgramScreen() {
   const r = useRouter();
   const uid = useAppStore(s => s.profile?.id);
   const profile = useAppStore(s => s.profile);
@@ -121,4 +123,9 @@ export default function CreatorProgram() {
       <Text style={{ ...body, fontSize: 13 }}>Selection, working terms and any future opportunities are handled separately by the Unmask team.</Text>
     </AppShell>
   );
+}
+
+export default function CreatorProgram() {
+  if (!features.creatorStudio) return <PausedLayer surface="creator" />;
+  return <CreatorProgramScreen />;
 }

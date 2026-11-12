@@ -1,10 +1,12 @@
 import { useEffect, useRef } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
+import { PausedLayer } from "@/components/movement/PausedLayer";
 import { RoomPreview } from "@/components/room/RoomPreview";
+import { features } from "@/lib/features";
 import { useRoomDock } from "@/lib/room/dock";
 
-export default function RoomSession() {
+function RoomSessionScreen() {
   const { id, host, preview } = useLocalSearchParams<{ id?: string; host?: string; preview?: string }>();
   const open = useRoomDock((state) => state.open);
   const router = useRouter();
@@ -29,4 +31,9 @@ export default function RoomSession() {
     return <RoomPreview screen={preview} />;
   }
   return null;
+}
+
+export default function RoomSession() {
+  if (!features.audioRooms) return <PausedLayer surface="rooms" />;
+  return <RoomSessionScreen />;
 }

@@ -13,6 +13,7 @@ import { currentSignIn } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { safeReturn, setup, markEntrySeen } from "@/lib/entry/api";
 import { colors, fonts } from "@/constants/theme";
+import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
 const field = {
   fontFamily: fonts.regular,
   fontSize: 17,
@@ -40,6 +41,9 @@ export default function AuthForm({ join = false }: { join?: boolean }) {
     [error, setError] = useState(""),
     [checking, setChecking] = useState(true),
     [show, setShow] = useState(false);
+  useUnmaskTheme();
+  const tone = { ...copy, color: colors.inkSoft };
+  const input = { ...field, color: colors.ink, backgroundColor: colors.stage, borderColor: colors.line };
   async function next() {
     const p = await setup();
     r.replace(
@@ -106,23 +110,23 @@ export default function AuthForm({ join = false }: { join?: boolean }) {
   }
   return (
     <EntryPage back>
-      <Text style={{ ...copy, fontSize: 12, color: colors.brandDeep }}>
-        YOUR PEOPLE. YOUR PRODUCT STORIES.
+      <Text style={{ ...tone, fontSize: 12, letterSpacing: 1.4, color: colors.brandDeep }}>
+        YOU ARE AN UNMASKER
       </Text>
       <EntryTitle>
-        {join ? "You belong here." : "Welcome back, Unmasker."}
+        {join ? "Don’t just watch Unmask. Unmask with us." : "Welcome back, Unmasker."}
       </EntryTitle>
-      <Text style={copy}>
+      <Text style={tone}>
         {join
-          ? "Start with your email. Verify it, then choose your name, location and password in a few short steps."
-          : "Your stories, your people, your next discovery. Sign in to pick up where you left off."}
+          ? "Context creates clarity. Clarity creates confidence. Start with your email, then start with one product."
+          : "Your timelines and the experiences you chose to share are here."}
       </Text>
       {checking ? (
         <ContentSkeleton />
       ) : (
         <>
           <View style={{ gap: 10 }}>
-            <Text style={copy}>Email address</Text>
+            <Text style={tone}>Email address</Text>
             <TextInput
               accessibilityLabel="Email address"
               value={email}
@@ -132,12 +136,12 @@ export default function AuthForm({ join = false }: { join?: boolean }) {
               autoComplete="email"
               keyboardType="email-address"
               placeholder="you@example.com"
-              style={field}
+              style={input}
             />
           </View>
           {!join && mode === "password" ? (
             <View style={{ gap: 10 }}>
-              <Text style={copy}>Password</Text>
+              <Text style={tone}>Password</Text>
               <TextInput
                 accessibilityLabel="Password"
                 value={password}
@@ -146,20 +150,20 @@ export default function AuthForm({ join = false }: { join?: boolean }) {
                 autoCapitalize="none"
                 autoComplete="current-password"
                 placeholder="Your password"
-                style={field}
+                style={input}
               />
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setShow(!show)}
                 style={{ paddingVertical: 9 }}
               >
-                <Text style={{ ...copy, fontSize: 13 }}>
+                <Text style={{ ...tone, fontSize: 13 }}>
                   {show ? "Hide password" : "Show password"}
                 </Text>
               </Pressable>
             </View>
           ) : (
-            <Text style={{ ...copy, fontSize: 13 }}>
+            <Text style={{ ...tone, fontSize: 13 }}>
               We’ll send a six-digit code through our secure email service.
             </Text>
           )}
@@ -167,7 +171,7 @@ export default function AuthForm({ join = false }: { join?: boolean }) {
           <ActionButton
             label={
               join
-                ? "Verify my email"
+                ? "Get Started"
                 : mode === "password"
                   ? "Sign in"
                   : "Send my code"
@@ -210,13 +214,13 @@ export default function AuthForm({ join = false }: { join?: boolean }) {
           />
           <ActionButton
             tone="ghost"
-            label="Explore first"
+            label="Look around first"
             onPress={() => {
               void markEntrySeen();
               r.replace("/(tabs)");
             }}
           />
-          <Text style={{ ...copy, fontSize: 12 }}>
+          <Text style={{ ...tone, fontSize: 12 }}>
             Your email stays private. Your name appears on the stories you
             choose to share.
           </Text>
@@ -233,7 +237,7 @@ export default function AuthForm({ join = false }: { join?: boolean }) {
                 }
                 style={{ paddingVertical: 10 }}
               >
-                <Text style={{ ...copy, fontSize: 13 }}>{x.label}</Text>
+                <Text style={{ ...tone, fontSize: 13 }}>{x.label}</Text>
               </Pressable>
             ))}
           </View>

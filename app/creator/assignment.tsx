@@ -14,9 +14,15 @@ import {
   Photo,
   Pill,
 } from "@/components/unmask/reference/ui";
+import { PausedLayer } from "@/components/movement/PausedLayer";
+import { features } from "@/lib/features";
 import { useAppStore } from "@/lib/store";
 import * as api from "@/lib/creator/api";
 export default function Assignment() {
+  if (!features.creatorStudio) return <PausedLayer surface="creator" />;
+  return <AssignmentScreen />;
+}
+function AssignmentScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   return (
     <CreatorGate>

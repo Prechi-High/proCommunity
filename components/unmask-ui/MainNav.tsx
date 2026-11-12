@@ -24,9 +24,9 @@ export function MainNav() {
   return (
     <View
       style={{
-        backgroundColor: "#fff",
+        backgroundColor: colors.white,
         borderTopWidth: 1,
-        borderTopColor: "#EBE3DE",
+        borderTopColor: colors.line,
         paddingBottom: Math.max(insets.bottom, 8),
         paddingTop: 8,
       }}

@@ -158,7 +158,7 @@ export default function MyProducts() {
             color: colors.ink,
           }}
         >
-          Keep the changes. Find your pattern.
+          Start with one product.
         </Text>
         <Text
           style={{
@@ -168,12 +168,12 @@ export default function MyProducts() {
             color: colors.inkSoft,
           }}
         >
-          What felt different this week? Keep your routine, photos and honest
-          updates together. Pick up whenever you’re ready.
+          Document the starting point. Add context. Update it as it changes.
+          Share when it can help someone else.
         </Text>
         <ActionButton
           tone="gold"
-          label="Track a product"
+          label="Start with one product"
           onPress={() => router.push("/products/add")}
         />
         <View style={{ flexDirection: "row", gap: 16 }}>
@@ -234,9 +234,9 @@ export default function MyProducts() {
                 key={p.id}
                 style={{
                   borderRadius: 24,
-                  backgroundColor: "#FAF7F3",
+                  backgroundColor: colors.stage,
                   borderWidth: 1,
-                  borderColor: "#E8DED6",
+                  borderColor: colors.line,
                   overflow: "hidden",
                 }}
               >
@@ -337,10 +337,10 @@ export default function MyProducts() {
       ) : (
         <EmptyState
           title={
-            tab === "I use" ? "Nothing on your shelf yet." : "Nothing here yet."
+            tab === "I use" ? "Start with one product." : "Nothing here yet."
           }
-          detail="Track how you use it. Week one, month three. Share only if you choose."
-          action={COPY.createTrack}
+          detail="Choose one product you are using. Document the starting point. Your timeline stays private until you share it."
+          action="Start with one product"
           onAction={() => router.push("/products/add" as Href)}
         />
       )}

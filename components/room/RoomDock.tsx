@@ -1,12 +1,13 @@
 import { View } from "react-native";
 
 import { RealtimeSession } from "@/components/realtime/RealtimeSession";
+import { features } from "@/lib/features";
 import { useRoomDock } from "@/lib/room/dock";
 
 /** Keeps the Room sheet above whatever screen is open, including when it is minimized. */
 export function RoomDock() {
   const active = useRoomDock((state) => state.active);
-  if (!active) return null;
+  if (!features.audioRooms || !active) return null;
   return (
     <View
       pointerEvents={active.minimized ? "box-none" : "auto"}

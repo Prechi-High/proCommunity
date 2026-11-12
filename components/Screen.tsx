@@ -1,15 +1,18 @@
 import { type ReactNode } from "react";
+import { usePathname } from "expo-router";
 import { useAppStore } from "@/lib/store";
 import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  useWindowDimensions,
   View,
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, elevation } from "@/constants/theme";
+import { CINEMATIC_AT, isMarketingPath, PHONE_FRAME } from "@/lib/movement/frame";
 
 export function Screen({
   children,
@@ -73,7 +76,12 @@ export function Screen({
 }
 
 export function WebShell({ children }: { children: ReactNode }) {
+  const { width } = useWindowDimensions();
+  const path = usePathname();
+  const uid = useAppStore((state) => state.profile?.id);
   if (Platform.OS !== "web") return <>{children}</>;
+  const cinematic = width >= CINEMATIC_AT && isMarketingPath(path) && (path.includes("welcome") || !uid);
+  const frame = cinematic ? Math.min(1180, width) : Math.min(width, PHONE_FRAME);
   return (
     <View
       style={{
@@ -87,7 +95,7 @@ export function WebShell({ children }: { children: ReactNode }) {
         style={{
           flex: 1,
           width: "100%",
-          maxWidth: 1040,
+          maxWidth: frame,
           backgroundColor: colors.white,
           overflow: "hidden",
           ...elevation.lifted,

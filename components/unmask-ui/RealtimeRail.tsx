@@ -11,6 +11,7 @@ import { roomProducts } from "@/lib/room/context";
 import { useRoomDock } from "@/lib/room/dock";
 import { SpaceCard } from "@/components/room/SpaceCard";
 import { ChatCircleDots, Play, UsersThree, X } from "@/components/icons";
+import { features } from "@/lib/features";
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/lib/store";
 
@@ -81,12 +82,14 @@ export function RealtimeRail() {
   const router = useRouter();
   const qc = useQueryClient();
   const uid = useAppStore(s => s.profile?.id);
-  const q = useQuery({ queryKey: ["active-realtime"], queryFn: loadActive, refetchInterval: 3000 });
+  const open = features.live || features.audioRooms;
+  const q = useQuery({ queryKey: ["active-realtime"], queryFn: loadActive, refetchInterval: open ? 3000 : false, enabled: open });
   const rows = [...(q.data || [])].sort((a, b) => {
     const aHost = !!uid && a.host_creator_id === uid;
     const bHost = !!uid && b.host_creator_id === uid;
     return Number(bHost) - Number(aHost);
   });
+  if (!open) return null;
 
   async function endSession(id: string) {
     if (!supabase) return;

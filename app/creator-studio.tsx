@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
+import { PausedLayer } from "@/components/movement/PausedLayer";
+import { features } from "@/lib/features";
 import { useAppStore } from "@/lib/store";
 import { db } from "@/lib/clarity/api";
 import { supabase } from "@/lib/supabase";
@@ -10,7 +12,7 @@ import { colors, fonts } from "@/constants/theme";
 
 const input = { fontFamily: fonts.regular, fontSize: 15, color: colors.ink, backgroundColor: "#FAF8F6", borderWidth: 1, borderColor: colors.line, borderRadius: 16, paddingHorizontal: 15, paddingVertical: 14 };
 
-export default function CreatorStudio() {
+function CreatorStudioScreen() {
   const r = useRouter();
   const uid = useAppStore(s => s.profile?.id);
   const [creator, setCreator] = useState<any>(null);
@@ -254,4 +256,9 @@ export default function CreatorStudio() {
       ) : null}
     </AppShell>
   );
+}
+
+export default function CreatorStudio() {
+  if (!features.creatorStudio) return <PausedLayer surface="creator" />;
+  return <CreatorStudioScreen />;
 }

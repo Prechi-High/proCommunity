@@ -7,8 +7,8 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, type ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, LogBox, useColorScheme, View } from 'react-native';
+LogBox.ignoreLogs(['Invalid DOM property']);
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { WebShell } from '@/components/Screen';
@@ -63,15 +63,14 @@ function RootLayout() {
   const persistHydrated = useAppStore((state) => state.hydrated);
   const themeMode = useAppStore((state) => state.themeMode);
   const systemScheme = useColorScheme();
+  const systemDark =
+    systemScheme === "dark" ||
+    (typeof window !== "undefined" && !!window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  applyThemeColors(themeMode, systemDark);
 
   useEffect(() => {
     if (error) throw error;
   }, [error]);
-
-  useEffect(() => {
-    const dark = systemScheme === 'dark' || (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
-    applyThemeColors(themeMode, !!dark);
-  }, [themeMode, systemScheme]);
 
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync();

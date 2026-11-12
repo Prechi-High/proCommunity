@@ -59,9 +59,8 @@ export default function Context() {
       await markEntrySeen().catch(() => undefined);
       await qc.invalidateQueries({ queryKey: ["entry-setup"] });
       await qc.invalidateQueries({ queryKey: ["living"] });
-      r.replace(
-        (ret?.startsWith("/onboarding") ? "/(tabs)" : ret || "/(tabs)") as Href,
-      );
+      const next = ret && !ret.startsWith("/onboarding") ? ret : "/products/add";
+      r.replace((skip && !ret ? "/(tabs)" : next) as Href);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save setup.");
     } finally {
@@ -70,11 +69,11 @@ export default function Context() {
   };
   return (
     <EntryPage back>
-      <Copy small>● ━ ● STEP 2 OF 2</Copy>
-      <EntryTitle>A little context, if you choose.</EntryTitle>
+      <Copy small>TRUTH NEEDS CONTEXT</Copy>
+      <EntryTitle>Add the circumstances.</EntryTitle>
       <Copy muted>
-        Keep a record of the context you may want to include in future product
-        experiences.
+        Your experience is valid. Your conclusion still needs context. This is
+        optional, and it stays private until you choose to share it.
       </Copy>
       {!uid ? (
         <Button
@@ -126,13 +125,13 @@ export default function Context() {
           <Copy small>These details are self-described, not a diagnosis.</Copy>
           {error ? <Notice>{error}</Notice> : null}
           <Button
-            label={busy ? "Saving…" : "Finish setup →"}
+            label={busy ? "Saving…" : "Begin my Product Timeline"}
             disabled={busy || loading || !!error}
             onPress={() => void finish()}
           />
           <Button
             quiet
-            label="Skip for now"
+            label="I'll choose a product later"
             disabled={busy}
             onPress={() => void finish(true)}
           />

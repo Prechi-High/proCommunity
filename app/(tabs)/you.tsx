@@ -13,6 +13,7 @@ import {
   StatusMessage,
 } from "@/components/unmask-ui";
 import { colors, fonts } from "@/constants/theme";
+import { features } from "@/lib/features";
 import { membership } from "@/lib/creator/api";
 import * as clarity from "@/lib/clarity/api";
 import * as investigations from "@/lib/investigations/api";
@@ -69,7 +70,7 @@ export default function You() {
   const creator = useQuery({
     queryKey: ["creator-membership", p?.id],
     queryFn: membership,
-    enabled: !!p,
+    enabled: features.creatorStudio && !!p,
   });
   const name = p?.displayName || identity.data?.display_name || "You";
 
@@ -77,7 +78,7 @@ export default function You() {
     <AppShell
       title="You"
       notify
-      subtitle="Your stories, Sparks, and the Unmaskers you follow."
+      subtitle="Your timelines, your experiences, and the Unmaskers you follow."
     >
       {!p ? (
         <View style={{ gap: 20, paddingTop: 8 }}>
@@ -92,11 +93,11 @@ export default function You() {
                 textAlign: "center",
               }}
             >
-              Read freely. Sign in to share what happened, follow Unmaskers,
-              track a product, or add Sparks.
+              You are welcome to look. Get Started to become an Unmasker, start with one product, and keep a timeline.
             </Text>
           </View>
-          <ActionButton label="Sign in" onPress={() => go("/(auth)/sign-in")} />
+          <ActionButton label="Get Started" onPress={() => go("/sign-up")} />
+          <ActionButton tone="ghost" label="Already an Unmasker? Sign in" onPress={() => go("/(auth)/sign-in")} />
         </View>
       ) : (
         <View style={{ gap: 28 }}>
@@ -113,6 +114,9 @@ export default function You() {
                 }}
               >
                 {name}
+              </Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 13, letterSpacing: 0.6, color: colors.brand }}>
+                Unmasker
               </Text>
               {identity.data?.handle ? (
                 <Text
@@ -238,11 +242,11 @@ export default function You() {
                 color: colors.inkSoft,
               }}
             >
-              Sparks help a creator take a question further. 10 Sparks = ₦100.
-              They cannot buy the answer.
+              Sparks are support you can add from a question. 10 Sparks = ₦100.
+              They cannot buy an answer.
             </Text>
           </View>
-          {creator.data ? (
+          {features.creatorStudio && creator.data ? (
             <ActionButton
               label="Creator workspace"
               onPress={() => go("/creator")}

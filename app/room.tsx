@@ -10,6 +10,8 @@ import { fonts } from "@/constants/theme";
 import { db } from "@/lib/clarity/api";
 import { formatSchedule, roomProducts } from "@/lib/room/context";
 import { useRoomDock } from "@/lib/room/dock";
+import { PausedLayer } from "@/components/movement/PausedLayer";
+import { features } from "@/lib/features";
 import { useAppStore } from "@/lib/store";
 import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
 
@@ -73,7 +75,7 @@ function creatorOf(row: { unmask_creators?: Creator | Creator[] | null }) {
   return value || null;
 }
 
-export default function RoomList() {
+function RoomListScreen() {
   const { colors } = useUnmaskTheme();
   const router = useRouter();
   const openRoom = useRoomDock((state) => state.open);
@@ -234,6 +236,11 @@ export default function RoomList() {
       </View>
     </AppShell>
   );
+}
+
+export default function RoomList() {
+  if (!features.audioRooms) return <PausedLayer surface="rooms" />;
+  return <RoomListScreen />;
 }
 
 function QuietButton({ label, onPress, colors }: { label: string; onPress: () => void; colors: { stage: string; ink: string; line: string } }) {

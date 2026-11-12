@@ -18,6 +18,7 @@ import {
 import { QuickActions } from "@/components/unmask-ui/Discovery";
 import { ArrowRight, UsersThree } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
+import { features } from "@/lib/features";
 import { subscriptions } from "@/lib/living/api";
 import { entrySeen } from "@/lib/entry/api";
 import { loadHomeFeed } from "@/lib/unmask/feed";
@@ -36,9 +37,6 @@ export default function Community() {
       .then(setSeen)
       .catch(() => setSeen(true));
   }, []);
-  useEffect(() => {
-    if (seen === false && !uid) router.replace("/welcome");
-  }, [seen, uid, router]);
   const feed = useQuery({ queryKey: ["home-feed"], queryFn: loadHomeFeed });
   const subs = useQuery({
     queryKey: ["subscriptions", uid],
@@ -61,12 +59,12 @@ export default function Community() {
       );
     return list;
   }, [feed.data, filter, subs.data, demo]);
-  if (!uid && seen !== true) return <AppShell notify><StorySkeleton /></AppShell>;
+  if (!uid && seen === null) return <AppShell notify><StorySkeleton /></AppShell>;
   return (
     <AppShell notify flush>
       <View style={{ gap: 20, paddingTop: 10 }}>
-        <CreatorUpdates />
-        <RealtimeRail />
+        {features.creatorStudio ? <CreatorUpdates /> : null}
+        {features.live || features.audioRooms ? <RealtimeRail /> : null}
         <QuickActions />
         <View style={{ paddingHorizontal: 20, gap: 14, paddingTop: 8 }}>
           <View
@@ -89,7 +87,6 @@ export default function Community() {
             <UsersThree size={24} color={colors.brand} />
           </View>
           <DemoBanner />
-          {filter === "Ultra Unmasks" ? <ActionButton tone="secondary" label="Explore Ultra Unmasks by stage" onPress={() => router.push("/ultra-unmask" as Href)} /> : null}
           <FilterChips
             variant="chips"
             options={["All stories", "Experiences", "Questions", "Ultra Unmasks", "Following"]}
@@ -114,7 +111,7 @@ export default function Community() {
           <View style={{ paddingHorizontal: 20 }}>
             <EmptyState
               title="Keep your people close."
-              detail="Sign in to follow products and creators. Their updates will appear here."
+              detail="Sign in to follow products and Unmaskers. Their updates will appear here."
               action="Sign in"
               onAction={() => router.push("/(auth)/sign-in")}
             />
@@ -154,7 +151,7 @@ export default function Community() {
             </Pressable>
           </View>
         )}
-        <View style={{ marginHorizontal: 20, paddingTop: 8, gap: 10 }}>
+        {features.creatorStudio ? <View style={{ marginHorizontal: 20, paddingTop: 8, gap: 10 }}>
           {[
             {
               label: "Meet the Unmask Creators",
@@ -201,7 +198,7 @@ export default function Community() {
               <ArrowRight size={18} color={colors.brand} />
             </Pressable>
           ))}
-        </View>
+        </View> : null}
       </View>
       <ActionSheet
         open={example}

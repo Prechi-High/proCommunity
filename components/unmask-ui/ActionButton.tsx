@@ -14,15 +14,10 @@ import {
   Check,
   ArrowClockwise,
 } from "@/components/icons";
-import { colors, fonts, radii } from "@/constants/theme";
+import { colors, fonts } from "@/constants/theme";
+import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
 import { hapticSelect } from "@/lib/haptics";
 type Tone = "primary" | "secondary" | "ghost" | "gold";
-const tones = {
-  primary: { bg: colors.brandDeep, fg: colors.white },
-  secondary: { bg: "#F0EAE6", fg: colors.ink },
-  ghost: { bg: "transparent", fg: colors.brandDeep },
-  gold: { bg: "#F2DEAA", fg: "#63440C" },
-};
 export function ActionButton({
   label,
   onPress,
@@ -43,6 +38,13 @@ export function ActionButton({
   pendingLabel?: string;
 }) {
   const [focus, setFocus] = useState(false);
+  useUnmaskTheme();
+  const tones = {
+    primary: { bg: colors.brandDeep, fg: "#F7F1EA" },
+    secondary: { bg: colors.stage, fg: colors.ink },
+    ghost: { bg: "transparent", fg: colors.brandDeep },
+    gold: { bg: "#F2DEAA", fg: "#3D2A08" },
+  };
   const reduce = useReducedMotion();
   const scale = useSharedValue(1);
   const motion = useAnimatedStyle(() => ({

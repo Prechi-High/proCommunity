@@ -7,7 +7,6 @@ import {
   Copy,
   Busy,
   Notice,
-  ink,
 } from "@/components/unmask/reference/ui";
 import {
   Drop,
@@ -17,7 +16,8 @@ import {
   DeviceMobile,
 } from "@/components/icons";
 import { categories, setup, saveSetup, safeReturn } from "@/lib/entry/api";
-import { fonts } from "@/constants/theme";
+import { colors, fonts } from "@/constants/theme";
+import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
 import { useAppStore } from "@/lib/store";
 const icons = [Drop, Drop, Flower, DeviceMobile, House, ForkKnife];
 export default function Interests() {
@@ -26,6 +26,7 @@ export default function Interests() {
     useLocalSearchParams<{ returnTo?: string }>().returnTo,
   );
   const uid = useAppStore((s) => s.profile?.id);
+  useUnmaskTheme();
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -63,12 +64,14 @@ export default function Interests() {
   };
   return (
     <EntryPage back>
-      <Copy small>● ━ ○ 1 of 2</Copy>
-      <EntryTitle>What are you curious about?</EntryTitle>
+      <Copy small>YOU ARE AN UNMASKER</Copy>
+      <EntryTitle>Context creates clarity.</EntryTitle>
+      <Copy>Clarity creates confidence.</Copy>
       <Copy muted>
-        Choose a few interests to shape your investigation feed. You can change
-        these anytime.
+        Don’t just buy. Unmask. Start with one product. The interests below are
+        optional. They only say what you live with.
       </Copy>
+      <Copy>Ask why. Good for who? Truth needs context.</Copy>
       {!uid ? (
         <Button
           label="Sign in to save preferences"
@@ -103,23 +106,23 @@ export default function Interests() {
                     width: "47%",
                     minHeight: 140,
                     borderWidth: 1.5,
-                    borderColor: yes ? ink.brand : ink.line,
+                    borderColor: yes ? colors.brand : colors.line,
                     borderRadius: 20,
-                    backgroundColor: yes ? ink.tint : "#fff",
+                    backgroundColor: yes ? colors.hiSoft : colors.stage,
                     padding: 18,
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 15,
                   }}
                 >
-                  <Text style={{ alignSelf: "flex-end", color: ink.brand }}>
+                  <Text style={{ alignSelf: "flex-end", color: colors.brand }}>
                     {yes ? "● ✓" : "○"}
                   </Text>
-                  <Icon size={40} color={yes ? ink.brand : ink.muted} />
+                  <Icon size={40} color={yes ? colors.brand : colors.inkSoft} />
                   <Text
                     style={{
                       fontFamily: fonts.medium,
-                      color: ink.text,
+                      color: colors.ink,
                       textAlign: "center",
                     }}
                   >
@@ -130,7 +133,7 @@ export default function Interests() {
             })}
           </View>
           <Button
-            label={busy ? "Saving…" : "Continue"}
+            label={busy ? "Saving…" : "Start with one product"}
             disabled={busy || loading || !!error}
             onPress={() => void next()}
           />

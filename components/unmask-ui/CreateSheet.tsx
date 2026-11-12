@@ -11,6 +11,7 @@ import {
 import { COPY } from "@/constants/brand";
 import { colors, fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
+import { features } from "@/lib/features";
 import { useAppStore } from "@/lib/store";
 import { db } from "@/lib/clarity/api";
 
@@ -47,7 +48,7 @@ export function CreateSheet({
   const router = useRouter();
   const uid = useAppStore((s) => s.profile?.id);
   const signedIn = Boolean(uid);
-  const creator = useQuery({ queryKey: ["my-creator", uid], queryFn: async () => { const { data } = await db().from("unmask_creators").select("user_id").eq("user_id", uid!).maybeSingle(); return data; }, enabled: !!uid });
+  const creator = useQuery({ queryKey: ["my-creator", uid], queryFn: async () => { const { data } = await db().from("unmask_creators").select("user_id").eq("user_id", uid!).maybeSingle(); return data; }, enabled: features.creatorStudio && !!uid });
   return (
     <ActionSheet
       open={open}
@@ -137,7 +138,7 @@ export function CreateSheet({
           </Pressable>
         ))}
       </View>
-      {signedIn ? (
+      {signedIn && features.creatorStudio ? (
         <Pressable
           accessibilityRole="button"
           onPress={() => { hapticSelect(); onClose(); router.push((creator.data ? "/creator-studio" : "/creator-program") as Href); }}

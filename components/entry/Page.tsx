@@ -10,8 +10,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { fonts } from "@/constants/theme";
-import { ink } from "@/components/unmask/reference/ui";
+import { colors, fonts } from "@/constants/theme";
+import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
 export function EntryPage({
   children,
   back = false,
@@ -20,8 +20,9 @@ export function EntryPage({
   back?: boolean;
 }) {
   const r = useRouter();
+  useUnmaskTheme();
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -54,14 +55,14 @@ export function EntryPage({
                 }
                 style={{ position: "absolute", left: 0, padding: 12 }}
               >
-                <ArrowLeft size={23} color={ink.text} />
+                <ArrowLeft size={23} color={colors.ink} />
               </Pressable>
             ) : null}
             <Text
               style={{
-                fontFamily: fonts.serifBold,
+                fontFamily: fonts.displayBold,
                 fontSize: 30,
-                color: ink.deep,
+                color: colors.brandDeep,
               }}
             >
               Unmask
@@ -78,11 +79,11 @@ export function EntryTitle({ children }: { children: ReactNode }) {
     <Text
       accessibilityRole="header"
       style={{
-        fontFamily: fonts.serifBold,
-        fontSize: 34,
-        lineHeight: 40,
-        letterSpacing: -1,
-        color: ink.deep,
+        fontFamily: fonts.displayBold,
+        fontSize: 40,
+        lineHeight: 44,
+        letterSpacing: -1.2,
+        color: colors.ink,
         marginTop: 16,
       }}
     >

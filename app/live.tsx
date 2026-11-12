@@ -7,6 +7,8 @@ import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
 import { Avatar } from "@/components/unmask-ui/Avatar";
 import { db } from "@/lib/clarity/api";
 import { colors, fonts } from "@/constants/theme";
+import { PausedLayer } from "@/components/movement/PausedLayer";
+import { features } from "@/lib/features";
 import { useAppStore } from "@/lib/store";
 
 type Session = {
@@ -22,7 +24,7 @@ type Session = {
   creator: { display_name: string; handle: string; avatar_url: string | null; creator_mark: string; verification_level?: string } | null;
 };
 
-export default function Live() {
+function LiveScreen() {
   const router = useRouter();
   const uid = useAppStore(s => s.profile?.id);
   const [rows, setRows] = useState<Session[]>([]);
@@ -188,4 +190,9 @@ export default function Live() {
       </View>
     </AppShell>
   );
+}
+
+export default function Live() {
+  if (!features.live) return <PausedLayer surface="live" />;
+  return <LiveScreen />;
 }

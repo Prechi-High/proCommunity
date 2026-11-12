@@ -224,6 +224,9 @@ export const fonts = {
   bold: "GeneralSans-Bold",
   serif: "GeneralSans-Medium",
   serifBold: "GeneralSans-Semibold",
+  /** Editorial display. Boska is loaded in the root layout. */
+  display: "Boska-Medium",
+  displayBold: "Boska-Bold",
 } as const;
 
 export const DISCLAIMER = BRAND_COPY.disclaimer;

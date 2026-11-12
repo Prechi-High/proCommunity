@@ -15,10 +15,13 @@ import {
   Photo,
   Pill,
 } from "@/components/unmask/reference/ui";
+import { PausedLayer } from "@/components/movement/PausedLayer";
+import { features } from "@/lib/features";
 import { useAppStore } from "@/lib/store";
 import * as api from "@/lib/creator/api";
 
 export default function CreatorHome() {
+  if (!features.creatorStudio) return <PausedLayer surface="creator" />;
   return (
     <CreatorGate>
       <Workspace />

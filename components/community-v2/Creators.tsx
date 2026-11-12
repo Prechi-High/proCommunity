@@ -20,6 +20,7 @@ import {
 import { DemoBanner } from "@/components/unmask-ui/DemoBanner";
 import { CreatorStrip } from "@/components/unmask-ui/CreatorStrip";
 import { SAMPLE_CREATORS } from "@/lib/unmask/samples";
+import { features } from "@/lib/features";
 import { useAppStore } from "@/lib/store";
 import { CreatorMark } from "@/components/unmask-ui/CreatorMark";
 export function Creators({
@@ -51,17 +52,21 @@ export function Creators({
   return (
     <>
       <DemoBanner />
-      {!id ? (
+      {!id && (features.live || features.audioRooms) ? (
         <Card>
           <Heading>Realtime with creators</Heading>
           <Copy muted>Watch a Live broadcast or join an audio Room when creators are on.</Copy>
           <View style={{ flexDirection: "row", gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Button label="Live" onPress={() => r.push("/live" as Href)} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Button quiet label="Room" onPress={() => r.push("/room" as Href)} />
-            </View>
+            {features.live ? (
+              <View style={{ flex: 1 }}>
+                <Button label="Live" onPress={() => r.push("/live" as Href)} />
+              </View>
+            ) : null}
+            {features.audioRooms ? (
+              <View style={{ flex: 1 }}>
+                <Button quiet label="Room" onPress={() => r.push("/room" as Href)} />
+              </View>
+            ) : null}
           </View>
         </Card>
       ) : null}
