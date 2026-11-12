@@ -30,6 +30,12 @@ When you change UI, read this first. When you add a screen, use the primitives �
 - **Sleek** — generous radius, floating layers, calm typography (General Sans).
 - **Proud** — users should *want* to screenshot their Unmask, not feel they filed a ticket.
 
+### Social night (current journey)
+
+Home, welcome, community, and `/moment` use the **night** room: full-bleed photos, one looping clip, story rings, and interrupt cards that invite a post. Posting saves a moment immediately. A product name and a timeline are optional second steps. Preview faces are labeled as a preview of the room, not live accounts.
+
+Emotional invites to keep in the feed: shy first post, routine flex, men and grooming, “good for who?”, one product.
+
 ### Visual-first rule (non‑negotiable)
 
 Every primary surface (home, welcome, community) must show **people and media first**: story rail, at least one featured post with photography, and a horizontal feed strip. Copy supports the visuals — never a wall of text without images. **Post entry** is `/moment` (camera/gallery/caption), not a blank form. Product and timeline attach are **optional** chips, per the social identity plan.

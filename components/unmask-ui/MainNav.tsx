@@ -44,9 +44,9 @@ export function MainNav() {
           paddingVertical: 10,
           paddingHorizontal: 8,
           borderRadius: livelyRadii.dock,
-          backgroundColor: glass.fillStrong,
+          backgroundColor: "rgba(18,8,16,0.92)",
           borderWidth: 1,
-          borderColor: glass.stroke,
+          borderColor: "rgba(255,248,244,0.16)",
           ...livelyElevation.dock,
         }}
       >
@@ -106,12 +106,12 @@ export function MainNav() {
                       borderRadius: 14,
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: active ? "rgba(112,50,62,0.12)" : "transparent",
+                      backgroundColor: active ? "rgba(240,207,105,0.16)" : "transparent",
                     }}
                   >
                     <Icon
                       size={23}
-                      color={active ? colors.brandDeep : colors.inkSoft}
+                      color={active ? "#F0CF69" : "rgba(255,248,244,0.55)"}
                       weight={active ? "fill" : "regular"}
                     />
                   </View>
@@ -119,7 +119,7 @@ export function MainNav() {
                     style={{
                       fontFamily: active ? fonts.semibold : fonts.medium,
                       fontSize: 10,
-                      color: active ? colors.brandDeep : colors.inkSoft,
+                      color: active ? "#F0CF69" : "rgba(255,248,244,0.55)",
                     }}
                   >
                     {label}

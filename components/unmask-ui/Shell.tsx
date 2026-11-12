@@ -44,6 +44,10 @@ export function AppShell({
   /** Background wash — `social` on Community-heavy screens */
   ambient?: LivelyGradientKey;
 }) {
+  const night = ambient === "socialNight";
+  const ink = night ? "#FFF8F4" : colors.ink;
+  const inkSoft = night ? "rgba(255,248,244,0.72)" : colors.inkSoft;
+  const word = night ? "#FFF8F4" : colors.brandDeep;
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   useEffect(() => {
@@ -74,7 +78,7 @@ export function AppShell({
             }
             style={{ minWidth: 44, minHeight: 44, justifyContent: "center" }}
           >
-            <ArrowLeft size={22} color={colors.ink} />
+            <ArrowLeft size={22} color={ink} />
           </Pressable>
         ) : (
           <Pressable
@@ -99,7 +103,7 @@ export function AppShell({
               style={{
                 fontFamily: fonts.serifBold,
                 fontSize: 30,
-                color: colors.brandDeep,
+                color: word,
                 letterSpacing: -1,
               }}
             >
@@ -118,12 +122,12 @@ export function AppShell({
               alignItems: "center",
               justifyContent: "center",
               borderRadius: 16,
-              backgroundColor: glass.fill,
+              backgroundColor: night ? "rgba(255,255,255,0.12)" : glass.fill,
               borderWidth: 1,
-              borderColor: glass.strokeMuted,
+              borderColor: night ? "rgba(255,255,255,0.2)" : glass.strokeMuted,
             }}
           >
-            <Bell size={22} color={colors.ink} />
+            <Bell size={22} color={ink} />
           </Pressable>
         ) : (
           <View style={{ width: 44 }} />
@@ -137,7 +141,7 @@ export function AppShell({
               fontFamily: serif ? fonts.serifBold : fonts.semibold,
               fontSize: serif ? 32 : 22,
               lineHeight: serif ? 36 : 28,
-              color: colors.ink,
+              color: ink,
               letterSpacing: serif ? -0.6 : -0.2,
             }}
           >
@@ -149,7 +153,7 @@ export function AppShell({
                 fontFamily: fonts.regular,
                 fontSize: 15,
                 lineHeight: 22,
-                color: colors.inkSoft,
+                color: inkSoft,
               }}
             >
               {subtitle}
