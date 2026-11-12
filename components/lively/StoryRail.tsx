@@ -51,7 +51,7 @@ export function StoryRail() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Add your story moment"
-          onPress={() => go("/contribute")}
+              onPress={() => go("/moment")}
           style={{ alignItems: "center", width: 76, gap: 8 }}
         >
           <LinearGradient

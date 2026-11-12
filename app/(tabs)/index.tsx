@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "expo-router";
 
-import { MemberHome } from "@/components/movement/MemberHome";
+import { SocialHome } from "@/components/social/SocialHome";
 import { AppShell, Skeleton } from "@/components/unmask-ui";
 import { useAppStore } from "@/lib/store";
 
@@ -15,8 +15,8 @@ export default function Home() {
   }, [uid, r, home]);
   if (!uid) return <AppShell notify><Skeleton height={250} /></AppShell>;
   return (
-    <AppShell notify ambient="page">
-      <MemberHome />
+    <AppShell notify flush ambient="social">
+      <SocialHome />
     </AppShell>
   );
 }

@@ -14,6 +14,9 @@ export const livelyGradients = {
   actionPressed: ["#2A0A10", "#3D0F15", "#5C2834"] as const,
   goldAccent: ["#FFF8E8", "#F7EED4", "#F2DEAA"] as const,
   skyWash: ["#E8F4FC", "#F5FAFE"] as const,
+  /** Featured feed / story hero — inspired by immersive social apps (wine-purple, not generic neon). */
+  socialNight: ["#1A0A14", "#2D1530", "#3D0F15"] as const,
+  socialNightGlow: ["#70323E", "#C9A227", "#1A0A14"] as const,
 } as const;
 
 export type LivelyGradientKey = keyof typeof livelyGradients;

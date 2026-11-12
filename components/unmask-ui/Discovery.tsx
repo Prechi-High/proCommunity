@@ -94,7 +94,7 @@ export function QuickActions() {
         {
           title: "Share",
           sub: "Your experience",
-          href: "/contribute",
+          href: "/moment",
           Icon: PencilSimple,
           bg: "#F6ECEF",
           fg: colors.brand,

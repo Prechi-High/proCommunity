@@ -3,6 +3,7 @@ import { useRouter, type Href } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 
 import {
+  Camera,
   CaretRight,
   ChatCircle,
   Package,
@@ -18,6 +19,12 @@ import { db } from "@/lib/clarity/api";
 import { ActionSheet } from "./ActionSheet";
 
 const ACTIONS = [
+  {
+    label: "Share your moment",
+    detail: "Photo, video, or caption — attach a product timeline when you want.",
+    href: "/moment",
+    Icon: Camera,
+  },
   {
     label: COPY.createExperience,
     detail: "Good or bad. Keep updating it as it changes.",
@@ -64,7 +71,7 @@ export function CreateSheet({
           marginTop: -4,
         }}
       >
-        Share a story, find an answer, or keep a private product diary.
+        Post like a story, share an experience, ask the community, or track privately.
       </Text>
       <View
         style={{
