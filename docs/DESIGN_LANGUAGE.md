@@ -32,9 +32,13 @@ When you change UI, read this first. When you add a screen, use the primitives �
 
 ### Social night (current journey)
 
-Home, welcome, community, and `/moment` use the **night** room: full-bleed photos, one looping clip, story rings, and interrupt cards that invite a post. Posting saves a moment immediately. A product name and a timeline are optional second steps. Preview faces are labeled as a preview of the room, not live accounts.
+Dark is the default on every `AppShell` page. Settings → Theme switches to light; ink and muted text follow the theme so both stay readable. Photo captions stay on a dark scrim so they remain readable on the image.
 
-Emotional invites to keep in the feed: shy first post, routine flex, men and grooming, “good for who?”, one product.
+Posts show a skin chip, product, timeline, like count, and comment count. Under the story rings, a horizontal teaser row previews Ask the brand, Ask an expert, and seller audio rooms as locked until after the First 90, plus an enabled Create your store and a small orientation-film card.
+
+Creating a moment is a camera with beauty looks, upload, and Post / Story / Both. Pinning a timeline chooses an existing timeline. It does not open the experience form.
+
+Emotional invites to keep in the feed: shy first post, routine flex, men and grooming, “good for who?”, one product. Preview faces stay labeled as a preview of the room, not live accounts.
 
 ### Visual-first rule (non‑negotiable)
 

@@ -1,31 +1,44 @@
 import { useState } from "react";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { Heart, Plus } from "@/components/icons";
-import { colors, fonts, livelyRadii } from "@/constants/theme";
+import { ChatCircle, Heart, Plus } from "@/components/icons";
+import { ActionSheet } from "@/components/unmask-ui";
+import { fonts, livelyRadii } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { useLocalMoments } from "@/lib/moment/localPosts";
-import { PREVIEW_MOMENTS, STORY_FACES, type PulseMoment } from "@/lib/social/previewMoments";
+import { PREVIEW_MOMENTS, STORY_FACES, type PulseComment, type PulseMoment } from "@/lib/social/previewMoments";
+import { useRoomTone } from "@/lib/social/roomTone";
 import { useAppStore } from "@/lib/store";
 
 import { LoopClip } from "./LoopClip";
+import { UnmaskTeasers } from "./UnmaskTeasers";
 
 export function LivingFeed({ guest }: { guest?: boolean }) {
   const router = useRouter();
+  const tone = useRoomTone();
   const mine = useLocalMoments((s) => s.posts);
+  const storyPhoto = useLocalMoments((s) => s.storyPhoto);
   const name = useAppStore((s) => s.profile?.displayName)?.split(" ")[0] || "You";
   const [loved, setLoved] = useState<Record<string, boolean>>({});
+  const [extra, setExtra] = useState<Record<string, PulseComment[]>>({});
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
 
   const yours: PulseMoment[] = mine.map((post) => ({
     id: post.id,
     name,
-    face: "",
+    face: post.photo || "",
     media: post.photo || "",
     caption: post.caption || "A moment, no essay.",
     product: post.productName,
-    invite: "This one is yours.",
+    timeline: post.timelineLabel,
+    skin: post.skin,
+    likes: 1,
+    comments: 0,
+    thread: [],
+    invite: post.destination === "both" ? "On your post and your story." : "This one is yours.",
   }));
 
   const goPost = () => {
@@ -33,53 +46,91 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
     router.push("/moment" as Href);
   };
 
+  const active = [...yours, ...PREVIEW_MOMENTS].find((item) => item.id === openId);
+
   return (
     <View style={{ gap: 18 }}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 14, paddingHorizontal: 16, paddingTop: 4 }}
-      >
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingHorizontal: 16, paddingTop: 4 }}>
         <Pressable onPress={goPost} accessibilityRole="button" accessibilityLabel="Add your moment" style={{ width: 74, alignItems: "center", gap: 6 }}>
           <LinearGradient colors={["#F0CF69", "#70323E"]} style={{ width: 68, height: 68, borderRadius: 24, padding: 3 }}>
-            <View style={{ flex: 1, borderRadius: 21, backgroundColor: "#1A0A14", alignItems: "center", justifyContent: "center" }}>
-              <Plus size={26} color="#F0CF69" weight="bold" />
-            </View>
+            {storyPhoto ? (
+              <Image source={{ uri: storyPhoto }} style={{ flex: 1, borderRadius: 21 }} accessibilityIgnoresInvertColors />
+            ) : (
+              <View style={{ flex: 1, borderRadius: 21, backgroundColor: "#1A0A14", alignItems: "center", justifyContent: "center" }}>
+                <Plus size={26} color="#F0CF69" weight="bold" />
+              </View>
+            )}
           </LinearGradient>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: "#FFF8F4" }}>You</Text>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: tone.text }}>You</Text>
         </Pressable>
         {STORY_FACES.map((face) => (
           <Pressable key={face.id} onPress={goPost} style={{ width: 74, alignItems: "center", gap: 6 }}>
             <LinearGradient colors={["#C9A227", "#8E4052", "#3D0F15"]} style={{ width: 68, height: 68, borderRadius: 24, padding: 2 }}>
               <Image source={{ uri: face.face }} style={{ flex: 1, borderRadius: 22 }} accessibilityIgnoresInvertColors />
             </LinearGradient>
-            <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 11, color: "rgba(255,248,244,0.8)" }}>
+            <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 11, color: tone.muted }}>
               {face.name}
             </Text>
           </Pressable>
         ))}
       </ScrollView>
 
-      <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: "rgba(255,248,244,0.55)", paddingHorizontal: 16 }}>
-        Preview of the room — photos and a short clip so you can feel the pace. Your post is the one that is actually yours.
+      <UnmaskTeasers />
+
+      <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: tone.faint, paddingHorizontal: 16 }}>
+        {guest ? "Join to post into this room. " : ""}Preview of the room. Skin, product, and timeline sit on the post. Likes and comments are part of it. Your post is the one that is actually yours.
       </Text>
 
       {yours.map((item) => (
-        <MomentCard key={item.id} item={item} loved={!!loved[item.id]} onLove={() => setLoved((s) => ({ ...s, [item.id]: !s[item.id] }))} onPost={goPost} />
+        <MomentCard
+          key={item.id}
+          item={item}
+          loved={!!loved[item.id]}
+          commentCount={(extra[item.id]?.length ?? 0) + item.comments}
+          likeCount={item.likes + (loved[item.id] ? 1 : 0)}
+          onLove={() => setLoved((s) => ({ ...s, [item.id]: !s[item.id] }))}
+          onComments={() => setOpenId(item.id)}
+        />
       ))}
 
-      {PREVIEW_MOMENTS.map((item, index) => (
-        <View key={item.id} style={{ gap: 14 }}>
-          <MomentCard item={item} loved={!!loved[item.id]} onLove={() => setLoved((s) => ({ ...s, [item.id]: !s[item.id] }))} onPost={goPost} />
-          {index % 3 === 2 ? (
-            <Nudge
-              guest={guest}
-              onPost={guest ? () => router.push("/sign-up" as Href) : goPost}
-              line={item.invite}
-            />
-          ) : null}
-        </View>
+      {PREVIEW_MOMENTS.map((item) => (
+        <MomentCard
+          key={item.id}
+          item={item}
+          loved={!!loved[item.id]}
+          commentCount={(extra[item.id]?.length ?? 0) + item.comments}
+          likeCount={item.likes + (loved[item.id] ? 1 : 0)}
+          onLove={() => setLoved((s) => ({ ...s, [item.id]: !s[item.id] }))}
+          onComments={() => setOpenId(item.id)}
+        />
       ))}
+
+      <ActionSheet open={!!active} title={active ? `Comments · ${active.name}` : "Comments"} onClose={() => setOpenId(null)}>
+        {(active ? [...active.thread, ...(extra[active.id] ?? [])] : []).map((row, index) => (
+          <View key={`${row.name}-${index}`} style={{ gap: 2 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: tone.text }}>{row.name}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: tone.muted }}>{row.text}</Text>
+          </View>
+        ))}
+        <TextInput
+          value={draft}
+          onChangeText={setDraft}
+          placeholder="Say something about the experience…"
+          placeholderTextColor={tone.faint}
+          style={{ minHeight: 44, fontFamily: fonts.regular, fontSize: 16, color: tone.text }}
+        />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            if (!active || draft.trim().length < 1) return;
+            hapticSelect();
+            setExtra((s) => ({ ...s, [active.id]: [...(s[active.id] ?? []), { name, text: draft.trim() }] }));
+            setDraft("");
+          }}
+        >
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: tone.gold }}>Post comment</Text>
+        </Pressable>
+      </ActionSheet>
     </View>
   );
 }
@@ -87,27 +138,28 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
 function MomentCard({
   item,
   loved,
+  likeCount,
+  commentCount,
   onLove,
-  onPost,
+  onComments,
 }: {
   item: PulseMoment;
   loved: boolean;
+  likeCount: number;
+  commentCount: number;
   onLove: () => void;
-  onPost: () => void;
+  onComments: () => void;
 }) {
   return (
     <View style={{ marginHorizontal: 12, borderRadius: livelyRadii.hero, overflow: "hidden", backgroundColor: "#120810" }}>
       {item.video ? (
-        <LoopClip uri={item.video} poster={item.media} height={420} />
+        <LoopClip uri={item.video} poster={item.media} height={460} />
       ) : item.media ? (
-        <Image source={{ uri: item.media }} style={{ width: "100%", height: 420 }} resizeMode="cover" accessibilityIgnoresInvertColors />
+        <Image source={{ uri: item.media }} style={{ width: "100%", height: 460 }} resizeMode="cover" accessibilityIgnoresInvertColors />
       ) : (
         <View style={{ height: 280, backgroundColor: "#2D1530" }} />
       )}
-      <LinearGradient
-        colors={["transparent", "rgba(10,4,8,0.2)", "rgba(10,4,8,0.92)"]}
-        style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: 16, gap: 8 }}
-      >
+      <LinearGradient colors={["transparent", "rgba(10,4,8,0.15)", "rgba(10,4,8,0.94)"]} style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: 16, gap: 10 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           {item.face ? (
             <Image source={{ uri: item.face }} style={{ width: 36, height: 36, borderRadius: 18 }} accessibilityIgnoresInvertColors />
@@ -117,41 +169,32 @@ function MomentCard({
             </View>
           )}
           <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: "#fff", flex: 1 }}>{item.name}</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Love this moment" onPress={() => { hapticSelect(); onLove(); }}>
-            <Heart size={26} color={loved ? "#F0CF69" : "#fff"} weight={loved ? "fill" : "regular"} />
-          </Pressable>
         </View>
         <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: "#FFF8F4" }}>{item.caption}</Text>
         <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-          {item.product ? <Chip label={item.product} /> : <Chip label="No product — still a post" />}
+          {item.skin ? <Chip label={`Skin · ${item.skin}`} gold /> : null}
+          {item.product ? <Chip label={item.product} /> : null}
           {item.timeline ? <Chip label={item.timeline} /> : null}
         </View>
-        <Pressable onPress={onPost} accessibilityRole="button">
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#F0CF69" }}>{item.invite} · Share yours</Text>
-        </Pressable>
+        <View style={{ flexDirection: "row", gap: 18, alignItems: "center" }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${likeCount} likes`} onPress={() => { hapticSelect(); onLove(); }} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Heart size={22} color={loved ? "#F0CF69" : "#fff"} weight={loved ? "fill" : "regular"} />
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#fff" }}>{likeCount}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${commentCount} comments`} onPress={() => { hapticSelect(); onComments(); }} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <ChatCircle size={22} color="#fff" />
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#fff" }}>{commentCount}</Text>
+          </Pressable>
+        </View>
       </LinearGradient>
     </View>
   );
 }
 
-function Chip({ label }: { label: string }) {
+function Chip({ label, gold }: { label: string; gold?: boolean }) {
   return (
-    <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.16)" }}>
+    <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: gold ? "rgba(201,162,39,0.28)" : "rgba(255,255,255,0.16)" }}>
       <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: "#fff" }}>{label}</Text>
     </View>
-  );
-}
-
-function Nudge({ line, onPost, guest }: { line: string; onPost: () => void; guest?: boolean }) {
-  return (
-    <Pressable onPress={onPost} style={{ marginHorizontal: 16 }}>
-      <LinearGradient colors={["#3D0F15", "#5C2834"]} style={{ borderRadius: livelyRadii.card, padding: 18, gap: 6 }}>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: "#FFF8F4" }}>{line}</Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: "rgba(255,248,244,0.75)" }}>
-          {guest ? "Join and drop one moment. A timeline can come later." : "Camera, gallery, or a sentence. Product optional."}
-        </Text>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.gold }}>{guest ? "Get started" : "Share your moment"}</Text>
-      </LinearGradient>
-    </Pressable>
   );
 }

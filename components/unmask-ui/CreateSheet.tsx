@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, type Href } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 
@@ -21,27 +22,31 @@ import { ActionSheet } from "./ActionSheet";
 const ACTIONS = [
   {
     label: "Share your moment",
-    detail: "Photo, video, or caption — attach a product timeline when you want.",
+    detail: "Camera, glow, story or post.",
     href: "/moment",
     Icon: Camera,
+    colors: ["#3D0F15", "#8E4052"] as const,
   },
   {
     label: COPY.createExperience,
-    detail: "Good or bad. Keep updating it as it changes.",
+    detail: "What changed, in your words.",
     href: "/contribute",
     Icon: PencilSimple,
+    colors: ["#236044", "#3D0F15"] as const,
   },
   {
     label: COPY.createQuestion,
-    detail: "Hear from people who have tried it.",
+    detail: "Ask people who tried it.",
     href: "/ask-community",
     Icon: ChatCircle,
+    colors: ["#5C2834", "#C9A227"] as const,
   },
   {
     label: COPY.createTrack,
-    detail: "Add photos and updates. Share only when you choose.",
+    detail: "A timeline you can pin later.",
     href: "/products/add",
     Icon: Package,
+    colors: ["#1A0A14", "#70323E"] as const,
   },
 ] as const;
 
@@ -62,25 +67,11 @@ export function CreateSheet({
       title="What would you like to do?"
       onClose={onClose}
     >
-      <Text
-        style={{
-          fontFamily: fonts.regular,
-          fontSize: 15,
-          lineHeight: 22,
-          color: colors.inkSoft,
-          marginTop: -4,
-        }}
-      >
-        Post like a story, share an experience, ask the community, or track privately.
+      <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.inkSoft, marginTop: -4 }}>
+        Pick a way in. The big one is a moment — camera, look, then post or story.
       </Text>
-      <View
-        style={{
-          backgroundColor: colors.stage,
-          borderRadius: 18,
-          overflow: "hidden",
-        }}
-      >
-        {ACTIONS.map(({ label, detail, href, Icon }, i) => (
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+        {ACTIONS.map(({ label, detail, href, Icon, colors: gradient }) => (
           <Pressable
             key={href}
             accessibilityRole="button"
@@ -88,60 +79,20 @@ export function CreateSheet({
               hapticSelect();
               onClose();
               if (!signedIn) {
-                router.push({
-                  pathname: "/(auth)/sign-in",
-                  params: { returnTo: href },
-                } as Href);
+                router.push({ pathname: "/(auth)/sign-in", params: { returnTo: href } } as Href);
                 return;
               }
               router.push(href as Href);
             }}
-            style={{
-              flexDirection: "row",
-              gap: 14,
-              alignItems: "center",
-              minHeight: 76,
-              paddingHorizontal: 14,
-              paddingVertical: 12,
-              borderTopWidth: i ? 1 : 0,
-              borderTopColor: colors.line,
-            }}
+            style={{ width: "48%", minHeight: 132, borderRadius: 22, overflow: "hidden" }}
           >
-            <View
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 14,
-                backgroundColor: colors.white,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Icon size={22} color={colors.brandDeep} />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text
-                style={{
-                  fontFamily: fonts.semibold,
-                  fontSize: 16,
-                  lineHeight: 22,
-                  color: colors.ink,
-                }}
-              >
-                {label}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: fonts.regular,
-                  fontSize: 13,
-                  lineHeight: 18,
-                  color: colors.inkSoft,
-                }}
-              >
-                {detail}
-              </Text>
-            </View>
-            <CaretRight size={16} color={colors.bone3} />
+            <LinearGradient colors={[...gradient]} style={{ flex: 1, padding: 14, justifyContent: "space-between", gap: 8 }}>
+              <Icon size={26} color="#FFF8F4" />
+              <View style={{ gap: 4 }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 16, lineHeight: 20, color: "#FFF8F4" }}>{label}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 16, color: "rgba(255,248,244,0.78)" }}>{detail}</Text>
+              </View>
+            </LinearGradient>
           </Pressable>
         ))}
       </View>

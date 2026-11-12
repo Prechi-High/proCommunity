@@ -4,7 +4,8 @@ import { usePathname, useRouter, type Href } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { House, UsersThree, Plus, Package, User } from "@/components/icons";
-import { colors, fonts, glass, livelyElevation, livelyRadii, livelySpace } from "@/constants/theme";
+import { fonts, livelyElevation, livelyRadii, livelySpace } from "@/constants/theme";
+import { useRoomTone } from "@/lib/social/roomTone";
 import { hapticSelect } from "@/lib/haptics";
 import { CreateSheet } from "./CreateSheet";
 
@@ -14,6 +15,7 @@ export function MainNav() {
     insets = useSafeAreaInsets();
   const path =
     rawPath.replace(/\/\([^/]+\)/g, "").replace(/\/index$/, "/") || "/";
+  const tone = useRoomTone();
   const [open, setOpen] = useState(false);
   const routes = [
     { label: "Home", href: "/", Icon: House },
@@ -44,9 +46,9 @@ export function MainNav() {
           paddingVertical: 10,
           paddingHorizontal: 8,
           borderRadius: livelyRadii.dock,
-          backgroundColor: "rgba(18,8,16,0.92)",
+          backgroundColor: tone.dock,
           borderWidth: 1,
-          borderColor: "rgba(255,248,244,0.16)",
+          borderColor: tone.line,
           ...livelyElevation.dock,
         }}
       >
@@ -111,7 +113,7 @@ export function MainNav() {
                   >
                     <Icon
                       size={23}
-                      color={active ? "#F0CF69" : "rgba(255,248,244,0.55)"}
+                      color={active ? tone.gold : tone.muted}
                       weight={active ? "fill" : "regular"}
                     />
                   </View>
@@ -119,7 +121,7 @@ export function MainNav() {
                     style={{
                       fontFamily: active ? fonts.semibold : fonts.medium,
                       fontSize: 10,
-                      color: active ? "#F0CF69" : "rgba(255,248,244,0.55)",
+                      color: active ? tone.gold : tone.muted,
                     }}
                   >
                     {label}
