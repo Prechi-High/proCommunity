@@ -39,6 +39,8 @@ import type { EvidenceSelection } from "@/lib/tracking/api";
 import { searchCommunityProducts } from "@/lib/unmask/communitySearch";
 import { useTrackingDraft } from "@/lib/tracking/draft";
 import { memberIdentity } from "@/lib/membership";
+import { PausedLayer } from "@/components/movement/PausedLayer";
+import { features } from "@/lib/features";
 import * as api from "@/lib/investigations/api";
 import * as community from "@/lib/community-v2/api";
 import * as living from "@/lib/living/api";
@@ -248,6 +250,7 @@ export default function RequestUnmask() {
       setBusy(false);
     }
   }
+  if (!features.ultraUnmask) return <PausedLayer surface="ultra" />;
   if (!draft.ready)
     return (
       <AppShell back navigation title="Ultra Unmask">

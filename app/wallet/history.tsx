@@ -14,6 +14,9 @@ import {
 } from "@/components/unmask/reference/ui";
 import { history } from "@/lib/utilities/api";
 import { useAppStore } from "@/lib/store";
+import { PausedLayer } from "@/components/movement/PausedLayer";
+import { features } from "@/lib/features";
+
 export default function History() {
   const uid = useAppStore((s) => s.profile?.id);
   const r = useRouter();
@@ -27,6 +30,8 @@ export default function History() {
   });
   const days =
     dates === "Last 7 days" ? 7 : dates === "Last 30 days" ? 30 : null;
+  if (!features.ultraUnmask) return <PausedLayer surface="ultra" />;
+
   const entries = q.data?.filter(
     (e) =>
       (filter === "All" ||

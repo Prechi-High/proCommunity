@@ -22,6 +22,11 @@ const COPY = {
     title: "This layer is not open yet.",
     line: "Live is part of the next layer. It is not a room you can enter today.",
   },
+  ultra: {
+    kicker: "ULTRA UNMASK",
+    title: "This layer is not open yet.",
+    line: "Asking a brand, seller or expert directly comes later. For now, share your experience, build your timeline, and learn from the community.",
+  },
 } as const;
 
 export function PausedLayer({ surface }: { surface: keyof typeof COPY }) {

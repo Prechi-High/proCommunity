@@ -42,6 +42,7 @@ import { exactCommunityMatch } from "@/lib/unmask/productIdentityMatch";
 import { searchCommunityProducts } from "@/lib/unmask/communitySearch";
 import { hapticSaved } from "@/lib/haptics";
 import { colors, fonts } from "@/constants/theme";
+import { features } from "@/lib/features";
 import type { ProductState } from "@/lib/living/types";
 
 export function ExperienceWizard({
@@ -498,7 +499,7 @@ export function ExperienceWizard({
             onPress={() => r.push(`/journey/${done.journalId}` as Href)}
           />
         ) : null}
-        {done.visibility === "public" ? (
+        {features.ultraUnmask && done.visibility === "public" ? (
           <ActionButton
             tone="ghost"
             label="Take this further with Ultra Unmask"

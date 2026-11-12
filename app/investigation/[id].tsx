@@ -19,8 +19,10 @@ import {
   SparkSheet,
   StatusMessage,
 } from "@/components/unmask-ui";
+import { PausedLayer } from "@/components/movement/PausedLayer";
 import { COPY } from "@/constants/brand";
 import { colors, fonts } from "@/constants/theme";
+import { features } from "@/lib/features";
 import * as community from "@/lib/community-v2/api";
 import * as api from "@/lib/investigations/api";
 import * as living from "@/lib/living/api";
@@ -74,6 +76,8 @@ export default function UnmaskDetail() {
   const creator = creators.data?.find((c) => c.user_id === item?.creator_id);
   const stage = publicUnmaskStage(item?.status);
   const weight = combinedSupport(summary.data?.sparks, summary.data?.thunder);
+
+  if (!features.ultraUnmask) return <PausedLayer surface="ultra" />;
 
   if (sample) {
     const extra = SAMPLE_UNMASK_DETAIL[sample.id];

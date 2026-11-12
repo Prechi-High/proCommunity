@@ -1,4 +1,5 @@
 import { TakeFurtherCard } from "@/components/unmask-ui/TakeFurtherCard";
+import { features } from "@/lib/features";
 import { PersonAvatar } from "@/components/unmask-ui/PersonAvatar";
 import { ReplyComposer } from "@/components/community/ReplyComposer";
 import { ChatCircle } from "@/components/icons";
@@ -309,7 +310,7 @@ export default function QuestionScreen() {
       {error ? (
         <StatusMessage kind="error" title="Reply didn’t send." detail={error} />
       ) : null}
-      {q.data?.product_id ? (
+      {q.data?.product_id && features.ultraUnmask ? (
         <TakeFurtherCard
           onPress={() =>
             router.push(

@@ -10,6 +10,8 @@ import { wallet } from '@/lib/investigations/api';
 import { history } from '@/lib/utilities/api';
 import { sparkNaira } from '@/lib/unmask/status';
 import { useAppStore } from '@/lib/store';
+import { PausedLayer } from '@/components/movement/PausedLayer';
+import { features } from '@/lib/features';
 
 export default function Wallet() {
   const router = useRouter();
@@ -24,6 +26,8 @@ export default function Wallet() {
     queryFn: history,
     enabled: !!uid,
   });
+
+  if (!features.ultraUnmask) return <PausedLayer surface="ultra" />;
 
   return (
     <AppShell back title="Sparks" subtitle={COPY.sparkTeach}>

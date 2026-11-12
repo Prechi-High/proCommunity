@@ -18,7 +18,7 @@ export function MainNav() {
     { label: "Home", href: "/", Icon: House },
     { label: "Community", href: "/community", Icon: UsersThree },
     { label: "Create", href: null, Icon: Plus },
-    { label: "My Products", href: "/products", Icon: Package },
+    { label: "My Unmask", href: "/products", Icon: Package },
     { label: "You", href: "/you", Icon: User },
   ];
   return (
@@ -46,7 +46,7 @@ export function MainNav() {
             href === "/"
               ? path === "/"
               : href === "/community"
-                ? ["/community", "/story", "/question", "/investigation", "/ultra-unmask", "/creators", "/member"].some(prefix => path.startsWith(prefix))
+                ? ["/community", "/story", "/question", "/creators", "/member"].some((prefix) => path.startsWith(prefix))
                 : href === "/products"
                   ? path.startsWith("/products") || path.startsWith("/journey")
                   : !!href && path.startsWith(href);

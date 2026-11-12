@@ -15,7 +15,9 @@ import {
 } from "@/components/unmask-ui";
 import { Lightning } from "@/components/icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { PausedLayer } from "@/components/movement/PausedLayer";
 import { colors, fonts } from "@/constants/theme";
+import { features } from "@/lib/features";
 import { loadUnmasks } from "@/lib/unmask/feed";
 import { DemoBanner } from "@/components/unmask-ui/DemoBanner";
 import { SAMPLE_FEED } from "@/lib/unmask/samples";
@@ -52,6 +54,7 @@ export default function Unmasks() {
       );
     return out;
   }, [list.data, filter, q, demo, sort]);
+  if (!features.ultraUnmask) return <PausedLayer surface="ultra" />;
   return (
     <AppShell back navigation title="Ultra Unmask" flush>
       <View style={{ gap: 20, paddingTop: 10 }}>

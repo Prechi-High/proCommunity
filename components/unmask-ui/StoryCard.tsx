@@ -11,6 +11,7 @@ import {
   Play,
 } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
+import { features } from "@/lib/features";
 import { hapticSelect } from "@/lib/haptics";
 import type { FeedItem } from "@/lib/unmask/feed";
 import { relativeTime } from "@/lib/unmask/time";
@@ -29,6 +30,7 @@ export function StoryCard({
   flush?: boolean;
 }) {
   const r = useRouter();
+  if (item.kind === "unmask" && !features.ultraUnmask) return null;
   const added = useAppStore((s) =>
     item.sample
       ? (s.demoSparkAdds[item.sparkTargetId || item.href.split("/").pop()!] ??

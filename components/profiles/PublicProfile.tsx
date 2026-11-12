@@ -37,9 +37,7 @@ export function PublicProfile({
   const member = useQuery({ queryKey: ["member-identity", id], queryFn: () => memberIdentity(id), enabled: !!id && !sample });
   const founder = useQuery({ queryKey: ["founding-member", id], queryFn: () => foundingMember(id), enabled: !!id && !sample });
   const self = useAppStore(s => s.profile);
-  const [tab, setTab] = useState(
-    creatorOnly || sample ? "Ultra Unmasks" : "Stories",
-  );
+  const [tab, setTab] = useState("Stories");
   const [error, setError] = useState("");
   const identity = useQuery({
     queryKey: ["public-identity", id],
@@ -93,9 +91,12 @@ export function PublicProfile({
       : "");
   const avatar =
     identity.data?.avatar_url || live?.avatar_url || sample?.avatar_url;
-  const options = unmasker
-    ? ["Ultra Unmasks", "Stories", "About"]
-    : ["Stories", "Questions", "Sparked"];
+  const options =
+    unmasker && features.ultraUnmask
+      ? ["Ultra Unmasks", "Stories", "About"]
+      : unmasker
+        ? ["Stories", "About"]
+        : ["Stories", "Questions", "Sparked"];
   const active = options.includes(tab) ? tab : options[0];
   const sampleCases = SAMPLE_FEED.filter(
     (row) => row.kind === "unmask" && row.creatorName === sample?.display_name,

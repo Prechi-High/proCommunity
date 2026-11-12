@@ -127,7 +127,7 @@ export default function MyProducts() {
 
   return (
     <AppShell
-      title="My Products"
+      title="My Unmask"
       serif
       notify
       subtitle={COPY.productTabSubtitle}

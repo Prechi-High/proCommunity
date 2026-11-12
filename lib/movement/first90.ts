@@ -73,8 +73,8 @@ export const FIRST_90_PHASES: readonly First90Phase[] = [
   {
     from: 71,
     to: 75,
-    name: "Ultra Unmask Reveal",
-    line: "Some experiences raise a question a review cannot hold. The next layer is coming.",
+    name: "The next layer",
+    line: "Some experiences raise a question a review cannot hold. Depth is coming — not open yet.",
   },
   {
     from: 76,

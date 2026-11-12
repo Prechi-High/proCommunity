@@ -1,4 +1,5 @@
 import { TakeFurtherCard } from "@/components/unmask-ui/TakeFurtherCard";
+import { features } from "@/lib/features";
 import { PersonAvatar } from "@/components/unmask-ui/PersonAvatar";
 import { ReplyComposer } from "@/components/community/ReplyComposer";
 import { ProductIdentity } from "@/components/community/ProductIdentity";
@@ -309,13 +310,15 @@ export default function Story() {
               detail={error}
             />
           ) : null}
-          <TakeFurtherCard
-            onPress={() =>
-              router.push(
-                `/investigation/request?experience=${e.id}&product=${e.product_id}` as Href,
-              )
-            }
-          />
+          {features.ultraUnmask ? (
+            <TakeFurtherCard
+              onPress={() =>
+                router.push(
+                  `/investigation/request?experience=${e.id}&product=${e.product_id}` as Href,
+                )
+              }
+            />
+          ) : null}
 
         </>
       ) : (
