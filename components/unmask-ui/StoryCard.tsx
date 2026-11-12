@@ -10,7 +10,7 @@ import {
   Clock,
   Play,
 } from "@/components/icons";
-import { colors, fonts } from "@/constants/theme";
+import { colors, fonts, glass, livelyElevation, radii } from "@/constants/theme";
 import { features } from "@/lib/features";
 import { hapticSelect } from "@/lib/haptics";
 import type { FeedItem } from "@/lib/unmask/feed";
@@ -57,12 +57,12 @@ export function StoryCard({
       style={{
         marginHorizontal: flush ? 20 : 0,
         marginBottom: 18,
-        borderRadius: 24,
-        backgroundColor: "#fff",
+        borderRadius: radii.card,
+        backgroundColor: glass.fillStrong,
         borderWidth: 1,
-        borderColor: ultra ? "#D5B783" : "#EAE3DE",
-        boxShadow: ultra ? "0 0 18px rgba(186, 139, 63, 0.13)" : undefined,
+        borderColor: ultra ? "#D5B783" : glass.strokeMuted,
         overflow: "hidden",
+        ...livelyElevation.card,
       }}
     >
       <View

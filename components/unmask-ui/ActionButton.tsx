@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -14,7 +14,8 @@ import {
   Check,
   ArrowClockwise,
 } from "@/components/icons";
-import { colors, fonts } from "@/constants/theme";
+import { LinearGradient } from "expo-linear-gradient";
+import { colors, fonts, livelyGradients, livelyRadii } from "@/constants/theme";
 import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
 import { hapticSelect } from "@/lib/haptics";
 type Tone = "primary" | "secondary" | "ghost" | "gold";
@@ -63,6 +64,28 @@ export function ActionButton({
           : /done|saved/i.test(label)
             ? Check
             : null;
+  const inner = (
+    <>
+      {pending ? (
+        <ActivityIndicator size="small" color={t.fg} />
+      ) : (
+        (icon ?? (Icon ? <Icon size={19} color={t.fg} /> : null))
+      )}
+      <Text
+        style={{
+          fontFamily: fonts.semibold,
+          fontSize: 15,
+          lineHeight: 22,
+          color: t.fg,
+          flexShrink: 1,
+          textAlign: "center",
+        }}
+      >
+        {pending ? pendingLabel : label}
+      </Text>
+    </>
+  );
+
   return (
     <View style={{ gap: 8 }}>
       <Animated.View style={motion}>
@@ -84,16 +107,11 @@ export function ActionButton({
             onPress?.();
           }}
           style={({ pressed }) => ({
-            minHeight: tone === "ghost" ? 44 : 48,
+            minHeight: tone === "ghost" ? 44 : 50,
             paddingVertical: tone === "ghost" ? 9 : 12,
-            borderRadius: 16,
-            paddingHorizontal: 18,
-            backgroundColor:
-              pressed && !locked
-                ? tone === "primary"
-                  ? "#602A38"
-                  : "#E8DAD2"
-                : t.bg,
+            borderRadius: livelyRadii.button,
+            paddingHorizontal: 20,
+            overflow: "hidden",
             borderWidth: focus || tone === "secondary" ? 1 : 0,
             borderColor: focus ? colors.brand : colors.line,
             flexDirection: "row",
@@ -101,25 +119,25 @@ export function ActionButton({
             justifyContent: "center",
             gap: 9,
             opacity: locked ? 0.5 : 1,
+            position: "relative",
+            backgroundColor:
+              tone === "primary" ? "transparent" : pressed && !locked ? (tone === "secondary" ? "#E8DAD2" : t.bg) : t.bg,
           })}
         >
-          {pending ? (
-            <ActivityIndicator size="small" color={t.fg} />
-          ) : (
-            (icon ?? (Icon ? <Icon size={19} color={t.fg} /> : null))
-          )}
-          <Text
-            style={{
-              fontFamily: fonts.semibold,
-              fontSize: 15,
-              lineHeight: 22,
-              color: t.fg,
-              flexShrink: 1,
-              textAlign: "center",
-            }}
-          >
-            {pending ? pendingLabel : label}
-          </Text>
+          {tone === "primary" && !locked ? (
+            <LinearGradient
+              colors={[...livelyGradients.action]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                ...StyleSheet.absoluteFill,
+                borderRadius: livelyRadii.button,
+              }}
+            />
+          ) : null}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 9, zIndex: 1 }}>
+            {inner}
+          </View>
         </Pressable>
       </Animated.View>
       {locked && explanation ? (

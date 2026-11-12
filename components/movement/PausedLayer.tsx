@@ -1,6 +1,8 @@
 import { Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 
+import { AmbientCanvas } from "@/components/lively";
+import { GlassCard } from "@/components/lively";
 import { fonts } from "@/constants/theme";
 
 import { useMovementPalette } from "./palette";
@@ -35,8 +37,10 @@ export function PausedLayer({ surface }: { surface: keyof typeof COPY }) {
   const copy = COPY[surface];
   const go = (href: string) => router.replace(href as Href);
   return (
-    <View style={{ flex: 1, backgroundColor: palette.page, paddingHorizontal: 24, paddingTop: 72, paddingBottom: 36 }}>
-      <View style={{ width: "100%", maxWidth: 520, alignSelf: "center", gap: 22 }}>
+    <AmbientCanvas variant="page">
+    <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 72, paddingBottom: 36 }}>
+      <GlassCard style={{ width: "100%", maxWidth: 520, alignSelf: "center", gap: 22 }}>
+      <View style={{ gap: 22 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: palette.wine, letterSpacing: -0.4 }}>Unmask</Text>
         <Text style={{ fontFamily: fonts.medium, fontSize: 12, letterSpacing: 2.2, color: palette.gold }}>{copy.kicker}</Text>
         <Text accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 36, lineHeight: 42, letterSpacing: -0.5, color: palette.ink }}>
@@ -48,6 +52,8 @@ export function PausedLayer({ surface }: { surface: keyof typeof COPY }) {
         <MovementButton tone="quiet" label="See the community" onPress={() => go("/community")} />
         <TextLink label="Back to the First 90" color={palette.wine} onPress={() => go("/welcome")} />
       </View>
+      </GlassCard>
     </View>
+    </AmbientCanvas>
   );
 }

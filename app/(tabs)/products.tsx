@@ -131,6 +131,7 @@ export default function MyProducts() {
       serif
       notify
       subtitle={COPY.productTabSubtitle}
+      ambient="page"
     >
       <DemoBanner />
       <LinearGradient

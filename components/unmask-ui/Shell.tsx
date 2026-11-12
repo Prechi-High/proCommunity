@@ -12,7 +12,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 import { ArrowLeft, Bell, Sparkle } from "@/components/icons";
-import { colors, fonts } from "@/constants/theme";
+import { AmbientCanvas } from "@/components/lively";
+import { colors, fonts, glass } from "@/constants/theme";
+import type { LivelyGradientKey } from "@/constants/design-language";
 
 export function AppShell({
   children,
@@ -26,6 +28,7 @@ export function AppShell({
   flush,
   navigation,
   scrollResetKey,
+  ambient = "page",
 }: {
   children: ReactNode;
   title?: string;
@@ -38,6 +41,8 @@ export function AppShell({
   flush?: boolean;
   navigation?: boolean;
   scrollResetKey?: string | number;
+  /** Background wash — `social` on Community-heavy screens */
+  ambient?: LivelyGradientKey;
 }) {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
@@ -112,8 +117,10 @@ export function AppShell({
               minHeight: 44,
               alignItems: "center",
               justifyContent: "center",
-              borderRadius: 14,
-              backgroundColor: colors.stage,
+              borderRadius: 16,
+              backgroundColor: glass.fill,
+              borderWidth: 1,
+              borderColor: glass.strokeMuted,
             }}
           >
             <Bell size={22} color={colors.ink} />
@@ -160,10 +167,11 @@ export function AppShell({
         width: "100%",
         maxWidth: 780,
         alignSelf: "center",
-        backgroundColor: colors.white,
+        backgroundColor: colors.mist,
       }}
       edges={["top"]}
     >
+      <AmbientCanvas variant={ambient}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -203,6 +211,7 @@ export function AppShell({
         ) : null}
       </KeyboardAvoidingView>
       {navigation ? <MainNav /> : null}
+      </AmbientCanvas>
     </SafeAreaView>
   );
 }

@@ -4,6 +4,8 @@ import { useRouter, type Href } from "expo-router";
 import { ArrowRight, Camera, Clock, Package } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
+import { GlassCard } from "@/components/lively";
+import { livelyElevation } from "@/constants/design-language";
 import { IDENTITY_PROMPTS, SOCIAL_IDENTITY } from "@/lib/social/identity";
 
 const icons = [Camera, Package, Clock];
@@ -34,14 +36,11 @@ export function IdentityPrompts() {
               style={({ pressed }) => ({
                 width: 200,
                 minHeight: 128,
-                padding: 16,
-                borderRadius: 22,
-                borderWidth: 1,
-                borderColor: colors.line,
-                backgroundColor: pressed ? colors.stage : colors.white,
-                gap: 10,
+                opacity: pressed ? 0.9 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
               })}
             >
+              <GlassCard padded style={{ minHeight: 128, gap: 10, ...livelyElevation.card }}>
               <Icon size={22} color={colors.brandDeep} />
               <Text style={{ fontFamily: fonts.semibold, fontSize: 17, lineHeight: 22, color: colors.ink }}>
                 {item.title}
@@ -50,6 +49,7 @@ export function IdentityPrompts() {
                 {item.line}
               </Text>
               <ArrowRight size={16} color={colors.brand} />
+              </GlassCard>
             </Pressable>
           );
         })}
