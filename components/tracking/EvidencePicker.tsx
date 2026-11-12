@@ -140,7 +140,7 @@ export function EvidencePicker({
           style={{
             padding: 14,
             borderRadius: 18,
-            backgroundColor: "#F6F3EF",
+            backgroundColor: colors.stage,
             gap: 8,
           }}
         >

@@ -20,6 +20,7 @@ import {
 } from "@/components/unmask-ui";
 import { COPY } from "@/constants/brand";
 import { colors, fonts } from "@/constants/theme";
+import { useRoomTone } from "@/lib/social/roomTone";
 import * as living from "@/lib/living/api";
 import * as clarity from "@/lib/clarity/api";
 import { statusNames } from "@/components/tracking/Fields";
@@ -28,6 +29,7 @@ import { displayName } from "@/lib/products";
 import { useAppStore } from "@/lib/store";
 
 export default function MyProducts() {
+  const tone = useRoomTone();
   const router = useRouter();
   const demo = useAppStore((s) => s.demoCommunity);
   const uid = useAppStore((s) => s.profile?.id);
@@ -135,7 +137,7 @@ export default function MyProducts() {
     >
       <DemoBanner />
       <LinearGradient
-        colors={["#F4F1ED", "#FBFAF8"]}
+        colors={tone.dark ? ["#2A1520", "#1A1014"] : ["#F4F1ED", "#FBFAF8"]}
         style={{ padding: 24, borderRadius: 28, gap: 16 }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -186,12 +188,12 @@ export default function MyProducts() {
               key={text}
               style={{ flexDirection: "row", gap: 6, alignItems: "center" }}
             >
-              <Icon size={15} color="#DEC4CC" />
+              <Icon size={15} color={tone.dark ? colors.inkSoft : "#6E4A55"} />
               <Text
                 style={{
                   fontFamily: fonts.regular,
                   fontSize: 12,
-                  color: "#DEC4CC",
+                  color: tone.dark ? colors.inkSoft : "#6E4A55",
                 }}
               >
                 {text}

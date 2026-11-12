@@ -28,9 +28,9 @@ export function OfferCard({
     <View
       style={{
         width: compact ? 260 : "100%",
-        backgroundColor: "#fff",
+        backgroundColor: colors.stage,
         borderWidth: 1,
-        borderColor: "#E7DDD5",
+        borderColor: colors.line,
         borderRadius: 24,
         overflow: "hidden",
       }}

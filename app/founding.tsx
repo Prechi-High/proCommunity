@@ -9,8 +9,8 @@ import { colors, fonts } from "@/constants/theme";
 import { useAppStore } from "@/lib/store";
 import { foundingInterest, joinFoundingInterest } from "@/lib/membership";
 import { hapticSuccess } from "@/lib/haptics";
-const copy = { fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: colors.inkSoft };
 export default function Founding() {
+  const copy = { fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: colors.inkSoft };
   const uid = useAppStore(s => s.profile?.id), r = useRouter(), qc = useQueryClient();
   const q = useQuery({ queryKey: ["founding-interest", uid], queryFn: foundingInterest, enabled: !!uid });
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
@@ -22,7 +22,7 @@ export default function Founding() {
     catch { setError("Couldn’t save your interest. Please try again."); } finally { setBusy(false); }
   }
   return <AppShell back navigation title="Here from the beginning." subtitle="Help shape the community you want to belong to.">
-    <View style={{ padding: 24, borderRadius: 26, backgroundColor: "#F5EAD0", gap: 14 }}>
+    <View style={{ padding: 24, borderRadius: 26, backgroundColor: colors.stage, gap: 14 }}>
       <View style={{flexDirection:"row",alignItems:"center",gap:18}}><MemberAvatar name="F" size={60} founding preview/><View style={{flex:1,gap:5}}><Text style={{fontFamily:fonts.semibold,fontSize:18,color:colors.ink}}>The founding ring</Text><Text style={{...copy,fontSize:12}}>Design preview · not awarded yet</Text></View></View><Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1, color: "#76551B" }}>FOUNDING CIRCLE · PROGRAM PREVIEW</Text>
       <Text style={{ fontFamily: fonts.semibold, fontSize: 29, lineHeight: 34, color: colors.ink }}>Your support can help build what comes next.</Text>
       <Text style={copy}>We’re designing a founding-member program for early Unmaskers. It isn’t open for purchase yet.</Text>

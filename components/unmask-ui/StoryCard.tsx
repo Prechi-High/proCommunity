@@ -58,7 +58,7 @@ export function StoryCard({
         marginHorizontal: flush ? 20 : 0,
         marginBottom: 18,
         borderRadius: radii.card,
-        backgroundColor: glass.fillStrong,
+        backgroundColor: colors.stage,
         borderWidth: 1,
         borderColor: ultra ? "#D5B783" : glass.strokeMuted,
         overflow: "hidden",
@@ -198,7 +198,7 @@ export function StoryCard({
                     paddingHorizontal: 9,
                     paddingVertical: 5,
                     borderRadius: 8,
-                    backgroundColor: "#F5F1EE",
+                    backgroundColor: colors.mist,
                   }}
                 >
                   <Text

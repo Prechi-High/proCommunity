@@ -12,7 +12,7 @@ export function ProgressTrail({ stage }: { stage: PublicUnmaskStage }) {
       style={{
         padding: 18,
         borderRadius: 22,
-        backgroundColor: "#F5EFEA",
+        backgroundColor: colors.stage,
         gap: 16,
       }}
     >

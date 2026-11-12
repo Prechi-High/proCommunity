@@ -201,7 +201,7 @@ export default function AskAboutProduct() {
                 style={{
                   padding: 18,
                   borderRadius: 22,
-                  backgroundColor: "#F6F3EF",
+                  backgroundColor: colors.stage,
                   gap: 12,
                 }}
               >

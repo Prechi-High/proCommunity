@@ -122,9 +122,9 @@ export default function Settings() {
         const Icon = g.title === "Account" ? User : g.title === "Privacy" ? Lock : g.title === "Appearance" ? MoonStars : g.title === "Notifications" ? Bell : g.title === "Support" ? ChatCircle : g.title === "About" ? Info : Lightning;
         return <View key={g.title} style={{ gap: 10 }}>
           <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.inkSoft, paddingHorizontal: 5 }}>{g.title}</Text>
-          <View style={{ borderRadius: 23, overflow: "hidden", backgroundColor: "#F6F2EF" }}>
-            {g.rows.map(([label, sub, path], i) => <Pressable key={label} accessibilityRole="link" onPress={() => { hapticSelect(); r.push(path as Href); }} style={({ pressed }) => ({ padding: 17, minHeight: 76, flexDirection: "row", alignItems: "center", gap: 13, backgroundColor: pressed ? "#EDE4E8" : "transparent", borderBottomWidth: i === g.rows.length-1 ? 0 : 1, borderColor: "#E9E0DB" })}>
-              <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "#EDE3E7", alignItems: "center", justifyContent: "center" }}><Icon size={19} color={colors.brandDeep} /></View>
+          <View style={{ borderRadius: 23, overflow: "hidden", backgroundColor: colors.stage }}>
+            {g.rows.map(([label, sub, path], i) => <Pressable key={label} accessibilityRole="link" onPress={() => { hapticSelect(); r.push(path as Href); }} style={({ pressed }) => ({ padding: 17, minHeight: 76, flexDirection: "row", alignItems: "center", gap: 13, backgroundColor: pressed ? colors.mist : "transparent", borderBottomWidth: i === g.rows.length-1 ? 0 : 1, borderColor: colors.line })}>
+              <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.mist, alignItems: "center", justifyContent: "center" }}><Icon size={19} color={colors.brand} /></View>
               <View style={{ flex: 1, gap: 4 }}><Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.ink }}>{label}</Text><Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.inkSoft }}>{sub}</Text></View><CaretRight size={18} color={colors.inkSoft} />
             </Pressable>)}
           </View>

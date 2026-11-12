@@ -75,7 +75,7 @@ export function AttachedEvidence({
         borderColor: colors.line,
         borderLeftWidth: journeyId ? 4 : 1,
         borderLeftColor: journeyId ? colors.brandDeep : colors.line,
-        backgroundColor: "#F8F6F3",
+        backgroundColor: colors.stage,
         gap: 8,
       }}
     >

@@ -99,7 +99,7 @@ export function JournalCard({
       style={{
         padding: 22,
         borderRadius: 26,
-        backgroundColor: "#fff",
+        backgroundColor: journal.paper,
         borderWidth: 1,
         borderColor: journal.border,
         gap: 16,
@@ -176,7 +176,7 @@ export function JournalProduct({
             style={{
               fontFamily: fonts.regular,
               fontSize: 12,
-              color: colors.inkSoft,
+              color: "#5C534F",
             }}
           >
             {brand}
@@ -236,7 +236,7 @@ export function ChoiceCards({
                     fontFamily: fonts.regular,
                     fontSize: 12,
                     lineHeight: 18,
-                    color: colors.inkSoft,
+                    color: "#5C534F",
                   }}
                 >
                   {o.detail}

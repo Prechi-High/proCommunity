@@ -170,7 +170,7 @@ export default function ProductPage() {
         style={{
           padding: 20,
           borderRadius: 26,
-          backgroundColor: "#F7F3EF",
+          backgroundColor: colors.stage,
           gap: 18,
         }}
       >
@@ -283,9 +283,9 @@ export default function ProductPage() {
               padding: 17,
               borderRadius: 21,
               borderWidth: 1,
-              borderColor: "#E7DDE1",
+              borderColor: colors.line,
               gap: 10,
-              backgroundColor: pressed ? "#F3E8ED" : "#fff",
+              backgroundColor: pressed ? colors.mist : colors.stage,
               opacity: example ? 0.5 : 1,
             })}
           >
@@ -351,7 +351,7 @@ export default function ProductPage() {
               style={{
                 padding: 18,
                 borderRadius: 20,
-                backgroundColor: "#F7F0E2",
+                backgroundColor: colors.stage,
                 flexDirection: "row",
                 gap: 12,
                 alignItems: "center",

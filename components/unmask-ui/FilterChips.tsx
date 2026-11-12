@@ -62,7 +62,7 @@ export function FilterChips({
                 style={{
                   fontFamily: fonts.medium,
                   fontSize: 14,
-                  color: on ? "#F7F1EA" : colors.ink,
+                  color: on ? "#F7F1EA" : "#1C1917",
                 }}
               >
                 {opt}

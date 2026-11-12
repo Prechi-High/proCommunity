@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Image, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -8,7 +8,7 @@ import { ActionSheet } from "@/components/unmask-ui";
 import { fonts, livelyRadii } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { useLocalMoments } from "@/lib/moment/localPosts";
-import { PREVIEW_MOMENTS, STORY_FACES, type PulseComment, type PulseMoment } from "@/lib/social/previewMoments";
+import { PREVIEW_MOMENTS, STORY_FACES, type PulseMoment } from "@/lib/social/previewMoments";
 import { useRoomTone } from "@/lib/social/roomTone";
 import { useAppStore } from "@/lib/store";
 
@@ -20,11 +20,11 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
   const tone = useRoomTone();
   const mine = useLocalMoments((s) => s.posts);
   const storyPhoto = useLocalMoments((s) => s.storyPhoto);
+  const myStory = useLocalMoments((s) => s.story);
   const name = useAppStore((s) => s.profile?.displayName)?.split(" ")[0] || "You";
   const [loved, setLoved] = useState<Record<string, boolean>>({});
-  const [extra, setExtra] = useState<Record<string, PulseComment[]>>({});
   const [openId, setOpenId] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
+  const [watching, setWatching] = useState<PulseMoment | null>(null);
 
   const yours: PulseMoment[] = mine.map((post) => ({
     id: post.id,
@@ -38,6 +38,7 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
     likes: 1,
     comments: 0,
     thread: [],
+    video: post.mediaKind === "video" ? post.photo : undefined,
     stickers: post.stickers,
     invite: post.destination === "both" ? "On your post and your story." : "This one is yours.",
   }));
@@ -47,25 +48,81 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
     router.push("/moment" as Href);
   };
 
+  const openPost = (id: string) => {
+    hapticSelect();
+    router.push(`/pulse/${id}` as Href);
+  };
+
+  const openMine = () => {
+    if (!myStory && !storyPhoto) {
+      goPost();
+      return;
+    }
+    hapticSelect();
+    setWatching({
+      id: myStory?.id || "you-story",
+      name,
+      face: myStory?.photo || storyPhoto || "",
+      media: myStory?.mediaKind === "video" ? "" : myStory?.photo || storyPhoto || "",
+      video: myStory?.mediaKind === "video" ? myStory.photo : undefined,
+      caption: myStory?.caption || "Your story.",
+      product: myStory?.productName,
+      timeline: myStory?.timelineLabel,
+      skin: myStory?.skin,
+      likes: 0,
+      comments: 0,
+      thread: [],
+      stickers: myStory?.stickers,
+      invite: "Your story.",
+    });
+  };
+
   const active = [...yours, ...PREVIEW_MOMENTS].find((item) => item.id === openId);
 
   return (
     <View style={{ gap: 18 }}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingHorizontal: 16, paddingTop: 4 }}>
-        <Pressable onPress={goPost} accessibilityRole="button" accessibilityLabel="Add your moment" style={{ width: 74, alignItems: "center", gap: 6 }}>
-          <LinearGradient colors={["#F0CF69", "#70323E"]} style={{ width: 68, height: 68, borderRadius: 24, padding: 3 }}>
-            {storyPhoto ? (
-              <Image source={{ uri: storyPhoto }} style={{ flex: 1, borderRadius: 21 }} accessibilityIgnoresInvertColors />
-            ) : (
-              <View style={{ flex: 1, borderRadius: 21, backgroundColor: "#1A0A14", alignItems: "center", justifyContent: "center" }}>
-                <Plus size={26} color="#F0CF69" weight="bold" />
-              </View>
-            )}
-          </LinearGradient>
+        <View style={{ width: 74, alignItems: "center", gap: 6 }}>
+          <Pressable
+            onPress={openMine}
+            accessibilityRole="button"
+            accessibilityLabel={storyPhoto ? "View your story" : "Add your story"}
+          >
+            <LinearGradient colors={["#F0CF69", "#70323E"]} style={{ width: 68, height: 68, borderRadius: 24, padding: 3 }}>
+              {storyPhoto ? (
+                <Image source={{ uri: storyPhoto }} style={{ flex: 1, borderRadius: 21 }} accessibilityIgnoresInvertColors />
+              ) : (
+                <View style={{ flex: 1, borderRadius: 21, backgroundColor: "#1A0A14", alignItems: "center", justifyContent: "center" }}>
+                  <Plus size={26} color="#F0CF69" weight="bold" />
+                </View>
+              )}
+            </LinearGradient>
+          </Pressable>
+          {storyPhoto ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add another story"
+              onPress={goPost}
+              style={{ position: "absolute", right: 0, top: 46, width: 24, height: 24, borderRadius: 12, backgroundColor: "#F0CF69", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#1A0A14" }}
+            >
+              <Plus size={14} color="#1A0A14" weight="bold" />
+            </Pressable>
+          ) : null}
           <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: tone.text }}>You</Text>
-        </Pressable>
+        </View>
         {STORY_FACES.map((face) => (
-          <Pressable key={face.id} onPress={goPost} style={{ width: 74, alignItems: "center", gap: 6 }}>
+          <Pressable
+            key={face.id}
+            accessibilityRole="button"
+            accessibilityLabel={`${face.name}'s story`}
+            onPress={() => {
+              const moment = PREVIEW_MOMENTS.find((item) => item.id === face.id);
+              if (!moment) return;
+              hapticSelect();
+              setWatching(moment);
+            }}
+            style={{ width: 74, alignItems: "center", gap: 6 }}
+          >
             <LinearGradient colors={["#C9A227", "#8E4052", "#3D0F15"]} style={{ width: 68, height: 68, borderRadius: 24, padding: 2 }}>
               <Image source={{ uri: face.face }} style={{ flex: 1, borderRadius: 22 }} accessibilityIgnoresInvertColors />
             </LinearGradient>
@@ -87,10 +144,11 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
           key={item.id}
           item={item}
           loved={!!loved[item.id]}
-          commentCount={(extra[item.id]?.length ?? 0) + item.comments}
+          commentCount={item.comments}
           likeCount={item.likes + (loved[item.id] ? 1 : 0)}
           onLove={() => setLoved((s) => ({ ...s, [item.id]: !s[item.id] }))}
           onComments={() => setOpenId(item.id)}
+          onOpen={() => openPost(item.id)}
         />
       ))}
 
@@ -99,39 +157,56 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
           key={item.id}
           item={item}
           loved={!!loved[item.id]}
-          commentCount={(extra[item.id]?.length ?? 0) + item.comments}
+          commentCount={item.comments}
           likeCount={item.likes + (loved[item.id] ? 1 : 0)}
           onLove={() => setLoved((s) => ({ ...s, [item.id]: !s[item.id] }))}
           onComments={() => setOpenId(item.id)}
+          onOpen={() => openPost(item.id)}
         />
       ))}
 
       <ActionSheet open={!!active} title={active ? `Comments · ${active.name}` : "Comments"} onClose={() => setOpenId(null)}>
-        {(active ? [...active.thread, ...(extra[active.id] ?? [])] : []).map((row, index) => (
+        {(active ? active.thread : []).map((row, index) => (
           <View key={`${row.name}-${index}`} style={{ gap: 2 }}>
             <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: tone.text }}>{row.name}</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: tone.muted }}>{row.text}</Text>
           </View>
         ))}
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Say something about the experience…"
-          placeholderTextColor={tone.faint}
-          style={{ minHeight: 44, fontFamily: fonts.regular, fontSize: 16, color: tone.text }}
-        />
+        {!active?.thread.length ? (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: tone.muted }}>No comments yet. Join the post to leave the first one.</Text>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           onPress={() => {
-            if (!active || draft.trim().length < 1) return;
+            if (!active) return;
             hapticSelect();
-            setExtra((s) => ({ ...s, [active.id]: [...(s[active.id] ?? []), { name, text: draft.trim() }] }));
-            setDraft("");
+            const id = active.id;
+            setOpenId(null);
+            router.push(`/pulse/${id}` as Href);
           }}
         >
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: tone.gold }}>Post comment</Text>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: tone.gold }}>Join the conversation</Text>
         </Pressable>
       </ActionSheet>
+      <Modal visible={!!watching} animationType="fade" onRequestClose={() => setWatching(null)}>
+        <View style={{ flex: 1, backgroundColor: "#0B0909" }}>
+          {watching?.video ? (
+            <LoopClip uri={watching.video} poster={watching.media || watching.video} height={640} />
+          ) : watching?.media ? (
+            <Image source={{ uri: watching.media }} style={{ width: "100%", height: 640 }} resizeMode="cover" accessibilityIgnoresInvertColors />
+          ) : null}
+          <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: 24, gap: 8, backgroundColor: "rgba(10,4,8,0.72)" }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: "#FFF8F4" }}>{watching?.name}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: "#FFF8F4" }}>{watching?.caption}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: "#F0CF69" }}>
+              {[watching?.skin ? `Skin · ${watching.skin}` : "", watching?.product || "", watching?.timeline || ""].filter(Boolean).join("  ·  ")}
+            </Text>
+            <Pressable accessibilityRole="button" onPress={() => setWatching(null)} style={{ paddingVertical: 12 }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: "#FFF8F4" }}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -143,6 +218,7 @@ function MomentCard({
   commentCount,
   onLove,
   onComments,
+  onOpen,
 }: {
   item: PulseMoment;
   loved: boolean;
@@ -150,9 +226,10 @@ function MomentCard({
   commentCount: number;
   onLove: () => void;
   onComments: () => void;
+  onOpen: () => void;
 }) {
   return (
-    <View style={{ marginHorizontal: 12, borderRadius: livelyRadii.hero, overflow: "hidden", backgroundColor: "#120810" }}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${item.name}'s post`} onPress={onOpen} style={{ marginHorizontal: 12, borderRadius: livelyRadii.hero, overflow: "hidden", backgroundColor: "#120810" }}>
       {item.video ? (
         <LoopClip uri={item.video} poster={item.media} height={460} />
       ) : item.media ? (
@@ -189,7 +266,7 @@ function MomentCard({
           </Pressable>
         </View>
       </LinearGradient>
-    </View>
+    </Pressable>
   );
 }
 

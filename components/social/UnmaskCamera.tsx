@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import { Platform, Pressable, Text, View } from "react-native";
+import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 
@@ -23,14 +23,20 @@ export function UnmaskCamera({
   onTimeline,
 }: {
   onClose: () => void;
-  onShot: (photo: string, stickers: string[]) => void;
+  onShot: (photo: string, stickers: string[], kind?: "photo" | "video") => void;
   onTimeline: () => void;
 }) {
   const camera = useRef<CameraView>(null);
   const shotRef = useRef(onShot);
   shotRef.current = onShot;
   const [permission, requestPermission] = useCameraPermissions();
+  const [mic, requestMic] = useMicrophonePermissions();
   const [facing, setFacing] = useState<"front" | "back">("front");
+  const [recordingUi, setRecordingUi] = useState(false);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recording = useRef(false);
+  const held = useRef(false);
+  const webStop = useRef<(() => Promise<string>) | null>(null);
   const [ready, setReady] = useState(false);
   const [torch, setTorch] = useState(false);
   const [grid, setGrid] = useState(false);
@@ -63,6 +69,105 @@ export function UnmaskCamera({
     }, 1000);
     return () => clearTimeout(t);
   }, [count, stickers]);
+
+  async function beginWebClip() {
+    if (typeof document === "undefined") return null;
+    const video = document.querySelector("video") as (HTMLVideoElement & { captureStream?: () => MediaStream }) | null;
+    const base = video?.captureStream?.();
+    if (!base) return null;
+    try {
+      const audio = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audio.getAudioTracks().forEach((track) => base.addTrack(track));
+    } catch {
+      /* a silent clip is still a clip */
+    }
+    const mime = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find((type) =>
+      typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type),
+    );
+    const rec = new MediaRecorder(base, mime ? { mimeType: mime } : undefined);
+    const chunks: Blob[] = [];
+    rec.ondataavailable = (event) => {
+      if (event.data.size) chunks.push(event.data);
+    };
+    const done = new Promise<string>((resolve, reject) => {
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: rec.mimeType || "video/webm" });
+        if (!blob.size) reject(new Error("empty"));
+        else resolve(URL.createObjectURL(blob));
+      };
+      rec.onerror = () => reject(new Error("record"));
+    });
+    rec.start();
+    return {
+      stop: () => {
+        if (rec.state !== "inactive") rec.stop();
+        base.getAudioTracks().forEach((track) => track.stop());
+        return done;
+      },
+    };
+  }
+
+  async function startRecord() {
+    if (!ready) return;
+    recording.current = true;
+    setRecordingUi(true);
+    setError("");
+    if (Platform.OS === "web") {
+      const clip = await beginWebClip();
+      if (!clip) {
+        recording.current = false;
+        setRecordingUi(false);
+        held.current = false;
+        setError("Hold to record isn’t available in this browser. A tap still takes a photo.");
+        return;
+      }
+      webStop.current = clip.stop;
+      return;
+    }
+    if (!mic?.granted) {
+      const next = await requestMic();
+      if (!next.granted) {
+        recording.current = false;
+        setRecordingUi(false);
+        held.current = false;
+        setError("Video needs the microphone. A tap still takes a photo.");
+        return;
+      }
+    }
+    try {
+      const clip = await camera.current?.recordAsync({ maxDuration: 15 });
+      if (clip?.uri) onShot(clip.uri, stickers, "video");
+    } catch {
+      setError("Couldn’t record that. A tap still takes a photo.");
+    } finally {
+      recording.current = false;
+      setRecordingUi(false);
+    }
+  }
+
+  function pressIn() {
+    held.current = false;
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+    holdTimer.current = setTimeout(() => {
+      held.current = true;
+      void startRecord();
+    }, 280);
+  }
+
+  function pressOut() {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+    if (webStop.current) {
+      const stop = webStop.current;
+      webStop.current = null;
+      void stop()
+        .then((uri) => onShot(uri, stickers, "video"))
+        .catch(() => setError("That clip didn’t save. Hold the shutter and try again."));
+      recording.current = false;
+      setRecordingUi(false);
+      return;
+    }
+    if (recording.current && Platform.OS !== "web") void camera.current?.stopRecording();
+  }
 
   async function shoot() {
     if (!ready) return;
@@ -99,7 +204,7 @@ export function UnmaskCamera({
           ref={camera}
           style={{ flex: 1 }}
           facing={facing}
-          mode="picture"
+          mode={Platform.OS === "web" ? "picture" : "video"}
           enableTorch={torch && facing === "back"}
           mirror={facing === "front"}
           onCameraReady={() => setReady(true)}
@@ -184,18 +289,24 @@ export function UnmaskCamera({
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Take photo"
-            onPress={() => void shoot()}
-            style={{ width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: "#FFF8F4", alignItems: "center", justifyContent: "center" }}
+            accessibilityLabel="Tap for a photo. Hold for a video."
+            onPressIn={pressIn}
+            onPressOut={pressOut}
+            onPress={() => {
+              if (!held.current) void shoot();
+            }}
+            style={{ width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: recordingUi ? "#E23B3B" : "#FFF8F4", alignItems: "center", justifyContent: "center" }}
           >
-            <View style={{ width: 62, height: 62, borderRadius: 31, backgroundColor: "#FFF8F4" }} />
+            <View style={{ width: recordingUi ? 36 : 62, height: recordingUi ? 36 : 62, borderRadius: recordingUi ? 8 : 31, backgroundColor: recordingUi ? "#E23B3B" : "#FFF8F4" }} />
           </Pressable>
           <Pressable accessibilityLabel="Flip camera" onPress={() => setFacing((f) => (f === "front" ? "back" : "front"))} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: "#FFF8F4" }}>Flip</Text>
           </Pressable>
         </View>
         {error ? <Text style={{ color: "#F0CF69", textAlign: "center", fontFamily: fonts.medium, paddingBottom: 8 }}>{error}</Text> : null}
-        <Text style={{ textAlign: "center", fontFamily: fonts.medium, fontSize: 11, color: "rgba(255,248,244,0.55)", paddingBottom: 6 }}>{LOOKS[look]?.label} · Unmask camera</Text>
+        <Text style={{ textAlign: "center", fontFamily: fonts.medium, fontSize: 11, color: "rgba(255,248,244,0.55)", paddingBottom: 6 }}>
+          {recordingUi ? "Recording · let go to stop" : `${LOOKS[look]?.label} · tap photo, hold video`}
+        </Text>
       </SafeAreaView>
     </View>
   );

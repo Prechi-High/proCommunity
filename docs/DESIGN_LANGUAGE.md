@@ -34,9 +34,15 @@ When you change UI, read this first. When you add a screen, use the primitives �
 
 Dark is the default on every `AppShell` page. Settings → Theme switches to light; ink and muted text follow the theme so both stay readable. Photo captions stay on a dark scrim so they remain readable on the image.
 
-Posts show a skin chip, product, timeline, like count, and comment count. Under the story rings, a horizontal teaser row previews Ask the brand, Ask an expert, and seller audio rooms as locked until after the First 90, plus an enabled Create your store and a small orientation-film card.
+Posts show a skin chip, product, timeline, like count, and comment count. Tapping a post opens that post. The comment sheet only lists comments; “Join the conversation” enters the post, and that is where a comment is written.
 
-Creating a moment opens the in-app Unmask camera (viewfinder, shutter, flip, timer, grid, looks, Unmask stickers). Upload is a small roll button, not the shutter. Teasers under stories are short dashed slips: locked layers read as closed, not as big buttons. Pinning a timeline chooses an existing timeline.
+Under the story rings, each teaser has a photo and a sentence that says what it is. Tapping it explains the context (ask the brand about your own experience, ask an expert, talk with the seller, open a store, watch the film). Locked layers stay closed until after the First 90.
+
+Tapping someone else’s story plays that story. The camera opens only when you add a story. If you already have one, the ring plays it and a small plus adds another. The shutter takes a photo on tap and a video if you hold it.
+
+Light paper that does not follow the theme is not used for headings. Cards use the theme surface so dark-mode ink stays readable. Photo captions stay on a dark scrim.
+
+Creating a moment opens the in-app Unmask camera (viewfinder, shutter, flip, timer, grid, looks, Unmask stickers). Upload is a small roll button, not the shutter. Pinning a timeline chooses an existing timeline.
 
 Emotional invites to keep in the feed: shy first post, routine flex, men and grooming, “good for who?”, one product. Preview faces stay labeled as a preview of the room, not live accounts.
 

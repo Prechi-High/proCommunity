@@ -49,6 +49,7 @@ export default function Moment() {
   const [timelineLabel, setTimelineLabel] = useState("");
   const [picker, setPicker] = useState(false);
   const [stickers, setStickers] = useState<string[]>([]);
+  const [mediaKind, setMediaKind] = useState<"photo" | "video">("photo");
   const [error, setError] = useState("");
   const [live, setLive] = useState(false);
   const [cameraOn, setCameraOn] = useState(true);
@@ -111,6 +112,7 @@ export default function Moment() {
       timelineLabel: timelineLabel || undefined,
       destination,
       stickers,
+      mediaKind,
     });
     hapticSaved("moment");
     setLive(true);
@@ -164,9 +166,10 @@ export default function Moment() {
         <UnmaskCamera
           onClose={() => (photo ? setCameraOn(false) : router.back())}
           onTimeline={() => setPicker(true)}
-          onShot={(uri, pinned) => {
+          onShot={(uri, pinned, kind) => {
             setPhoto(uri);
             setStickers(pinned);
+            setMediaKind(kind || "photo");
             setCameraOn(false);
           }}
         />
