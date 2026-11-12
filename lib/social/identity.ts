@@ -15,7 +15,7 @@ export const IDENTITY_PROMPTS = [
   {
     title: "Share a moment",
     line: "Photo or video with what you are using now.",
-    href: "/contribute",
+    href: "/moment",
   },
   {
     title: "Show your shelf",

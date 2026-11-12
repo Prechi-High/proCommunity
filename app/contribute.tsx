@@ -26,6 +26,8 @@ export default function Contribute() {
     mine?: string;
     update?: string;
     resumeGuest?: string;
+    moment?: string;
+    productName?: string;
   }>();
   const uid = useAppStore((s) => s.profile?.id),
     r = useRouter();
@@ -114,11 +116,13 @@ export default function Contribute() {
     );
   return (
     <ExperienceWizard
-      key={p.experience || p.product || "new"}
+      key={p.experience || p.product || p.moment || "new"}
       productId={p.product || source.data?.product_id}
       source={source.data?.user_id === uid ? source.data : undefined}
       initialJourney={p.journey}
       resumeGuest={p.resumeGuest}
+      momentEntry={p.moment === "1"}
+      momentProductName={p.productName}
     />
   );
 }

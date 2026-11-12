@@ -43,6 +43,7 @@ import { searchCommunityProducts } from "@/lib/unmask/communitySearch";
 import { hapticSaved } from "@/lib/haptics";
 import { colors, fonts } from "@/constants/theme";
 import { features } from "@/lib/features";
+import { useMomentDraft } from "@/lib/moment/draft";
 import type { ProductState } from "@/lib/living/types";
 
 export function ExperienceWizard({
@@ -50,11 +51,15 @@ export function ExperienceWizard({
   source,
   initialJourney = "",
   resumeGuest,
+  momentEntry,
+  momentProductName,
 }: {
   productId?: string;
   source?: clarity.Experience;
   initialJourney?: string;
   resumeGuest?: string;
+  momentEntry?: boolean;
+  momentProductName?: string;
 }) {
   const uid = useAppStore((s) => s.profile?.id),
     r = useRouter(),
@@ -71,6 +76,8 @@ export function ExperienceWizard({
       journalId?: string;
       proofStatus?: "pending" | "submitted" | "failed";
     } | null>(null);
+  const momentDraft = useMomentDraft((s) => s.draft);
+  const clearMomentDraft = useMomentDraft((s) => s.setDraft);
   const keyId = source?.id || productId || "new";
   const draft = useTrackingDraft(
     `unmask:experience-v2:${uid || "guest"}:${keyId}`,
@@ -112,6 +119,29 @@ export function ExperienceWizard({
       draft.setValue((v) => ({ ...v, ...patch }));
   const reduce = useReducedMotion(),
     seededSkin = useRef(false);
+  const momentApplied = useRef(false);
+  useEffect(() => {
+    if (!momentEntry || !momentDraft || !draft.ready || momentApplied.current) return;
+    momentApplied.current = true;
+    const name = momentProductName || momentDraft.productName || "";
+    set({
+      body: momentDraft.caption,
+      skinPhoto: momentDraft.photo,
+      photoPath: momentDraft.photo,
+      visibility: "public",
+      step: productId ? 2 : 0,
+    });
+    if (name) setSearch(name);
+    clearMomentDraft(null);
+  }, [
+    momentEntry,
+    momentDraft,
+    draft.ready,
+    productId,
+    momentProductName,
+    set,
+    clearMomentDraft,
+  ]);
   const pref = useQuery({
     queryKey: ["tracking-skin", uid],
     queryFn: clarity.preferences,

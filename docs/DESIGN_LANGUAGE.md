@@ -30,6 +30,10 @@ When you change UI, read this first. When you add a screen, use the primitives �
 - **Sleek** — generous radius, floating layers, calm typography (General Sans).
 - **Proud** — users should *want* to screenshot their Unmask, not feel they filed a ticket.
 
+### Visual-first rule (non‑negotiable)
+
+Every primary surface (home, welcome, community) must show **people and media first**: story rail, at least one featured post with photography, and a horizontal feed strip. Copy supports the visuals — never a wall of text without images. **Post entry** is `/moment` (camera/gallery/caption), not a blank form. Product and timeline attach are **optional** chips, per the social identity plan.
+
 ### What we borrow from references
 | Pattern | Reference | Unmask adaptation |
 |---------|-----------|-------------------|
