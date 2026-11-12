@@ -36,7 +36,7 @@ Dark is the default on every `AppShell` page. Settings → Theme switches to lig
 
 Posts show a skin chip, product, timeline, like count, and comment count. Under the story rings, a horizontal teaser row previews Ask the brand, Ask an expert, and seller audio rooms as locked until after the First 90, plus an enabled Create your store and a small orientation-film card.
 
-Creating a moment is a camera with beauty looks, upload, and Post / Story / Both. Pinning a timeline chooses an existing timeline. It does not open the experience form.
+Creating a moment opens the in-app Unmask camera (viewfinder, shutter, flip, timer, grid, looks, Unmask stickers). Upload is a small roll button, not the shutter. Teasers under stories are short dashed slips: locked layers read as closed, not as big buttons. Pinning a timeline chooses an existing timeline.
 
 Emotional invites to keep in the feed: shy first post, routine flex, men and grooming, “good for who?”, one product. Preview faces stay labeled as a preview of the room, not live accounts.
 

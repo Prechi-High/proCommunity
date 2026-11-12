@@ -10,6 +10,7 @@ export type LocalMoment = {
   timelineId?: string;
   timelineLabel?: string;
   destination: "post" | "story" | "both";
+  stickers?: string[];
   createdAt: string;
 };
 

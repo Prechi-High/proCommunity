@@ -1,15 +1,13 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 
-import { Play } from "@/components/icons";
+import { Lock } from "@/components/icons";
 import { OrientationFilm } from "@/components/movement/OrientationFilm";
 import { fonts } from "@/constants/theme";
 import { first90 } from "@/lib/movement/first90";
-import { useRoomTone } from "@/lib/social/roomTone";
 import { hapticSelect } from "@/lib/haptics";
-
-const CARD_W = 248;
+import { useRoomTone } from "@/lib/social/roomTone";
 
 export function UnmaskTeasers() {
   const tone = useRoomTone();
@@ -19,73 +17,39 @@ export function UnmaskTeasers() {
     movement.status === "during"
       ? `Day ${movement.day} of 90`
       : movement.status === "complete"
-        ? "The First 90 is complete"
+        ? "After the 90"
         : "Before Day 1";
   const [film, setFilm] = useState(false);
 
   return (
-    <View style={{ gap: 12 }}>
-      <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1.6, color: tone.gold, paddingHorizontal: 16 }}>
-        WHAT UNMASK BECOMES
+    <View style={{ gap: 8 }}>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1.4, color: tone.faint, paddingHorizontal: 16 }}>
+        {day} · later layers stay closed
       </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 16 }}>
-        <Card title="Had a bad experience with a product?" tone={tone}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: tone.muted }}>
-            Your question can go to the people behind it. Not a review form. A real ask.
-          </Text>
-          <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-            <Locked label="Ask the brand" tone={tone} />
-            <Locked label="Ask an expert" tone={tone} />
-          </View>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: tone.gold }}>{day} · opens after the First 90</Text>
-        </Card>
-        <Card title="Want customers who trust the store?" tone={tone}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: tone.muted }}>
-            Sellers will be able to open an audio room and talk with the people using what they sell.
-          </Text>
-          <Locked label="Create audio room" tone={tone} />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: tone.gold }}>{day} · rooms open after the First 90</Text>
-        </Card>
-        <Card title="Start the store people can check." tone={tone}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: tone.muted }}>
-            Credibility first. Customer rooms come later. You can open the store side now.
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              hapticSelect();
-              router.push("/offers" as Href);
-            }}
-            style={{ alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: "#3D0F15" }}
-          >
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#FFF8F4" }}>Create your store</Text>
-          </Pressable>
-        </Card>
-        <Pressable
-          accessibilityRole="button"
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
+        <Slip locked kicker="Ask" title="Ask the brand" line="After the First 90" tone={tone} />
+        <Slip locked kicker="Ask" title="Ask an expert" line="After the First 90" tone={tone} />
+        <Slip locked kicker="Sellers" title="Audio room" line="Not open in this stretch" tone={tone} />
+        <Slip
+          kicker="Store"
+          title="Create your store"
+          line="Open now"
+          tone={tone}
+          onPress={() => {
+            hapticSelect();
+            router.push("/offers" as Href);
+          }}
+        />
+        <Slip
+          kicker="Film"
+          title="What Unmask is"
+          line={film ? "Hide" : "Play"}
+          tone={tone}
           onPress={() => {
             hapticSelect();
             setFilm((v) => !v);
           }}
-          style={{
-            width: CARD_W,
-            minHeight: 168,
-            borderRadius: 22,
-            overflow: "hidden",
-            borderWidth: 1,
-            borderColor: tone.line,
-            backgroundColor: "#1A0A14",
-            padding: 14,
-            justifyContent: "flex-end",
-            gap: 6,
-          }}
-        >
-          <Play size={22} color="#F0CF69" weight="fill" />
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#FFF8F4" }}>What Unmask is</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: "rgba(255,248,244,0.72)" }}>
-            A short film for the whole movement. Tap to open the player.
-          </Text>
-        </Pressable>
+        />
       </ScrollView>
       {film ? (
         <View style={{ paddingHorizontal: 16 }}>
@@ -96,50 +60,48 @@ export function UnmaskTeasers() {
   );
 }
 
-function Card({
+function Slip({
+  locked,
+  kicker,
   title,
-  children,
+  line,
+  onPress,
   tone,
 }: {
+  locked?: boolean;
+  kicker: string;
   title: string;
-  children: ReactNode;
+  line: string;
+  onPress?: () => void;
   tone: ReturnType<typeof useRoomTone>;
 }) {
   return (
-    <View
-      style={{
-        width: CARD_W,
-        minHeight: 168,
-        borderRadius: 22,
-        padding: 14,
-        gap: 8,
-        borderWidth: 1,
-        borderColor: tone.line,
-        backgroundColor: tone.card,
-        justifyContent: "space-between",
-      }}
-    >
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 16, lineHeight: 21, color: tone.text }}>{title}</Text>
-      {children}
-    </View>
-  );
-}
-
-function Locked({ label, tone }: { label: string; tone: ReturnType<typeof useRoomTone> }) {
-  return (
-    <View
+    <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled: true }}
+      accessibilityState={{ disabled: !!locked }}
+      disabled={!!locked}
+      onPress={onPress}
       style={{
-        paddingHorizontal: 10,
-        paddingVertical: 7,
-        borderRadius: 999,
+        width: 168,
+        height: 72,
+        borderRadius: 16,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        justifyContent: "center",
+        gap: 2,
         borderWidth: 1,
-        borderColor: tone.line,
-        opacity: 0.7,
+        borderStyle: locked ? "dashed" : "solid",
+        borderColor: locked ? tone.line : tone.gold,
+        backgroundColor: locked ? "transparent" : "rgba(201,162,39,0.1)",
+        opacity: locked ? 0.62 : 1,
       }}
     >
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: tone.muted }}>{label}</Text>
-    </View>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+        {locked ? <Lock size={11} color={tone.faint} /> : null}
+        <Text style={{ fontFamily: fonts.medium, fontSize: 10, letterSpacing: 0.8, color: tone.faint }}>{kicker.toUpperCase()}</Text>
+      </View>
+      <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 14, color: tone.text }}>{title}</Text>
+      <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 11, color: tone.muted }}>{line}</Text>
+    </Pressable>
   );
 }

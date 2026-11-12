@@ -4,7 +4,8 @@ import * as ImagePicker from "expo-image-picker";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 
-import { Camera, Clock } from "@/components/icons";
+import { Clock } from "@/components/icons";
+import { UnmaskCamera } from "@/components/social/UnmaskCamera";
 import { ActionButton, ActionSheet, AppShell, MediaFrame } from "@/components/unmask-ui";
 import { fonts, livelyRadii } from "@/constants/theme";
 import { hapticSaved, hapticSelect } from "@/lib/haptics";
@@ -47,8 +48,10 @@ export default function Moment() {
   const [timelineId, setTimelineId] = useState("");
   const [timelineLabel, setTimelineLabel] = useState("");
   const [picker, setPicker] = useState(false);
+  const [stickers, setStickers] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [live, setLive] = useState(false);
+  const [cameraOn, setCameraOn] = useState(true);
   const tint = LOOKS.find((item) => item.id === look)?.tint ?? "transparent";
 
   const real = (journeys.data ?? []).map((row) => ({
@@ -107,6 +110,7 @@ export default function Moment() {
       timelineId: timelineId || undefined,
       timelineLabel: timelineLabel || undefined,
       destination,
+      stickers,
     });
     hapticSaved("moment");
     setLive(true);
@@ -127,6 +131,50 @@ export default function Moment() {
     );
   }
 
+  const timelineSheet = (
+    <ActionSheet open={picker} title="Pin a timeline" onClose={() => setPicker(false)}>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: tone.muted }}>
+        {real.length ? "Your timelines." : "Example timelines, so you can see the pin. Yours show up here once you have one."}
+      </Text>
+      {choices.map((row) => (
+        <Pressable
+          key={row.id}
+          accessibilityRole="button"
+          onPress={() => {
+            hapticSelect();
+            setTimelineId(row.id);
+            setTimelineLabel(`${row.name} · ${row.when}`);
+            setPicker(false);
+          }}
+          style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: tone.line }}
+        >
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: tone.text }}>{row.name}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: tone.muted }}>{row.when}{row.sample ? " · example" : ""}</Text>
+        </Pressable>
+      ))}
+      <Pressable onPress={() => { setTimelineId(""); setTimelineLabel(""); setPicker(false); }}>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: tone.muted }}>Post without a timeline</Text>
+      </Pressable>
+    </ActionSheet>
+  );
+
+  if (!photo || cameraOn) {
+    return (
+      <View style={{ flex: 1 }}>
+        <UnmaskCamera
+          onClose={() => (photo ? setCameraOn(false) : router.back())}
+          onTimeline={() => setPicker(true)}
+          onShot={(uri, pinned) => {
+            setPhoto(uri);
+            setStickers(pinned);
+            setCameraOn(false);
+          }}
+        />
+        {timelineSheet}
+      </View>
+    );
+  }
+
   return (
     <AppShell back title="Create" subtitle="Glow, film, then choose post, story, or both." ambient="socialNight">
       <View style={{ gap: 14 }}>
@@ -136,13 +184,12 @@ export default function Moment() {
               <MediaFrame uri={photo} label="Your moment" ratio={4 / 5} corners={false} />
               <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: tint }} />
             </View>
-          ) : (
-            <Pressable onPress={() => void pick("camera")} style={{ minHeight: 380, alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <Camera size={36} color="#F0CF69" />
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 20, color: "#FFF8F4" }}>Open the camera</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: "rgba(255,248,244,0.65)" }}>Or upload a photo or video you already love</Text>
-            </Pressable>
-          )}
+          ) : null}
+          {stickers.map((label) => (
+            <View key={label} pointerEvents="none" style={{ position: "absolute", left: 16, bottom: 16 + stickers.indexOf(label) * 28, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: "rgba(18,8,16,0.55)" }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#FFF8F4" }}>{label}</Text>
+            </View>
+          ))}
         </View>
 
         <View style={{ flexDirection: "row", gap: 8 }}>
@@ -155,7 +202,7 @@ export default function Moment() {
         </View>
 
         <View style={{ flexDirection: "row", gap: 10 }}>
-          <Pressable onPress={() => void pick("camera")} style={pill}><Text style={pillText}>Camera</Text></Pressable>
+          <Pressable onPress={() => setCameraOn(true)} style={pill}><Text style={pillText}>Retake</Text></Pressable>
           <Pressable onPress={() => void pick("library")} style={pill}><Text style={pillText}>Upload</Text></Pressable>
         </View>
 
@@ -220,30 +267,7 @@ export default function Moment() {
         <ActionButton label={destination === "story" ? "Add to story" : destination === "both" ? "Post and add to story" : "Post it"} onPress={post} />
       </View>
 
-      <ActionSheet open={picker} title="Pin a timeline" onClose={() => setPicker(false)}>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: tone.muted }}>
-          {real.length ? "Your timelines." : "Example timelines, so you can see the pin. Yours show up here once you have one."}
-        </Text>
-        {choices.map((row) => (
-          <Pressable
-            key={row.id}
-            accessibilityRole="button"
-            onPress={() => {
-              hapticSelect();
-              setTimelineId(row.id);
-              setTimelineLabel(`${row.name} · ${row.when}`);
-              setPicker(false);
-            }}
-            style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: tone.line }}
-          >
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: tone.text }}>{row.name}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: tone.muted }}>{row.when}{row.sample ? " · example" : ""}</Text>
-          </Pressable>
-        ))}
-        <Pressable onPress={() => { setTimelineId(""); setTimelineLabel(""); setPicker(false); }}>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: tone.muted }}>Post without a timeline</Text>
-        </Pressable>
-      </ActionSheet>
+      {timelineSheet}
     </AppShell>
   );
 }
