@@ -38,7 +38,7 @@ export default function SettingDetails() {
       {section === "appearance" ? (
         <Card>
           <Heading>Theme</Heading>
-          <Copy>Choose how Unmask should look. Light, dark, or follow your device.</Copy>
+          <Copy>Dark is the Unmask default. Switch to light when you want the room in daylight. Text stays readable in both.</Copy>
           <Chips
             options={["system", "light", "dark"]}
             value={s.themeMode}

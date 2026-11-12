@@ -35,7 +35,7 @@ const groups = [
   {
     title: "Appearance",
     rows: [
-      ["Theme", "Light, dark, or follow your device", "/settings/details?section=appearance"],
+      ["Theme", "Dark by default. Switch to light here.", "/settings/details?section=appearance"],
     ],
   },
   {

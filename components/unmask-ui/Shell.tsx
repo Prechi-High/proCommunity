@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   Text,
+  useColorScheme,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,6 +16,7 @@ import { ArrowLeft, Bell, Sparkle } from "@/components/icons";
 import { AmbientCanvas } from "@/components/lively";
 import { colors, fonts, glass } from "@/constants/theme";
 import type { LivelyGradientKey } from "@/constants/design-language";
+import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
 
 export function AppShell({
   children,
@@ -44,7 +46,16 @@ export function AppShell({
   /** Background wash — `social` on Community-heavy screens */
   ambient?: LivelyGradientKey;
 }) {
-  const night = ambient === "socialNight";
+  const theme = useUnmaskTheme();
+  const scheme = useColorScheme();
+  const systemDark =
+    scheme === "dark" ||
+    (Platform.OS === "web" &&
+      typeof window !== "undefined" &&
+      !!window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  const dark = theme.themeMode === "dark" || (theme.themeMode === "system" && systemDark);
+  const wash: LivelyGradientKey = dark ? (ambient === "cinema" ? "cinema" : "socialNight") : "page";
+  const night = dark;
   const ink = night ? "#FFF8F4" : colors.ink;
   const inkSoft = night ? "rgba(255,248,244,0.72)" : colors.inkSoft;
   const word = night ? "#FFF8F4" : colors.brandDeep;
@@ -175,7 +186,7 @@ export function AppShell({
       }}
       edges={["top"]}
     >
-      <AmbientCanvas variant={ambient}>
+      <AmbientCanvas variant={wash}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}

@@ -51,6 +51,9 @@ export interface AppState {
   userThreads: DiscussionThread[];
   hapticsMode: HapticsMode;
   themeMode: ThemeMode;
+  /** After the first launch, Dark is the default. A later choice of Light stays. */
+  themePinned: boolean;
+  setThemePinned: () => void;
   notificationAckIds: string[];
   ackNotifications: (ids: string[]) => void;
   demoLikes: Record<string, boolean>;
@@ -158,7 +161,9 @@ export const useAppStore = create<AppState>()(
         else set({ searchCategoryIds: [...cur, id] });
       },
       hapticsMode: "subtle" as HapticsMode,
-      themeMode: "system" as ThemeMode,
+      themeMode: "dark" as ThemeMode,
+      themePinned: false,
+      setThemePinned: () => set({ themePinned: true }),
       notificationAckIds: [],
       ackNotifications: (ids) =>
         set((s) => ({
@@ -402,6 +407,10 @@ export const useAppStore = create<AppState>()(
         return rest;
       },
       onRehydrateStorage: () => (state) => {
+        if (state && !state.themePinned) {
+          if (state.themeMode !== "light") state.setThemeMode("dark");
+          state.setThemePinned();
+        }
         state?.setHydrated();
       },
     },
