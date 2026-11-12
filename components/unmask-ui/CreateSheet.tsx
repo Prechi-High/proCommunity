@@ -3,10 +3,12 @@ import { useRouter, type Href } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 
 import {
+  Camera,
   CaretRight,
   ChatCircle,
   Package,
   PencilSimple,
+  Plus,
 } from "@/components/icons";
 import { COPY } from "@/constants/brand";
 import { colors, fonts } from "@/constants/theme";
@@ -19,8 +21,20 @@ import { ActionSheet } from "./ActionSheet";
 
 const ACTIONS = [
   {
+    label: "Post",
+    detail: "A photo or short video. Attach your Unmask after, if you want.",
+    href: "/post/new",
+    Icon: Camera,
+  },
+  {
+    label: "Add to your story",
+    detail: "Right now. It leaves in a day.",
+    href: "/moment/new",
+    Icon: Plus,
+  },
+  {
     label: COPY.createExperience,
-    detail: "Good or bad. Keep updating it as it changes.",
+    detail: "When you want the experience to live on a timeline.",
     href: "/contribute",
     Icon: PencilSimple,
   },

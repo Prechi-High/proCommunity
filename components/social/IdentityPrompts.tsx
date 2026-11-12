@@ -1,12 +1,12 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 
-import { ArrowRight, Camera, Clock, Package } from "@/components/icons";
+import { ArrowRight, Camera, Clock, ImageSquare } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { IDENTITY_PROMPTS, SOCIAL_IDENTITY } from "@/lib/social/identity";
 
-const icons = [Camera, Package, Clock];
+const icons = [Camera, ImageSquare, Clock];
 
 export function IdentityPrompts() {
   const router = useRouter();

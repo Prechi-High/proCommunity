@@ -15,7 +15,7 @@ export default function Home() {
   }, [uid, r, home]);
   if (!uid) return <AppShell notify><Skeleton height={250} /></AppShell>;
   return (
-    <AppShell notify>
+    <AppShell notify flush>
       <MemberHome />
     </AppShell>
   );

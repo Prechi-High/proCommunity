@@ -5,7 +5,7 @@ import {
   ArrowRight,
   ChatCircle,
   Clock,
-  PencilSimple,
+  Camera,
   Lightning,
   ShieldCheck,
   MagnifyingGlass,
@@ -92,10 +92,10 @@ export function QuickActions() {
     <View style={{ flexDirection: "row", gap: 10, marginHorizontal: 20 }}>
       {[
         {
-          title: "Share",
-          sub: "Your experience",
-          href: "/contribute",
-          Icon: PencilSimple,
+          title: "Post",
+          sub: "A photo",
+          href: "/post/new",
+          Icon: Camera,
           bg: "#F6ECEF",
           fg: colors.brand,
         },
