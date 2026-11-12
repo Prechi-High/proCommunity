@@ -22,6 +22,10 @@ import { features } from "@/lib/features";
 import { useAppStore } from "@/lib/store";
 import * as api from "@/lib/profiles/api";
 import * as community from "@/lib/community-v2/api";
+import { MyUnmaskCard } from "@/components/social-home/MyUnmaskCard";
+import { PostCard } from "@/components/social-home/PostCard";
+import { loadCard } from "@/lib/social/api";
+import { sampleCard, samplePostsByAuthor } from "@/lib/social/samples";
 import { SAMPLE_CREATORS, SAMPLE_FEED } from "@/lib/unmask/samples";
 
 export function PublicProfile({
@@ -34,45 +38,59 @@ export function PublicProfile({
   const uid = useAppStore((s) => s.profile?.id);
   const router = useRouter();
   const sample = SAMPLE_CREATORS.find((c) => c.user_id === id);
-  const member = useQuery({ queryKey: ["member-identity", id], queryFn: () => memberIdentity(id), enabled: !!id && !sample });
-  const founder = useQuery({ queryKey: ["founding-member", id], queryFn: () => foundingMember(id), enabled: !!id && !sample });
+  const social = sampleCard(id);
+  const fictional = Boolean(sample || social);
+  const member = useQuery({ queryKey: ["member-identity", id], queryFn: () => memberIdentity(id), enabled: !!id && !fictional });
+  const founder = useQuery({ queryKey: ["founding-member", id], queryFn: () => foundingMember(id), enabled: !!id && !fictional });
   const self = useAppStore(s => s.profile);
   const [tab, setTab] = useState("Stories");
   const [error, setError] = useState("");
   const identity = useQuery({
     queryKey: ["public-identity", id],
     queryFn: () => api.identity(id),
-    enabled: !!id && !sample,
+    enabled: !!id && !fictional,
   });
   const counts = useQuery({
     queryKey: ["profile-counts", id, uid],
     queryFn: () => api.counts(id),
-    enabled: !!id && !sample,
+    enabled: !!id && !fictional,
   });
   const experiences = useQuery({
     queryKey: ["profile-experiences", id],
     queryFn: () => api.experiences(id),
-    enabled: !!id && !sample,
+    enabled: !!id && !fictional,
   });
   const questions = useQuery({
     queryKey: ["profile-questions", id],
     queryFn: () => api.questions(id),
-    enabled: !!id && !sample,
+    enabled: !!id && !fictional,
   });
   const support = useQuery({
     queryKey: ["profile-support", id],
     queryFn: () => api.support(id),
-    enabled: !!id && !sample,
+    enabled: !!id && !fictional,
   });
   const creators = useQuery({
     queryKey: ["creators"],
     queryFn: community.creators,
-    enabled: !sample,
+    enabled: !fictional,
   });
   const videos = useQuery({
     queryKey: ["creator-publications", id],
     queryFn: () => community.publications(id),
-    enabled: !!id && !sample,
+    enabled: !!id && !fictional,
+  });
+  const liveCard = useQuery({
+    queryKey: ["unmask-card", id, identity.data?.display_name, identity.data?.avatar_url],
+    enabled: !!id && !fictional,
+    queryFn: () =>
+      loadCard(
+        id,
+        uid === id,
+        (uid === id ? self?.displayName : null) || identity.data?.display_name || "Unmasker",
+        identity.data?.handle,
+        identity.data?.avatar_url,
+      ),
   });
   const live = creators.data?.find((c) => c.user_id === id);
   const unmasker = Boolean(live || sample);
@@ -115,6 +133,18 @@ export function PublicProfile({
     }
   };
 
+  if (social) {
+    const posts = samplePostsByAuthor(social.userId);
+    return (
+      <AppShell back title={social.name} subtitle="Sample · imagined person">
+        <MyUnmaskCard card={social} />
+        {posts.map((post) => (
+          <PostCard key={post.id} post={post} />
+        ))}
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell
       back
@@ -151,6 +181,7 @@ export function PublicProfile({
           ) : null}
         </View>
       </View>
+      {liveCard.data ? <MyUnmaskCard card={liveCard.data} self={uid === id} /> : null}
       {founder.data ? <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#89641C" }}>Founding member · Here from the beginning</Text> : member.data ? <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.inkSoft }}>Unmasker</Text> : null}
       {unmasker ? (
         <View style={{ gap: 7 }}>

@@ -18,7 +18,6 @@ import {
   StorySkeleton,
   SearchField,
 } from "@/components/unmask-ui";
-import { COPY } from "@/constants/brand";
 import { colors, fonts } from "@/constants/theme";
 import * as living from "@/lib/living/api";
 import * as clarity from "@/lib/clarity/api";
@@ -127,10 +126,10 @@ export default function MyProducts() {
 
   return (
     <AppShell
-      title="My Unmask"
+      title="What I use"
       serif
       notify
-      subtitle={COPY.productTabSubtitle}
+      subtitle="The shelf behind your Unmask. The card you share lives on You."
     >
       <DemoBanner />
       <LinearGradient

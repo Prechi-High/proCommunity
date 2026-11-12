@@ -19,7 +19,7 @@ import * as clarity from "@/lib/clarity/api";
 import * as investigations from "@/lib/investigations/api";
 import * as api from "@/lib/profiles/api";
 import { useAppStore } from "@/lib/store";
-import { SOCIAL_IDENTITY } from "@/lib/social/identity";
+import { OwnUnmaskCard } from "@/components/social-home/OwnCard";
 
 function Stat({ value, label }: { value: string | number; label: string }) {
   return (
@@ -56,7 +56,7 @@ export default function You() {
   const wallet = useQuery({
     queryKey: ["spark-wallet", p?.id],
     queryFn: investigations.wallet,
-    enabled: !!p,
+    enabled: features.ultraUnmask && !!p,
   });
   const counts = useQuery({
     queryKey: ["profile-counts", p?.id],
@@ -76,11 +76,8 @@ export default function You() {
   const name = p?.displayName || identity.data?.display_name || "You";
 
   return (
-    <AppShell
-      title={SOCIAL_IDENTITY.myUnmaskTitle}
-      notify
-      subtitle={SOCIAL_IDENTITY.myUnmaskLead}
-    >
+    <AppShell title="You" notify>
+      <OwnUnmaskCard />
       {!p ? (
         <View style={{ gap: 20, paddingTop: 8 }}>
           <View style={{ alignItems: "center", gap: 12, paddingVertical: 12 }}>
@@ -165,16 +162,18 @@ export default function You() {
               }
               label="Following"
             />
-            <Stat
-              value={
-                wallet.isLoading
-                  ? "—"
-                  : wallet.isError
+            {features.ultraUnmask ? (
+              <Stat
+                value={
+                  wallet.isLoading
                     ? "—"
-                    : (wallet.data?.sparks ?? 0)
-              }
-              label="Sparks"
-            />
+                    : wallet.isError
+                      ? "—"
+                      : (wallet.data?.sparks ?? 0)
+                }
+                label="Sparks"
+              />
+            ) : null}
           </View>
           <ActionButton
             tone="secondary"

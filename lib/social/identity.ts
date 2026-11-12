@@ -13,14 +13,14 @@ export const SOCIAL_IDENTITY = {
 
 export const IDENTITY_PROMPTS = [
   {
-    title: "Share a moment",
-    line: "Photo or video with what you are using now.",
-    href: "/contribute",
+    title: "Add to your story",
+    line: "Right now. A photo or a short video.",
+    href: "/moment/new",
   },
   {
-    title: "Show your shelf",
-    line: "What is in your routine right now?",
-    href: "/products",
+    title: "Post",
+    line: "Something you want to keep.",
+    href: "/post/new",
   },
   {
     title: "Start a timeline",

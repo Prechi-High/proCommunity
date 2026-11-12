@@ -22,9 +22,9 @@ import { features } from "@/lib/features";
 import { subscriptions } from "@/lib/living/api";
 import { entrySeen } from "@/lib/entry/api";
 import { IdentityPrompts } from "@/components/social/IdentityPrompts";
+import { CommunitySocial } from "@/components/social-home/SocialDoor";
 import { loadHomeFeed } from "@/lib/unmask/feed";
 import { feedForRelease } from "@/lib/unmask/publicFeed";
-import { SOCIAL_IDENTITY } from "@/lib/social/identity";
 import { DemoBanner } from "@/components/unmask-ui/DemoBanner";
 import { SAMPLE_FEED } from "@/lib/unmask/samples";
 import { useAppStore } from "@/lib/store";
@@ -75,8 +75,9 @@ export default function Community() {
       <View style={{ gap: 20, paddingTop: 10 }}>
         {features.creatorStudio ? <CreatorUpdates /> : null}
         {features.live || features.audioRooms ? <RealtimeRail /> : null}
-        <QuickActions />
+        <CommunitySocial />
         <IdentityPrompts />
+        <QuickActions />
         <View style={{ paddingHorizontal: 20, gap: 14, paddingTop: 8 }}>
           <View
             style={{
@@ -86,9 +87,6 @@ export default function Community() {
             }}
           >
             <View style={{ flex: 1, gap: 4 }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1.4, color: colors.brand }}>
-                {SOCIAL_IDENTITY.eyebrow}
-              </Text>
               <Text
                 accessibilityRole="header"
                 style={{
@@ -97,13 +95,13 @@ export default function Community() {
                   color: colors.ink,
                 }}
               >
-                {SOCIAL_IDENTITY.communityTitle}
+                Experiences
               </Text>
             </View>
             <UsersThree size={24} color={colors.brand} />
           </View>
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.inkSoft }}>
-            {SOCIAL_IDENTITY.communityLead}
+            What people kept. A post can stand without this.
           </Text>
           <DemoBanner />
           <FilterChips
