@@ -19,6 +19,7 @@ import * as clarity from "@/lib/clarity/api";
 import * as investigations from "@/lib/investigations/api";
 import * as api from "@/lib/profiles/api";
 import { useAppStore } from "@/lib/store";
+import { SOCIAL_IDENTITY } from "@/lib/social/identity";
 
 function Stat({ value, label }: { value: string | number; label: string }) {
   return (
@@ -76,9 +77,9 @@ export default function You() {
 
   return (
     <AppShell
-      title="You"
+      title={SOCIAL_IDENTITY.myUnmaskTitle}
       notify
-      subtitle="Your timelines, your experiences, and the Unmaskers you follow."
+      subtitle={SOCIAL_IDENTITY.myUnmaskLead}
     >
       {!p ? (
         <View style={{ gap: 20, paddingTop: 8 }}>
@@ -208,44 +209,46 @@ export default function You() {
               />
             </GroupedList>
           </View>
-          <View style={{ gap: 10 }}>
-            <Text
-              style={{
-                fontFamily: fonts.semibold,
-                fontSize: 13,
-                letterSpacing: 0.5,
-                color: colors.inkSoft,
-              }}
-            >
-              SPARKS
-            </Text>
-            <GroupedList>
-              <GroupedRow
-                label="Wallet"
-                detail={
-                  wallet.isError
-                    ? "Unavailable"
-                    : `${wallet.isLoading ? "—" : wallet.isError ? "—" : (wallet.data?.sparks ?? 0)}`
-                }
-                onPress={() => go("/wallet")}
-                last
-              />
-            </GroupedList>
-            {wallet.isError ? (
-              <StatusMessage kind="error" title="Couldn’t load balance." />
-            ) : null}
-            <Text
-              style={{
-                fontFamily: fonts.regular,
-                fontSize: 13,
-                lineHeight: 18,
-                color: colors.inkSoft,
-              }}
-            >
-              Sparks are support you can add from a question. 10 Sparks = ₦100.
-              They cannot buy an answer.
-            </Text>
-          </View>
+          {features.ultraUnmask ? (
+            <View style={{ gap: 10 }}>
+              <Text
+                style={{
+                  fontFamily: fonts.semibold,
+                  fontSize: 13,
+                  letterSpacing: 0.5,
+                  color: colors.inkSoft,
+                }}
+              >
+                SPARKS
+              </Text>
+              <GroupedList>
+                <GroupedRow
+                  label="Wallet"
+                  detail={
+                    wallet.isError
+                      ? "Unavailable"
+                      : `${wallet.isLoading ? "—" : wallet.isError ? "—" : (wallet.data?.sparks ?? 0)}`
+                  }
+                  onPress={() => go("/wallet")}
+                  last
+                />
+              </GroupedList>
+              {wallet.isError ? (
+                <StatusMessage kind="error" title="Couldn’t load balance." />
+              ) : null}
+              <Text
+                style={{
+                  fontFamily: fonts.regular,
+                  fontSize: 13,
+                  lineHeight: 18,
+                  color: colors.inkSoft,
+                }}
+              >
+                Sparks are support you can add from a question. 10 Sparks = ₦100.
+                They cannot buy an answer.
+              </Text>
+            </View>
+          ) : null}
           {features.creatorStudio && creator.data ? (
             <ActionButton
               label="Creator workspace"

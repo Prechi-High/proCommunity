@@ -21,7 +21,10 @@ import { colors, fonts } from "@/constants/theme";
 import { features } from "@/lib/features";
 import { subscriptions } from "@/lib/living/api";
 import { entrySeen } from "@/lib/entry/api";
+import { IdentityPrompts } from "@/components/social/IdentityPrompts";
 import { loadHomeFeed } from "@/lib/unmask/feed";
+import { feedForRelease } from "@/lib/unmask/publicFeed";
+import { SOCIAL_IDENTITY } from "@/lib/social/identity";
 import { DemoBanner } from "@/components/unmask-ui/DemoBanner";
 import { SAMPLE_FEED } from "@/lib/unmask/samples";
 import { useAppStore } from "@/lib/store";
@@ -43,8 +46,15 @@ export default function Community() {
     queryFn: subscriptions,
     enabled: !!uid,
   });
+  const filterOptions = useMemo(
+    () =>
+      features.ultraUnmask
+        ? ["All stories", "Experiences", "Questions", "Ultra Unmasks", "Following"]
+        : ["All stories", "Experiences", "Questions", "Following"],
+    [],
+  );
   const rows = useMemo(() => {
-    let list = demo ? SAMPLE_FEED : (feed.data ?? []);
+    let list = feedForRelease(demo ? SAMPLE_FEED : (feed.data ?? []));
     if (filter === "Questions")
       list = list.filter((x) => x.kind === "question");
     if (filter === "Experiences") list = list.filter((x) => x.kind === "experience");
@@ -66,6 +76,7 @@ export default function Community() {
         {features.creatorStudio ? <CreatorUpdates /> : null}
         {features.live || features.audioRooms ? <RealtimeRail /> : null}
         <QuickActions />
+        <IdentityPrompts />
         <View style={{ paddingHorizontal: 20, gap: 14, paddingTop: 8 }}>
           <View
             style={{
@@ -74,23 +85,31 @@ export default function Community() {
               alignItems: "center",
             }}
           >
-            <Text
-              accessibilityRole="header"
-              style={{
-                fontFamily: fonts.semibold,
-                fontSize: 22,
-                color: colors.ink,
-              }}
-            >
-              Community
-            </Text>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1.4, color: colors.brand }}>
+                {SOCIAL_IDENTITY.eyebrow}
+              </Text>
+              <Text
+                accessibilityRole="header"
+                style={{
+                  fontFamily: fonts.semibold,
+                  fontSize: 22,
+                  color: colors.ink,
+                }}
+              >
+                {SOCIAL_IDENTITY.communityTitle}
+              </Text>
+            </View>
             <UsersThree size={24} color={colors.brand} />
           </View>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.inkSoft }}>
+            {SOCIAL_IDENTITY.communityLead}
+          </Text>
           <DemoBanner />
           <FilterChips
             variant="chips"
-            options={["All stories", "Experiences", "Questions", "Ultra Unmasks", "Following"]}
-            value={filter}
+            options={filterOptions}
+            value={filterOptions.includes(filter) ? filter : filterOptions[0]}
             onChange={setFilter}
           />
         </View>

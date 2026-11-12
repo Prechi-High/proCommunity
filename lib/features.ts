@@ -2,8 +2,9 @@
  * Frontend layers for this release.
  *
  * The First 90 teaches one habit: share an experience, keep a Product Timeline,
- * search products, and spend time in the community. Creator Studio and live /
- * audio rooms stay in the repo. They are hidden until a flag below is true.
+ * search products, and spend time in the community. Creator Studio, live /
+ * audio rooms, and Ultra Unmask stay in the repo. They are hidden until a flag
+ * below is true.
  *
  * To bring a layer back, set its flag to true. Do not delete the screens,
  * LiveKit code, or API routes — a true flag should make the existing UI return.
@@ -15,6 +16,8 @@ export const features = {
   audioRooms: false,
   /** Live as its own discovery surface: /live and /live/session. */
   live: false,
+  /** Ultra Unmask: investigations, sparks-led cases, brand ask flows (Phase 4+). */
+  ultraUnmask: false,
 } as const;
 
 export type FeatureFlag = keyof typeof features;

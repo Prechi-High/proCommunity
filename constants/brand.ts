@@ -86,7 +86,7 @@ export const COPY = {
   todaySubtitle: "Lived stories, questions, and Ultra Unmasks.",
   unmaskTabSubtitle:
     "A product story. A bigger question. A creator who takes it further.",
-  productTabSubtitle: "Your products. Your progress. Private until you share.",
+  productTabSubtitle: "Your routines and timelines — private until you share.",
 } as const;
 
 export const BRAND_SECTIONS = {

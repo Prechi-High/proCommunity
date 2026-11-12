@@ -34,7 +34,7 @@ test("phase names follow the First 90 calendar", () => {
   assert.equal(phaseForDay(46)?.name, "Experience Becomes Intelligence");
   assert.equal(phaseForDay(56)?.name, "Seller Era");
   assert.equal(phaseForDay(66)?.name, "Something Is Coming");
-  assert.equal(phaseForDay(71)?.name, "Ultra Unmask Reveal");
+  assert.equal(phaseForDay(71)?.name, "The next layer");
   assert.equal(phaseForDay(76)?.name, "Seller Audio Room Reveal");
   assert.equal(phaseForDay(81)?.name, "The Future of Buying");
   assert.equal(phaseForDay(86)?.name, "Final Countdown");

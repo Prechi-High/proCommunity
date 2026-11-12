@@ -12,6 +12,7 @@ import {
 } from "@/components/icons";
 import { colors, fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
+import { features } from "@/lib/features";
 const body = {
   fontFamily: fonts.regular,
   fontSize: 15,
@@ -65,7 +66,7 @@ export function DiscoveryHero() {
             Buy with{"\n"}clarity.
           </Text>
           <Text style={body}>
-            See real experiences. Ask people who’ve tried it.
+            Show yourself. See real experiences. Ask people who’ve tried it.
           </Text>
         </View>
         <Image
@@ -158,6 +159,7 @@ export function QuickActions() {
 }
 export function UltraInvitation() {
   const r = useRouter();
+  if (!features.ultraUnmask) return null;
   return (
     <Pressable
       accessibilityRole="link"

@@ -30,6 +30,7 @@ import {
 import { ProductIdentity } from "@/components/community/ProductIdentity";
 import { COPY } from "@/constants/brand";
 import { colors, fonts } from "@/constants/theme";
+import { features } from "@/lib/features";
 import { routeId } from "@/lib/catalog";
 import * as clarity from "@/lib/clarity/api";
 import * as living from "@/lib/living/api";
@@ -243,8 +244,7 @@ export default function ProductPage() {
           </Text>
         </Pressable>
         <Text style={{ ...bodyStyle, fontSize: 12, lineHeight: 18 }}>
-          Follow for new public experiences, questions and Ultra Unmasks in your
-          notifications.
+          Follow for new public experiences and questions in your notifications.
         </Text>
       </View>
       {waiting ? (
@@ -252,7 +252,9 @@ export default function ProductPage() {
       ) : (
         <Text style={bodyStyle}>
           {count
-            ? `${stories.length} experiences · ${asks.length} questions · ${timelines.data?.length || 0} timelines · ${cases.length} Ultra Unmasks`
+            ? features.ultraUnmask
+              ? `${stories.length} experiences · ${asks.length} questions · ${timelines.data?.length || 0} timelines · ${cases.length} Ultra Unmasks`
+              : `${stories.length} experiences · ${asks.length} questions · ${timelines.data?.length || 0} timelines`
             : "No public experiences yet. Your question could start the conversation."}
         </Text>
       )}
@@ -432,14 +434,14 @@ export default function ProductPage() {
         </View>
         <ArrowRight size={20} color={colors.brandDeep} />
       </Pressable>
-      {cases.length ? (
+      {features.ultraUnmask && cases.length ? (
         <>
           <Text style={section}>Taken further with Ultra Unmask</Text>
           {cases.map((item) => (
             <StoryCard key={item.id} item={item} />
           ))}
         </>
-      ) : !example && unmasks.isLoading ? (
+      ) : features.ultraUnmask && !example && unmasks.isLoading ? (
         <ContentSkeleton rows={1} />
       ) : null}
     </AppShell>
