@@ -8,6 +8,9 @@ import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { CINEMATIC_AT } from "@/lib/movement/frame";
 
+import { AmbientCanvas } from "@/components/lively";
+import { GlassCard } from "@/components/lively";
+
 import { CommunityWithUs } from "./CommunityWithUs";
 import { First90 } from "./First90";
 import { OrientationFilm } from "./OrientationFilm";
@@ -74,6 +77,7 @@ export function MovementHome() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: palette.page }} edges={["top"]}>
+      <AmbientCanvas variant="page">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 72 }}>
         <View style={{ paddingHorizontal: wide ? 56 : 24, paddingTop: 12, paddingBottom: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: palette.wine, letterSpacing: -0.4 }}>Unmask</Text>
@@ -138,10 +142,12 @@ export function MovementHome() {
               What you can do now.
             </Text>
           </View>
-          <View style={{ backgroundColor: palette.card, borderRadius: 28, borderWidth: 1, borderColor: palette.line, padding: 18, gap: 14 }}>
-            <SearchField value={query} onChange={setQuery} onSubmit={search} placeholder="Search a product" />
-            {query.trim().length > 1 ? <MovementButton label="Search products" onPress={search} /> : null}
-          </View>
+          <GlassCard>
+            <View style={{ gap: 14 }}>
+              <SearchField value={query} onChange={setQuery} onSubmit={search} placeholder="Search a product" />
+              {query.trim().length > 1 ? <MovementButton label="Search products" onPress={search} /> : null}
+            </View>
+          </GlassCard>
           <View style={{ gap: 12 }}>
             {OPEN.map((item, index) => (
               <Pressable
@@ -153,16 +159,10 @@ export function MovementHome() {
                   go(item.href);
                 }}
                 style={({ pressed }) => ({
-                  minHeight: 112,
-                  borderRadius: 24,
-                  overflow: "hidden",
-                  borderWidth: 1,
-                  borderColor: palette.line,
-                  backgroundColor: pressed ? palette.quiet : palette.card,
-                  flexDirection: "row",
-                  alignItems: "stretch",
+                  opacity: pressed ? 0.92 : 1,
                 })}
               >
+                <GlassCard padded={false} style={{ overflow: "hidden", flexDirection: "row", alignItems: "stretch", minHeight: 112 }}>
                 <Image
                   source={index % 2 === 0 ? require("../../assets/unmask-reference/scan-product.png") : require("../../assets/brand/ultra-veil.jpg")}
                   accessibilityIgnoresInvertColors
@@ -173,6 +173,7 @@ export function MovementHome() {
                   <Text style={{ fontFamily: fonts.semibold, fontSize: 20, lineHeight: 26, color: palette.ink }}>{item.title}</Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: palette.muted }}>{item.line}</Text>
                 </View>
+                </GlassCard>
               </Pressable>
             ))}
           </View>
@@ -203,6 +204,7 @@ export function MovementHome() {
           </View>
         </View>
       </ScrollView>
+      </AmbientCanvas>
     </SafeAreaView>
   );
 }

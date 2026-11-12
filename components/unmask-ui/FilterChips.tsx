@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 
-import { colors, elevation, fonts } from "@/constants/theme";
+import { LinearGradient } from "expo-linear-gradient";
+import { colors, elevation, fonts, glass, livelyRadii, livelyGradients } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 
 export function FilterChips({
@@ -34,18 +35,34 @@ export function FilterChips({
               }}
               style={{
                 minHeight: 44,
-                paddingHorizontal: 14,
-                borderRadius: 999,
+                paddingHorizontal: 16,
+                borderRadius: livelyRadii.chip,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: on ? colors.brandDeep : colors.mist,
+                overflow: "hidden",
+                backgroundColor: on ? "transparent" : glass.fill,
+                borderWidth: 1,
+                borderColor: on ? "transparent" : glass.strokeMuted,
+                ...(!on ? elevation.raised : {}),
               }}
             >
+              {on ? (
+                <LinearGradient
+                  colors={[...livelyGradients.action]}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                  }}
+                />
+              ) : null}
               <Text
                 style={{
                   fontFamily: fonts.medium,
                   fontSize: 14,
-                  color: on ? colors.white : colors.ink,
+                  color: on ? "#F7F1EA" : colors.ink,
                 }}
               >
                 {opt}

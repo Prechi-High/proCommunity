@@ -13,6 +13,8 @@ import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/lib/store";
 import { useScan } from "@/lib/useScan";
 
+import { GlassCard } from "@/components/lively";
+
 import { useMovementPalette } from "./palette";
 
 export function MemberHome() {
@@ -73,11 +75,13 @@ export function MemberHome() {
       ) : null}
       {timelines.isError ? <StatusMessage kind="error" title="Your timelines couldn’t load." detail="Search and the community are still open." /> : null}
 
-      <View style={{ gap: 12, padding: 16, borderRadius: 24, backgroundColor: palette.card, borderWidth: 1, borderColor: palette.line }}>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 22, lineHeight: 28, color: palette.ink }}>Start with one product.</Text>
-        <SearchField value={query} onChange={setQuery} onSubmit={search} onCamera={scan.openCamera} placeholder="Which product are you using?" />
-        {query.trim().length > 1 ? <ActionButton label="Search products" onPress={search} /> : null}
-      </View>
+      <GlassCard>
+        <View style={{ gap: 12 }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 22, lineHeight: 28, color: palette.ink }}>Start with one product.</Text>
+          <SearchField value={query} onChange={setQuery} onSubmit={search} onCamera={scan.openCamera} placeholder="Which product are you using?" />
+          {query.trim().length > 1 ? <ActionButton label="Search products" onPress={search} /> : null}
+        </View>
+      </GlassCard>
       {scan.sheet}
 
       {count === 0 ? (
@@ -93,25 +97,19 @@ export function MemberHome() {
           hapticSelect();
           router.navigate("/community" as Href);
         }}
-        style={({ pressed }) => ({
-          minHeight: 88,
-          borderRadius: 24,
-          padding: 18,
-          backgroundColor: pressed ? palette.quiet : palette.card,
-          borderWidth: 1,
-          borderColor: palette.line,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-        })}
+        style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
       >
-        <View style={{ flex: 1, gap: 4 }}>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: palette.ink }}>Community</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: palette.muted }}>
-            See what other Unmaskers have shared. Ask before you buy.
-          </Text>
-        </View>
-        <ArrowRight size={20} color={palette.wine} />
+        <GlassCard>
+          <View style={{ minHeight: 72, flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: palette.ink }}>Community</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: palette.muted }}>
+                See what other Unmaskers have shared. Ask before you buy.
+              </Text>
+            </View>
+            <ArrowRight size={20} color={palette.wine} />
+          </View>
+        </GlassCard>
       </Pressable>
 
       <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: palette.muted }}>The next layer is coming.</Text>

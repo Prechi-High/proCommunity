@@ -79,6 +79,7 @@ export default function You() {
     <AppShell
       title={SOCIAL_IDENTITY.myUnmaskTitle}
       notify
+      ambient="page"
       subtitle={SOCIAL_IDENTITY.myUnmaskLead}
     >
       {!p ? (

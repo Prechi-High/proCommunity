@@ -24,6 +24,7 @@ import { entrySeen } from "@/lib/entry/api";
 import { IdentityPrompts } from "@/components/social/IdentityPrompts";
 import { loadHomeFeed } from "@/lib/unmask/feed";
 import { feedForRelease } from "@/lib/unmask/publicFeed";
+import { StoryRail } from "@/components/lively";
 import { SOCIAL_IDENTITY } from "@/lib/social/identity";
 import { DemoBanner } from "@/components/unmask-ui/DemoBanner";
 import { SAMPLE_FEED } from "@/lib/unmask/samples";
@@ -71,8 +72,9 @@ export default function Community() {
   }, [feed.data, filter, subs.data, demo]);
   if (!uid && seen === null) return <AppShell notify><StorySkeleton /></AppShell>;
   return (
-    <AppShell notify flush>
+    <AppShell notify flush ambient="social">
       <View style={{ gap: 20, paddingTop: 10 }}>
+        <StoryRail />
         {features.creatorStudio ? <CreatorUpdates /> : null}
         {features.live || features.audioRooms ? <RealtimeRail /> : null}
         <QuickActions />

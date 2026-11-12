@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   MagnifyingGlass,
 } from "@/components/icons";
-import { colors, fonts } from "@/constants/theme";
+import { colors, fonts, glass, livelyElevation, livelyRadii } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { features } from "@/lib/features";
 const body = {
@@ -128,9 +128,12 @@ export function QuickActions() {
             flex: 1,
             minHeight: 112,
             padding: 14,
-            borderRadius: 19,
-            backgroundColor: pressed ? "#EBE4DF" : bg,
+            borderRadius: livelyRadii.card,
+            backgroundColor: pressed ? glass.fill : glass.fillStrong,
+            borderWidth: 1,
+            borderColor: glass.strokeMuted,
             gap: 6,
+            ...livelyElevation.card,
           })}
         >
           <Icon size={24} color={fg} />

@@ -1,6 +1,9 @@
 import { Platform, type ViewStyle } from "react-native";
 
 import { BRAND_COPY } from "./brand";
+import { livelyRadii } from "./design-language";
+
+export { DESIGN_LANGUAGE_NAME, DESIGN_LANGUAGE_VERSION, glass, livelyGradients, livelyElevation, livelyRadii, livelySpace } from "./design-language";
 
 /**
  * Unmask visual system — white reading surface, wine actions, gold Sparks.
@@ -116,15 +119,15 @@ export function applyThemeColors(mode: Exclude<ThemeMode, "system"> | "system", 
 
 
 export const radii = {
-  card: 22,
-  button: 16,
-  photo: 20,
-  chip: 999,
-  notice: 14,
-  thumb: 14,
-  search: 14,
-  ib: 14,
-  sheet: 28,
+  card: livelyRadii.card,
+  button: livelyRadii.button,
+  photo: livelyRadii.card,
+  chip: livelyRadii.chip,
+  notice: 16,
+  thumb: livelyRadii.story,
+  search: livelyRadii.input,
+  ib: livelyRadii.input,
+  sheet: livelyRadii.hero,
 } as const;
 
 export const space = {
