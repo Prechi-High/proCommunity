@@ -60,8 +60,8 @@ export function EntryPage({
             ) : null}
             <Text
               style={{
-                fontFamily: fonts.displayBold,
-                fontSize: 30,
+                fontFamily: fonts.bold,
+                fontSize: 28,
                 color: colors.brandDeep,
               }}
             >
@@ -79,10 +79,10 @@ export function EntryTitle({ children }: { children: ReactNode }) {
     <Text
       accessibilityRole="header"
       style={{
-        fontFamily: fonts.displayBold,
-        fontSize: 40,
-        lineHeight: 44,
-        letterSpacing: -1.2,
+        fontFamily: fonts.bold,
+        fontSize: 32,
+        lineHeight: 38,
+        letterSpacing: -0.4,
         color: colors.ink,
         marginTop: 16,
       }}

@@ -59,9 +59,9 @@ function DayMark({ state }: { state: First90State }) {
         accessibilityRole="header"
         style={{
           fontFamily: fonts.displayBold,
-          fontSize: state.status === "before" ? 64 : 92,
-          lineHeight: state.status === "before" ? 68 : 92,
-          letterSpacing: -3,
+          fontSize: state.status === "before" ? 48 : 64,
+          lineHeight: state.status === "before" ? 54 : 68,
+          letterSpacing: -1.2,
           color: palette.ink,
         }}
       >
@@ -112,7 +112,7 @@ export function First90({ now = new Date() }: { now?: Date }) {
           <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 2.2, color: palette.gold }}>
             THE FIRST 90
           </Text>
-          <Text style={{ fontFamily: fonts.display, fontSize: 28, lineHeight: 32, color: palette.ink, textAlign: stacked ? "left" : "right" }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 22, lineHeight: 28, color: palette.ink, textAlign: stacked ? "left" : "right" }}>
             {state.phase}
           </Text>
         </View>

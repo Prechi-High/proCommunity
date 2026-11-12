@@ -95,7 +95,7 @@ export function OrientationFilm() {
         )}
       </View>
       <Text style={{ fontFamily: fonts.medium, fontSize: 13, letterSpacing: 0.4, color: palette.gold }}>{embed ? "PLAY THE ORIENTATION" : "FILM TO COME"}</Text>
-      <Text style={{ fontFamily: fonts.display, fontSize: 26, lineHeight: 31, color: palette.ink }}>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 22, lineHeight: 28, color: palette.ink }}>
         {embed ? "Watch the map." : "A film will sit here."}
       </Text>
       <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: palette.muted }}>{CAPTION}</Text>

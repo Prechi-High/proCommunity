@@ -8,6 +8,7 @@ import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { CINEMATIC_AT } from "@/lib/movement/frame";
 
+import { CommunityWithUs } from "./CommunityWithUs";
 import { First90 } from "./First90";
 import { OrientationFilm } from "./OrientationFilm";
 import { useMovementPalette } from "./palette";
@@ -55,10 +56,10 @@ export function MovementHome() {
       <Text style={{ fontFamily: fonts.medium, fontSize: 12, letterSpacing: 2.6, color: palette.gold }}>
         KNOW BEFORE YOU BUY
       </Text>
-      <Text accessibilityRole="header" style={{ fontFamily: fonts.displayBold, fontSize: wide ? 76 : 44, lineHeight: wide ? 78 : 48, letterSpacing: -1.6, color: palette.ink }}>
+      <Text accessibilityRole="header" style={{ fontFamily: fonts.displayBold, fontSize: wide ? 64 : 40, lineHeight: wide ? 70 : 48, letterSpacing: -0.8, color: palette.ink }}>
         Don’t just buy.{"\n"}Unmask.
       </Text>
-      <Text style={{ fontFamily: fonts.display, fontSize: wide ? 32 : 26, lineHeight: wide ? 40 : 34, color: palette.wine }}>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: wide ? 24 : 20, lineHeight: wide ? 32 : 28, color: palette.wine }}>
         Context creates clarity.{"\n"}Clarity creates confidence.
       </Text>
       <Text style={{ fontFamily: fonts.regular, fontSize: 18, lineHeight: 28, color: palette.muted, maxWidth: 460 }}>
@@ -75,7 +76,7 @@ export function MovementHome() {
     <SafeAreaView style={{ flex: 1, backgroundColor: palette.page }} edges={["top"]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 72 }}>
         <View style={{ paddingHorizontal: wide ? 56 : 24, paddingTop: 12, paddingBottom: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text style={{ fontFamily: fonts.displayBold, fontSize: 32, color: palette.wine, letterSpacing: -0.8 }}>Unmask</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: palette.wine, letterSpacing: -0.4 }}>Unmask</Text>
           <TextLink label="Sign in" color={palette.ink} onPress={() => go("/(auth)/sign-in")} />
         </View>
 
@@ -86,9 +87,13 @@ export function MovementHome() {
           </View>
         </View>
 
+        <View style={{ paddingHorizontal: wide ? 56 : 24, paddingBottom: 28 }}>
+          <CommunityWithUs />
+        </View>
+
         <View style={{ paddingHorizontal: wide ? 56 : 24, gap: 18 }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, letterSpacing: 2.6, color: palette.gold }}>COUNTDOWN WITH US</Text>
-          <Text style={{ fontFamily: fonts.displayBold, fontSize: wide ? 56 : 40, lineHeight: wide ? 58 : 44, letterSpacing: -1.6, color: palette.ink, maxWidth: 720 }}>
+          <Text style={{ fontFamily: fonts.displayBold, fontSize: wide ? 40 : 32, lineHeight: wide ? 48 : 40, letterSpacing: -0.6, color: palette.ink, maxWidth: 720 }}>
             We are building Unmask in public.
           </Text>
           <First90 />
@@ -97,7 +102,7 @@ export function MovementHome() {
         <View style={{ paddingHorizontal: wide ? 56 : 24, paddingTop: 64, gap: 28 }}>
           <View style={{ gap: 12, maxWidth: 640 }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 12, letterSpacing: 2.6, color: palette.gold }}>THE HABIT</Text>
-            <Text accessibilityRole="header" style={{ fontFamily: fonts.displayBold, fontSize: wide ? 56 : 40, lineHeight: wide ? 58 : 44, letterSpacing: -1.5, color: palette.ink }}>
+            <Text accessibilityRole="header" style={{ fontFamily: fonts.displayBold, fontSize: wide ? 40 : 32, lineHeight: wide ? 48 : 40, letterSpacing: -0.6, color: palette.ink }}>
               Start with one product.
             </Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 17, lineHeight: 26, color: palette.muted }}>
@@ -114,7 +119,7 @@ export function MovementHome() {
             <View style={{ flex: 1, gap: 18, justifyContent: "center" }}>
               {HABIT.map((step) => (
                 <View key={step.n} style={{ flexDirection: "row", gap: 16, alignItems: "flex-start" }}>
-                  <Text style={{ fontFamily: fonts.display, fontSize: 22, color: palette.gold, width: 42 }}>{step.n}</Text>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: palette.gold, width: 36 }}>{step.n}</Text>
                   <View style={{ flex: 1, gap: 4, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: palette.line }}>
                     <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: palette.ink }}>{step.title}</Text>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: palette.muted }}>{step.line}</Text>
@@ -129,7 +134,7 @@ export function MovementHome() {
         <View style={{ paddingHorizontal: wide ? 56 : 24, paddingTop: 64, gap: 22 }}>
           <View style={{ gap: 10, maxWidth: 640 }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 12, letterSpacing: 2.6, color: palette.gold }}>OPEN TODAY</Text>
-            <Text accessibilityRole="header" style={{ fontFamily: fonts.displayBold, fontSize: wide ? 48 : 36, lineHeight: wide ? 52 : 40, letterSpacing: -1.2, color: palette.ink }}>
+            <Text accessibilityRole="header" style={{ fontFamily: fonts.displayBold, fontSize: wide ? 36 : 28, lineHeight: wide ? 44 : 36, letterSpacing: -0.4, color: palette.ink }}>
               What you can do now.
             </Text>
           </View>
@@ -165,7 +170,7 @@ export function MovementHome() {
                   resizeMode="cover"
                 />
                 <View style={{ flex: 1, paddingHorizontal: 18, paddingVertical: 16, gap: 6, justifyContent: "center" }}>
-                  <Text style={{ fontFamily: fonts.display, fontSize: 28, lineHeight: 32, color: palette.ink }}>{item.title}</Text>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 20, lineHeight: 26, color: palette.ink }}>{item.title}</Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: palette.muted }}>{item.line}</Text>
                 </View>
               </Pressable>
@@ -175,18 +180,18 @@ export function MovementHome() {
 
         <View style={{ paddingHorizontal: wide ? 56 : 24, paddingTop: 72, gap: 18, maxWidth: 760 }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, letterSpacing: 2.6, color: palette.gold }}>THE UNMASKING WAY</Text>
-          <Text accessibilityRole="header" style={{ fontFamily: fonts.displayBold, fontSize: wide ? 48 : 36, lineHeight: wide ? 52 : 40, letterSpacing: -1.2, color: palette.ink }}>
+          <Text accessibilityRole="header" style={{ fontFamily: fonts.displayBold, fontSize: wide ? 36 : 28, lineHeight: wide ? 44 : 36, letterSpacing: -0.4, color: palette.ink }}>
             The Unmasker Code.
           </Text>
           {CODE.map((line) => (
-            <Text key={line} style={{ fontFamily: fonts.display, fontSize: wide ? 32 : 26, lineHeight: wide ? 40 : 34, color: palette.ink }}>
+            <Text key={line} style={{ fontFamily: fonts.semibold, fontSize: wide ? 24 : 20, lineHeight: wide ? 32 : 28, color: palette.ink }}>
               {line}
             </Text>
           ))}
         </View>
 
         <View style={{ paddingHorizontal: wide ? 56 : 24, paddingTop: 72, gap: 18, maxWidth: 680 }}>
-          <Text style={{ fontFamily: fonts.displayBold, fontSize: wide ? 56 : 40, lineHeight: wide ? 60 : 46, letterSpacing: -1.5, color: palette.ink }}>
+          <Text style={{ fontFamily: fonts.displayBold, fontSize: wide ? 40 : 32, lineHeight: wide ? 48 : 40, letterSpacing: -0.5, color: palette.ink }}>
             The next layer is coming.
           </Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 17, lineHeight: 26, color: palette.muted }}>

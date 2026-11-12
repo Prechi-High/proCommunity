@@ -55,7 +55,7 @@ export function MemberHome() {
     <View style={{ gap: 22, paddingTop: 8 }}>
       <View style={{ gap: 8 }}>
         <Text style={{ fontFamily: fonts.medium, fontSize: 12, letterSpacing: 2.2, color: palette.gold }}>{dayLine.toUpperCase()}</Text>
-        <Text accessibilityRole="header" style={{ fontFamily: fonts.displayBold, fontSize: 40, lineHeight: 44, letterSpacing: -1.2, color: palette.ink }}>
+        <Text accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 32, lineHeight: 38, letterSpacing: -0.4, color: palette.ink }}>
           {name}, you are an Unmasker.
         </Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: palette.muted }}>{movement.line}</Text>
@@ -74,7 +74,7 @@ export function MemberHome() {
       {timelines.isError ? <StatusMessage kind="error" title="Your timelines couldn’t load." detail="Search and the community are still open." /> : null}
 
       <View style={{ gap: 12, padding: 16, borderRadius: 24, backgroundColor: palette.card, borderWidth: 1, borderColor: palette.line }}>
-        <Text style={{ fontFamily: fonts.display, fontSize: 26, lineHeight: 30, color: palette.ink }}>Start with one product.</Text>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 22, lineHeight: 28, color: palette.ink }}>Start with one product.</Text>
         <SearchField value={query} onChange={setQuery} onSubmit={search} onCamera={scan.openCamera} placeholder="Which product are you using?" />
         {query.trim().length > 1 ? <ActionButton label="Search products" onPress={search} /> : null}
       </View>
