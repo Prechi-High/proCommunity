@@ -38,6 +38,7 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
     likes: 1,
     comments: 0,
     thread: [],
+    stickers: post.stickers,
     invite: post.destination === "both" ? "On your post and your story." : "This one is yours.",
   }));
 
@@ -175,6 +176,7 @@ function MomentCard({
           {item.skin ? <Chip label={`Skin · ${item.skin}`} gold /> : null}
           {item.product ? <Chip label={item.product} /> : null}
           {item.timeline ? <Chip label={item.timeline} /> : null}
+          {item.stickers?.map((label) => <Chip key={label} label={label} />)}
         </View>
         <View style={{ flexDirection: "row", gap: 18, alignItems: "center" }}>
           <Pressable accessibilityRole="button" accessibilityLabel={`${likeCount} likes`} onPress={() => { hapticSelect(); onLove(); }} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>

@@ -21,6 +21,7 @@ export type PulseMoment = {
   comments: number;
   thread: PulseComment[];
   invite: string;
+  stickers?: string[];
 };
 
 export const PREVIEW_MOMENTS: PulseMoment[] = [
