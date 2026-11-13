@@ -36,9 +36,9 @@ Dark is the default on every `AppShell` page. Settings → Theme switches to lig
 
 Posts show a skin chip, product, timeline, like count, and comment count. Tapping a post opens that post. The comment sheet only lists comments; “Join the conversation” enters the post, and that is where a comment is written.
 
-Under the story rings, each teaser has a photo and a sentence that says what it is. Tapping it explains the context (ask the brand about your own experience, ask an expert, talk with the seller, open a store, watch the film). Locked layers stay closed until after the First 90.
+Under the story rings, teaser slips are short trailers: an emotional hook, a clear call to action (Ask the brand, Ask an expert, Talk with the seller, Create your store, See what Unmask is), and a **Coming soon** label on locked layers after the First 90. Tap for the longer explanation.
 
-Tapping someone else’s story plays that story. The camera opens only when you add a story. If you already have one, the ring plays it and a small plus adds another. The shutter takes a photo on tap and a video if you hold it.
+Stories play in a WhatsApp-familiar viewer: progress bars across the top, about six seconds per status, then the next person in the ring. The header shows profile photo and name. The camera opens only when you add your story. If you already have one, the ring plays it and a small plus adds another. The shutter takes a photo on tap and a video if you hold it.
 
 Light paper that does not follow the theme is not used for headings. Cards use the theme surface so dark-mode ink stays readable. Photo captions stay on a dark scrim.
 
