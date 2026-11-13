@@ -221,7 +221,7 @@ export function PublicProfile({
           explanation="Following is available on real creator profiles."
         />
       ) : (
-        <FollowButton type="person" id={id} />
+        <FollowButton type="person" id={id} preferences />
       )}
       <ActionButton tone="ghost" label="Share" onPress={() => void share()} />
       {error ? <StatusMessage kind="error" title={error} /> : null}

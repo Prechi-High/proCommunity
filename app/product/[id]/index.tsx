@@ -1,6 +1,6 @@
 import { PersonAvatar } from "@/components/unmask-ui/PersonAvatar";
 import { identity } from "@/lib/profiles/api";
-import { Bell, Check, PencilSimple } from "@/components/icons";
+import { Bell, Check } from "@/components/icons";
 import { searchCommunityProducts } from "@/lib/unmask/communitySearch";
 import { exactCommunityMatch } from "@/lib/unmask/productIdentityMatch";
 import { SAMPLE_FEED, SAMPLE_SHELF } from "@/lib/unmask/samples";
@@ -23,7 +23,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import {
   ChatCircle,
   Plus,
-  Clock,
   ArrowRight,
   UsersThree,
 } from "@/components/icons";
@@ -101,6 +100,14 @@ export default function ProductPage() {
     queryFn: () => browse(q || known?.name || "", "All", "Recent"),
   });
 
+  const myTimelines = useQuery({
+    queryKey: ["my-product-journeys", pid, uid],
+    queryFn: async () => {
+      const rows = await living.journeys();
+      return rows.filter((j) => j.product_id === pid);
+    },
+    enabled: !!uid && !pid.startsWith("demo-"),
+  });
   const timelines = useQuery({
     queryKey: ["product-public-timelines", pid],
     queryFn: async () => {
@@ -258,54 +265,22 @@ export default function ProductPage() {
             : "No public experiences yet. Your question could start the conversation."}
         </Text>
       )}
-      <View style={{ flexDirection: "row", gap: 12 }}>
-        {[
-          {
-            label: "Track my use",
-            detail: "Keep your own story",
-            Icon: Clock,
-            path: `/products/add?product=${encodeURIComponent(pid)}`,
-          },
-          {
-            label: "Share my experience",
-            detail: "Help someone decide",
-            Icon: PencilSimple,
-            path: `/contribute?product=${encodeURIComponent(pid)}`,
-          },
-        ].map(({ label, detail, Icon, path }) => (
-          <Pressable
-            key={label}
-            accessibilityRole="button"
-            disabled={!!example}
-            onPress={() => router.push(path as Href)}
-            style={({ pressed }) => ({
-              flex: 1,
-              padding: 17,
-              borderRadius: 21,
-              borderWidth: 1,
-              borderColor: colors.line,
-              gap: 10,
-              backgroundColor: pressed ? colors.mist : colors.stage,
-              opacity: example ? 0.5 : 1,
-            })}
-          >
-            <Icon size={23} color={colors.brandDeep} />
-            <Text
-              style={{
-                fontFamily: fonts.semibold,
-                fontSize: 15,
-                color: colors.ink,
-              }}
-            >
-              {label}
-            </Text>
-            <Text style={{ ...bodyStyle, fontSize: 12, lineHeight: 18 }}>
-              {detail}
-            </Text>
-            <ArrowRight size={18} color={colors.brandDeep} />
-          </Pressable>
-        ))}
-      </View>
+      {example ? null : myTimelines.data?.length ? (
+        <ActionButton
+          label="Add an update to my timeline"
+          onPress={() =>
+            router.push(`/journey/${myTimelines.data![0].id}/update` as Href)
+          }
+        />
+      ) : (
+        <ActionButton
+          label="Start my product timeline"
+          onPress={() =>
+            router.push(`/products/add?product=${encodeURIComponent(pid)}` as Href)
+          }
+        />
+      )}
+      <ActionButton tone="ghost" label="Ask before you buy" onPress={ask} />
       {follow.isError ? (
         <StatusMessage
           kind="error"

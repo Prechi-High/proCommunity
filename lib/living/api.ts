@@ -89,25 +89,42 @@ export async function journey(id: string) {
 }
 export async function saveJourney(
   row: Partial<Journey> & { product_id: string; acquisition: string },
+  opts?: { journeyId?: string; createNew?: boolean },
 ) {
   const uid = await userId();
-  const existing = unwrap<{ id: string } | null>(
-    await db()
-      .from("unmask_journeys")
-      .select("id")
-      .eq("user_id", uid)
-      .eq("product_id", row.product_id)
-      .maybeSingle(),
-  );
-  if (existing)
+  if (opts?.journeyId) {
     return unwrap<Journey>(
       await db()
         .from("unmask_journeys")
         .update(row)
-        .eq("id", existing.id)
+        .eq("id", opts.journeyId)
+        .eq("user_id", uid)
         .select()
         .single(),
     );
+  }
+  if (!opts?.createNew) {
+    const existing = unwrap<{ id: string } | null>(
+      await db()
+        .from("unmask_journeys")
+        .select("id")
+        .eq("user_id", uid)
+        .eq("product_id", row.product_id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    );
+    if (existing) {
+      return unwrap<Journey>(
+        await db()
+          .from("unmask_journeys")
+          .update(row)
+          .eq("id", existing.id)
+          .select()
+          .single(),
+      );
+    }
+  }
   return unwrap<Journey>(
     await db()
       .from("unmask_journeys")
@@ -116,6 +133,7 @@ export async function saveJourney(
       .single(),
   );
 }
+
 export async function patchJourney(id: string, row: Partial<Journey>) {
   await userId();
   unwrap(

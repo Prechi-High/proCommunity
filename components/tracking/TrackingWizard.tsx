@@ -1,3 +1,4 @@
+import { isBeautyCatalogItem } from "@/lib/unmask/beautyCatalog";
 import { exactCommunityMatch } from "@/lib/unmask/productIdentityMatch";
 import Animated, { FadeIn, useReducedMotion } from "react-native-reanimated";
 import { useScan } from "@/lib/useScan";
@@ -29,6 +30,7 @@ import { useTrackingDraft } from "@/lib/tracking/draft";
 import {
   AppShell,
   ActionButton,
+  ActionSheet,
   FilterChips,
   SearchField,
   StatusMessage,
@@ -61,6 +63,14 @@ export function TrackingWizard({
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [journeyPick, setJourneyPick] = useState<{
+    id: string;
+    name: string;
+    brand: string;
+    category: string;
+    image_url: string | null;
+    journeyIds: string[];
+  } | null>(null);
   const draft = useTrackingDraft(
     `unmask:tracking:${uid || "guest"}:${journeyId || productId || "new"}`,
     {
@@ -84,6 +94,7 @@ export function TrackingWizard({
       routineOn: false,
       time: "19:00",
       updateId: tracking.operationId(),
+      createNewTimeline: false,
     },
     uid && resumeGuest ? `unmask:tracking:guest:${resumeGuest}` : undefined,
   );
@@ -91,26 +102,10 @@ export function TrackingWizard({
   const set = (patch: Partial<typeof d>) =>
     draft.setValue((v) => ({ ...v, ...patch }));
   const reduce = useReducedMotion();
-  const scan = useScan({
-    onSelect: async (product, photo) => {
-      try {
-        product =
-          exactCommunityMatch(
-            product,
-            await searchCommunityProducts(product.name),
-          ) || product;
-      } catch {}
-      set({
-        capturedProduct: photo,
-        ownership: photo,
-        product: product.id,
-        productName: product.name,
-        productBrand: product.brand,
-        productCategory: product.category,
-        productImage: product.heroImageUrl || photo,
-        step: 1,
-      });
-    },
+  const owned = useQuery({
+    queryKey: ["living", "journeys", uid],
+    queryFn: living.journeys,
+    enabled: !!uid,
   });
   const matches = useQuery({
     queryKey: ["journal-product-search", search],
@@ -211,6 +206,101 @@ export function TrackingWizard({
             image_url: /^https?:/.test(d.productImage) ? d.productImage : null,
           }
         : undefined);
+
+  function resetForProduct(id: string): Partial<typeof d> {
+    return id === d.product
+      ? {}
+      : {
+          duration: "",
+          frequency: "",
+          body: "",
+          reason: "",
+          skin: "",
+          skinPhoto: "",
+          capturedProduct: "",
+          ownership: "",
+          status: "active",
+          createNewTimeline: false,
+        };
+  }
+
+  async function commitProduct(
+    row: {
+      id: string;
+      name: string;
+      brand?: string | null;
+      category?: string | null;
+      image_url?: string | null;
+    },
+    createNewTimeline = false,
+  ) {
+    let id = row.id;
+    let name = row.name;
+    let brand = row.brand || "";
+    let category = row.category || "";
+    let image = row.image_url || "";
+    try {
+      const hits = await searchCommunityProducts(name);
+      const canon = exactCommunityMatch({ name, brand }, hits);
+      if (canon) {
+        id = canon.id;
+        name = canon.name;
+        brand = canon.brand || brand;
+        category = canon.category || category;
+        image = canon.heroImageUrl || image;
+      }
+    } catch {
+      /* keep picked row */
+    }
+    const mine = (owned.data ?? []).filter((j) => j.product_id === id);
+    if (mine.length && !journeyId && !createNewTimeline) {
+      setJourneyPick({
+        id,
+        name,
+        brand,
+        category,
+        image_url: image || null,
+        journeyIds: mine.map((j) => j.id),
+      });
+      return;
+    }
+    set({
+      ...resetForProduct(id),
+      capturedProduct: "",
+      ownership: "",
+      product: id,
+      productName: name,
+      productBrand: brand,
+      productCategory: category,
+      productImage: image,
+      createNewTimeline,
+      step: 1,
+    });
+    setJourneyPick(null);
+  }
+
+  const scan = useScan({
+    onSelect: async (product, photo) => {
+      try {
+        product =
+          exactCommunityMatch(
+            product,
+            await searchCommunityProducts(product.name),
+          ) || product;
+      } catch {}
+      void commitProduct(
+        {
+          id: product.id,
+          name: product.name,
+          brand: product.brand,
+          category: product.category,
+          image_url: product.heroImageUrl || photo,
+        },
+        false,
+      );
+    },
+  });
+
   async function save() {
     if (busy) return;
     if (!uid) {
@@ -255,18 +345,25 @@ export function TrackingWizard({
       });
       const j = journeyId
         ? current.data
-        : await living.saveJourney({
-            product_id: p.id,
-            acquisition: "purchased",
-            status: d.status as ProductState,
-            visibility: d.visibility as "public" | "private",
-            frequency: d.status === "purchased" ? "" : d.frequency,
-            usage_duration: d.status === "purchased" ? "" : d.duration,
-            skin_type: d.skin || null,
-          } as Partial<tracking.TrackedJourney> & {
-            product_id: string;
-            acquisition: string;
-          });
+        : await living.saveJourney(
+            {
+              product_id: p.id,
+              acquisition: "purchased",
+              status: d.status as ProductState,
+              visibility: d.visibility as "public" | "private",
+              frequency: d.status === "purchased" ? "" : d.frequency,
+              usage_duration: d.status === "purchased" ? "" : d.duration,
+              skin_type: d.skin || null,
+            } as Partial<tracking.TrackedJourney> & {
+              product_id: string;
+              acquisition: string;
+            },
+            journeyId
+              ? { journeyId }
+              : d.createNewTimeline
+                ? { createNew: true }
+                : undefined,
+          );
       if (!j) throw new Error("Your timeline is still loading.");
       if (
         d.ownership &&
@@ -344,10 +441,9 @@ export function TrackingWizard({
         <ContentSkeleton />
       </AppShell>
     );
-  const beauty =
-    /skin|beauty|cosmetic|body|hair|face|cream|serum|cleanser/i.test(
-      `${p?.category || ""} ${p?.name || ""}`,
-    );
+  const beauty = p
+    ? isBeautyCatalogItem(p.category, p.name, p.brand)
+    : false;
   const results =
     search.trim().length > 1
       ? (matches.data ?? []).map((x) => ({
@@ -400,6 +496,45 @@ export function TrackingWizard({
           your journal.
         </Note>
       ) : null}
+      <ActionSheet
+        open={!!journeyPick}
+        title={journeyPick ? `You already track ${journeyPick.name}` : ""}
+        onClose={() => setJourneyPick(null)}
+      >
+        {journeyPick ? (
+          <View style={{ gap: 10 }}>
+            <Note>
+              This is the same product in your shelf. Continue your timeline, or start a separate one if you are comparing a new bottle or routine.
+            </Note>
+            <ActionButton
+              label="Continue my timeline"
+              onPress={() => {
+                const id = journeyPick.journeyIds[0];
+                setJourneyPick(null);
+                r.replace(`/journey/${id}` as Href);
+              }}
+            />
+            <ActionButton
+              tone="secondary"
+              label="Start another timeline"
+              onPress={() => {
+                const row = journeyPick;
+                setJourneyPick(null);
+                void commitProduct(
+                  {
+                    id: row.id,
+                    name: row.name,
+                    brand: row.brand,
+                    category: row.category,
+                    image_url: row.image_url,
+                  },
+                  true,
+                );
+              }}
+            />
+          </View>
+        ) : null}
+      </ActionSheet>
       {scan.sheet}
       <Animated.View
         key={d.step}
@@ -456,24 +591,13 @@ export function TrackingWizard({
                   key={x.id}
                   accessibilityRole="button"
                   accessibilityLabel={`Choose ${x.name}`}
-                  onPress={() =>
-                    set({
-                      capturedProduct: "",
-                      ownership: "",
-                      product: x.id,
-                      productName: x.name,
-                      productBrand: x.brand || "",
-                      productCategory: x.category || "",
-                      productImage: x.image_url || "",
-                      step: 1,
-                    })
-                  }
+                  onPress={() => void commitProduct(x, false)}
                   style={({ pressed }) => ({
                     padding: 12,
                     borderRadius: 19,
                     borderWidth: 1,
                     borderColor: journal.border,
-                    backgroundColor: pressed ? journal.mint : "#fff",
+                    backgroundColor: pressed ? journal.mint : colors.stage,
                     flexDirection: "row",
                     gap: 14,
                     alignItems: "center",

@@ -1,5 +1,6 @@
 import { db } from "@/lib/clarity/api";
 import type { Product } from "@/lib/types";
+import { dedupeCatalogProducts } from "./beautyCatalog";
 import { cleanProductQuery } from "./communitySearchQuery";
 export async function searchCommunityProducts(
   query: string,
@@ -8,7 +9,7 @@ export async function searchCommunityProducts(
     p_query: cleanProductQuery(query),
   });
   if (error) throw error;
-  return (data ?? []).map(
+  const mapped = (data ?? []).map(
     (p: {
       id: string;
       name: string;
@@ -22,6 +23,35 @@ export async function searchCommunityProducts(
       category: p.category || "Product",
       heroImageUrl: p.image_url,
     }),
+  );
+  return dedupeCatalogProducts(mapped);
+}
+
+export type PopularBeautyProduct = Product & { searchCount: number };
+
+export async function popularBeautyProducts(limit = 12): Promise<PopularBeautyProduct[]> {
+  const { data, error } = await db().rpc("unmask_popular_beauty_products", {
+    p_limit: limit,
+  });
+  if (error) throw error;
+  return dedupeCatalogProducts(
+    (data ?? []).map(
+      (p: {
+        id: string;
+        name: string;
+        brand: string | null;
+        category: string | null;
+        image_url: string | null;
+        search_count: number;
+      }) => ({
+        id: p.id,
+        name: p.name,
+        brand: p.brand || "",
+        category: p.category || "Beauty",
+        heroImageUrl: p.image_url,
+        searchCount: Number(p.search_count) || 0,
+      }),
+    ),
   );
 }
 export async function hasProductConversation(id: string) {
