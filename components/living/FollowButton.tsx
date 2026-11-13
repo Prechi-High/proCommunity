@@ -33,7 +33,7 @@ export function FollowButton({
     <View style={{ gap: 8 }}>
       <Button
         quiet={!!sub}
-        label={sub ? "Following · manage" : "Follow"}
+        label={sub ? "Following · updates on" : "Follow for updates"}
         disabled={action.isPending}
         onPress={() =>
           !uid ? router.push({pathname:"/(auth)/sign-in",params:{returnTo:`/member/${id}`}} as Href) : sub

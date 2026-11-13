@@ -38,6 +38,7 @@ import * as community from "@/lib/community-v2/api";
 import { useAppStore } from "@/lib/store";
 import { getKnownProduct } from "@/lib/products";
 import { useScan } from "@/lib/useScan";
+import { isBeautyCatalogItem } from "@/lib/unmask/beautyCatalog";
 import { exactCommunityMatch } from "@/lib/unmask/productIdentityMatch";
 import { searchCommunityProducts } from "@/lib/unmask/communitySearch";
 import { hapticSaved } from "@/lib/haptics";
@@ -248,10 +249,9 @@ export function ExperienceWizard({
             image_url: d.productImage,
           }
         : undefined);
-  const beauty =
-    /skin|beauty|cosmetic|body|hair|face|cream|serum|cleanser/i.test(
-      `${p?.category || ""} ${p?.name || ""}`,
-    );
+  const beauty = p
+    ? isBeautyCatalogItem(p.category, p.name, p.brand)
+    : false;
   const myJourney = owned.data?.find((x) => x.product_id === d.product) as
     tracking.TrackedJourney | undefined;
   const trackingOn = d.status === "active" && d.track;
@@ -384,18 +384,21 @@ export function ExperienceWizard({
           myJourney && myJourney.id !== d.journalId ? myJourney : null;
         const j =
           existingJournal ||
-          (await living.saveJourney({
-            product_id: p.id,
-            acquisition: "purchased",
-            status: d.status as ProductState,
-            frequency: d.frequency,
-            usage_duration: d.duration,
-            skin_type: d.skin || null,
-            visibility: "private",
-          } as Partial<tracking.TrackedJourney> & {
-            product_id: string;
-            acquisition: string;
-          }));
+          (await living.saveJourney(
+            {
+              product_id: p.id,
+              acquisition: "purchased",
+              status: d.status as ProductState,
+              frequency: d.frequency,
+              usage_duration: d.duration,
+              skin_type: d.skin || null,
+              visibility: "private",
+            } as Partial<tracking.TrackedJourney> & {
+              product_id: string;
+              acquisition: string;
+            },
+            myJourney ? undefined : { createNew: false },
+          ));
         journalId = j.id;
         if (!existingJournal) {
           set({ journalId });

@@ -13,10 +13,10 @@ import { fonts, colors } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { Input, Label, Note, PhotoField, durationOptions } from "./Fields";
 export const journal = {
-  green: colors.ink,
-  mint: "#F3F1EE",
+  green: colors.brand,
+  mint: colors.mist,
   border: colors.line,
-  paper: "#F8F7F5",
+  paper: colors.stage,
   ink: colors.ink,
 };
 export function JournalProgress({
@@ -213,7 +213,7 @@ export function ChoiceCards({
               borderColor: active ? journal.green : journal.border,
               borderRadius: 18,
               padding: 15,
-              backgroundColor: active ? journal.mint : "#fff",
+              backgroundColor: active ? journal.mint : colors.stage,
               flexDirection: "row",
               alignItems: "center",
               gap: 12,
@@ -328,7 +328,7 @@ export function DurationPicker({
               }}
               style={{
                 padding: 14,
-                backgroundColor: value === o ? journal.mint : "#fff",
+                backgroundColor: value === o ? journal.mint : colors.stage,
                 borderBottomWidth: 1,
                 borderBottomColor: "#EDF1EC",
               }}
