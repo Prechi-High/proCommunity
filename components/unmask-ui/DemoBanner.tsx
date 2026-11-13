@@ -10,7 +10,7 @@ export function DemoBanner() {
       style={{
         padding: 14,
         borderRadius: 16,
-        backgroundColor: on ? "#FFF4D9" : "#F5F1EE",
+        backgroundColor: colors.stage,
         gap: 8,
       }}
     >

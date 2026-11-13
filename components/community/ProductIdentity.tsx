@@ -19,7 +19,7 @@ export function ProductIdentity({
         flexDirection: "row",
         gap: 16,
         alignItems: "center",
-        backgroundColor: "#F5EFE9",
+        backgroundColor: colors.stage,
         padding: 14,
         borderRadius: 22,
       }}

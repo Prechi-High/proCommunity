@@ -112,7 +112,7 @@ export default function OfferDetail() {
               style={{
                 padding: 18,
                 borderRadius: 18,
-                backgroundColor: "#F7F0E9",
+                backgroundColor: colors.stage,
                 gap: 12,
               }}
             >

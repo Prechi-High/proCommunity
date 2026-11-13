@@ -206,7 +206,7 @@ export function ReminderFields({
         gap: 14,
         padding: 18,
         borderRadius: 20,
-        backgroundColor: "#F5F0EB",
+        backgroundColor: colors.stage,
       }}
     >
       <Label>A gentle nudge, only if you want it.</Label>

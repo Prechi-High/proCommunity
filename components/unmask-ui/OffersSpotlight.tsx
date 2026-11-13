@@ -9,7 +9,7 @@ export function OffersSpotlight() {
   const r = useRouter();
   const q = useOffers();
   return (
-    <View style={{ paddingVertical: 22, backgroundColor: "#F8F2E9", gap: 16 }}>
+    <View style={{ paddingVertical: 22, gap: 16 }}>
       <View
         style={{
           paddingHorizontal: 20,
@@ -71,7 +71,7 @@ export function OffersSpotlight() {
             marginHorizontal: 20,
             padding: 18,
             borderRadius: 16,
-            backgroundColor: "#fff",
+            backgroundColor: colors.stage,
           }}
         >
           <Text
