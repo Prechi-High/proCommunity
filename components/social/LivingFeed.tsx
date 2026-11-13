@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Image, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -13,6 +13,7 @@ import { useRoomTone } from "@/lib/social/roomTone";
 import { useAppStore } from "@/lib/store";
 
 import { LoopClip } from "./LoopClip";
+import { StoryViewer } from "./StoryViewer";
 import { UnmaskTeasers } from "./UnmaskTeasers";
 
 export function LivingFeed({ guest }: { guest?: boolean }) {
@@ -24,7 +25,9 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
   const name = useAppStore((s) => s.profile?.displayName)?.split(" ")[0] || "You";
   const [loved, setLoved] = useState<Record<string, boolean>>({});
   const [openId, setOpenId] = useState<string | null>(null);
-  const [watching, setWatching] = useState<PulseMoment | null>(null);
+  const [storyQueue, setStoryQueue] = useState<PulseMoment[]>([]);
+  const [storyStart, setStoryStart] = useState(0);
+  const previewStories = useMemo(() => PREVIEW_MOMENTS, []);
 
   const yours: PulseMoment[] = mine.map((post) => ({
     id: post.id,
@@ -53,28 +56,39 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
     router.push(`/pulse/${id}` as Href);
   };
 
+  const youStory = (): PulseMoment => ({
+    id: myStory?.id || "you-story",
+    name,
+    face: myStory?.photo || storyPhoto || "",
+    media: myStory?.mediaKind === "video" ? "" : myStory?.photo || storyPhoto || "",
+    video: myStory?.mediaKind === "video" ? myStory.photo : undefined,
+    caption: myStory?.caption || "Your story.",
+    product: myStory?.productName,
+    timeline: myStory?.timelineLabel,
+    skin: myStory?.skin,
+    likes: 0,
+    comments: 0,
+    thread: [],
+    stickers: myStory?.stickers,
+    invite: "Your story.",
+  });
+
+  const openStories = (startId: string) => {
+    const start = previewStories.findIndex((m) => m.id === startId);
+    if (start < 0) return;
+    hapticSelect();
+    setStoryQueue(previewStories.slice(start));
+    setStoryStart(0);
+  };
+
   const openMine = () => {
     if (!myStory && !storyPhoto) {
       goPost();
       return;
     }
     hapticSelect();
-    setWatching({
-      id: myStory?.id || "you-story",
-      name,
-      face: myStory?.photo || storyPhoto || "",
-      media: myStory?.mediaKind === "video" ? "" : myStory?.photo || storyPhoto || "",
-      video: myStory?.mediaKind === "video" ? myStory.photo : undefined,
-      caption: myStory?.caption || "Your story.",
-      product: myStory?.productName,
-      timeline: myStory?.timelineLabel,
-      skin: myStory?.skin,
-      likes: 0,
-      comments: 0,
-      thread: [],
-      stickers: myStory?.stickers,
-      invite: "Your story.",
-    });
+    setStoryQueue([youStory()]);
+    setStoryStart(0);
   };
 
   const active = [...yours, ...PREVIEW_MOMENTS].find((item) => item.id === openId);
@@ -115,12 +129,7 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
             key={face.id}
             accessibilityRole="button"
             accessibilityLabel={`${face.name}'s story`}
-            onPress={() => {
-              const moment = PREVIEW_MOMENTS.find((item) => item.id === face.id);
-              if (!moment) return;
-              hapticSelect();
-              setWatching(moment);
-            }}
+            onPress={() => openStories(face.id)}
             style={{ width: 74, alignItems: "center", gap: 6 }}
           >
             <LinearGradient colors={["#C9A227", "#8E4052", "#3D0F15"]} style={{ width: 68, height: 68, borderRadius: 24, padding: 2 }}>
@@ -188,25 +197,12 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
           <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: tone.gold }}>Join the conversation</Text>
         </Pressable>
       </ActionSheet>
-      <Modal visible={!!watching} animationType="fade" onRequestClose={() => setWatching(null)}>
-        <View style={{ flex: 1, backgroundColor: "#0B0909" }}>
-          {watching?.video ? (
-            <LoopClip uri={watching.video} poster={watching.media || watching.video} height={640} />
-          ) : watching?.media ? (
-            <Image source={{ uri: watching.media }} style={{ width: "100%", height: 640 }} resizeMode="cover" accessibilityIgnoresInvertColors />
-          ) : null}
-          <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: 24, gap: 8, backgroundColor: "rgba(10,4,8,0.72)" }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: "#FFF8F4" }}>{watching?.name}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: "#FFF8F4" }}>{watching?.caption}</Text>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: "#F0CF69" }}>
-              {[watching?.skin ? `Skin · ${watching.skin}` : "", watching?.product || "", watching?.timeline || ""].filter(Boolean).join("  ·  ")}
-            </Text>
-            <Pressable accessibilityRole="button" onPress={() => setWatching(null)} style={{ paddingVertical: 12 }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: "#FFF8F4" }}>Close</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      <StoryViewer
+        visible={storyQueue.length > 0}
+        queue={storyQueue}
+        startIndex={storyStart}
+        onClose={() => setStoryQueue([])}
+      />
     </View>
   );
 }
