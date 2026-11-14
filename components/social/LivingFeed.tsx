@@ -9,6 +9,7 @@ import { fonts, livelyRadii } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { useLocalMoments } from "@/lib/moment/localPosts";
 import { PREVIEW_MOMENTS, STORY_FACES, type PulseMoment } from "@/lib/social/previewMoments";
+import { momentConfig } from "@/lib/moment/kinds";
 import { CREATE_UNMASK_GLOW, CREATE_UNMASK_RING, storyMetaFor } from "@/lib/social/storyRail";
 import { useRoomTone } from "@/lib/social/roomTone";
 import { useAppStore } from "@/lib/store";
@@ -55,7 +56,9 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
     comments: 0,
     thread: [],
     video: post.mediaKind === "video" ? post.photo : undefined,
-    stickers: post.stickers,
+    stickers: post.momentKind
+      ? [momentConfig(post.momentKind).title + " " + momentConfig(post.momentKind).emoji, ...(post.stickers ?? [])]
+      : post.stickers,
     invite: post.destination === "both" ? "On your post and your story." : "This one is yours.",
   }));
 

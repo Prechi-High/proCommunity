@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+import type { MomentKind } from "@/lib/moment/kinds";
+
 export type LocalMoment = {
   id: string;
   photo?: string;
@@ -12,6 +14,9 @@ export type LocalMoment = {
   destination: "post" | "story" | "both";
   stickers?: string[];
   mediaKind?: "photo" | "video";
+  momentKind?: MomentKind;
+  occasion?: string;
+  usageDuration?: string;
   createdAt: string;
 };
 
