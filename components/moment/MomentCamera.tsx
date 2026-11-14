@@ -1,25 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, Text, View } from "react-native";
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
-import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import Svg, { Circle } from "react-native-svg";
 
 import { CameraRotate, ImageSquare, Lightning, X } from "@/components/icons";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
 
+const MAX_RECORD_MS = 60000;
+
 export function MomentCamera({
   kind,
   onClose,
   onShot,
-  onAddRoutine,
 }: {
   kind: MomentKind;
   onClose: () => void;
   onShot: (uri: string, mediaKind: "photo" | "video") => void;
-  onAddRoutine?: () => void;
 }) {
   const config = momentConfig(kind);
   const camera = useRef<CameraView>(null);
@@ -29,20 +29,51 @@ export function MomentCamera({
   const [mic, requestMic] = useMicrophonePermissions();
   const [facing, setFacing] = useState<"front" | "back">("front");
   const [recordingUi, setRecordingUi] = useState(false);
+  const [recordMs, setRecordMs] = useState(0);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recording = useRef(false);
   const held = useRef(false);
   const webStop = useRef<(() => Promise<string>) | null>(null);
+  const recordTick = useRef<ReturnType<typeof setInterval> | null>(null);
   const [ready, setReady] = useState(false);
   const [torch, setTorch] = useState(false);
   const [captureMode, setCaptureMode] = useState<"photo" | "video">(config.defaultMode);
   const [error, setError] = useState("");
   const evening = kind === "evening";
   const cream = kind === "currently" || kind === "morning";
+  const headerColor = evening ? "#FFF8F4" : cream ? "#2D1B1B" : "#FFF8F4";
 
   useEffect(() => {
     if (permission && !permission.granted && permission.canAskAgain) void requestPermission();
   }, [permission, requestPermission]);
+
+  useEffect(() => {
+    return () => {
+      if (recordTick.current) clearInterval(recordTick.current);
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+    };
+  }, []);
+
+  function startRecordUi() {
+    setRecordMs(0);
+    setRecordingUi(true);
+    if (recordTick.current) clearInterval(recordTick.current);
+    recordTick.current = setInterval(() => {
+      setRecordMs((ms) => {
+        if (ms >= MAX_RECORD_MS) return ms;
+        return ms + 100;
+      });
+    }, 100);
+  }
+
+  function stopRecordUi() {
+    setRecordingUi(false);
+    if (recordTick.current) {
+      clearInterval(recordTick.current);
+      recordTick.current = null;
+    }
+    setRecordMs(0);
+  }
 
   async function beginWebClip() {
     if (typeof document === "undefined") return null;
@@ -82,17 +113,17 @@ export function MomentCamera({
   }
 
   async function startRecord() {
-    if (!ready) return;
+    if (!ready || recording.current) return;
     recording.current = true;
-    setRecordingUi(true);
+    startRecordUi();
     setError("");
     if (Platform.OS === "web") {
       const clip = await beginWebClip();
       if (!clip) {
         recording.current = false;
-        setRecordingUi(false);
+        stopRecordUi();
         held.current = false;
-        setError("Hold to record isn’t available here. Try Photo mode.");
+        setError("Hold to record isn’t available here. Switch to Photo.");
         return;
       }
       webStop.current = clip.stop;
@@ -102,19 +133,22 @@ export function MomentCamera({
       const next = await requestMic();
       if (!next.granted) {
         recording.current = false;
-        setRecordingUi(false);
+        stopRecordUi();
         setError("Video needs the microphone.");
         return;
       }
     }
     try {
-      const clip = await camera.current?.recordAsync({ maxDuration: 30 });
-      if (clip?.uri) onShot(clip.uri, "video");
+      void camera.current
+        ?.recordAsync({ maxDuration: 60 })
+        .then((clip) => {
+          if (clip?.uri && recording.current) shotRef.current(clip.uri, "video");
+        })
+        .catch(() => setError("Couldn’t record that."));
     } catch {
-      setError("Couldn’t record that.");
-    } finally {
+      setError("Couldn’t start recording.");
       recording.current = false;
-      setRecordingUi(false);
+      stopRecordUi();
     }
   }
 
@@ -125,35 +159,53 @@ export function MomentCamera({
     holdTimer.current = setTimeout(() => {
       held.current = true;
       void startRecord();
-    }, 280);
+    }, 200);
   }
 
   function pressOut() {
-    if (captureMode !== "video") return;
+    if (captureMode !== "video") {
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+      return;
+    }
     if (holdTimer.current) clearTimeout(holdTimer.current);
+    if (!held.current && !recording.current) return;
+
     if (webStop.current) {
       const stop = webStop.current;
       webStop.current = null;
       void stop()
-        .then((uri) => onShot(uri, "video"))
+        .then((uri) => shotRef.current(uri, "video"))
         .catch(() => setError("That clip didn’t save."));
       recording.current = false;
-      setRecordingUi(false);
+      stopRecordUi();
+      held.current = false;
       return;
     }
-    if (recording.current && Platform.OS !== "web") void camera.current?.stopRecording();
+    if (recording.current && Platform.OS !== "web") {
+      void camera.current?.stopRecording();
+      recording.current = false;
+      stopRecordUi();
+    }
+    held.current = false;
   }
 
   async function shoot() {
-    if (!ready) return;
+    if (!ready) {
+      setError("Camera is still starting…");
+      return;
+    }
     setError("");
     try {
-      const photo = await camera.current?.takePictureAsync({ quality: 0.78, base64: true });
+      if (Platform.OS !== "web" && captureMode === "video") {
+        setCaptureMode("photo");
+        await new Promise((r) => setTimeout(r, 120));
+      }
+      const photo = await camera.current?.takePictureAsync({ quality: 0.78, base64: true, skipProcessing: Platform.OS === "android" });
       if (!photo) return;
       const uri = photo.base64 ? `data:image/jpeg;base64,${photo.base64}` : photo.uri;
-      onShot(uri, "photo");
+      shotRef.current(uri, "photo");
     } catch {
-      setError("Couldn’t take that photo.");
+      setError("Couldn’t take that photo. Try again.");
     }
   }
 
@@ -162,11 +214,14 @@ export function MomentCamera({
     if (result.canceled) return;
     const asset = result.assets[0];
     const uri = asset.base64 ? `data:${asset.mimeType || "image/jpeg"};base64,${asset.base64}` : asset.uri;
-    onShot(uri, asset.type === "video" ? "video" : "photo");
+    shotRef.current(uri, asset.type === "video" ? "video" : "photo");
   }
 
-  const headerColor = evening ? "#FFF8F4" : cream ? "#2D1B1B" : "#FFF8F4";
-  const titleFont = kind === "grwm" ? fonts.serifBold : fonts.semibold;
+  const ringProgress = Math.min(1, recordMs / MAX_RECORD_MS);
+  const ringSize = 84;
+  const stroke = 4;
+  const radius = (ringSize - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
 
   return (
     <View style={{ flex: 1, backgroundColor: evening ? "#0A0610" : cream ? "#F9F5EB" : "#1A0A14" }}>
@@ -175,7 +230,7 @@ export function MomentCamera({
           ref={camera}
           style={{ flex: 1 }}
           facing={facing}
-          mode={Platform.OS === "web" ? "picture" : captureMode === "video" ? "video" : "picture"}
+          mode={captureMode === "video" && Platform.OS !== "web" ? "video" : "picture"}
           enableTorch={torch && facing === "back"}
           mirror={facing === "front"}
           onCameraReady={() => setReady(true)}
@@ -192,12 +247,12 @@ export function MomentCamera({
       {config.scrim ? <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: config.scrim }} /> : null}
 
       <SafeAreaView style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} edges={["top", "bottom"]} pointerEvents="box-none">
-        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingTop: 4 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingTop: 4, zIndex: 2 }}>
           <Pressable onPress={onClose} accessibilityLabel="Back" style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
             <X size={24} color={headerColor} />
           </Pressable>
           <View style={{ flex: 1, alignItems: "center", gap: 2 }}>
-            <Text style={{ fontFamily: titleFont, fontSize: kind === "grwm" ? 28 : 20, color: headerColor }}>
+            <Text style={{ fontFamily: kind === "grwm" ? fonts.serifBold : fonts.semibold, fontSize: kind === "grwm" ? 28 : 20, color: headerColor }}>
               {config.title} {config.emoji}
             </Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: evening ? "rgba(255,248,244,0.75)" : "rgba(45,27,27,0.7)" }}>{config.captureSubtitle}</Text>
@@ -207,27 +262,15 @@ export function MomentCamera({
           </Pressable>
         </View>
 
-        <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8, paddingHorizontal: 20, marginTop: 12 }}>
-          {config.stickers.map((label) => (
-            <View key={label} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: evening ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.75)" }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: evening ? "#FFF8F4" : "#2D1B1B" }}>{label}</Text>
-            </View>
-          ))}
-        </View>
-
-        {kind === "morning" && onAddRoutine ? (
-          <Pressable
-            onPress={() => {
-              hapticSelect();
-              onAddRoutine();
-            }}
-            style={{ alignSelf: "center", marginTop: "auto", marginBottom: 120, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.92)" }}
-          >
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#3D0F15" }}>Add to my morning routine +</Text>
-          </Pressable>
+        {recordingUi ? (
+          <View style={{ position: "absolute", top: 108, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(0,0,0,0.55)" }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4" }}>
+              {Math.ceil(recordMs / 1000)}s
+            </Text>
+          </View>
         ) : null}
 
-        <View style={{ marginTop: kind === "morning" ? 0 : "auto", paddingBottom: 8, paddingHorizontal: 28, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View style={{ marginTop: "auto", paddingBottom: 8, paddingHorizontal: 28, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 2 }}>
           <Pressable onPress={() => void upload()} style={{ width: 52, height: 52, borderRadius: 16, borderWidth: 1, borderColor: evening ? "rgba(255,255,255,0.35)" : "rgba(45,27,27,0.25)", alignItems: "center", justifyContent: "center", backgroundColor: evening ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.65)" }}>
             <ImageSquare size={26} color={headerColor} />
           </Pressable>
@@ -238,31 +281,42 @@ export function MomentCamera({
             onPress={() => {
               if (captureMode === "photo") void shoot();
             }}
-            style={{
-              width: 84,
-              height: 84,
-              borderRadius: 42,
-              borderWidth: 5,
-              borderColor: recordingUi ? "#E23B3B" : evening ? "#C9A227" : "#70323E",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: evening ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.15)",
-            }}
+            style={{ width: ringSize, height: ringSize, alignItems: "center", justifyContent: "center" }}
           >
-            <View style={{ width: recordingUi ? 36 : 66, height: recordingUi ? 36 : 66, borderRadius: recordingUi ? 8 : 33, backgroundColor: recordingUi ? "#E23B3B" : evening ? "#8E4052" : "#70323E" }} />
+            {recordingUi ? (
+              <Svg width={ringSize} height={ringSize} style={{ position: "absolute" }}>
+                <Circle cx={ringSize / 2} cy={ringSize / 2} r={radius} stroke="rgba(255,255,255,0.25)" strokeWidth={stroke} fill="none" />
+                <Circle
+                  cx={ringSize / 2}
+                  cy={ringSize / 2}
+                  r={radius}
+                  stroke="#FF6B9D"
+                  strokeWidth={stroke}
+                  fill="none"
+                  strokeDasharray={`${circumference}`}
+                  strokeDashoffset={circumference * (1 - ringProgress)}
+                  rotation={-90}
+                  origin={`${ringSize / 2}, ${ringSize / 2}`}
+                />
+              </Svg>
+            ) : null}
+            <View
+              style={{
+                width: recordingUi ? 32 : 66,
+                height: recordingUi ? 32 : 66,
+                borderRadius: recordingUi ? 8 : 33,
+                backgroundColor: recordingUi ? "#E23B3B" : evening ? "#8E4052" : "#70323E",
+                borderWidth: recordingUi ? 0 : 4,
+                borderColor: evening ? "#C9A227" : "#FF6B9D",
+              }}
+            />
           </Pressable>
           <Pressable onPress={() => setFacing((f) => (f === "front" ? "back" : "front"))} style={{ width: 52, height: 52, alignItems: "center", justifyContent: "center" }}>
             <CameraRotate size={28} color={headerColor} />
           </Pressable>
         </View>
 
-        {config.videoFirst ? (
-          <Text style={{ textAlign: "center", fontFamily: fonts.medium, fontSize: 11, color: headerColor, opacity: 0.8, marginBottom: 4 }}>
-            Hold to record
-          </Text>
-        ) : null}
-
-        <View style={{ flexDirection: "row", alignSelf: "center", marginBottom: 12, padding: 4, borderRadius: 999, backgroundColor: evening ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)" }}>
+        <View style={{ flexDirection: "row", alignSelf: "center", marginBottom: 12, padding: 4, borderRadius: 999, backgroundColor: evening ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)", zIndex: 2 }}>
           {(["photo", "video"] as const).map((mode) => (
             <Pressable
               key={mode}
@@ -276,7 +330,7 @@ export function MomentCamera({
             </Pressable>
           ))}
         </View>
-        {error ? <Text style={{ color: "#FF8BC8", textAlign: "center", fontFamily: fonts.medium, paddingBottom: 6 }}>{error}</Text> : null}
+        {error ? <Text style={{ color: "#FF8BC8", textAlign: "center", fontFamily: fonts.medium, paddingBottom: 6, zIndex: 2 }}>{error}</Text> : null}
       </SafeAreaView>
     </View>
   );

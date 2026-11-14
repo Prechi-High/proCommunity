@@ -15,7 +15,7 @@ export function ChooseMoment({ onPick }: { onPick: (kind: MomentKind) => void })
     <View style={{ flex: 1, backgroundColor: "#F9F5EB" }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 }}>
-          <Pressable accessibilityLabel="Back" onPress={() => router.back()} style={{ width: 44, height: 44, justifyContent: "center" }}>
+          <Pressable accessibilityLabel="Back home" onPress={() => router.replace("/")} style={{ width: 44, height: 44, justifyContent: "center" }}>
             <ArrowLeft size={22} color="#2D1B1B" />
           </Pressable>
           <View style={{ flex: 1, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 }}>

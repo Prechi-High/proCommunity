@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Image, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -12,6 +13,8 @@ import { PREVIEW_MOMENTS, STORY_FACES, type PulseMoment } from "@/lib/social/pre
 import { momentConfig } from "@/lib/moment/kinds";
 import { CREATE_UNMASK_GLOW, CREATE_UNMASK_RING, storyMetaFor } from "@/lib/social/storyRail";
 import { useRoomTone } from "@/lib/social/roomTone";
+import * as profiles from "@/lib/profiles/api";
+import { previewStoriesForPerson, nextPreviewPersonId } from "@/lib/social/personStories";
 import { useAppStore } from "@/lib/store";
 
 import { LoopClip } from "./LoopClip";
@@ -34,19 +37,34 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
   const router = useRouter();
   const tone = useRoomTone();
   const mine = useLocalMoments((s) => s.posts);
-  const storyPhoto = useLocalMoments((s) => s.storyPhoto);
-  const myStory = useLocalMoments((s) => s.story);
+  const stories = useLocalMoments((s) => s.stories);
+  const pruneStories = useLocalMoments((s) => s.pruneStories);
+  const uid = useAppStore((s) => s.profile?.id);
   const name = useAppStore((s) => s.profile?.displayName)?.split(" ")[0] || "You";
+  const identity = useQuery({
+    queryKey: ["public-identity", uid, "feed"],
+    queryFn: () => profiles.identity(uid!),
+    enabled: !!uid,
+    staleTime: 60_000,
+  });
+  const avatarUrl = identity.data?.avatar_url || "";
+  const myStories = useMemo(() => {
+    const now = Date.now();
+    return stories.filter((s) => new Date(s.expiresAt).getTime() > now);
+  }, [stories]);
+  const ringThumb = myStories[0]?.media;
+
+  useEffect(() => {
+    pruneStories();
+  }, [pruneStories]);
   const [loved, setLoved] = useState<Record<string, boolean>>({});
   const [openId, setOpenId] = useState<string | null>(null);
   const [storyQueue, setStoryQueue] = useState<PulseMoment[]>([]);
   const [storyStart, setStoryStart] = useState(0);
-  const previewStories = useMemo(() => PREVIEW_MOMENTS, []);
-
   const yours: PulseMoment[] = mine.map((post) => ({
     id: post.id,
     name,
-    face: post.photo || "",
+    face: avatarUrl,
     media: post.photo || "",
     caption: post.caption || "A moment, no essay.",
     product: post.productName,
@@ -72,38 +90,37 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
     router.push(`/pulse/${id}` as Href);
   };
 
-  const youStory = (): PulseMoment => ({
-    id: myStory?.id || "you-story",
-    name,
-    face: myStory?.photo || storyPhoto || "",
-    media: myStory?.mediaKind === "video" ? "" : myStory?.photo || storyPhoto || "",
-    video: myStory?.mediaKind === "video" ? myStory.photo : undefined,
-    caption: myStory?.caption || "Your story.",
-    product: myStory?.productName,
-    timeline: myStory?.timelineLabel,
-    skin: myStory?.skin,
-    likes: 0,
-    comments: 0,
-    thread: [],
-    stickers: myStory?.stickers,
-    invite: "Your story.",
-  });
+  const myStoryQueue = (): PulseMoment[] =>
+    myStories.map((s) => ({
+      id: s.id,
+      name,
+      face: avatarUrl,
+      media: s.mediaKind === "video" ? "" : s.media,
+      video: s.mediaKind === "video" ? s.media : undefined,
+      caption: s.caption || "Your story.",
+      likes: 0,
+      comments: 0,
+      thread: [],
+      invite: "Your story.",
+    }));
+
+  const [viewingPersonId, setViewingPersonId] = useState<string | null>(null);
 
   const openStories = (startId: string) => {
-    const start = previewStories.findIndex((m) => m.id === startId);
-    if (start < 0) return;
     hapticSelect();
-    setStoryQueue(previewStories.slice(start));
+    setViewingPersonId(startId);
+    setStoryQueue(previewStoriesForPerson(startId));
     setStoryStart(0);
   };
 
   const openMine = () => {
-    if (!myStory && !storyPhoto) {
+    if (!myStories.length) {
       goPost();
       return;
     }
     hapticSelect();
-    setStoryQueue([youStory()]);
+    setViewingPersonId("you");
+    setStoryQueue(myStoryQueue());
     setStoryStart(0);
   };
 
@@ -127,11 +144,11 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
           <Pressable
             onPress={openMine}
             accessibilityRole="button"
-            accessibilityLabel={storyPhoto ? "View your story" : "Create your Unmask"}
+            accessibilityLabel={ringThumb ? "View your story" : "Create your Unmask"}
           >
             <LinearGradient colors={[...CREATE_UNMASK_RING]} style={{ width: 72, height: 72, borderRadius: 36, padding: 3 }}>
-              {storyPhoto ? (
-                <Image source={{ uri: storyPhoto }} style={{ flex: 1, borderRadius: 33 }} accessibilityIgnoresInvertColors />
+              {ringThumb ? (
+                <Image source={{ uri: ringThumb }} style={{ flex: 1, borderRadius: 33 }} accessibilityIgnoresInvertColors />
               ) : (
                 <View style={{ flex: 1, borderRadius: 33, backgroundColor: "#1A0A14", alignItems: "center", justifyContent: "center" }}>
                   <Plus size={28} color="#FFF8F4" weight="bold" />
@@ -139,7 +156,7 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
               )}
             </LinearGradient>
           </Pressable>
-          {storyPhoto ? (
+          {myStories.length ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Add another story"
@@ -259,7 +276,23 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
           <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: tone.gold }}>Join the conversation</Text>
         </Pressable>
       </ActionSheet>
-      <StoryViewer visible={storyQueue.length > 0} queue={storyQueue} startIndex={storyStart} onClose={() => setStoryQueue([])} />
+      <StoryViewer
+        visible={storyQueue.length > 0}
+        queue={storyQueue}
+        startIndex={storyStart}
+        onClose={() => {
+          setStoryQueue([]);
+          setViewingPersonId(null);
+        }}
+        onFinishedPerson={() => {
+          if (!viewingPersonId || viewingPersonId === "you") return;
+          const nextId = nextPreviewPersonId(viewingPersonId);
+          if (!nextId) return;
+          setViewingPersonId(nextId);
+          setStoryQueue(previewStoriesForPerson(nextId));
+          setStoryStart(0);
+        }}
+      />
     </View>
   );
 }
@@ -396,7 +429,7 @@ function MomentCard({
           }}
         >
           <Sparkle size={14} color="#1A0A14" weight="fill" />
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#1A0A14" }}>My Unmask</Text>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#1A0A14" }}>{item.stickers?.[0] || "My Unmask"}</Text>
         </View>
       </View>
 
