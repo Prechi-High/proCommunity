@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 
 import { ArrowLeft, Bell, Sparkle } from "@/components/icons";
 import { AmbientCanvas } from "@/components/lively";
+import { PersonAvatar } from "@/components/unmask-ui/PersonAvatar";
 import { colors, fonts, glass } from "@/constants/theme";
 import type { LivelyGradientKey } from "@/constants/design-language";
 import { useUnmaskTheme } from "@/lib/useUnmaskTheme";
@@ -31,6 +32,8 @@ export function AppShell({
   navigation,
   scrollResetKey,
   ambient = "page",
+  brandSubtitle,
+  homeProfile,
 }: {
   children: ReactNode;
   title?: string;
@@ -38,6 +41,10 @@ export function AppShell({
   subtitle?: string;
   back?: boolean;
   notify?: boolean;
+  /** Tagline under the Unmask wordmark when this screen has no title. */
+  brandSubtitle?: string;
+  /** Show profile avatar beside notifications on home. */
+  homeProfile?: { id?: string; name?: string };
   footer?: ReactNode;
   scroll?: boolean;
   flush?: boolean;
@@ -123,27 +130,65 @@ export function AppShell({
           </Pressable>
         )}
         {notify ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Notifications"
-            onPress={() => router.push("/notifications")}
-            style={{
-              minWidth: 44,
-              minHeight: 44,
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 16,
-              backgroundColor: night ? "rgba(255,255,255,0.12)" : glass.fill,
-              borderWidth: 1,
-              borderColor: night ? "rgba(255,255,255,0.2)" : glass.strokeMuted,
-            }}
-          >
-            <Bell size={22} color={ink} />
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+              onPress={() => router.push("/notifications")}
+              style={{
+                minWidth: 44,
+                minHeight: 44,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 16,
+                backgroundColor: night ? "rgba(255,255,255,0.12)" : glass.fill,
+                borderWidth: 1,
+                borderColor: night ? "rgba(255,255,255,0.2)" : glass.strokeMuted,
+              }}
+            >
+              <Bell size={22} color={ink} />
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  top: 8,
+                  right: 8,
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: 8,
+                  paddingHorizontal: 4,
+                  backgroundColor: "#FF6B9D",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: "#1A0A14" }}>3</Text>
+              </View>
+            </Pressable>
+            {homeProfile ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="Your profile" onPress={() => router.push("/you")}>
+                <PersonAvatar id={homeProfile.id} name={homeProfile.name} size={40} />
+              </Pressable>
+            ) : null}
+          </View>
         ) : (
           <View style={{ width: 44 }} />
         )}
       </View>
+      {!title && brandSubtitle ? (
+        <Text
+          style={{
+            fontFamily: fonts.regular,
+            fontSize: 13,
+            lineHeight: 18,
+            color: inkSoft,
+            paddingTop: 2,
+            paddingBottom: 4,
+          }}
+        >
+          {brandSubtitle}
+        </Text>
+      ) : null}
       {title ? (
         <View style={{ gap: 6, paddingTop: 8, paddingBottom: 8 }}>
           <Text

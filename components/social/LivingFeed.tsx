@@ -1,20 +1,33 @@
 import { useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { ChatCircle, Heart, Plus } from "@/components/icons";
+import { BookmarkSimple, ChatCircle, Heart, Plus, SealCheck, ShareNetwork, Sparkle } from "@/components/icons";
 import { ActionSheet } from "@/components/unmask-ui";
 import { fonts, livelyRadii } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { useLocalMoments } from "@/lib/moment/localPosts";
 import { PREVIEW_MOMENTS, STORY_FACES, type PulseMoment } from "@/lib/social/previewMoments";
+import { CREATE_UNMASK_GLOW, CREATE_UNMASK_RING, storyMetaFor } from "@/lib/social/storyRail";
 import { useRoomTone } from "@/lib/social/roomTone";
 import { useAppStore } from "@/lib/store";
 
 import { LoopClip } from "./LoopClip";
+import { QuickShareBar } from "./QuickShareBar";
 import { StoryViewer } from "./StoryViewer";
 import { UnmaskTeasers } from "./UnmaskTeasers";
+
+const PREVIEW_TIMES: Record<string, string> = {
+  "m-ada": "2h",
+  "m-zuri": "4h",
+  "m-malik": "6h",
+  "m-nene": "8h",
+  "m-tunde": "11h",
+  "m-ife": "1d",
+  "m-ken": "1d",
+  "m-lola": "2h",
+};
 
 export function LivingFeed({ guest }: { guest?: boolean }) {
   const router = useRouter();
@@ -94,20 +107,31 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
   const active = [...yours, ...PREVIEW_MOMENTS].find((item) => item.id === openId);
 
   return (
-    <View style={{ gap: 18 }}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingHorizontal: 16, paddingTop: 4 }}>
-        <View style={{ width: 74, alignItems: "center", gap: 6 }}>
+    <View style={{ gap: 16 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 16, paddingTop: 4 }}>
+        <View style={{ width: 82, alignItems: "center", gap: 8 }}>
+          <View
+            style={{
+              position: "absolute",
+              top: 8,
+              width: 72,
+              height: 72,
+              borderRadius: 36,
+              backgroundColor: CREATE_UNMASK_GLOW,
+              opacity: 0.85,
+            }}
+          />
           <Pressable
             onPress={openMine}
             accessibilityRole="button"
-            accessibilityLabel={storyPhoto ? "View your story" : "Add your story"}
+            accessibilityLabel={storyPhoto ? "View your story" : "Create your Unmask"}
           >
-            <LinearGradient colors={["#F0CF69", "#70323E"]} style={{ width: 68, height: 68, borderRadius: 24, padding: 3 }}>
+            <LinearGradient colors={[...CREATE_UNMASK_RING]} style={{ width: 72, height: 72, borderRadius: 36, padding: 3 }}>
               {storyPhoto ? (
-                <Image source={{ uri: storyPhoto }} style={{ flex: 1, borderRadius: 21 }} accessibilityIgnoresInvertColors />
+                <Image source={{ uri: storyPhoto }} style={{ flex: 1, borderRadius: 33 }} accessibilityIgnoresInvertColors />
               ) : (
-                <View style={{ flex: 1, borderRadius: 21, backgroundColor: "#1A0A14", alignItems: "center", justifyContent: "center" }}>
-                  <Plus size={26} color="#F0CF69" weight="bold" />
+                <View style={{ flex: 1, borderRadius: 33, backgroundColor: "#1A0A14", alignItems: "center", justifyContent: "center" }}>
+                  <Plus size={28} color="#FFF8F4" weight="bold" />
                 </View>
               )}
             </LinearGradient>
@@ -117,36 +141,67 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
               accessibilityRole="button"
               accessibilityLabel="Add another story"
               onPress={goPost}
-              style={{ position: "absolute", right: 0, top: 46, width: 24, height: 24, borderRadius: 12, backgroundColor: "#F0CF69", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#1A0A14" }}
+              style={{
+                position: "absolute",
+                right: 4,
+                top: 50,
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                backgroundColor: "#FF6B9D",
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 2,
+                borderColor: "#1A0A14",
+              }}
             >
               <Plus size={14} color="#1A0A14" weight="bold" />
             </Pressable>
           ) : null}
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: tone.text }}>You</Text>
+          <Text numberOfLines={2} style={{ fontFamily: fonts.semibold, fontSize: 11, lineHeight: 14, color: tone.text, textAlign: "center" }}>
+            Create your Unmask
+          </Text>
         </View>
-        {STORY_FACES.map((face) => (
-          <Pressable
-            key={face.id}
-            accessibilityRole="button"
-            accessibilityLabel={`${face.name}'s story`}
-            onPress={() => openStories(face.id)}
-            style={{ width: 74, alignItems: "center", gap: 6 }}
-          >
-            <LinearGradient colors={["#C9A227", "#8E4052", "#3D0F15"]} style={{ width: 68, height: 68, borderRadius: 24, padding: 2 }}>
-              <Image source={{ uri: face.face }} style={{ flex: 1, borderRadius: 22 }} accessibilityIgnoresInvertColors />
-            </LinearGradient>
-            <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 11, color: tone.muted }}>
-              {face.name}
-            </Text>
-          </Pressable>
-        ))}
+        {STORY_FACES.map((face) => {
+          const meta = storyMetaFor(face.id);
+          return (
+            <Pressable
+              key={face.id}
+              accessibilityRole="button"
+              accessibilityLabel={`${face.name} · ${meta.label}`}
+              onPress={() => openStories(face.id)}
+              style={{ width: 82, alignItems: "center", gap: 8 }}
+            >
+              <View
+                style={{
+                  position: "absolute",
+                  top: 8,
+                  width: 72,
+                  height: 72,
+                  borderRadius: 36,
+                  backgroundColor: meta.glow,
+                }}
+              />
+              <LinearGradient colors={[meta.ring[0], meta.ring[1]]} style={{ width: 72, height: 72, borderRadius: 36, padding: 3 }}>
+                <Image source={{ uri: face.face }} style={{ flex: 1, borderRadius: 33 }} accessibilityIgnoresInvertColors />
+              </LinearGradient>
+              <Text numberOfLines={2} style={{ fontFamily: fonts.medium, fontSize: 11, lineHeight: 14, color: tone.muted, textAlign: "center" }}>
+                {meta.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
       <UnmaskTeasers />
 
-      <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: tone.faint, paddingHorizontal: 16 }}>
-        {guest ? "Join to post into this room. " : ""}Preview of the room. Skin, product, and timeline sit on the post. Likes and comments are part of it. Your post is the one that is actually yours.
-      </Text>
+      <QuickShareBar />
+
+      {guest ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: tone.faint, paddingHorizontal: 16 }}>
+          Join to post into this room.
+        </Text>
+      ) : null}
 
       {yours.map((item) => (
         <MomentCard
@@ -155,6 +210,8 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
           loved={!!loved[item.id]}
           commentCount={item.comments}
           likeCount={item.likes + (loved[item.id] ? 1 : 0)}
+          timeLabel="Just now"
+          verified
           onLove={() => setLoved((s) => ({ ...s, [item.id]: !s[item.id] }))}
           onComments={() => setOpenId(item.id)}
           onOpen={() => openPost(item.id)}
@@ -168,6 +225,8 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
           loved={!!loved[item.id]}
           commentCount={item.comments}
           likeCount={item.likes + (loved[item.id] ? 1 : 0)}
+          timeLabel={PREVIEW_TIMES[item.id] ?? "3h"}
+          verified={item.id === "m-zuri" || item.id === "m-lola"}
           onLove={() => setLoved((s) => ({ ...s, [item.id]: !s[item.id] }))}
           onComments={() => setOpenId(item.id)}
           onOpen={() => openPost(item.id)}
@@ -197,14 +256,26 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
           <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: tone.gold }}>Join the conversation</Text>
         </Pressable>
       </ActionSheet>
-      <StoryViewer
-        visible={storyQueue.length > 0}
-        queue={storyQueue}
-        startIndex={storyStart}
-        onClose={() => setStoryQueue([])}
-      />
+      <StoryViewer visible={storyQueue.length > 0} queue={storyQueue} startIndex={storyStart} onClose={() => setStoryQueue([])} />
     </View>
   );
+}
+
+function formatCount(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  return String(n);
+}
+
+function handleFrom(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, "_");
+}
+
+function hashtagsFor(item: PulseMoment): string[] {
+  const tags = ["#MyUnmask"];
+  if (item.timeline) tags.push("#ProductTimeline");
+  if (item.caption.toLowerCase().includes("grwm")) tags.push("#GRWM");
+  if (item.product) tags.push(`#${item.product.split(/\s+/)[0]}`);
+  return tags.slice(0, 4);
 }
 
 function MomentCard({
@@ -212,6 +283,8 @@ function MomentCard({
   loved,
   likeCount,
   commentCount,
+  timeLabel,
+  verified,
   onLove,
   onComments,
   onOpen,
@@ -220,56 +293,147 @@ function MomentCard({
   loved: boolean;
   likeCount: number;
   commentCount: number;
+  timeLabel: string;
+  verified?: boolean;
   onLove: () => void;
   onComments: () => void;
   onOpen: () => void;
 }) {
+  const tone = useRoomTone();
+  const handle = handleFrom(item.name);
+  const tags = hashtagsFor(item);
+  const routineTitle = item.timeline?.includes("Week") || item.timeline?.includes("Day") || item.timeline?.includes("Month")
+    ? `My timeline · ${item.timeline}`
+    : item.product
+      ? "My routine"
+      : null;
+
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${item.name}'s post`} onPress={onOpen} style={{ marginHorizontal: 12, borderRadius: livelyRadii.hero, overflow: "hidden", backgroundColor: "#120810" }}>
-      {item.video ? (
-        <LoopClip uri={item.video} poster={item.media} height={460} />
-      ) : item.media ? (
-        <Image source={{ uri: item.media }} style={{ width: "100%", height: 460 }} resizeMode="cover" accessibilityIgnoresInvertColors />
-      ) : (
-        <View style={{ height: 280, backgroundColor: "#2D1530" }} />
-      )}
-      <LinearGradient colors={["transparent", "rgba(10,4,8,0.15)", "rgba(10,4,8,0.94)"]} style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: 16, gap: 10 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${item.name}'s post`}
+      onPress={onOpen}
+      style={{
+        marginHorizontal: 16,
+        borderRadius: livelyRadii.hero,
+        overflow: "hidden",
+        backgroundColor: "#140B12",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.08)",
+      }}
+    >
+      <View style={{ paddingHorizontal: 14, paddingTop: 14, paddingBottom: 10, gap: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           {item.face ? (
-            <Image source={{ uri: item.face }} style={{ width: 36, height: 36, borderRadius: 18 }} accessibilityIgnoresInvertColors />
+            <Image source={{ uri: item.face }} style={{ width: 40, height: 40, borderRadius: 20 }} accessibilityIgnoresInvertColors />
           ) : (
-            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#70323E", alignItems: "center", justifyContent: "center" }}>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "#70323E", alignItems: "center", justifyContent: "center" }}>
               <Text style={{ color: "#fff", fontFamily: fonts.bold }}>{item.name.slice(0, 1)}</Text>
             </View>
           )}
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: "#fff", flex: 1 }}>{item.name}</Text>
+          <View style={{ flex: 1, gap: 2 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: tone.text }}>{handle}</Text>
+              {verified ? <SealCheck size={16} color="#FF6B9D" weight="fill" /> : null}
+            </View>
+            {item.skin ? (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: tone.muted }}>Skin type · {item.skin}</Text>
+            ) : null}
+          </View>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: tone.faint }}>{timeLabel}</Text>
         </View>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: "#FFF8F4" }}>{item.caption}</Text>
-        <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-          {item.skin ? <Chip label={`Skin · ${item.skin}`} gold /> : null}
-          {item.product ? <Chip label={item.product} /> : null}
-          {item.timeline ? <Chip label={item.timeline} /> : null}
-          {item.stickers?.map((label) => <Chip key={label} label={label} />)}
-        </View>
-        <View style={{ flexDirection: "row", gap: 18, alignItems: "center" }}>
-          <Pressable accessibilityRole="button" accessibilityLabel={`${likeCount} likes`} onPress={() => { hapticSelect(); onLove(); }} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Heart size={22} color={loved ? "#F0CF69" : "#fff"} weight={loved ? "fill" : "regular"} />
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#fff" }}>{likeCount}</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={`${commentCount} comments`} onPress={() => { hapticSelect(); onComments(); }} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <ChatCircle size={22} color="#fff" />
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#fff" }}>{commentCount}</Text>
-          </Pressable>
-        </View>
-      </LinearGradient>
-    </Pressable>
-  );
-}
+      </View>
 
-function Chip({ label, gold }: { label: string; gold?: boolean }) {
-  return (
-    <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: gold ? "rgba(201,162,39,0.28)" : "rgba(255,255,255,0.16)" }}>
-      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: "#fff" }}>{label}</Text>
-    </View>
+      <View style={{ position: "relative" }}>
+        {item.video ? (
+          <LoopClip uri={item.video} poster={item.media} height={420} />
+        ) : item.media ? (
+          <Image source={{ uri: item.media }} style={{ width: "100%", height: 420 }} resizeMode="cover" accessibilityIgnoresInvertColors />
+        ) : (
+          <View style={{ height: 320, backgroundColor: "#2D1530" }} />
+        )}
+
+        {routineTitle && (item.product || item.timeline) ? (
+          <View
+            style={{
+              position: "absolute",
+              right: 12,
+              top: 12,
+              maxWidth: 168,
+              padding: 12,
+              borderRadius: 16,
+              backgroundColor: "rgba(20,11,18,0.55)",
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.18)",
+              ...(Platform.OS === "web" ? { backdropFilter: "blur(12px)" as never } : {}),
+            }}
+          >
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#FFF8F4", marginBottom: 8 }}>{routineTitle}</Text>
+            {item.product ? (
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11, lineHeight: 16, color: "rgba(255,248,244,0.85)" }}>{item.product}</Text>
+            ) : null}
+            {item.timeline ? (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: "rgba(255,248,244,0.65)", marginTop: 4 }}>{item.timeline}</Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View
+          style={{
+            position: "absolute",
+            left: 12,
+            bottom: 12,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            paddingHorizontal: 12,
+            paddingVertical: 7,
+            borderRadius: 999,
+            backgroundColor: "rgba(255,107,157,0.88)",
+          }}
+        >
+          <Sparkle size={14} color="#1A0A14" weight="fill" />
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#1A0A14" }}>My Unmask</Text>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 20 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${likeCount} likes`}
+          onPress={() => {
+            hapticSelect();
+            onLove();
+          }}
+          style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+        >
+          <Heart size={24} color={loved ? "#FF6B9D" : tone.text} weight={loved ? "fill" : "regular"} />
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: tone.text }}>{formatCount(likeCount)}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${commentCount} comments`}
+          onPress={() => {
+            hapticSelect();
+            onComments();
+          }}
+          style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+        >
+          <ChatCircle size={24} color={tone.text} />
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: tone.text }}>{commentCount}</Text>
+        </Pressable>
+        <ShareNetwork size={22} color={tone.muted} />
+        <View style={{ flex: 1 }} />
+        <BookmarkSimple size={22} color={tone.muted} />
+      </View>
+
+      <View style={{ paddingHorizontal: 14, paddingBottom: 16, gap: 6 }}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: tone.text }}>
+          <Text style={{ fontFamily: fonts.semibold }}>{handle} </Text>
+          {item.caption}
+        </Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: "#FF8BC8" }}>{tags.join(" ")}</Text>
+      </View>
+    </Pressable>
   );
 }

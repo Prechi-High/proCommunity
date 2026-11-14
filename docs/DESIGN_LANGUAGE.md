@@ -36,6 +36,8 @@ Dark is the default on every `AppShell` page. Settings → Theme switches to lig
 
 Posts show a skin chip, product, timeline, like count, and comment count. Tapping a post opens that post. The comment sheet only lists comments; “Join the conversation” enters the post, and that is where a comment is written.
 
+Home follows the reference mock: brand tagline under the wordmark, bell + profile in the header, a glowing labeled story rail (Create your Unmask, GRWM, timelines, etc.), teaser trailers unchanged, a “Share your Unmask…” quick bar, and card posts with header, frosted routine overlay, pink **My Unmask** pill, and hashtag footer. Create opens a full-screen camera with left routine rails, right look thumbnails, pink shutter, and Photo / Video toggle.
+
 Under the story rings, teaser slips are short trailers: an emotional hook, a clear call to action (Ask the brand, Ask an expert, Talk with the seller, Create your store, See what Unmask is), and a **Coming soon** label on locked layers after the First 90. Tap for the longer explanation.
 
 Stories play in a WhatsApp-familiar viewer: progress bars across the top, about six seconds per status, then the next person in the ring. The header shows profile photo and name. The camera opens only when you add your story. If you already have one, the ring plays it and a small plus adds another. The shutter takes a photo on tap and a video if you hold it.

@@ -1,21 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, Text, View } from "react-native";
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
+import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 
-import { Lightning, X } from "@/components/icons";
+import { CameraRotate, HandHeart, ImageSquare, Lightning, MoonStars, SmileyNervous, Sparkle, Sun, TrendUp, X } from "@/components/icons";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 
 const LOOKS = [
-  { id: "clear", label: "Clear", tint: "transparent" },
-  { id: "glow", label: "Glow", tint: "rgba(255, 186, 140, 0.28)" },
-  { id: "rose", label: "Rose", tint: "rgba(176, 64, 96, 0.24)" },
-  { id: "warm", label: "Warm", tint: "rgba(201, 162, 39, 0.26)" },
+  { id: "clear", label: "Natural", tint: "transparent", swatch: "#2A2422" },
+  { id: "glow", label: "Glow", tint: "rgba(255, 186, 140, 0.28)", swatch: "#FFB88C" },
+  { id: "rose", label: "Bloom", tint: "rgba(176, 64, 96, 0.24)", swatch: "#E87EC8" },
+  { id: "warm", label: "Warm", tint: "rgba(201, 162, 39, 0.26)", swatch: "#F0CF69" },
+  { id: "cool", label: "Cool", tint: "rgba(90, 140, 210, 0.22)", swatch: "#8BB4E8" },
 ] as const;
 
-const STICKERS = ["This is me", "Good for who?", "My Unmask", "Skin · mine", "Week 2", "No verdict"];
+const ROUTINES = [
+  { id: "unmask", label: "My Unmask", sticker: "My Unmask", Icon: Sparkle, accent: true },
+  { id: "morning", label: "Morning routine", sticker: "Morning routine", Icon: Sun },
+  { id: "evening", label: "Evening routine", sticker: "Evening routine", Icon: MoonStars },
+  { id: "grwm", label: "GRWM", sticker: "GRWM", Icon: HandHeart },
+  { id: "timeline", label: "Product timeline", sticker: "Product timeline", Icon: TrendUp, timeline: true },
+  { id: "just", label: "Just me", sticker: "Just me", Icon: SmileyNervous },
+] as const;
 
 export function UnmaskCamera({
   onClose,
@@ -41,11 +50,13 @@ export function UnmaskCamera({
   const [torch, setTorch] = useState(false);
   const [grid, setGrid] = useState(false);
   const [look, setLook] = useState(0);
-  const [stickers, setStickers] = useState<string[]>([]);
-  const [tray, setTray] = useState<"stickers" | "sounds" | null>(null);
+  const [routine, setRoutine] = useState(0);
+  const [captureMode, setCaptureMode] = useState<"photo" | "video">("photo");
   const [count, setCount] = useState<number | null>(null);
   const [error, setError] = useState("");
   const tint = LOOKS[look]?.tint ?? "transparent";
+  const activeRoutine = ROUTINES[routine] ?? ROUTINES[0];
+  const stickers = [activeRoutine.sticker];
 
   useEffect(() => {
     if (permission && !permission.granted && permission.canAskAgain) void requestPermission();
@@ -146,6 +157,7 @@ export function UnmaskCamera({
   }
 
   function pressIn() {
+    if (captureMode !== "video") return;
     held.current = false;
     if (holdTimer.current) clearTimeout(holdTimer.current);
     holdTimer.current = setTimeout(() => {
@@ -155,6 +167,7 @@ export function UnmaskCamera({
   }
 
   function pressOut() {
+    if (captureMode !== "video") return;
     if (holdTimer.current) clearTimeout(holdTimer.current);
     if (webStop.current) {
       const stop = webStop.current;
@@ -182,6 +195,14 @@ export function UnmaskCamera({
     }
   }
 
+  async function onShutter() {
+    if (captureMode === "video") {
+      if (!held.current) setError("Hold the shutter to record video.");
+      return;
+    }
+    await shoot();
+  }
+
   async function upload() {
     setError("");
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.75, base64: true });
@@ -191,12 +212,6 @@ export function UnmaskCamera({
     onShot(uri, stickers);
   }
 
-  const tool = (label: string, onPress: () => void) => (
-    <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={{ alignItems: "center", gap: 2, minWidth: 54 }}>
-      <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: "#FFF8F4" }}>{label}</Text>
-    </Pressable>
-  );
-
   return (
     <View style={{ flex: 1, backgroundColor: "#000" }}>
       {permission?.granted ? (
@@ -204,7 +219,7 @@ export function UnmaskCamera({
           ref={camera}
           style={{ flex: 1 }}
           facing={facing}
-          mode={Platform.OS === "web" ? "picture" : "video"}
+          mode={Platform.OS === "web" ? "picture" : captureMode === "video" ? "video" : "picture"}
           enableTorch={torch && facing === "back"}
           mirror={facing === "front"}
           onCameraReady={() => setReady(true)}
@@ -216,7 +231,7 @@ export function UnmaskCamera({
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: "rgba(255,248,244,0.7)", textAlign: "center" }}>
             This stays inside Unmask. It will not open your phone’s camera app.
           </Text>
-          <Pressable onPress={() => void requestPermission()} style={{ paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999, backgroundColor: "#F0CF69" }}>
+          <Pressable onPress={() => void requestPermission()} style={{ paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999, backgroundColor: "#FF6B9D" }}>
             <Text style={{ fontFamily: fonts.semibold, color: "#1A0A14" }}>Allow camera</Text>
           </Pressable>
         </View>
@@ -230,11 +245,16 @@ export function UnmaskCamera({
           <View style={{ position: "absolute", top: "66%", left: 0, right: 0, height: 1, backgroundColor: "rgba(255,255,255,0.35)" }} />
         </View>
       ) : null}
-      {stickers.map((label, index) => (
-        <View key={`${label}-${index}`} pointerEvents="none" style={{ position: "absolute", top: 120 + index * 36, left: 24, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(18,8,16,0.55)" }}>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#FFF8F4" }}>{label}</Text>
+
+      <View pointerEvents="none" style={{ position: "absolute", top: "38%", left: 0, right: 0, alignItems: "center" }}>
+        <Text style={{ fontFamily: fonts.serifBold, fontSize: 36, color: "#FF8BC8", textShadowColor: "rgba(0,0,0,0.4)", textShadowRadius: 8 }}>
+          {activeRoutine.label}
+        </Text>
+        <View style={{ marginTop: 4 }}>
+          <Sparkle size={22} color="#FF6B9D" weight="fill" />
         </View>
-      ))}
+      </View>
+
       {count !== null && count > 0 ? (
         <View pointerEvents="none" style={{ position: "absolute", top: "40%", left: 0, right: 0, alignItems: "center" }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 72, color: "#FFF8F4" }}>{count}</Text>
@@ -242,70 +262,167 @@ export function UnmaskCamera({
       ) : null}
 
       <SafeAreaView style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} edges={["top", "bottom"]} pointerEvents="box-none">
-        <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 8 }}>
-          <Pressable accessibilityLabel="Close camera" onPress={onClose} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
-            <X size={22} color="#FFF8F4" />
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingTop: 8 }}>
+          <Pressable accessibilityLabel="Close camera" onPress={onClose} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+            <X size={24} color="#FFF8F4" />
           </Pressable>
-          <Pressable accessibilityLabel="Flash" onPress={() => setTorch((v) => !v)}>
-            <Lightning size={22} color={torch ? "#F0CF69" : "#FFF8F4"} weight={torch ? "fill" : "regular"} />
-          </Pressable>
-        </View>
-
-        <View style={{ position: "absolute", right: 10, top: 110, gap: 16, alignItems: "flex-end" }}>
-          {tool("Timeline", () => { hapticSelect(); onTimeline(); })}
-          {tool("Sounds", () => setTray(tray === "sounds" ? null : "sounds"))}
-          {tool("Look", () => setLook((n) => (n + 1) % LOOKS.length))}
-          {tool("Timer", () => setCount(3))}
-          {tool("Grid", () => setGrid((v) => !v))}
-          {tool("Stickers", () => setTray(tray === "stickers" ? null : "stickers"))}
-        </View>
-
-        {tray ? (
-          <View style={{ position: "absolute", left: 16, right: 72, bottom: 130, gap: 8 }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: "rgba(255,248,244,0.7)" }}>
-              {tray === "stickers" ? "Tap to pin an Unmask sticker" : "A quiet label. No outside music."}
-            </Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {(tray === "stickers" ? STICKERS : ["Quiet room", "GRWM", "None"]).map((label) => (
-                <Pressable
-                  key={label}
-                  onPress={() => {
-                    hapticSelect();
-                    if (label !== "None") setStickers((list) => (list.includes(label) ? list : [...list, label]));
-                    setTray(null);
-                  }}
-                  style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(0,0,0,0.45)", borderWidth: 1, borderColor: "rgba(255,248,244,0.25)" }}
-                >
-                  <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#FFF8F4" }}>{label}</Text>
-                </Pressable>
-              ))}
-            </View>
+          <Text style={{ flex: 1, textAlign: "center", fontFamily: fonts.semibold, fontSize: 17, color: "#FFF8F4" }}>Create Your Unmask</Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Pressable accessibilityLabel="Flash" onPress={() => setTorch((v) => !v)} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
+              <Lightning size={22} color={torch ? "#FF8BC8" : "#FFF8F4"} weight={torch ? "fill" : "regular"} />
+            </Pressable>
+            <Pressable accessibilityLabel="Flip camera" onPress={() => setFacing((f) => (f === "front" ? "back" : "front"))} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
+              <CameraRotate size={22} color="#FFF8F4" />
+            </Pressable>
           </View>
-        ) : null}
+        </View>
 
-        <View style={{ marginTop: "auto", paddingBottom: 18, paddingHorizontal: 28, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Pressable accessibilityLabel="Upload from gallery" onPress={() => void upload()} style={{ width: 44, height: 44, borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,248,244,0.4)", alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 9, color: "#FFF8F4", textAlign: "center" }}>Roll</Text>
+        <View style={{ position: "absolute", left: 8, top: 110, gap: 8, maxWidth: 148 }}>
+          {ROUTINES.map((row, index) => {
+            const active = routine === index;
+            const Icon = row.Icon;
+            const onPick = () => {
+              hapticSelect();
+              setRoutine(index);
+              if ("timeline" in row && row.timeline) onTimeline();
+            };
+            if (active && row.id === "unmask") {
+              return (
+                <Pressable key={row.id} accessibilityRole="button" onPress={onPick}>
+                  <LinearGradient colors={["#FF6B9D", "#C94B8A"]} style={{ borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Icon size={16} color="#1A0A14" weight="fill" />
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: "#1A0A14" }}>{row.label}</Text>
+                  </LinearGradient>
+                </Pressable>
+              );
+            }
+            return (
+              <Pressable
+                key={row.id}
+                accessibilityRole="button"
+                onPress={onPick}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 999,
+                  backgroundColor: active ? "rgba(255,107,157,0.35)" : "rgba(0,0,0,0.45)",
+                  borderWidth: active ? 1 : 0,
+                  borderColor: "rgba(255,139,200,0.6)",
+                }}
+              >
+                <Icon size={16} color="#FFF8F4" weight={active ? "fill" : "regular"} />
+                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: "#FFF8F4" }} numberOfLines={1}>
+                  {row.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={{ position: "absolute", right: 10, top: 110, gap: 10, alignItems: "center" }}>
+          {LOOKS.map((item, index) => (
+            <Pressable
+              key={item.id}
+              accessibilityRole="button"
+              accessibilityLabel={item.label}
+              onPress={() => {
+                hapticSelect();
+                setLook(index);
+              }}
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                borderWidth: look === index ? 3 : 1,
+                borderColor: look === index ? "#FF8BC8" : "rgba(255,255,255,0.35)",
+                overflow: "hidden",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: item.swatch,
+              }}
+            >
+              <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: "#FFF8F4", textAlign: "center" }}>{item.label.slice(0, 3)}</Text>
+            </Pressable>
+          ))}
+          <Pressable accessibilityLabel="Grid guide" onPress={() => setGrid((v) => !v)} style={{ marginTop: 6 }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: grid ? "#FF8BC8" : "rgba(255,248,244,0.6)" }}>Grid</Text>
+          </Pressable>
+        </View>
+
+        <View style={{ marginTop: "auto", paddingBottom: 8, paddingHorizontal: 24, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Pressable accessibilityLabel="Upload from gallery" onPress={() => void upload()} style={{ width: 48, height: 48, borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,248,244,0.35)", alignItems: "center", justifyContent: "center" }}>
+            <ImageSquare size={26} color="#FFF8F4" />
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Tap for a photo. Hold for a video."
+            accessibilityLabel={captureMode === "photo" ? "Take a photo" : "Hold for video"}
             onPressIn={pressIn}
             onPressOut={pressOut}
-            onPress={() => {
-              if (!held.current) void shoot();
+            onPress={() => void onShutter()}
+            style={{
+              width: 82,
+              height: 82,
+              borderRadius: 41,
+              borderWidth: 5,
+              borderColor: recordingUi ? "#E23B3B" : "#FF6B9D",
+              alignItems: "center",
+              justifyContent: "center",
             }}
-            style={{ width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: recordingUi ? "#E23B3B" : "#FFF8F4", alignItems: "center", justifyContent: "center" }}
           >
-            <View style={{ width: recordingUi ? 36 : 62, height: recordingUi ? 36 : 62, borderRadius: recordingUi ? 8 : 31, backgroundColor: recordingUi ? "#E23B3B" : "#FFF8F4" }} />
+            <View
+              style={{
+                width: recordingUi ? 36 : 66,
+                height: recordingUi ? 36 : 66,
+                borderRadius: recordingUi ? 8 : 33,
+                backgroundColor: recordingUi ? "#E23B3B" : "#FF6B9D",
+              }}
+            />
           </Pressable>
-          <Pressable accessibilityLabel="Flip camera" onPress={() => setFacing((f) => (f === "front" ? "back" : "front"))} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: "#FFF8F4" }}>Flip</Text>
+          <Pressable accessibilityLabel="Flip camera" onPress={() => setFacing((f) => (f === "front" ? "back" : "front"))} style={{ width: 48, height: 48, alignItems: "center", justifyContent: "center" }}>
+            <CameraRotate size={28} color="#FFF8F4" />
           </Pressable>
         </View>
-        {error ? <Text style={{ color: "#F0CF69", textAlign: "center", fontFamily: fonts.medium, paddingBottom: 8 }}>{error}</Text> : null}
-        <Text style={{ textAlign: "center", fontFamily: fonts.medium, fontSize: 11, color: "rgba(255,248,244,0.55)", paddingBottom: 6 }}>
-          {recordingUi ? "Recording · let go to stop" : `${LOOKS[look]?.label} · tap photo, hold video`}
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignSelf: "center",
+            marginBottom: 12,
+            padding: 4,
+            borderRadius: 999,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.15)",
+          }}
+        >
+          {(["photo", "video"] as const).map((mode) => (
+            <Pressable
+              key={mode}
+              accessibilityRole="button"
+              onPress={() => {
+                hapticSelect();
+                setCaptureMode(mode);
+              }}
+              style={{
+                paddingHorizontal: 22,
+                paddingVertical: 8,
+                borderRadius: 999,
+                backgroundColor: captureMode === mode ? "#FF6B9D" : "transparent",
+              }}
+            >
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: captureMode === mode ? "#1A0A14" : "#FFF8F4" }}>
+                {mode === "photo" ? "Photo" : "Video"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {error ? <Text style={{ color: "#FF8BC8", textAlign: "center", fontFamily: fonts.medium, paddingBottom: 4 }}>{error}</Text> : null}
+        <Text style={{ textAlign: "center", fontFamily: fonts.medium, fontSize: 11, color: "rgba(255,248,244,0.55)", paddingBottom: 8 }}>
+          {recordingUi ? "Recording · let go to stop" : captureMode === "photo" ? `${LOOKS[look]?.label} · tap to capture` : "Hold the shutter to record"}
         </Text>
       </SafeAreaView>
     </View>
