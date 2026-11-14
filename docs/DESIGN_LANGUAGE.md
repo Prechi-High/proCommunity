@@ -50,7 +50,7 @@ Emotional invites to keep in the feed: shy first post, routine flex, men and gro
 
 ### Visual-first rule (non‑negotiable)
 
-Every primary surface (home, welcome, community) must show **people and media first**: story rail, at least one featured post with photography, and a horizontal feed strip. Copy supports the visuals — never a wall of text without images. **Post entry** is `/moment` (camera/gallery/caption), not a blank form. Product and timeline attach are **optional** chips, per the social identity plan.
+Every primary surface (home, welcome, community) must show **people and media first**: story rail, at least one featured post with photography, and a horizontal feed strip. Copy supports the visuals — never a wall of text without images. **Post entry** is `/moment`: Choose your moment (Morning, GRWM, Evening, Currently Using) → moment camera → optional context → preview → share. Not capture-first. Product and timeline attach are **optional** chips, per the social identity plan.
 
 ### What we borrow from references
 | Pattern | Reference | Unmask adaptation |
