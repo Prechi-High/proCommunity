@@ -22,23 +22,28 @@ export function StoryViewer({
   startIndex = 0,
   visible,
   onClose,
+  onFinishedPerson,
 }: {
   queue: PulseMoment[];
   startIndex?: number;
   visible: boolean;
   onClose: () => void;
+  /** Called when the last segment for this person finishes (optional auto-advance). */
+  onFinishedPerson?: () => void;
 }) {
   const { height } = useWindowDimensions();
   const [index, setIndex] = useState(startIndex);
   const [progress, setProgress] = useState(0);
   const elapsed = useRef(0);
+  const paused = useRef(false);
 
   useEffect(() => {
     if (!visible) return;
     setIndex(startIndex);
     setProgress(0);
     elapsed.current = 0;
-  }, [visible, startIndex, queue]);
+    paused.current = false;
+  }, [visible, startIndex, queue, queue.length]);
 
   const item = queue[index];
 
@@ -47,28 +52,38 @@ export function StoryViewer({
     setProgress(0);
     elapsed.current = 0;
     const tick = setInterval(() => {
+      if (paused.current) return;
       elapsed.current += 80;
       const p = Math.min(1, elapsed.current / STORY_MS);
       setProgress(p);
       if (p >= 1) {
         clearInterval(tick);
         if (index < queue.length - 1) setIndex((i) => i + 1);
+        else if (onFinishedPerson) onFinishedPerson();
         else onClose();
       }
     }, 80);
     return () => clearInterval(tick);
-  }, [visible, index, item?.id, queue.length]);
+  }, [visible, index, item?.id, queue.length, onClose, onFinishedPerson]);
 
   if (!item) return null;
 
   const goPrev = () => {
-    if (index > 0) setIndex((i) => i - 1);
-    else onClose();
+    if (index > 0) {
+      setIndex((i) => i - 1);
+      return;
+    }
+    onClose();
   };
 
   const goNext = () => {
     if (index < queue.length - 1) setIndex((i) => i + 1);
+    else if (onFinishedPerson) onFinishedPerson();
     else onClose();
+  };
+
+  const holdPause = (on: boolean) => {
+    paused.current = on;
   };
 
   return (
@@ -77,35 +92,23 @@ export function StoryViewer({
         {item.video ? (
           <LoopClip uri={item.video} poster={item.media || item.video} height={height} />
         ) : item.media ? (
-          <Image
-            source={{ uri: item.media }}
-            style={{ width: "100%", height: "100%" }}
-            resizeMode="cover"
-            accessibilityIgnoresInvertColors
-          />
+          <Image source={{ uri: item.media }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
         ) : (
           <View style={{ flex: 1, backgroundColor: "#1A0A14" }} />
         )}
-        <SafeAreaView style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} edges={["top", "bottom"]}>
-          <View style={{ paddingHorizontal: 10, paddingTop: 6, gap: 12 }}>
+        <SafeAreaView style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} edges={["top", "bottom"]} pointerEvents="box-none">
+          <View style={{ paddingHorizontal: 10, paddingTop: 6, gap: 12 }} pointerEvents="box-none">
             <View style={{ flexDirection: "row", gap: 4 }}>
               {queue.map((row, i) => (
                 <View
-                  key={row.id}
-                  style={{
-                    flex: 1,
-                    height: 3,
-                    borderRadius: 2,
-                    backgroundColor: "rgba(255,255,255,0.28)",
-                    overflow: "hidden",
-                  }}
+                  key={`${row.id}-${i}`}
+                  style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.28)", overflow: "hidden" }}
                 >
                   <View
                     style={{
                       height: "100%",
                       backgroundColor: "#FFF8F4",
-                      width:
-                        i < index ? "100%" : i === index ? `${progress * 100}%` : "0%",
+                      width: i < index ? "100%" : i === index ? `${progress * 100}%` : "0%",
                     }}
                   />
                 </View>
@@ -113,25 +116,10 @@ export function StoryViewer({
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               {item.face ? (
-                <Image
-                  source={{ uri: item.face }}
-                  style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.5)" }}
-                  accessibilityIgnoresInvertColors
-                />
+                <Image source={{ uri: item.face }} style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.5)" }} accessibilityIgnoresInvertColors />
               ) : (
-                <View
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
-                    backgroundColor: "#70323E",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: "#FFF8F4" }}>
-                    {item.name.slice(0, 1)}
-                  </Text>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#70323E", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: "#FFF8F4" }}>{item.name.slice(0, 1)}</Text>
                 </View>
               )}
               <View style={{ flex: 1 }}>
@@ -143,16 +131,14 @@ export function StoryViewer({
               </Pressable>
             </View>
           </View>
-          <View style={{ flex: 1, flexDirection: "row" }}>
-            <Pressable style={{ flex: 1 }} onPress={goPrev} accessibilityLabel="Previous story" />
-            <Pressable style={{ flex: 1 }} onPress={goNext} accessibilityLabel="Next story" />
+          <View style={{ flex: 1, flexDirection: "row" }} pointerEvents="box-none">
+            <Pressable style={{ flex: 1 }} onPress={goPrev} onPressIn={() => holdPause(true)} onPressOut={() => holdPause(false)} accessibilityLabel="Previous story" />
+            <Pressable style={{ flex: 1 }} onPress={goNext} onPressIn={() => holdPause(true)} onPressOut={() => holdPause(false)} accessibilityLabel="Next story" />
           </View>
-          <View style={{ paddingHorizontal: 18, paddingBottom: 16, gap: 8 }}>
+          <View style={{ paddingHorizontal: 18, paddingBottom: 16, gap: 8 }} pointerEvents="none">
             <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: "#FFF8F4" }}>{item.caption}</Text>
             <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: "#F0CF69" }}>
-              {[item.skin ? `Skin · ${item.skin}` : "", item.product || "", item.timeline || ""]
-                .filter(Boolean)
-                .join("  ·  ")}
+              {[item.skin ? `Skin · ${item.skin}` : "", item.product || "", item.timeline || ""].filter(Boolean).join("  ·  ")}
             </Text>
           </View>
         </SafeAreaView>

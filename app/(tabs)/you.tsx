@@ -1,7 +1,8 @@
+import * as ImagePicker from "expo-image-picker";
 import { MemberAvatar } from "@/components/unmask-ui/MemberAvatar";
 import { memberIdentity, foundingMember } from "@/lib/membership";
-import { Text, View } from "react-native";
-import { useQuery } from "@tanstack/react-query";
+import { Pressable, Text, View } from "react-native";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 
 import {
@@ -18,6 +19,7 @@ import { membership } from "@/lib/creator/api";
 import * as clarity from "@/lib/clarity/api";
 import * as investigations from "@/lib/investigations/api";
 import * as api from "@/lib/profiles/api";
+import { hapticSelect } from "@/lib/haptics";
 import { useAppStore } from "@/lib/store";
 import { SOCIAL_IDENTITY } from "@/lib/social/identity";
 
@@ -74,6 +76,36 @@ export default function You() {
     enabled: features.creatorStudio && !!p,
   });
   const name = p?.displayName || identity.data?.display_name || "You";
+  const queryClient = useQueryClient();
+
+  async function changeAvatar() {
+    if (!p?.id) return;
+    hapticSelect();
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (picked.canceled) return;
+    try {
+      const uri = picked.assets[0]?.uri;
+      if (!uri) return;
+      const url = await api.uploadAvatar(uri);
+      await api.save({
+        display_name: identity.data?.display_name || name,
+        handle: identity.data?.handle || name.toLowerCase().replace(/\s+/g, "_"),
+        bio: identity.data?.bio || "",
+        avatar_url: url,
+        social_links: identity.data?.social_links || [],
+        show_support: identity.data?.show_support ?? true,
+        show_counts: identity.data?.show_counts ?? true,
+      });
+      void queryClient.invalidateQueries({ queryKey: ["public-identity", p.id] });
+    } catch {
+      /* surface later */
+    }
+  }
 
   return (
     <AppShell
@@ -104,7 +136,9 @@ export default function You() {
       ) : (
         <View style={{ gap: 28 }}>
           <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
-            <MemberAvatar name={name} uri={identity.data?.avatar_url} size={72} claimed={!!member.data} founding={!!founder.data} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Change profile photo" onPress={() => void changeAvatar()}>
+              <MemberAvatar name={name} uri={identity.data?.avatar_url} size={72} claimed={!!member.data} founding={!!founder.data} />
+            </Pressable>
             <View style={{ flex: 1, gap: 4 }}>
               <Text
                 style={{

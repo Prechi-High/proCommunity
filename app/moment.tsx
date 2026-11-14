@@ -4,6 +4,7 @@ import { useRouter, type Href } from "expo-router";
 
 import { ChooseMoment } from "@/components/moment/ChooseMoment";
 import { MomentCamera } from "@/components/moment/MomentCamera";
+import { MomentCaptureReview } from "@/components/moment/MomentCaptureReview";
 import { MomentComplete, type MomentContext } from "@/components/moment/MomentComplete";
 import { UnmaskPreview } from "@/components/moment/UnmaskPreview";
 import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
@@ -11,7 +12,7 @@ import { hapticSaved } from "@/lib/haptics";
 import { useLocalMoments } from "@/lib/moment/localPosts";
 import { useAppStore } from "@/lib/store";
 
-type Step = "choose" | "camera" | "complete" | "preview";
+type Step = "choose" | "camera" | "review" | "complete" | "preview";
 
 export default function Moment() {
   const router = useRouter();
@@ -23,6 +24,7 @@ export default function Moment() {
   const [kind, setKind] = useState<MomentKind | null>(null);
   const [mediaUri, setMediaUri] = useState("");
   const [mediaKind, setMediaKind] = useState<"photo" | "video">("photo");
+  const [destination, setDestination] = useState<"post" | "story" | "both">("both");
   const [context, setContext] = useState<MomentContext>({});
 
   const pickKind = (k: MomentKind) => {
@@ -34,7 +36,7 @@ export default function Moment() {
     setStep("camera");
   };
 
-  const post = (destination: "post" | "story" | "both") => {
+  const post = () => {
     if (!kind || !mediaUri) return;
     const config = momentConfig(kind);
     const caption =
@@ -54,7 +56,8 @@ export default function Moment() {
       momentKind: kind,
       occasion: context.occasion,
       usageDuration: context.usageDuration,
-      stickers: [config.title, context.routineTag].filter(Boolean) as string[],
+      routineTags: context.routineTags,
+      stickers: [`${config.title} ${config.emoji}`, ...(context.routineTags ?? [])],
     });
     hapticSaved("moment");
     router.replace("/" as Href);
@@ -70,20 +73,30 @@ export default function Moment() {
         <MomentCamera
           kind={kind}
           onClose={() => {
-            if (mediaUri) setStep("complete");
-            else {
-              setKind(null);
-              setStep("choose");
-            }
+            if (mediaUri) setStep("review");
+            else router.replace("/" as Href);
           }}
           onShot={(uri, mk) => {
             setMediaUri(uri);
             setMediaKind(mk);
-            setStep("complete");
+            setStep("review");
           }}
-          onAddRoutine={kind === "morning" ? () => setStep("complete") : undefined}
         />
       </View>
+    );
+  }
+
+  if (step === "review" && mediaUri) {
+    return (
+      <MomentCaptureReview
+        mediaUri={mediaUri}
+        mediaKind={mediaKind}
+        onRetake={() => setStep("camera")}
+        onNext={(dest) => {
+          setDestination(dest);
+          setStep("complete");
+        }}
+      />
     );
   }
 
@@ -93,7 +106,7 @@ export default function Moment() {
         kind={kind}
         mediaUri={mediaUri}
         mediaKind={mediaKind}
-        onBack={() => setStep("camera")}
+        onBack={() => setStep("review")}
         onNext={(ctx) => {
           setContext(ctx);
           setStep("preview");
@@ -103,7 +116,7 @@ export default function Moment() {
   }
 
   if (step === "preview" && kind && mediaUri) {
-    return <UnmaskPreview kind={kind} mediaUri={mediaUri} context={context} onPost={post} />;
+    return <UnmaskPreview kind={kind} mediaUri={mediaUri} mediaKind={mediaKind} context={context} destination={destination} onPost={post} />;
   }
 
   return <ChooseMoment onPick={pickKind} />;

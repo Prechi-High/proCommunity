@@ -35,7 +35,7 @@ export const MOMENTS: MomentConfig[] = [
     border: ["#F0CF69", "#E8B95A"],
     defaultMode: "photo",
     cardImage: img("photo-1616394584738-fc6e612125bb"),
-    stickers: ["Skincare", "Makeup", "Hair", "Body", "Other"],
+    stickers: ["Skincare", "Makeup", "Hair", "Body"],
   },
   {
     id: "grwm",

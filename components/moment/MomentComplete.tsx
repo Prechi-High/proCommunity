@@ -4,7 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ArrowLeft, Plus } from "@/components/icons";
+import { ArrowLeft, Package, Plus } from "@/components/icons";
+import { routineIconFor } from "@/lib/moment/routineIcons";
 import { ActionSheet } from "@/components/unmask-ui";
 import { fonts, livelyRadii } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
@@ -15,19 +16,20 @@ import { useAppStore } from "@/lib/store";
 
 export type MomentContext = {
   productName?: string;
+  productImage?: string;
   timelineId?: string;
   timelineLabel?: string;
-  routineTag?: string;
+  routineTags?: string[];
   occasion?: string;
   usageDuration?: string;
-  showRoutine?: "yes" | "skip";
   eveningSteps?: string;
   experience?: string;
 };
 
+const img = (id: string) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=200&q=80`;
 const EXAMPLES = [
-  { id: "sample-tl-dew", name: "Dew Days Daily Cream", when: "Week 2" },
-  { id: "sample-tl-spf", name: "Sunroom Daily SPF", when: "Daily" },
+  { id: "sample-tl-dew", name: "Dew Days Daily Cream", when: "Week 2", image: img("photo-1556228720-195a672e8a03") },
+  { id: "sample-tl-spf", name: "Sunroom Daily SPF", when: "Daily", image: img("photo-1570172619644-dfd03ed5d881") },
 ];
 
 export function MomentComplete({
@@ -57,12 +59,50 @@ export function MomentComplete({
     id: row.id,
     name: row.unmask_catalog?.name || "Your product",
     when: row.frequency || row.status || "Timeline",
+    image: row.unmask_catalog?.image_url || null,
   }));
   const choices = real.length ? real : EXAMPLES;
 
-  const selectProduct = (id: string, name: string, when: string) => {
-    setCtx((c) => ({ ...c, timelineId: id, productName: name, timelineLabel: `${name} · ${when}` }));
+  const selectProduct = (id: string, name: string, when: string, image?: string | null) => {
+    setCtx((c) => ({
+      ...c,
+      timelineId: id,
+      productName: name,
+      productImage: image || undefined,
+      timelineLabel: `${name} · ${when}`,
+    }));
     setPicker(false);
+  };
+
+  const toggleRoutine = (tag: string) => {
+    hapticSelect();
+    setCtx((c) => {
+      const list = c.routineTags ?? [];
+      const routineTags = list.includes(tag) ? list.filter((t) => t !== tag) : [...list, tag];
+      return { ...c, routineTags };
+    });
+  };
+
+  const iconChip = (label: string, active: boolean, onPress: () => void) => {
+    const Icon = routineIconFor(label);
+    return (
+      <Pressable
+        key={label}
+        onPress={onPress}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          paddingHorizontal: 14,
+          paddingVertical: 9,
+          borderRadius: 999,
+          backgroundColor: active ? (kind === "evening" ? "#8E4052" : "#70323E") : kind === "evening" ? "rgba(255,255,255,0.1)" : "#F2D8D8",
+        }}
+      >
+        <Icon size={16} color={active ? "#FFF8F4" : ink} weight={active ? "fill" : "regular"} />
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: active ? "#FFF8F4" : ink }}>{label}</Text>
+      </Pressable>
+    );
   };
 
   const chip = (label: string, active: boolean, onPress: () => void) => (
@@ -110,14 +150,7 @@ export function MomentComplete({
               <Card ink={ink}>
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: ink, marginBottom: 10 }}>Morning routine</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                  {config.stickers.map((t) => chip(t, ctx.routineTag === t, () => setCtx((c) => ({ ...c, routineTag: t }))))}
-                </View>
-              </Card>
-              <Card ink={ink}>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: ink, marginBottom: 8 }}>Want to show your routine?</Text>
-                <View style={{ flexDirection: "row", gap: 8 }}>
-                  {chip("Yes", ctx.showRoutine === "yes", () => setCtx((c) => ({ ...c, showRoutine: "yes" })))}
-                  {chip("Not now", ctx.showRoutine === "skip", () => setCtx((c) => ({ ...c, showRoutine: "skip" })))}
+                  {config.stickers.map((t) => iconChip(t, (ctx.routineTags ?? []).includes(t), () => toggleRoutine(t)))}
                 </View>
               </Card>
             </View>
@@ -151,11 +184,11 @@ export function MomentComplete({
               <Card ink={ink} evening>
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: ink, marginBottom: 10 }}>Tonight&apos;s routine</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                  {config.stickers.map((t) => chip(t, ctx.routineTag === t, () => setCtx((c) => ({ ...c, routineTag: t }))))}
+                  {config.stickers.map((t) => iconChip(t, (ctx.routineTags ?? []).includes(t), () => toggleRoutine(t)))}
                 </View>
               </Card>
               <Card ink={ink} evening>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: ink, marginBottom: 8 }}>Add your routine?</Text>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: ink, marginBottom: 8 }}>Add your routine</Text>
                 <TextInput
                   value={ctx.eveningSteps ?? ""}
                   onChangeText={(eveningSteps) => setCtx((c) => ({ ...c, eveningSteps }))}
@@ -212,9 +245,22 @@ export function MomentComplete({
 
       <ActionSheet open={picker} title="Add product" onClose={() => setPicker(false)}>
         {choices.map((row) => (
-          <Pressable key={row.id} onPress={() => selectProduct(row.id, row.name, row.when)} style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: tone.line }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: tone.text }}>{row.name}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: tone.muted }}>{row.when}</Text>
+          <Pressable
+            key={row.id}
+            onPress={() => selectProduct(row.id, row.name, row.when, row.image)}
+            style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: tone.line }}
+          >
+            {row.image ? (
+              <Image source={{ uri: row.image }} style={{ width: 44, height: 44, borderRadius: 12 }} accessibilityIgnoresInvertColors />
+            ) : (
+              <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: tone.line, alignItems: "center", justifyContent: "center" }}>
+                <Package size={22} color={tone.muted} />
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: tone.text }}>{row.name}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: tone.muted }}>{row.when}</Text>
+            </View>
           </Pressable>
         ))}
       </ActionSheet>

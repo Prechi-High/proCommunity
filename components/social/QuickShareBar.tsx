@@ -1,19 +1,26 @@
-import { Image, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 
 import { Camera } from "@/components/icons";
+import { MemberAvatar } from "@/components/unmask-ui/MemberAvatar";
 import { fonts, livelyRadii } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
-import { useLocalMoments } from "@/lib/moment/localPosts";
+import * as profiles from "@/lib/profiles/api";
 import { useRoomTone } from "@/lib/social/roomTone";
 import { useAppStore } from "@/lib/store";
 
 export function QuickShareBar() {
   const router = useRouter();
   const tone = useRoomTone();
-  const storyPhoto = useLocalMoments((s) => s.storyPhoto);
+  const uid = useAppStore((s) => s.profile?.id);
   const name = useAppStore((s) => s.profile?.displayName) || "You";
-  const initial = name.slice(0, 1).toUpperCase();
+  const identity = useQuery({
+    queryKey: ["public-identity", uid, "quick-share"],
+    queryFn: () => profiles.identity(uid!),
+    enabled: !!uid,
+    staleTime: 60_000,
+  });
 
   const open = () => {
     hapticSelect();
@@ -38,22 +45,7 @@ export function QuickShareBar() {
         borderColor: "rgba(255,255,255,0.12)",
       }}
     >
-      {storyPhoto ? (
-        <Image source={{ uri: storyPhoto }} style={{ width: 36, height: 36, borderRadius: 18 }} accessibilityIgnoresInvertColors />
-      ) : (
-        <View
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: "#70323E",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: "#FFF8F4" }}>{initial}</Text>
-        </View>
-      )}
+      <MemberAvatar name={name} uri={identity.data?.avatar_url} size={36} />
       <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 15, color: tone.faint }}>Share your Unmask…</Text>
       <View
         style={{
