@@ -1,11 +1,13 @@
+import { lazy, Suspense } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 
+import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
 import { fonts } from "@/constants/theme";
 import { first90 } from "@/lib/movement/first90";
 import { useRoomTone } from "@/lib/social/roomTone";
 
-import { LivingFeed } from "./LivingFeed";
+const LivingFeed = lazy(() => import("./LivingFeed").then((m) => ({ default: m.LivingFeed })));
 
 export function SocialHome() {
   const router = useRouter();
@@ -22,7 +24,9 @@ export function SocialHome() {
           <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: tone.muted }}>Search products</Text>
         </Pressable>
       </View>
-      <LivingFeed />
+      <Suspense fallback={<ContentSkeleton rows={6} />}>
+        <LivingFeed />
+      </Suspense>
     </View>
   );
 }

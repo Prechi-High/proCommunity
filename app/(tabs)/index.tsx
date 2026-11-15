@@ -9,12 +9,14 @@ export default function Home() {
   const r = useRouter();
   const path = usePathname();
   const profile = useAppStore((s) => s.profile);
+  const hydrated = useAppStore((s) => s.hydrated);
   const uid = profile?.id;
   const home = path === "/" || path === "/index" || path.endsWith("/index");
   useEffect(() => {
+    if (!hydrated) return;
     if (!uid && home) r.replace("/welcome");
-  }, [uid, r, home]);
-  if (!uid) return <AppShell notify><Skeleton height={250} /></AppShell>;
+  }, [uid, hydrated, r, home]);
+  if (!hydrated || !uid) return <AppShell notify><Skeleton height={250} /></AppShell>;
   return (
     <AppShell
       notify

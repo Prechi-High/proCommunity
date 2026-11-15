@@ -9,15 +9,20 @@ const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 const posthogKey = process.env.EXPO_PUBLIC_POSTHOG_KEY;
 const posthogHost = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
 
-try {
-  Sentry.init({
-    dsn: sentryDsn || undefined,
-    enabled: Boolean(sentryDsn),
-    tracesSampleRate: 0.2,
-    sendDefaultPii: false,
-  });
-} catch {
-  // Native Sentry is unavailable on some web/dev hosts.
+let sentryReady = false;
+function ensureSentry() {
+  if (sentryReady) return;
+  sentryReady = true;
+  try {
+    Sentry.init({
+      dsn: sentryDsn || undefined,
+      enabled: Boolean(sentryDsn),
+      tracesSampleRate: 0.2,
+      sendDefaultPii: false,
+    });
+  } catch {
+    // Native Sentry is unavailable on some web/dev hosts.
+  }
 }
 
 function AnalyticsBinder({ children }: { children: ReactNode }) {
@@ -44,6 +49,10 @@ function AnalyticsBinder({ children }: { children: ReactNode }) {
 }
 
 export function ObservabilityProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    ensureSentry();
+  }, []);
+
   if (!posthogKey) return <>{children}</>;
   return (
     <PostHogProvider
@@ -60,7 +69,9 @@ export function ObservabilityProvider({ children }: { children: ReactNode }) {
 }
 
 export function wrapRoot(component: ComponentType) {
+  if (!sentryDsn) return component;
   try {
+    ensureSentry();
     return Sentry.wrap(component);
   } catch {
     return component;
