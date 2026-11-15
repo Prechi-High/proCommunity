@@ -207,32 +207,20 @@ export function MomentCamera({
     }
     setError("");
     try {
-      if (Platform.OS === "web") {
-        const result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ["images"],
-          quality: 0.78,
-          base64: true,
-        });
-        if (result.canceled) return;
-        const asset = result.assets[0];
-        const uri = asset.base64
-          ? `data:${asset.mimeType || "image/jpeg"};base64,${asset.base64}`
-          : asset.uri;
-        shotRef.current(uri, "photo");
-        return;
-      }
-      if (captureMode === "video") {
+      if (Platform.OS !== "web" && captureMode === "video") {
         setCaptureMode("photo");
         await new Promise((r) => setTimeout(r, 160));
       }
       const photo = await camera.current?.takePictureAsync({
         quality: 0.85,
-        base64: true,
+        base64: Platform.OS === "web" || Platform.OS === "android",
         skipProcessing: Platform.OS === "android",
         shutterSound: false,
       });
       if (!photo) return;
-      const uri = photo.base64 ? `data:image/jpeg;base64,${photo.base64}` : photo.uri;
+      const uri =
+        photo.uri ||
+        (photo.base64 ? `data:image/jpeg;base64,${photo.base64}` : "");
       if (!uri) return;
       shotRef.current(uri, "photo");
     } catch {
@@ -261,7 +249,7 @@ export function MomentCamera({
           ref={camera}
           style={{ flex: 1 }}
           facing={facing}
-          mode={captureMode === "video" && Platform.OS !== "web" ? "video" : "picture"}
+          mode={captureMode === "video" ? "video" : "picture"}
           enableTorch={torch && facing === "back"}
           mirror={facing === "front"}
           onCameraReady={() => setReady(true)}
