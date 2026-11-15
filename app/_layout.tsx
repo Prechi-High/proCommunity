@@ -7,17 +7,22 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, type ReactNode } from 'react';
-import { ActivityIndicator, LogBox, useColorScheme, View } from 'react-native';
+import { LogBox, Platform, useColorScheme, View } from 'react-native';
 LogBox.ignoreLogs(['Invalid DOM property']);
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { WebShell } from '@/components/Screen';
-import { RoomDock } from '@/components/room/RoomDock';
+import { features } from '@/lib/features';
 import { applyThemeColors, colors } from '@/constants/theme';
 import { startAuth } from '@/lib/auth';
 import { recordSiteVisit } from '@/lib/siteAnalytics';
 import { ObservabilityProvider, wrapRoot } from '@/lib/observability';
 import { useAppStore } from '@/lib/store';
+import { kickWebHydration } from '@/lib/webBoot';
+
+const RoomDock = features.audioRooms
+  ? require('@/components/room/RoomDock').RoomDock
+  : () => null;
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -25,24 +30,35 @@ export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
-SplashScreen.preventAutoHideAsync();
+if (Platform.OS !== 'web') SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
 function AuthGate({ children }: { children: ReactNode }) {
   const hydrated = useAppStore((state) => state.hydrated);
 
+  useEffect(() => {
+    if (Platform.OS === 'web') kickWebHydration();
+  }, []);
+
   // Search never needs an account; signing in (email code) unlocks community, saves sync, research and WhatsApp.
   useEffect(() => {
     if (!hydrated) return;
-    void recordSiteVisit('/');
-    return startAuth();
+    const boot = () => {
+      void recordSiteVisit('/');
+      return startAuth();
+    };
+    if (Platform.OS === 'web' && typeof requestIdleCallback === 'function') {
+      const id = requestIdleCallback(boot);
+      return () => cancelIdleCallback(id);
+    }
+    return boot();
   }, [hydrated]);
 
-  if (!hydrated) {
+  if (!hydrated && Platform.OS !== 'web') {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.wine }}>
-        <ContentSkeleton rows={4}/>
+        <ContentSkeleton rows={4} />
       </View>
     );
   }
@@ -56,8 +72,6 @@ function RootLayout() {
     'GeneralSans-Medium': require('../assets/fonts/GeneralSans-Medium.ttf'),
     'GeneralSans-Semibold': require('../assets/fonts/GeneralSans-Semibold.ttf'),
     'GeneralSans-Bold': require('../assets/fonts/GeneralSans-Bold.ttf'),
-    'Boska-Medium': require('../assets/fonts/Boska-Medium.ttf'),
-    'Boska-Bold': require('../assets/fonts/Boska-Bold.ttf'),
   });
   const setHydrated = useAppStore((state) => state.setHydrated);
   const persistHydrated = useAppStore((state) => state.hydrated);
@@ -77,13 +91,21 @@ function RootLayout() {
   }, [loaded]);
 
   useEffect(() => {
+    const ms = Platform.OS === 'web' ? 50 : 800;
     const timeout = setTimeout(() => {
       if (!useAppStore.getState().hydrated) setHydrated();
-    }, 800);
+    }, ms);
     return () => clearTimeout(timeout);
   }, [setHydrated, persistHydrated]);
 
-  if (!loaded) return <View style={{flex:1,backgroundColor:"#fff",padding:24,paddingTop:70}}><ContentSkeleton rows={5}/></View>;
+  const fontsReady = loaded || Platform.OS === 'web';
+  if (!fontsReady) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#fff', padding: 24, paddingTop: 70 }}>
+        <ContentSkeleton rows={5} />
+      </View>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

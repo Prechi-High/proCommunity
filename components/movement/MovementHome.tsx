@@ -3,7 +3,10 @@ import { useRouter, type Href } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AmbientCanvas } from "@/components/lively";
-import { LivingFeed } from "@/components/social/LivingFeed";
+import { lazy, Suspense } from "react";
+import { ContentSkeleton } from "@/components/unmask-ui";
+
+const LivingFeed = lazy(() => import("@/components/social/LivingFeed").then((m) => ({ default: m.LivingFeed })));
 import { fonts } from "@/constants/theme";
 import { useRoomTone } from "@/lib/social/roomTone";
 
@@ -28,7 +31,9 @@ export function MovementHome() {
               Post like a story. A timeline is a plus, not a form you have to survive first.
             </Text>
           </View>
-          <LivingFeed guest />
+          <Suspense fallback={<ContentSkeleton rows={6} />}>
+            <LivingFeed guest />
+          </Suspense>
         </ScrollView>
       </AmbientCanvas>
     </SafeAreaView>

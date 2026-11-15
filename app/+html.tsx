@@ -21,9 +21,9 @@ export default function Root({ children }: { children: ReactNode }) {
 const css = `
 html, body, #root { height: 100%; margin: 0; }
 body {
-  background-color: #E8E2DF;
+  background-color: #1A0A14;
   overscroll-behavior: none;
-  font-family: 'General Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
