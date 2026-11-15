@@ -59,7 +59,12 @@ export const useLocalMoments = create<State>()(
       posts: [],
       stories: [],
       storyLikes: {},
-      pruneStories: () => set((state) => ({ stories: prune(state.stories) })),
+      pruneStories: () =>
+        set((state) => {
+          const stories = prune(state.stories);
+          if (stories.length === state.stories.length) return state;
+          return { stories };
+        }),
       activeStories: () => prune(get().stories),
       toggleStoryLike: (storyId) =>
         set((state) => {

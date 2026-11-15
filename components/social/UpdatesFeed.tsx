@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Image, Pressable, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { fonts, livelyRadii } from "@/constants/theme";
@@ -19,11 +19,14 @@ export function UpdatesFeed() {
   const pruneStories = useLocalMoments((s) => s.pruneStories);
   const [sectionQueue, setSectionQueue] = useState<PulseMoment[]>([]);
 
-  const liveStories = useMemo(() => {
+  useEffect(() => {
     pruneStories();
+  }, [pruneStories]);
+
+  const liveStories = useMemo(() => {
     const now = Date.now();
     return stories.filter((s) => new Date(s.expiresAt).getTime() > now);
-  }, [stories, pruneStories]);
+  }, [stories]);
 
   const previewByKind = useMemo(() => {
     const map: Record<MomentKind, PulseMoment[]> = { morning: [], grwm: [], evening: [], currently: [] };
