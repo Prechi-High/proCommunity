@@ -1,3 +1,6 @@
+import * as FileSystemLegacy from "expo-file-system/legacy";
+import { Platform } from "react-native";
+
 import { db, type Experience } from "@/lib/clarity/api";
 import { userId } from "@/lib/living/api";
 export type Identity = {
@@ -77,19 +80,43 @@ export function safeLink(value: string) {
     return null;
   }
 }
+async function imageBytesFromUri(uri: string): Promise<{ bytes: ArrayBuffer; contentType: string }> {
+  if (uri.startsWith("data:")) {
+    const blob = await (await fetch(uri)).blob();
+    const type = blob.type || "image/jpeg";
+    return { bytes: await blob.arrayBuffer(), contentType: type };
+  }
+  if (Platform.OS !== "web") {
+    const base64 = await FileSystemLegacy.readAsStringAsync(uri, {
+      encoding: FileSystemLegacy.EncodingType.Base64,
+    });
+    const guess = uri.toLowerCase().includes(".png")
+      ? "image/png"
+      : uri.toLowerCase().includes(".webp")
+        ? "image/webp"
+        : "image/jpeg";
+    const bin = globalThis.atob(base64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return { bytes: bytes.buffer, contentType: guess };
+  }
+  const blob = await (await fetch(uri)).blob();
+  return { bytes: await blob.arrayBuffer(), contentType: blob.type || "image/jpeg" };
+}
+
 export async function uploadAvatar(uri: string) {
   const uid = await userId();
-  const blob = await (await fetch(uri)).blob();
+  const { bytes, contentType } = await imageBytesFromUri(uri);
   if (
-    !["image/jpeg", "image/png", "image/webp"].includes(blob.type) ||
-    blob.size > 2097152
+    !["image/jpeg", "image/png", "image/webp"].includes(contentType) ||
+    bytes.byteLength > 2097152
   )
     throw new Error("Choose a JPG, PNG, or WebP image smaller than 2 MB.");
-  const ext = blob.type.split("/")[1];
+  const ext = contentType.split("/")[1];
   const path = `${uid}/${Date.now()}.${ext}`;
   const { error } = await db()
     .storage.from("unmask-avatars")
-    .upload(path, await blob.arrayBuffer(), { contentType: blob.type });
+    .upload(path, bytes, { contentType, upsert: true });
   if (error) throw error;
   return db().storage.from("unmask-avatars").getPublicUrl(path).data.publicUrl;
 }

@@ -24,7 +24,7 @@ export default function Moment() {
   const [kind, setKind] = useState<MomentKind | null>(null);
   const [mediaUri, setMediaUri] = useState("");
   const [mediaKind, setMediaKind] = useState<"photo" | "video">("photo");
-  const [destination, setDestination] = useState<"post" | "story" | "both">("both");
+  const [destination, setDestination] = useState<"post" | "story" | "both">("story");
   const [context, setContext] = useState<MomentContext>({});
 
   const pickKind = (k: MomentKind) => {
@@ -51,7 +51,7 @@ export default function Moment() {
       productName: context.productName,
       timelineId: context.timelineId,
       timelineLabel: context.timelineLabel,
-      destination,
+      destination: "story",
       mediaKind,
       momentKind: kind,
       occasion: context.occasion,
@@ -60,7 +60,7 @@ export default function Moment() {
       stickers: [`${config.title} ${config.emoji}`, ...(context.routineTags ?? [])],
     });
     hapticSaved("moment");
-    router.replace("/" as Href);
+    router.replace("/community" as Href);
   };
 
   if (step === "choose") {
@@ -91,6 +91,7 @@ export default function Moment() {
       <MomentCaptureReview
         mediaUri={mediaUri}
         mediaKind={mediaKind}
+        storyOnly
         onRetake={() => setStep("camera")}
         onNext={(dest) => {
           setDestination(dest);

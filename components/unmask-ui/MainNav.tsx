@@ -19,7 +19,7 @@ export function MainNav() {
   const [open, setOpen] = useState(false);
   const routes = [
     { label: "Home", href: "/", Icon: House },
-    { label: "Community", href: "/community", Icon: UsersThree },
+    { label: "Updates", href: "/community", Icon: UsersThree },
     { label: "Create", href: null, Icon: Plus },
     { label: "My Unmask", href: "/products", Icon: Package },
     { label: "You", href: "/you", Icon: User },

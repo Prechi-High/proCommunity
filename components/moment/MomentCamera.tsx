@@ -34,6 +34,7 @@ export function MomentCamera({
   const recording = useRef(false);
   const held = useRef(false);
   const webStop = useRef<(() => Promise<string>) | null>(null);
+  const suppressTap = useRef(false);
   const recordTick = useRef<ReturnType<typeof setInterval> | null>(null);
   const [ready, setReady] = useState(false);
   const [torch, setTorch] = useState(false);
@@ -142,7 +143,7 @@ export function MomentCamera({
       void camera.current
         ?.recordAsync({ maxDuration: 60 })
         .then((clip) => {
-          if (clip?.uri && recording.current) shotRef.current(clip.uri, "video");
+          if (clip?.uri) shotRef.current(clip.uri, "video");
         })
         .catch(() => setError("Couldn’t record that."));
     } catch {
@@ -162,6 +163,31 @@ export function MomentCamera({
     }, 200);
   }
 
+  async function stopRecord() {
+    if (!recording.current) return;
+    if (webStop.current) {
+      const stop = webStop.current;
+      webStop.current = null;
+      void stop()
+        .then((uri) => shotRef.current(uri, "video"))
+        .catch(() => setError("That clip didn’t save."));
+    } else if (Platform.OS !== "web") {
+      camera.current?.stopRecording();
+    }
+    recording.current = false;
+    stopRecordUi();
+    held.current = false;
+  }
+
+  async function toggleVideoRecord() {
+    if (captureMode !== "video") return;
+    if (recording.current) {
+      await stopRecord();
+    } else {
+      void startRecord();
+    }
+  }
+
   function pressOut() {
     if (captureMode !== "video") {
       if (holdTimer.current) clearTimeout(holdTimer.current);
@@ -170,23 +196,8 @@ export function MomentCamera({
     if (holdTimer.current) clearTimeout(holdTimer.current);
     if (!held.current && !recording.current) return;
 
-    if (webStop.current) {
-      const stop = webStop.current;
-      webStop.current = null;
-      void stop()
-        .then((uri) => shotRef.current(uri, "video"))
-        .catch(() => setError("That clip didn’t save."));
-      recording.current = false;
-      stopRecordUi();
-      held.current = false;
-      return;
-    }
-    if (recording.current && Platform.OS !== "web") {
-      void camera.current?.stopRecording();
-      recording.current = false;
-      stopRecordUi();
-    }
-    held.current = false;
+    if (held.current) suppressTap.current = true;
+    void stopRecord();
   }
 
   async function shoot() {
@@ -196,13 +207,33 @@ export function MomentCamera({
     }
     setError("");
     try {
-      if (Platform.OS !== "web" && captureMode === "video") {
-        setCaptureMode("photo");
-        await new Promise((r) => setTimeout(r, 120));
+      if (Platform.OS === "web") {
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ["images"],
+          quality: 0.78,
+          base64: true,
+        });
+        if (result.canceled) return;
+        const asset = result.assets[0];
+        const uri = asset.base64
+          ? `data:${asset.mimeType || "image/jpeg"};base64,${asset.base64}`
+          : asset.uri;
+        shotRef.current(uri, "photo");
+        return;
       }
-      const photo = await camera.current?.takePictureAsync({ quality: 0.78, base64: true, skipProcessing: Platform.OS === "android" });
+      if (captureMode === "video") {
+        setCaptureMode("photo");
+        await new Promise((r) => setTimeout(r, 160));
+      }
+      const photo = await camera.current?.takePictureAsync({
+        quality: 0.85,
+        base64: true,
+        skipProcessing: Platform.OS === "android",
+        shutterSound: false,
+      });
       if (!photo) return;
       const uri = photo.base64 ? `data:image/jpeg;base64,${photo.base64}` : photo.uri;
+      if (!uri) return;
       shotRef.current(uri, "photo");
     } catch {
       setError("Couldn’t take that photo. Try again.");
@@ -275,11 +306,16 @@ export function MomentCamera({
             <ImageSquare size={26} color={headerColor} />
           </Pressable>
           <Pressable
-            accessibilityLabel={captureMode === "video" ? "Hold to record" : "Take photo"}
+            accessibilityLabel={captureMode === "video" ? "Tap or hold to record" : "Take photo"}
             onPressIn={pressIn}
             onPressOut={pressOut}
             onPress={() => {
+              if (suppressTap.current) {
+                suppressTap.current = false;
+                return;
+              }
               if (captureMode === "photo") void shoot();
+              else void toggleVideoRecord();
             }}
             style={{ width: ringSize, height: ringSize, alignItems: "center", justifyContent: "center" }}
           >

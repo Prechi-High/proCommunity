@@ -15,14 +15,16 @@ export function MomentCaptureReview({
   mediaKind,
   onRetake,
   onNext,
+  storyOnly,
 }: {
   mediaUri: string;
   mediaKind: "photo" | "video";
   onRetake: () => void;
   onNext: (destination: "post" | "story" | "both") => void;
+  storyOnly?: boolean;
 }) {
   const router = useRouter();
-  const [destination, setDestination] = useState<"post" | "story" | "both">("both");
+  const [destination, setDestination] = useState<"post" | "story" | "both">("story");
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0A0610" }}>
@@ -50,35 +52,43 @@ export function MomentCaptureReview({
         </View>
 
         <View style={{ padding: 20, gap: 14 }}>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12, letterSpacing: 1.2, color: "#F0CF69", textAlign: "center" }}>
-            WHERE SHOULD IT GO?
-          </Text>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            {([
-              { id: "story" as const, label: "Story" },
-              { id: "post" as const, label: "Post" },
-              { id: "both" as const, label: "Both" },
-            ]).map((row) => (
-              <Pressable
-                key={row.id}
-                onPress={() => {
-                  hapticSelect();
-                  setDestination(row.id);
-                }}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 16,
-                  alignItems: "center",
-                  backgroundColor: destination === row.id ? "#FF6B9D" : "rgba(255,255,255,0.12)",
-                  borderWidth: 1,
-                  borderColor: destination === row.id ? "#FF6B9D" : "rgba(255,255,255,0.2)",
-                }}
-              >
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4" }}>{row.label}</Text>
-              </Pressable>
-            ))}
-          </View>
+          {storyOnly ? (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: "rgba(255,248,244,0.85)", textAlign: "center" }}>
+              Unmask moments go to your 24-hour status and Updates — not the home feed.
+            </Text>
+          ) : (
+            <>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, letterSpacing: 1.2, color: "#F0CF69", textAlign: "center" }}>
+                WHERE SHOULD IT GO?
+              </Text>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {([
+                  { id: "story" as const, label: "Story" },
+                  { id: "post" as const, label: "Post" },
+                  { id: "both" as const, label: "Both" },
+                ]).map((row) => (
+                  <Pressable
+                    key={row.id}
+                    onPress={() => {
+                      hapticSelect();
+                      setDestination(row.id);
+                    }}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      borderRadius: 16,
+                      alignItems: "center",
+                      backgroundColor: destination === row.id ? "#FF6B9D" : "rgba(255,255,255,0.12)",
+                      borderWidth: 1,
+                      borderColor: destination === row.id ? "#FF6B9D" : "rgba(255,255,255,0.2)",
+                    }}
+                  >
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4" }}>{row.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          )}
           <View style={{ flexDirection: "row", gap: 10 }}>
             <Pressable
               onPress={onRetake}
@@ -94,7 +104,7 @@ export function MomentCaptureReview({
               <Text style={{ fontFamily: fonts.semibold, color: "#FFF8F4" }}>Retake</Text>
             </Pressable>
             <Pressable
-              onPress={() => onNext(destination)}
+              onPress={() => onNext(storyOnly ? "story" : destination)}
               style={{
                 flex: 1.4,
                 paddingVertical: 14,
