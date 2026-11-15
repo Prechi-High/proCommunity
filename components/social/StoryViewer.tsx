@@ -1,16 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  Image,
-  Modal,
-  Pressable,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { Image, Modal, Pressable, Share, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { X } from "@/components/icons";
+import { Heart, ShareNetwork, X } from "@/components/icons";
 import { fonts } from "@/constants/theme";
+import { hapticSelect } from "@/lib/haptics";
+import { useLocalMoments } from "@/lib/moment/localPosts";
+import { useAppStore } from "@/lib/store";
 import type { PulseMoment } from "@/lib/social/previewMoments";
 
 import { LoopClip } from "./LoopClip";
@@ -23,19 +19,24 @@ export function StoryViewer({
   visible,
   onClose,
   onFinishedPerson,
+  interactive,
 }: {
   queue: PulseMoment[];
   startIndex?: number;
   visible: boolean;
   onClose: () => void;
-  /** Called when the last segment for this person finishes (optional auto-advance). */
   onFinishedPerson?: () => void;
+  interactive?: boolean;
 }) {
   const { height } = useWindowDimensions();
   const [index, setIndex] = useState(startIndex);
   const [progress, setProgress] = useState(0);
   const elapsed = useRef(0);
   const paused = useRef(false);
+  const toggleLike = useLocalMoments((s) => s.toggleStoryLike);
+  const reshareStory = useLocalMoments((s) => s.reshareStory);
+  const storyLikes = useLocalMoments((s) => s.storyLikes);
+  const display = useAppStore((s) => s.profile?.displayName) || "You";
 
   useEffect(() => {
     if (!visible) return;
@@ -69,11 +70,8 @@ export function StoryViewer({
   if (!item) return null;
 
   const goPrev = () => {
-    if (index > 0) {
-      setIndex((i) => i - 1);
-      return;
-    }
-    onClose();
+    if (index > 0) setIndex((i) => i - 1);
+    else onClose();
   };
 
   const goNext = () => {
@@ -85,6 +83,9 @@ export function StoryViewer({
   const holdPause = (on: boolean) => {
     paused.current = on;
   };
+
+  const storyId = item.storyId || item.id;
+  const loved = !!storyLikes[storyId];
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -100,17 +101,8 @@ export function StoryViewer({
           <View style={{ paddingHorizontal: 10, paddingTop: 6, gap: 12 }} pointerEvents="box-none">
             <View style={{ flexDirection: "row", gap: 4 }}>
               {queue.map((row, i) => (
-                <View
-                  key={`${row.id}-${i}`}
-                  style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.28)", overflow: "hidden" }}
-                >
-                  <View
-                    style={{
-                      height: "100%",
-                      backgroundColor: "#FFF8F4",
-                      width: i < index ? "100%" : i === index ? `${progress * 100}%` : "0%",
-                    }}
-                  />
+                <View key={`${row.id}-${i}`} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.28)", overflow: "hidden" }}>
+                  <View style={{ height: "100%", backgroundColor: "#FFF8F4", width: i < index ? "100%" : i === index ? `${progress * 100}%` : "0%" }} />
                 </View>
               ))}
             </View>
@@ -124,7 +116,7 @@ export function StoryViewer({
               )}
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: "#FFF8F4" }}>{item.name}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: "rgba(255,248,244,0.72)" }}>Just now</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: "rgba(255,248,244,0.72)" }}>24h status</Text>
               </View>
               <Pressable accessibilityLabel="Close stories" onPress={onClose} hitSlop={12}>
                 <X size={22} color="#FFF8F4" />
@@ -135,11 +127,41 @@ export function StoryViewer({
             <Pressable style={{ flex: 1 }} onPress={goPrev} onPressIn={() => holdPause(true)} onPressOut={() => holdPause(false)} accessibilityLabel="Previous story" />
             <Pressable style={{ flex: 1 }} onPress={goNext} onPressIn={() => holdPause(true)} onPressOut={() => holdPause(false)} accessibilityLabel="Next story" />
           </View>
-          <View style={{ paddingHorizontal: 18, paddingBottom: 16, gap: 8 }} pointerEvents="none">
+          <View style={{ paddingHorizontal: 18, paddingBottom: 16, gap: 10 }} pointerEvents="box-none">
             <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: "#FFF8F4" }}>{item.caption}</Text>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: "#F0CF69" }}>
-              {[item.skin ? `Skin · ${item.skin}` : "", item.product || "", item.timeline || ""].filter(Boolean).join("  ·  ")}
-            </Text>
+            {interactive && item.storyId ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 20 }}>
+                <Pressable
+                  accessibilityLabel="Like status"
+                  onPress={() => {
+                    hapticSelect();
+                    toggleLike(storyId);
+                  }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+                >
+                  <Heart size={26} color={loved ? "#FF6B9D" : "#FFF8F4"} weight={loved ? "fill" : "regular"} />
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4" }}>{item.likes}</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityLabel="Reshare to your status"
+                  onPress={() => {
+                    hapticSelect();
+                    reshareStory(storyId, display);
+                  }}
+                >
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#F0CF69" }}>Reshare</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityLabel="Share outside Unmask"
+                  onPress={() => {
+                    hapticSelect();
+                    void Share.share({ message: `${item.name} on Unmask: ${item.caption}` });
+                  }}
+                >
+                  <ShareNetwork size={24} color="#FFF8F4" />
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </SafeAreaView>
       </View>

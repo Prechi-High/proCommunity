@@ -22,6 +22,7 @@ export type PulseMoment = {
   thread: PulseComment[];
   invite: string;
   stickers?: string[];
+  storyId?: string;
 };
 
 export const PREVIEW_MOMENTS: PulseMoment[] = [

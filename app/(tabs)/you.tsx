@@ -1,7 +1,8 @@
 import * as ImagePicker from "expo-image-picker";
 import { MemberAvatar } from "@/components/unmask-ui/MemberAvatar";
 import { memberIdentity, foundingMember } from "@/lib/membership";
-import { Pressable, Text, View } from "react-native";
+import { useState } from "react";
+import { Platform, Pressable, Text, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 
@@ -21,6 +22,7 @@ import * as investigations from "@/lib/investigations/api";
 import * as api from "@/lib/profiles/api";
 import { hapticSelect } from "@/lib/haptics";
 import { useAppStore } from "@/lib/store";
+import { useLocalAvatar } from "@/lib/profile/localAvatar";
 import { SOCIAL_IDENTITY } from "@/lib/social/identity";
 
 function Stat({ value, label }: { value: string | number; label: string }) {
@@ -76,21 +78,31 @@ export default function You() {
     enabled: features.creatorStudio && !!p,
   });
   const name = p?.displayName || identity.data?.display_name || "You";
+  const localAvatar = useLocalAvatar((s) => s.uri);
+  const setLocalAvatar = useLocalAvatar((s) => s.setUri);
+  const avatarSrc = localAvatar || identity.data?.avatar_url || "";
+  const [avatarError, setAvatarError] = useState("");
   const queryClient = useQueryClient();
 
   async function changeAvatar() {
     if (!p?.id) return;
     hapticSelect();
+    setAvatarError("");
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.85,
+      base64: Platform.OS === "web",
     });
     if (picked.canceled) return;
+    const asset = picked.assets[0];
+    const uri = asset?.base64
+      ? `data:${asset.mimeType || "image/jpeg"};base64,${asset.base64}`
+      : asset?.uri;
+    if (!uri) return;
+    setLocalAvatar(uri);
     try {
-      const uri = picked.assets[0]?.uri;
-      if (!uri) return;
       const url = await api.uploadAvatar(uri);
       await api.save({
         display_name: identity.data?.display_name || name,
@@ -102,8 +114,8 @@ export default function You() {
         show_counts: identity.data?.show_counts ?? true,
       });
       void queryClient.invalidateQueries({ queryKey: ["public-identity", p.id] });
-    } catch {
-      /* surface later */
+    } catch (e) {
+      setAvatarError(e instanceof Error ? e.message : "Couldn’t upload that photo. It’s saved on this device for now.");
     }
   }
 
@@ -137,7 +149,7 @@ export default function You() {
         <View style={{ gap: 28 }}>
           <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
             <Pressable accessibilityRole="button" accessibilityLabel="Change profile photo" onPress={() => void changeAvatar()}>
-              <MemberAvatar name={name} uri={identity.data?.avatar_url} size={72} claimed={!!member.data} founding={!!founder.data} />
+              <MemberAvatar name={name} uri={avatarSrc || undefined} size={72} claimed={!!member.data} founding={!!founder.data} />
             </Pressable>
             <View style={{ flex: 1, gap: 4 }}>
               <Text
@@ -154,6 +166,11 @@ export default function You() {
               <Text style={{ fontFamily: fonts.medium, fontSize: 13, letterSpacing: 0.6, color: colors.brand }}>
                 Unmasker
               </Text>
+              {avatarError ? (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.brand, lineHeight: 18 }}>
+                  {avatarError}
+                </Text>
+              ) : null}
               {identity.data?.handle ? (
                 <Text
                   style={{
