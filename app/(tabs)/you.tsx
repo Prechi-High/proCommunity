@@ -23,7 +23,7 @@ import * as api from "@/lib/profiles/api";
 import { hapticSelect } from "@/lib/haptics";
 import { useAppStore } from "@/lib/store";
 import { useLocalAvatar } from "@/lib/profile/localAvatar";
-import { SOCIAL_IDENTITY } from "@/lib/social/identity";
+import { VISION_SCREENS } from "@/lib/navigation/visionNav";
 
 function Stat({ value, label }: { value: string | number; label: string }) {
   return (
@@ -121,10 +121,10 @@ export default function You() {
 
   return (
     <AppShell
-      title={SOCIAL_IDENTITY.myUnmaskTitle}
+      title={VISION_SCREENS.myUnmask.title}
       notify
       ambient="page"
-      subtitle={SOCIAL_IDENTITY.myUnmaskLead}
+      subtitle={VISION_SCREENS.myUnmask.subtitle}
     >
       {!p ? (
         <View style={{ gap: 20, paddingTop: 8 }}>
