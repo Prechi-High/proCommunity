@@ -3,27 +3,25 @@ import { Pressable, Text, View } from "react-native";
 import { usePathname, useRouter, type Href } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { House, UsersThree, Plus, Package, User } from "@/components/icons";
+import { House, MagnifyingGlass, Plus, UsersThree, User } from "@/components/icons";
 import { fonts, livelyElevation, livelyRadii, livelySpace } from "@/constants/theme";
-import { useRoomTone } from "@/lib/social/roomTone";
 import { hapticSelect } from "@/lib/haptics";
 import { CreateSheet } from "./CreateSheet";
 
 export function MainNav() {
-  const r = useRouter(),
-    rawPath = usePathname(),
-    insets = useSafeAreaInsets();
-  const path =
-    rawPath.replace(/\/\([^/]+\)/g, "").replace(/\/index$/, "/") || "/";
-  const tone = useRoomTone();
+  const r = useRouter();
+  const rawPath = usePathname();
+  const insets = useSafeAreaInsets();
+  const path = rawPath.replace(/\/\([^/]+\)/g, "").replace(/\/index$/, "/") || "/";
   const [open, setOpen] = useState(false);
   const routes = [
     { label: "Home", href: "/", Icon: House },
-    { label: "Updates", href: "/community", Icon: UsersThree },
+    { label: "Updates", href: "/community", Icon: MagnifyingGlass },
     { label: "Create", href: null, Icon: Plus },
-    { label: "My Unmask", href: "/products", Icon: Package },
+    { label: "Community", href: "/ask-community", Icon: UsersThree },
     { label: "You", href: "/you", Icon: User },
-  ];
+  ] as const;
+
   return (
     <View
       pointerEvents="box-none"
@@ -46,9 +44,9 @@ export function MainNav() {
           paddingVertical: 10,
           paddingHorizontal: 8,
           borderRadius: livelyRadii.dock,
-          backgroundColor: tone.dock,
+          backgroundColor: "rgba(255,232,240,0.96)",
           borderWidth: 1,
-          borderColor: tone.line,
+          borderColor: "rgba(255,107,157,0.25)",
           ...livelyElevation.dock,
         }}
       >
@@ -57,18 +55,18 @@ export function MainNav() {
             href === "/"
               ? path === "/"
               : href === "/community"
-                ? ["/community", "/story", "/question", "/creators", "/member"].some((prefix) => path.startsWith(prefix))
-                : href === "/products"
-                  ? path.startsWith("/products") || path.startsWith("/journey")
+                ? path.startsWith("/community") || path.startsWith("/story")
+                : href === "/ask-community"
+                  ? path.startsWith("/ask-community") || path.startsWith("/question")
                   : !!href && path.startsWith(href);
           const create = !href;
+          const activeColor = "#FF6B9D";
+          const idleColor = "#8E6874";
           return (
             <Pressable
               key={label}
               accessibilityRole={create ? "button" : "tab"}
-              accessibilityLabel={
-                create ? "Create: share, ask or track" : label
-              }
+              accessibilityLabel={create ? "Create" : label}
               accessibilityState={{ selected: active }}
               onPress={() => {
                 hapticSelect();
@@ -86,11 +84,11 @@ export function MainNav() {
             >
               {create ? (
                 <LinearGradient
-                  colors={["#3D0F15", "#70323E"]}
+                  colors={["#FF8BC8", "#FF6B9D"]}
                   style={{
                     width: 54,
                     height: 54,
-                    borderRadius: 20,
+                    borderRadius: 27,
                     alignItems: "center",
                     justifyContent: "center",
                     transform: [{ translateY: -14 }],
@@ -101,27 +99,12 @@ export function MainNav() {
                 </LinearGradient>
               ) : (
                 <>
-                  <View
-                    style={{
-                      width: 40,
-                      height: 32,
-                      borderRadius: 14,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: active ? "rgba(240,207,105,0.16)" : "transparent",
-                    }}
-                  >
-                    <Icon
-                      size={23}
-                      color={active ? tone.gold : tone.muted}
-                      weight={active ? "fill" : "regular"}
-                    />
-                  </View>
+                  <Icon size={23} color={active ? activeColor : idleColor} weight={active ? "fill" : "regular"} />
                   <Text
                     style={{
                       fontFamily: active ? fonts.semibold : fonts.medium,
                       fontSize: 10,
-                      color: active ? tone.gold : tone.muted,
+                      color: active ? activeColor : idleColor,
                     }}
                   >
                     {label}
