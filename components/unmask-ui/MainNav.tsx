@@ -1,20 +1,29 @@
+import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { usePathname, useRouter, type Href } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-
+import { House, UsersThree, Plus, Package, User } from "@/components/icons";
 import { fonts, livelyElevation, livelyRadii, livelySpace } from "@/constants/theme";
 import { useRoomTone } from "@/lib/social/roomTone";
 import { hapticSelect } from "@/lib/haptics";
-import { VISION_NAV, navActive } from "@/lib/navigation/visionNav";
+import { CreateSheet } from "./CreateSheet";
 
 export function MainNav() {
-  const r = useRouter();
-  const rawPath = usePathname();
-  const insets = useSafeAreaInsets();
-  const path = rawPath.replace(/\/\([^/]+\)/g, "").replace(/\/index$/, "/") || "/";
+  const r = useRouter(),
+    rawPath = usePathname(),
+    insets = useSafeAreaInsets();
+  const path =
+    rawPath.replace(/\/\([^/]+\)/g, "").replace(/\/index$/, "/") || "/";
   const tone = useRoomTone();
-
+  const [open, setOpen] = useState(false);
+  const routes = [
+    { label: "Home", href: "/", Icon: House },
+    { label: "Updates", href: "/community", Icon: UsersThree },
+    { label: "Create", href: null, Icon: Plus },
+    { label: "My Unmask", href: "/products", Icon: Package },
+    { label: "You", href: "/you", Icon: User },
+  ];
   return (
     <View
       pointerEvents="box-none"
@@ -30,12 +39,12 @@ export function MainNav() {
         accessibilityRole="tablist"
         style={{
           flexDirection: "row",
-          maxWidth: 820,
+          maxWidth: 780,
           width: "100%",
           alignSelf: "center",
-          alignItems: "flex-end",
-          paddingVertical: 8,
-          paddingHorizontal: 4,
+          alignItems: "center",
+          paddingVertical: 10,
+          paddingHorizontal: 8,
           borderRadius: livelyRadii.dock,
           backgroundColor: tone.dock,
           borderWidth: 1,
@@ -43,67 +52,75 @@ export function MainNav() {
           ...livelyElevation.dock,
         }}
       >
-        {VISION_NAV.map((item) => {
-          const fab = "fab" in item && item.fab;
-          const active = item.href ? navActive(path, item.href) : false;
-          const { label, detail, href, Icon } = item;
-
+        {routes.map(({ label, href, Icon }) => {
+          const active =
+            href === "/"
+              ? path === "/"
+              : href === "/community"
+                ? ["/community", "/story", "/question", "/creators", "/member"].some((prefix) => path.startsWith(prefix))
+                : href === "/products"
+                  ? path.startsWith("/products") || path.startsWith("/journey")
+                  : !!href && path.startsWith(href);
+          const create = !href;
           return (
             <Pressable
-              key={item.id}
-              accessibilityRole={fab ? "button" : "tab"}
-              accessibilityLabel={`${label}. ${detail}`}
+              key={label}
+              accessibilityRole={create ? "button" : "tab"}
+              accessibilityLabel={
+                create ? "Create: share, ask or track" : label
+              }
               accessibilityState={{ selected: active }}
               onPress={() => {
                 hapticSelect();
-                r.navigate(href as Href);
+                if (create) setOpen(true);
+                else r.navigate(href as Href);
               }}
               style={({ pressed }) => ({
-                flex: fab ? 0 : 1,
-                minWidth: fab ? 56 : undefined,
+                flex: 1,
                 alignItems: "center",
-                justifyContent: "flex-end",
-                gap: 2,
-                minHeight: fab ? 64 : 48,
-                opacity: pressed ? 0.8 : 1,
-                paddingHorizontal: fab ? 6 : 2,
+                justifyContent: "center",
+                gap: 4,
+                minHeight: 52,
+                opacity: pressed ? 0.75 : 1,
               })}
             >
-              {fab ? (
+              {create ? (
                 <LinearGradient
                   colors={["#3D0F15", "#70323E"]}
                   style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 18,
+                    width: 54,
+                    height: 54,
+                    borderRadius: 20,
                     alignItems: "center",
                     justifyContent: "center",
-                    transform: [{ translateY: -12 }],
+                    transform: [{ translateY: -14 }],
                     ...livelyElevation.fab,
                   }}
                 >
-                  <Icon size={26} color="#fff" weight="bold" />
+                  <Icon size={28} color="#fff" weight="bold" />
                 </LinearGradient>
               ) : (
                 <>
                   <View
                     style={{
-                      width: 36,
-                      height: 28,
-                      borderRadius: 12,
+                      width: 40,
+                      height: 32,
+                      borderRadius: 14,
                       alignItems: "center",
                       justifyContent: "center",
                       backgroundColor: active ? "rgba(240,207,105,0.16)" : "transparent",
                     }}
                   >
-                    <Icon size={21} color={active ? tone.gold : tone.muted} weight={active ? "fill" : "regular"} />
+                    <Icon
+                      size={23}
+                      color={active ? tone.gold : tone.muted}
+                      weight={active ? "fill" : "regular"}
+                    />
                   </View>
                   <Text
-                    numberOfLines={1}
                     style={{
                       fontFamily: active ? fonts.semibold : fonts.medium,
-                      fontSize: 9,
-                      lineHeight: 11,
+                      fontSize: 10,
                       color: active ? tone.gold : tone.muted,
                     }}
                   >
@@ -115,6 +132,7 @@ export function MainNav() {
           );
         })}
       </View>
+      <CreateSheet open={open} onClose={() => setOpen(false)} />
     </View>
   );
 }

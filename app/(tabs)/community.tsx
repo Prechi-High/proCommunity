@@ -1,11 +1,15 @@
-import { CommunityQuestionsFeed } from "@/components/social/CommunityQuestionsFeed";
-import { AppShell } from "@/components/unmask-ui";
-import { VISION_SCREENS } from "@/lib/navigation/visionNav";
+import { lazy, Suspense } from "react";
 
-export default function CommunityTab() {
+import { AppShell, ContentSkeleton } from "@/components/unmask-ui";
+
+const UpdatesFeed = lazy(() => import("@/components/social/UpdatesFeed").then((m) => ({ default: m.UpdatesFeed })));
+
+export default function Updates() {
   return (
-    <AppShell notify flush ambient="socialNight" title={VISION_SCREENS.community.title} subtitle={VISION_SCREENS.community.subtitle}>
-      <CommunityQuestionsFeed />
+    <AppShell notify flush ambient="socialNight" title="Updates" subtitle="24-hour status and moment sections.">
+      <Suspense fallback={<ContentSkeleton rows={8} />}>
+        <UpdatesFeed />
+      </Suspense>
     </AppShell>
   );
 }

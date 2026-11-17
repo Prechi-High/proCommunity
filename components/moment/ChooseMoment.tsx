@@ -33,9 +33,7 @@ export function ChooseMoment({ onPick }: { onPick: (kind: MomentKind) => void })
             <View style={{ position: "absolute", right: 0, top: 4 }}>
               <Sparkle size={20} color="#70323E" weight="fill" />
             </View>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 22, color: "#9A7B4F" }}>
-              Morning, GRWM, evening, or what you are using now — captured in-app, shared as 24h status.
-            </Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 22, color: "#9A7B4F" }}>Choose the moment you want to capture.</Text>
           </View>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14, justifyContent: "space-between" }}>

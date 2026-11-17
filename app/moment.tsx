@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { View } from "react-native";
-import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 
 import { ChooseMoment } from "@/components/moment/ChooseMoment";
 import { MomentCamera } from "@/components/moment/MomentCamera";
 import { MomentCaptureReview } from "@/components/moment/MomentCaptureReview";
 import { MomentComplete, type MomentContext } from "@/components/moment/MomentComplete";
 import { UnmaskPreview } from "@/components/moment/UnmaskPreview";
-import { MOMENTS, momentConfig, type MomentKind } from "@/lib/moment/kinds";
+import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
 import { hapticSaved } from "@/lib/haptics";
 import { useLocalMoments } from "@/lib/moment/localPosts";
 import { useAppStore } from "@/lib/store";
@@ -20,18 +20,8 @@ export default function Moment() {
   const display = useAppStore((s) => s.profile?.displayName) || "You";
   const add = useLocalMoments((s) => s.add);
 
-  const params = useLocalSearchParams<{ kind?: string }>();
   const [step, setStep] = useState<Step>("choose");
   const [kind, setKind] = useState<MomentKind | null>(null);
-
-  useEffect(() => {
-    const k = params.kind;
-    if (!k) return;
-    if (MOMENTS.some((m) => m.id === k)) {
-      setKind(k as MomentKind);
-      setStep("camera");
-    }
-  }, [params.kind]);
   const [mediaUri, setMediaUri] = useState("");
   const [mediaKind, setMediaKind] = useState<"photo" | "video">("photo");
   const [destination, setDestination] = useState<"post" | "story" | "both">("story");
@@ -70,7 +60,7 @@ export default function Moment() {
       stickers: [`${config.title} ${config.emoji}`, ...(context.routineTags ?? [])],
     });
     hapticSaved("moment");
-    router.replace("/updates" as Href);
+    router.replace("/community" as Href);
   };
 
   if (step === "choose") {
