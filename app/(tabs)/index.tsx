@@ -22,7 +22,7 @@ export default function Home() {
       notify
       flush
       ambient="socialNight"
-      brandSubtitle="Real People. Real Routines. Real Products."
+      brandSubtitle={undefined}
       homeProfile={profile ? { id: profile.id, name: profile.displayName } : undefined}
     >
       <SocialHome />

@@ -21,8 +21,8 @@ import { ActionSheet } from "./ActionSheet";
 
 const ACTIONS = [
   {
-    label: "Share your moment",
-    detail: "Camera, glow, story or post.",
+    label: "Create an Unmask",
+    detail: "Share a moment, your routine or a product experience.",
     href: "/moment",
     Icon: Camera,
     colors: ["#3D0F15", "#8E4052"] as const,

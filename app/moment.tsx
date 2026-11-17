@@ -64,7 +64,18 @@ export default function Moment() {
   };
 
   if (step === "choose") {
-    return <ChooseMoment onPick={pickKind} />;
+    return (
+      <ChooseMoment
+        onPick={pickKind}
+        onProductStory={() => {
+          if (!uid) {
+            router.push({ pathname: "/(auth)/sign-in", params: { returnTo: "/contribute" } } as Href);
+            return;
+          }
+          router.push("/contribute" as Href);
+        }}
+      />
+    );
   }
 
   if (step === "camera" && kind) {
@@ -120,5 +131,10 @@ export default function Moment() {
     return <UnmaskPreview kind={kind} mediaUri={mediaUri} mediaKind={mediaKind} context={context} destination={destination} onPost={post} />;
   }
 
-  return <ChooseMoment onPick={pickKind} />;
+  return (
+    <ChooseMoment
+      onPick={pickKind}
+      onProductStory={() => router.push("/contribute" as Href)}
+    />
+  );
 }

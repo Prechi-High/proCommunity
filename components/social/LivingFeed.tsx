@@ -15,12 +15,12 @@ import * as profiles from "@/lib/profiles/api";
 import { useLocalAvatar } from "@/lib/profile/localAvatar";
 import { useAppStore } from "@/lib/store";
 
+import type { HomeFeedTab } from "./HomeFeedTabs";
 import { LoopClip } from "./LoopClip";
-import { QuickShareBar } from "./QuickShareBar";
 import { StoryStatusRail } from "./StoryStatusRail";
-import { UnmaskTeasers } from "./UnmaskTeasers";
 
 const PREVIEW_TIMES: Record<string, string> = {
+  "m-tiana": "2h",
   "m-ada": "2h",
   "m-zuri": "4h",
   "m-malik": "6h",
@@ -31,7 +31,7 @@ const PREVIEW_TIMES: Record<string, string> = {
   "m-lola": "2h",
 };
 
-export function LivingFeed({ guest }: { guest?: boolean }) {
+export function LivingFeed({ guest, feedTab = "for-you" }: { guest?: boolean; feedTab?: HomeFeedTab }) {
   const router = useRouter();
   const tone = useRoomTone();
   const mine = useLocalMoments((s) => s.posts);
@@ -72,13 +72,18 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
 
   const active = [...yours, ...PREVIEW_MOMENTS].find((item) => item.id === openId);
 
+  const preview =
+    feedTab === "routines"
+      ? PREVIEW_MOMENTS.filter((m) => m.momentBeat || (m.stickers ?? []).some((s) => /GRWM|Morning|Evening/i.test(s)))
+      : feedTab === "products"
+        ? PREVIEW_MOMENTS.filter((m) => m.product || m.productTags?.length)
+        : feedTab === "following"
+          ? PREVIEW_MOMENTS.slice(2, 6)
+          : PREVIEW_MOMENTS;
+
   return (
-    <View style={{ gap: 16 }}>
+    <View style={{ gap: 16, paddingTop: 8 }}>
       <StoryStatusRail />
-
-      <UnmaskTeasers />
-
-      <QuickShareBar />
 
       {guest ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: tone.faint, paddingHorizontal: 16 }}>
@@ -101,7 +106,7 @@ export function LivingFeed({ guest }: { guest?: boolean }) {
         />
       ))}
 
-      {PREVIEW_MOMENTS.map((item) => (
+      {preview.map((item) => (
         <MomentCard
           key={item.id}
           item={item}
@@ -181,14 +186,13 @@ function MomentCard({
   onComments: () => void;
   onOpen: () => void;
 }) {
-  const tone = useRoomTone();
-  const handle = handleFrom(item.name);
-  const tags = hashtagsFor(item);
   const routineTitle = item.timeline?.includes("Week") || item.timeline?.includes("Day") || item.timeline?.includes("Month")
     ? `My timeline · ${item.timeline}`
     : item.product
       ? "My routine"
       : null;
+
+  const metaLine = [timeLabel, item.momentBeat].filter(Boolean).join(" • ");
 
   return (
     <Pressable
@@ -199,9 +203,9 @@ function MomentCard({
         marginHorizontal: 16,
         borderRadius: livelyRadii.hero,
         overflow: "hidden",
-        backgroundColor: "#140B12",
+        backgroundColor: "#FFFFFF",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.08)",
+        borderColor: "rgba(61,15,21,0.08)",
       }}
     >
       <View style={{ paddingHorizontal: 14, paddingTop: 14, paddingBottom: 10, gap: 8 }}>
@@ -215,14 +219,18 @@ function MomentCard({
           )}
           <View style={{ flex: 1, gap: 2 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: tone.text }}>{handle}</Text>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#2D1B1B" }}>
+                {item.name} {item.id === "m-tiana" ? "❤️" : ""}
+              </Text>
               {verified ? <SealCheck size={16} color="#FF6B9D" weight="fill" /> : null}
             </View>
-            {item.skin ? (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: tone.muted }}>Skin type · {item.skin}</Text>
+            {metaLine ? (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: "#746B66" }}>{metaLine}</Text>
+            ) : item.skin ? (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: "#746B66" }}>Skin type · {item.skin}</Text>
             ) : null}
           </View>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: tone.faint }}>{timeLabel}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: "#9A7B4F" }}>⋯</Text>
         </View>
       </View>
 
@@ -235,48 +243,49 @@ function MomentCard({
           <View style={{ height: 320, backgroundColor: "#2D1530" }} />
         )}
 
-        {routineTitle && (item.product || item.timeline) ? (
+        {item.productTags?.length ? (
+          <View style={{ position: "absolute", left: 12, bottom: 12, gap: 6, maxWidth: "72%" }}>
+            {item.productTags.map((tag) => (
+              <View
+                key={tag.name}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  borderRadius: 999,
+                  backgroundColor: "rgba(30,20,24,0.72)",
+                }}
+              >
+                <Image source={{ uri: tag.thumb }} style={{ width: 22, height: 22, borderRadius: 6 }} accessibilityIgnoresInvertColors />
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#FFF8F4" }}>{tag.name}</Text>
+              </View>
+            ))}
+          </View>
+        ) : routineTitle && (item.product || item.timeline) ? (
           <View
             style={{
               position: "absolute",
-              right: 12,
-              top: 12,
-              maxWidth: 168,
-              padding: 12,
-              borderRadius: 16,
-              backgroundColor: "rgba(20,11,18,0.55)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.18)",
-              ...(Platform.OS === "web" ? { backdropFilter: "blur(12px)" as never } : {}),
+              left: 12,
+              bottom: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingHorizontal: 12,
+              paddingVertical: 7,
+              borderRadius: 999,
+              backgroundColor: "rgba(30,20,24,0.72)",
             }}
           >
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#FFF8F4", marginBottom: 8 }}>{routineTitle}</Text>
-            {item.product ? (
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11, lineHeight: 16, color: "rgba(255,248,244,0.85)" }}>{item.product}</Text>
-            ) : null}
-            {item.timeline ? (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: "rgba(255,248,244,0.65)", marginTop: 4 }}>{item.timeline}</Text>
-            ) : null}
+            <Sparkle size={14} color="#FF6B9D" weight="fill" />
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#FFF8F4" }}>{item.product ?? routineTitle}</Text>
           </View>
         ) : null}
+      </View>
 
-        <View
-          style={{
-            position: "absolute",
-            left: 12,
-            bottom: 12,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            paddingHorizontal: 12,
-            paddingVertical: 7,
-            borderRadius: 999,
-            backgroundColor: "rgba(255,107,157,0.88)",
-          }}
-        >
-          <Sparkle size={14} color="#1A0A14" weight="fill" />
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#1A0A14" }}>{item.stickers?.[0] || "My Unmask"}</Text>
-        </View>
+      <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 }}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: "#2D1B1B" }}>{item.caption}</Text>
       </View>
 
       <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 20 }}>
@@ -289,8 +298,8 @@ function MomentCard({
           }}
           style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
         >
-          <Heart size={24} color={loved ? "#FF6B9D" : tone.text} weight={loved ? "fill" : "regular"} />
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: tone.text }}>{formatCount(likeCount)}</Text>
+          <Heart size={24} color={loved ? "#FF6B9D" : "#3D0F15"} weight={loved ? "fill" : "regular"} />
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#3D0F15" }}>{formatCount(likeCount)}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -301,20 +310,12 @@ function MomentCard({
           }}
           style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
         >
-          <ChatCircle size={24} color={tone.text} />
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: tone.text }}>{commentCount}</Text>
+          <ChatCircle size={24} color="#3D0F15" />
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#3D0F15" }}>{commentCount}</Text>
         </Pressable>
-        <ShareNetwork size={22} color={tone.muted} />
+        <ShareNetwork size={22} color="#746B66" />
         <View style={{ flex: 1 }} />
-        <BookmarkSimple size={22} color={tone.muted} />
-      </View>
-
-      <View style={{ paddingHorizontal: 14, paddingBottom: 16, gap: 6 }}>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: tone.text }}>
-          <Text style={{ fontFamily: fonts.semibold }}>{handle} </Text>
-          {item.caption}
-        </Text>
-        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: "#FF8BC8" }}>{tags.join(" ")}</Text>
+        <BookmarkSimple size={22} color="#746B66" />
       </View>
     </Pressable>
   );

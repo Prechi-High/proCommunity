@@ -1,31 +1,23 @@
-import { lazy, Suspense } from "react";
-import { Pressable, Text, View } from "react-native";
-import { useRouter, type Href } from "expo-router";
+import { lazy, Suspense, useState } from "react";
+import { View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { ContentSkeleton } from "@/components/unmask-ui/Skeleton";
-import { fonts } from "@/constants/theme";
-import { first90 } from "@/lib/movement/first90";
-import { useRoomTone } from "@/lib/social/roomTone";
+
+import { HomeFeedTabs, type HomeFeedTab } from "./HomeFeedTabs";
 
 const LivingFeed = lazy(() => import("./LivingFeed").then((m) => ({ default: m.LivingFeed })));
 
 export function SocialHome() {
-  const router = useRouter();
-  const tone = useRoomTone();
-  const movement = first90();
-  const day =
-    movement.status === "during" ? `Day ${movement.day} of 90` : movement.phase || "Unmask";
+  const [tab, setTab] = useState<HomeFeedTab>("for-you");
 
   return (
-    <View style={{ gap: 6, paddingBottom: 8 }}>
-      <View style={{ paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ fontFamily: fonts.medium, fontSize: 11, letterSpacing: 1.4, color: tone.gold }}>{day.toUpperCase()}</Text>
-        <Pressable accessibilityRole="link" onPress={() => router.push("/results" as Href)}>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: tone.muted }}>Search products</Text>
-        </Pressable>
-      </View>
+    <View style={{ flex: 1, backgroundColor: "#F5ECEF" }}>
+      <LinearGradient colors={["#3D0F15", "#5C2834", "rgba(92,40,52,0)"]} style={{ paddingBottom: 4 }}>
+        <HomeFeedTabs active={tab} onChange={setTab} />
+      </LinearGradient>
       <Suspense fallback={<ContentSkeleton rows={6} />}>
-        <LivingFeed />
+        <LivingFeed feedTab={tab} />
       </Suspense>
     </View>
   );

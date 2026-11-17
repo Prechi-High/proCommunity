@@ -7,6 +7,8 @@ const img = (id: string) =>
 
 export type PulseComment = { name: string; text: string };
 
+export type ProductTag = { name: string; thumb: string };
+
 export type PulseMoment = {
   id: string;
   name: string;
@@ -15,6 +17,8 @@ export type PulseMoment = {
   video?: string;
   caption: string;
   product?: string;
+  productTags?: ProductTag[];
+  momentBeat?: string;
   timeline?: string;
   skin?: string;
   likes: number;
@@ -26,6 +30,25 @@ export type PulseMoment = {
 };
 
 export const PREVIEW_MOMENTS: PulseMoment[] = [
+  {
+    id: "m-tiana",
+    name: "Tiana",
+    face: img("photo-1524504388940-b1c1722653e1"),
+    media: img("photo-1616394584738-fc6e612125bb"),
+    caption: "My morning routine before work 💼 Keeping it simple and my skin is loving it!",
+    momentBeat: "My Morning ☀️",
+    productTags: [
+      { name: "CeraVe Cleanser", thumb: img("photo-1556228720-195a672e8a03") },
+      { name: "The Ordinary Niacinamide", thumb: img("photo-1620916566398-39f1143ab7be") },
+    ],
+    likes: 1400,
+    comments: 162,
+    thread: [
+      { name: "Kemi", text: "This combo cleared my texture in two weeks." },
+      { name: "Baddie.R", text: "Saving this routine." },
+    ],
+    invite: "Morning beats count.",
+  },
   {
     id: "m-ada",
     name: "Ada",

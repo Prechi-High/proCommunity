@@ -103,11 +103,13 @@ export function StoryStatusRail({ onQueueChange }: { onQueueChange?: (open: bool
             </Pressable>
           ) : null}
           <Text numberOfLines={2} style={{ fontFamily: fonts.semibold, fontSize: 11, lineHeight: 14, color: tone.text, textAlign: "center" }}>
-            Create your Unmask
+            Your Unmask
           </Text>
         </View>
-        {STORY_FACES.map((face) => {
+        {STORY_FACES.map((face, index) => {
           const meta = storyMetaFor(face.id);
+          const displayName =
+            index === 0 ? "Kemi" : index === 1 ? "Tiana" : index === 2 ? "Baddie.R" : face.name.split(" ")[0];
           return (
             <Pressable key={face.id} accessibilityRole="button" onPress={() => openStories(face.id)} style={{ width: 82, alignItems: "center", gap: 8 }}>
               <View style={{ position: "absolute", top: 8, width: 72, height: 72, borderRadius: 36, backgroundColor: meta.glow }} />
@@ -115,7 +117,7 @@ export function StoryStatusRail({ onQueueChange }: { onQueueChange?: (open: bool
                 <Image source={{ uri: face.face }} style={{ flex: 1, borderRadius: 33 }} accessibilityIgnoresInvertColors />
               </LinearGradient>
               <Text numberOfLines={2} style={{ fontFamily: fonts.medium, fontSize: 11, lineHeight: 14, color: tone.muted, textAlign: "center" }}>
-                {meta.label}
+                {displayName}
               </Text>
             </Pressable>
           );
