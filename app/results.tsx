@@ -15,6 +15,7 @@ import {
   StatusMessage,
 } from "@/components/unmask-ui";
 import { COPY } from "@/constants/brand";
+import { VISION_SCREENS } from "@/lib/navigation/visionNav";
 import { colors, fonts } from "@/constants/theme";
 import { rememberProduct, slugify } from "@/lib/products";
 import { useAppStore } from "@/lib/store";
@@ -104,8 +105,8 @@ export default function Results() {
     <AppShell
       back
       navigation
-      title="Find a product"
-      subtitle="Find the product. Hear from people who have tried it."
+      title={VISION_SCREENS.search.title}
+      subtitle={VISION_SCREENS.search.subtitle}
     >
       <SearchField
         value={draft}
