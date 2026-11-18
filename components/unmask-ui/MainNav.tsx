@@ -16,7 +16,7 @@ export function MainNav() {
   const [open, setOpen] = useState(false);
   const routes = [
     { label: "Home", href: "/", Icon: House },
-    { label: "Updates", href: "/community", Icon: MagnifyingGlass },
+    { label: "Search", href: "/results", Icon: MagnifyingGlass },
     { label: "Create", href: null, Icon: Plus },
     { label: "Community", href: "/ask-community", Icon: UsersThree },
     { label: "You", href: "/you", Icon: User },
@@ -54,10 +54,10 @@ export function MainNav() {
           const active =
             href === "/"
               ? path === "/"
-              : href === "/community"
-                ? path.startsWith("/community") || path.startsWith("/story")
+              : href === "/results"
+                ? path.startsWith("/results")
                 : href === "/ask-community"
-                  ? path.startsWith("/ask-community") || path.startsWith("/question")
+                  ? path.startsWith("/ask-community") || path.startsWith("/question") || path.startsWith("/community-ask")
                   : !!href && path.startsWith(href);
           const create = !href;
           const activeColor = "#FF6B9D";

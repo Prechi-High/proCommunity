@@ -37,7 +37,7 @@ const ACTIONS = [
   {
     label: COPY.createQuestion,
     detail: "Ask people who tried it.",
-    href: "/ask-community",
+    href: "/community-ask",
     Icon: ChatCircle,
     colors: ["#5C2834", "#C9A227"] as const,
   },

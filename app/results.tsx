@@ -1,53 +1,35 @@
 import { useScan } from "@/lib/useScan";
 import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
-import { useQuery } from "@tanstack/react-query";
+import { View } from "react-native";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
 
-import {
-  ActionButton,
-  AppShell,
-  EmptyState,
-  ContentSkeleton,
-  FocusCorners,
-  MediaFrame,
-  SearchField,
-  StatusMessage,
-} from "@/components/unmask-ui";
-import { COPY } from "@/constants/brand";
-import { colors, fonts } from "@/constants/theme";
-import { rememberProduct, slugify } from "@/lib/products";
+import { KnowBeforeYouBuyHub } from "@/components/vision/KnowBeforeYouBuyHub";
+import { rememberProduct } from "@/lib/products";
 import { useAppStore } from "@/lib/store";
-import {
-  searchCommunityProducts,
-  hasProductConversation,
-} from "@/lib/unmask/communitySearch";
-import { SAMPLE_SHELF, SAMPLE_FEED } from "@/lib/unmask/samples";
+import { searchCommunityProducts } from "@/lib/unmask/communitySearch";
+import { SAMPLE_SHELF } from "@/lib/unmask/samples";
 import type { Product } from "@/lib/types";
 
 export default function Results() {
   const router = useRouter();
   const scan = useScan();
   const demo = useAppStore((s) => s.demoCommunity);
-  const [openError, setOpenError] = useState("");
   const { q } = useLocalSearchParams<{ q?: string }>();
   const [draft, setDraft] = useState(q || "");
   const [query, setQuery] = useState(q || "");
-  const [picked, setPicked] = useState("");
+
   useEffect(() => {
     setDraft(q || "");
     setQuery(q || "");
   }, [q]);
+
   const result = useQuery({
     queryKey: ["community-product-search", query, demo],
     queryFn: async () => {
       const live = await searchCommunityProducts(query);
       const examples = demo
-        ? SAMPLE_SHELF.filter((p) =>
-            `${p.name} ${p.brand}`
-              .toLowerCase()
-              .includes(query.trim().toLowerCase()),
-          ).map((p) => ({
+        ? SAMPLE_SHELF.filter((p) => `${p.name} ${p.brand}`.toLowerCase().includes(query.trim().toLowerCase())).map((p) => ({
             id: p.id,
             name: p.name,
             brand: p.brand,
@@ -61,123 +43,34 @@ export default function Results() {
     staleTime: 600000,
     retry: 1,
   });
+
   const submit = () => {
     if (draft.trim()) {
       setQuery(draft.trim());
       useAppStore.getState().addSearch(draft.trim());
     }
   };
-  const open = async (p: Product) => {
+
+  const open = (p: Product) => {
     rememberProduct(p);
-    setPicked(p.id);
-    setOpenError("");
-    try {
-      router.push({
-        pathname: "/product/[id]",
-        params: { id: p.id, name: p.name },
-      } as Href);
-    } catch {
-      setOpenError("Couldn’t check the conversations. Please try again.");
-    } finally {
-      setPicked("");
-    }
-  };
-  const products = result.data ?? [];
-  const askNew = () => {
-    const name = draft.trim();
-    if (!name) return;
-    const id = `community-${slugify(name)}`;
-    rememberProduct({
-      id,
-      name,
-      brand: "",
-      category: "Product",
-      heroImageUrl: null,
-    });
-    router.push({
-      pathname: "/product/[id]",
-      params: { id, name },
-    } as Href);
+    router.push({ pathname: "/product/[id]", params: { id: p.id, name: p.name } } as Href);
   };
 
   return (
-    <AppShell
-      back
-      navigation
-      title="Find a product"
-      subtitle="Find the product. Hear from people who have tried it."
-    >
-      <SearchField
-        value={draft}
-        onChange={setDraft}
+    <View style={{ flex: 1 }}>
+      <KnowBeforeYouBuyHub
+        query={query}
+        draft={draft}
+        onDraftChange={setDraft}
         onSubmit={submit}
-        onCamera={scan.openCamera}
+        products={result.data ?? []}
+        loading={result.isLoading}
+        onPick={open}
       />
       {scan.sheet}
-
-      {openError ? <StatusMessage kind="error" title={openError} /> : null}
-      {picked ? <ContentSkeleton rows={1} /> : null}
-      {result.isError ? (
-        <StatusMessage
-          kind="error"
-          title="Search didn’t finish."
-          detail="Your query is still here. Try again."
-        />
+      {query && !result.isLoading && !(result.data ?? []).length ? (
+        <View />
       ) : null}
-      {result.isLoading ? <ContentSkeleton /> : null}
-      {demo && products.length ? (
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.inkSoft }}>
-          Sample products from the demo shelf. Not real reviews or community claims.
-        </Text>
-      ) : null}
-      {products.map((p) => (
-        <Pressable
-          key={p.id}
-          disabled={!!picked}
-          accessibilityRole="button"
-          accessibilityLabel={`Open ${p.name}`}
-          onPress={() => void open(p)}
-          style={{
-            flexDirection: "row",
-            gap: 12,
-            alignItems: "center",
-            minHeight: 72,
-          }}
-        >
-          <View style={{ width: 72, position: "relative" }}>
-            <MediaFrame uri={p.heroImageUrl} label={p.name} ratio={1} />
-            <FocusCorners selected={picked === p.id} />
-          </View>
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text
-              style={{
-                fontFamily: fonts.semibold,
-                fontSize: 16,
-                color: colors.ink,
-              }}
-            >
-              {p.name}
-            </Text>
-            <Text
-              style={{
-                fontFamily: fonts.regular,
-                fontSize: 14,
-                color: colors.inkSoft,
-              }}
-            >
-              {p.brand || p.category}
-            </Text>
-          </View>
-        </Pressable>
-      ))}
-      {query && !result.isLoading && !result.isError && !products.length ? (
-        <EmptyState
-          title="No matching product here yet."
-          detail="Our catalogue grows with the community. Start a question with the product name."
-          action={`Ask about ${query}`}
-          onAction={askNew}
-        />
-      ) : null}
-    </AppShell>
+    </View>
   );
 }
