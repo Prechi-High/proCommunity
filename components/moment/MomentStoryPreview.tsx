@@ -6,7 +6,8 @@ import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
 
-import type { MomentContext } from "./MomentComplete";
+import { displayOccasion, productCount } from "@/lib/moment/types";
+import type { MomentContext } from "@/lib/moment/types";
 import { LoopClip } from "../social/LoopClip";
 
 export function MomentStoryPreview({
@@ -26,8 +27,8 @@ export function MomentStoryPreview({
 }) {
   const { height } = useWindowDimensions();
   const config = momentConfig(kind);
-  const occasion = context.occasion || "Date Night";
-  const productCount = context.products?.length || (context.productName ? 1 : 0);
+  const occasion = displayOccasion(context) || "Date Night";
+  const count = productCount(context);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#1A0A14" }}>
@@ -75,7 +76,7 @@ export function MomentStoryPreview({
       >
         <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: "#FFF8F4" }}>Tonight&apos;s lineup</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: "rgba(255,248,244,0.85)", marginTop: 4 }}>
-          My routine • {productCount || 6} products
+          My routine • {count} product{count === 1 ? "" : "s"}
         </Text>
       </View>
 
@@ -106,7 +107,7 @@ export function MomentStoryPreview({
             hapticSelect();
             onNext();
           }}
-          style={{ marginHorizontal: 20, marginBottom: 12, paddingVertical: 16, borderRadius: 999, backgroundColor: "#4A1E3C", alignItems: "center" }}
+          style={{ marginHorizontal: 20, marginBottom: 12, paddingVertical: 16, borderRadius: 999, backgroundColor: "#4A152C", alignItems: "center" }}
         >
           <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#FFF8F4" }}>Continue →</Text>
         </Pressable>

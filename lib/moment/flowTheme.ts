@@ -1,9 +1,9 @@
 /** Visual tokens for the Unmask Moments flow (reference mock). */
 export const momentFlow = {
-  bg: "#FFF5F5",
+  bg: "#FFF1ED",
   ink: "#2D1B1B",
   muted: "#746B66",
-  accent: "#4A1E3C",
+  accent: "#4A152C",
   accentSoft: "#F2D8D8",
   card: "#FFFFFF",
   pillPink: "#FFE8F0",

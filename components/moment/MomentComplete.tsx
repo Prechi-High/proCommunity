@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ArrowLeft, DotsThree, Handbag, Package, Plus } from "@/components/icons";
+import { ArrowLeft, DotsThree, Handbag, Package, Plus, X } from "@/components/icons";
 import { AddProductSheet } from "@/components/moment/AddProductSheet";
 import { momentFlow } from "@/lib/moment/flowTheme";
 import { routineIconFor } from "@/lib/moment/routineIcons";
@@ -13,21 +13,11 @@ import { fonts, livelyRadii } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import * as living from "@/lib/living/api";
 import { GRWM_OCCASIONS, USAGE_DURATION, momentConfig, type MomentKind } from "@/lib/moment/kinds";
+import type { MomentAttachedProduct, MomentContext } from "@/lib/moment/types";
 import { useRoomTone } from "@/lib/social/roomTone";
 import { useAppStore } from "@/lib/store";
 
-export type MomentContext = {
-  productName?: string;
-  productImage?: string;
-  products?: { name: string; image?: string }[];
-  timelineId?: string;
-  timelineLabel?: string;
-  routineTags?: string[];
-  occasion?: string;
-  usageDuration?: string;
-  eveningSteps?: string;
-  experience?: string;
-};
+export type { MomentContext };
 
 const img = (id: string) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=200&q=80`;
 const EXAMPLES = [
@@ -41,25 +31,45 @@ export function MomentComplete({
   mediaKind,
   onBack,
   onNext,
-  initialOpenProduct,
+  context,
+  onContextChange,
+  productSheetOpen,
+  onProductSheetOpenChange,
+  onAttachProduct,
+  onDiscard,
 }: {
   kind: MomentKind;
   mediaUri: string;
   mediaKind: "photo" | "video";
   onBack: () => void;
   onNext: (ctx: MomentContext) => void;
-  initialOpenProduct?: boolean;
+  context: MomentContext;
+  onContextChange: (ctx: MomentContext) => void;
+  productSheetOpen: boolean;
+  onProductSheetOpenChange: (open: boolean) => void;
+  onAttachProduct: (p: MomentAttachedProduct) => void;
+  onDiscard?: () => void;
 }) {
   const config = momentConfig(kind);
   const tone = useRoomTone();
   const uid = useAppStore((s) => s.profile?.id);
   const journeys = useQuery({ queryKey: ["living", "journeys", uid, "moment"], queryFn: living.journeys, enabled: !!uid });
   const [picker, setPicker] = useState(false);
-  const [productSheet, setProductSheet] = useState(!!initialOpenProduct);
+  const [menu, setMenu] = useState(false);
+  const [customOccasionOpen, setCustomOccasionOpen] = useState(false);
+  const [customDraft, setCustomDraft] = useState(context.customOccasion ?? "");
+  const ctx = context;
+  const setCtx = (updater: MomentContext | ((c: MomentContext) => MomentContext)) => {
+    const next = typeof updater === "function" ? updater(ctx) : updater;
+    onContextChange(next);
+  };
   useEffect(() => {
-    if (initialOpenProduct) setProductSheet(true);
-  }, [initialOpenProduct]);
-  const [ctx, setCtx] = useState<MomentContext>({ occasion: kind === "grwm" ? "Date Night" : undefined });
+    if (kind === "grwm" && !context.occasion) {
+      onContextChange({ ...context, occasion: "Date Night" });
+    }
+    // only seed default occasion on entry
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind]);
   const cream = kind === "morning" || kind === "currently";
   const bg = cream ? "#F9F5EB" : kind === "evening" ? "#140B12" : "#FFF8F4";
   const ink = kind === "evening" ? "#FFF8F4" : "#2D1B1B";
@@ -132,15 +142,22 @@ export function MomentComplete({
     </Pressable>
   );
 
-  const addDemoProduct = () => {
-    const name = "CeraVe Foaming Cleanser";
-    const image = "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=200&q=80";
-    setCtx((c) => ({
-      ...c,
-      productName: name,
-      productImage: image,
-      products: [...(c.products ?? []), { name, image }],
-    }));
+  const attachProduct = (p: MomentAttachedProduct) => {
+    onAttachProduct(p);
+  };
+
+  const removeProduct = (productId: string) => {
+    setCtx((c) => {
+      const products = (c.products ?? []).filter((p) => p.productId !== productId);
+      const primary = products[0];
+      return {
+        ...c,
+        products,
+        productName: primary?.name,
+        productImage: primary?.image,
+        timelineId: primary?.journeyId,
+      };
+    });
   };
 
   const flowBg = kind === "grwm" ? momentFlow.bg : bg;
@@ -162,7 +179,7 @@ export function MomentComplete({
           ) : (
             <Text style={{ flex: 1, textAlign: "center", fontFamily: fonts.serifBold, fontSize: 18, color: flowInk }}>{config.completeTitle}</Text>
           )}
-          <Pressable onPress={() => hapticSelect()} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+          <Pressable onPress={() => setMenu(true)} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
             <DotsThree size={24} color={flowInk} weight="bold" />
           </Pressable>
         </View>
@@ -202,6 +219,10 @@ export function MomentComplete({
                       key={o}
                       onPress={() => {
                         hapticSelect();
+                        if (o === "My Own") {
+                          setCustomDraft(ctx.customOccasion ?? "");
+                          setCustomOccasionOpen(true);
+                        }
                         setCtx((c) => ({ ...c, occasion: o }));
                       }}
                       style={{
@@ -226,7 +247,7 @@ export function MomentComplete({
                     <Image source={{ uri: mediaUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
                   </View>
                   <Pressable
-                    onPress={() => setProductSheet(true)}
+                    onPress={() => onProductSheetOpenChange(true)}
                     style={{
                       flex: 1,
                       minHeight: 120,
@@ -243,6 +264,32 @@ export function MomentComplete({
                     <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.accent }}>Add Product</Text>
                   </Pressable>
                 </View>
+                {(ctx.products ?? []).length ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                    {(ctx.products ?? []).map((p) => (
+                      <View key={p.productId} style={{ width: 72, alignItems: "center" }}>
+                        <View style={{ width: 64, height: 64, borderRadius: 12, overflow: "hidden" }}>
+                          {p.image ? (
+                            <Image source={{ uri: p.image }} style={{ width: "100%", height: "100%" }} accessibilityIgnoresInvertColors />
+                          ) : (
+                            <View style={{ flex: 1, backgroundColor: momentFlow.pillPink, alignItems: "center", justifyContent: "center" }}>
+                              <Package size={20} color={momentFlow.accent} />
+                            </View>
+                          )}
+                          <Pressable
+                            onPress={() => removeProduct(p.productId)}
+                            style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" }}
+                          >
+                            <X size={12} color="#FFF" weight="bold" />
+                          </Pressable>
+                        </View>
+                        <Text numberOfLines={2} style={{ fontFamily: fonts.regular, fontSize: 10, color: momentFlow.muted, marginTop: 4, textAlign: "center" }}>
+                          {p.name}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                ) : null}
               </View>
             </View>
           ) : null}
@@ -328,12 +375,38 @@ export function MomentComplete({
         </Pressable>
       </SafeAreaView>
 
-      <AddProductSheet
-        open={productSheet}
-        onClose={() => setProductSheet(false)}
-        selectedName={ctx.productName}
-        onSelectDemo={addDemoProduct}
-      />
+      <AddProductSheet open={productSheetOpen} onClose={() => onProductSheetOpenChange(false)} attached={ctx.products ?? []} onAttach={attachProduct} />
+
+      <ActionSheet open={menu} title="GRWM" onClose={() => setMenu(false)}>
+        <Pressable
+          onPress={() => {
+            setMenu(false);
+            onDiscard?.();
+          }}
+          style={{ paddingVertical: 14 }}
+        >
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#B42318" }}>Discard draft</Text>
+        </Pressable>
+      </ActionSheet>
+
+      <ActionSheet open={customOccasionOpen} title="My own occasion" onClose={() => setCustomOccasionOpen(false)}>
+        <TextInput
+          value={customDraft}
+          onChangeText={setCustomDraft}
+          placeholder="What's the vibe?"
+          placeholderTextColor={momentFlow.muted}
+          style={{ fontFamily: fonts.regular, fontSize: 16, color: momentFlow.ink, paddingVertical: 10, marginBottom: 12 }}
+        />
+        <Pressable
+          onPress={() => {
+            setCtx((c) => ({ ...c, occasion: "My Own", customOccasion: customDraft.trim() }));
+            setCustomOccasionOpen(false);
+          }}
+          style={{ paddingVertical: 14, borderRadius: momentFlow.radiusPill, backgroundColor: momentFlow.accent, alignItems: "center" }}
+        >
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#FFF8F4" }}>Save</Text>
+        </Pressable>
+      </ActionSheet>
 
       <ActionSheet open={picker} title="Add product" onClose={() => setPicker(false)}>
         {choices.map((row) => (

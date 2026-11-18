@@ -2,7 +2,7 @@ import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Sparkle } from "@/components/icons";
+import { ArrowLeft, Sparkle } from "@/components/icons";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { CREATE_UNMASK_OPTIONS } from "@/lib/moment/createOptions";
@@ -16,9 +16,11 @@ thumbs["product-story"] =
 export function ChooseMoment({
   onPick,
   onProductStory,
+  onBack,
 }: {
   onPick: (kind: MomentKind) => void;
   onProductStory?: () => void;
+  onBack?: () => void;
 }) {
   const router = useRouter();
 
@@ -26,7 +28,12 @@ export function ChooseMoment({
     <View style={{ flex: 1, backgroundColor: momentFlow.bg }}>
       <SafeAreaView edges={["top", "bottom"]} style={{ flex: 1 }}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
-          <View style={{ paddingTop: 16, gap: 10, marginBottom: 20 }}>
+          {onBack ? (
+            <Pressable onPress={onBack} style={{ width: 44, height: 44, justifyContent: "center", marginTop: 4 }}>
+              <ArrowLeft size={22} color={momentFlow.ink} />
+            </Pressable>
+          ) : null}
+          <View style={{ paddingTop: onBack ? 0 : 16, gap: 10, marginBottom: 20 }}>
             <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 30, lineHeight: 36, color: momentFlow.ink, letterSpacing: -0.6 }}>
                 What are you Unmasking today?

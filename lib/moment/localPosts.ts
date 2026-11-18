@@ -34,6 +34,9 @@ export type LocalMoment = {
   occasion?: string;
   usageDuration?: string;
   routineTags?: string[];
+  productIds?: string[];
+  audience?: "everyone" | "followers" | "private";
+  saveToJourney?: boolean;
   createdAt: string;
 };
 

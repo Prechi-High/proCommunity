@@ -6,20 +6,20 @@ export type CreateUnmaskOption =
 
 /** Rows on “Create an Unmask” — matches product mock copy. */
 export const CREATE_UNMASK_OPTIONS: CreateUnmaskOption[] = [
-  { kind: "moment", id: "morning", title: "My Morning", subtitle: "Start the day with me", emoji: "☀️" },
+  { kind: "moment", id: "morning", title: "MY MORNING", subtitle: "Start the day with me", emoji: "☀️" },
   {
     kind: "moment",
     id: "grwm",
     title: "GRWM",
-    subtitle: "Get ready with me (for a date, work, party, etc.)",
+    subtitle: "Get ready with me",
     emoji: "💋",
   },
-  { kind: "moment", id: "evening", title: "My Evening", subtitle: "Wind down with me", emoji: "🕯️" },
-  { kind: "moment", id: "currently", title: "Currently Using", subtitle: "What's in my routine right now", emoji: "🧴" },
+  { kind: "moment", id: "evening", title: "MY EVENING", subtitle: "Wind down with me", emoji: "🌙" },
+  { kind: "moment", id: "currently", title: "CURRENTLY USING", subtitle: "What's in my routine right now", emoji: "✨" },
   {
     kind: "experience",
     id: "product-story",
-    title: "My Product Story",
+    title: "MY PRODUCT STORY",
     subtitle: "What happened with this product.",
     emoji: "📖",
   },
