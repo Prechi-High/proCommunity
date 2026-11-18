@@ -1,0 +1,16 @@
+export const youVision = {
+  bg: "#FDF3F4",
+  maroon: "#8A3A41",
+  maroonDeep: "#4A152C",
+  pinkSoft: "#FCE4EC",
+  pinkGrad: "#E8B4BC",
+  card: "#FFFFFF",
+  ink: "#1A0A14",
+  muted: "#6B5B63",
+  chipActiveBg: "#8A3A41",
+  chipActiveInk: "#FFF8F4",
+  chipIdleBg: "#F5E8EB",
+  chipIdleInk: "#5C4048",
+  radiusCard: 22,
+  radiusPill: 999,
+} as const;
