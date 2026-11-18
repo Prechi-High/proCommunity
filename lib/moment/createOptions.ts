@@ -20,8 +20,8 @@ export const CREATE_UNMASK_OPTIONS: CreateUnmaskOption[] = [
     kind: "experience",
     id: "product-story",
     title: "My Product Story",
-    subtitle: "What happened when I used this product?",
-    emoji: "📸",
+    subtitle: "What happened with this product.",
+    emoji: "📖",
   },
 ];
 

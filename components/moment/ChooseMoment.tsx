@@ -1,13 +1,17 @@
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ArrowLeft, CaretRight } from "@/components/icons";
-import { fonts, livelyRadii } from "@/constants/theme";
+import { Sparkle } from "@/components/icons";
+import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
-import { CREATE_HERO_IMAGE, CREATE_UNMASK_OPTIONS } from "@/lib/moment/createOptions";
-import type { MomentKind } from "@/lib/moment/kinds";
+import { CREATE_UNMASK_OPTIONS } from "@/lib/moment/createOptions";
+import { momentFlow } from "@/lib/moment/flowTheme";
+import { MOMENTS, type MomentKind } from "@/lib/moment/kinds";
+
+const thumbs: Record<string, string> = Object.fromEntries(MOMENTS.map((m) => [m.id, m.cardImage]));
+thumbs["product-story"] =
+  "https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?auto=format&fit=crop&w=400&q=80";
 
 export function ChooseMoment({
   onPick,
@@ -19,45 +23,28 @@ export function ChooseMoment({
   const router = useRouter();
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#4A1F35" }}>
-      <LinearGradient colors={["#6B2D4F", "#C96B8A", "#E8A0B8"]} style={{ flex: 1 }}>
-        <SafeAreaView edges={["top", "bottom"]} style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingTop: 4 }}>
-            <Pressable accessibilityLabel="Back home" onPress={() => router.replace("/")} style={{ width: 44, height: 44, justifyContent: "center" }}>
-              <ArrowLeft size={22} color="#FFF8F4" />
-            </Pressable>
-            <View style={{ flex: 1 }} />
-          </View>
-
-          <View style={{ height: 200, overflow: "hidden" }}>
-            <Image
-              source={{ uri: CREATE_HERO_IMAGE }}
-              style={{ width: "100%", height: 240, opacity: 0.92 }}
-              resizeMode="cover"
-              accessibilityIgnoresInvertColors
-            />
-            <LinearGradient
-              colors={["transparent", "rgba(74,31,53,0.85)"]}
-              style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 120 }}
-            />
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 16 }}>
-            <View style={{ gap: 8, marginTop: 4 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 32, lineHeight: 36, color: "#FFF8F4", letterSpacing: -0.6 }}>
-                Create an Unmask
+    <View style={{ flex: 1, backgroundColor: momentFlow.bg }}>
+      <SafeAreaView edges={["top", "bottom"]} style={{ flex: 1 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
+          <View style={{ paddingTop: 16, gap: 10, marginBottom: 20 }}>
+            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 30, lineHeight: 36, color: momentFlow.ink, letterSpacing: -0.6 }}>
+                What are you Unmasking today?
               </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 22, color: "rgba(255,248,244,0.88)" }}>
-                Share a moment, your routine or a product experience.
-              </Text>
+              <Sparkle size={22} color={momentFlow.accent} weight="fill" />
             </View>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 22, color: momentFlow.muted }}>
+              Capture your routine, share your experience, and build your product story.
+            </Text>
+          </View>
 
-            <View style={{ gap: 12, marginTop: 8 }}>
-              {CREATE_UNMASK_OPTIONS.map((row) => (
+          <View style={{ gap: 12 }}>
+            {CREATE_UNMASK_OPTIONS.map((row) => {
+              const thumb = row.kind === "moment" ? thumbs[row.id] : thumbs["product-story"];
+              return (
                 <Pressable
                   key={row.id}
                   accessibilityRole="button"
-                  accessibilityLabel={`${row.title}. ${row.subtitle}`}
                   onPress={() => {
                     hapticSelect();
                     if (row.kind === "experience") {
@@ -71,35 +58,38 @@ export function ChooseMoment({
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 14,
-                    paddingVertical: 16,
-                    paddingHorizontal: 16,
-                    borderRadius: livelyRadii.card,
-                    backgroundColor: "rgba(255,248,244,0.94)",
+                    padding: 14,
+                    borderRadius: momentFlow.radiusCard,
+                    backgroundColor: momentFlow.card,
+                    borderWidth: 1,
+                    borderColor: "rgba(74,30,60,0.08)",
                   }}
                 >
                   <View
                     style={{
-                      width: 52,
-                      height: 52,
+                      width: 48,
+                      height: 48,
                       borderRadius: 14,
-                      backgroundColor: "rgba(255,214,228,0.65)",
+                      backgroundColor: momentFlow.pillPink,
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
-                    <Text style={{ fontSize: 26 }}>{row.emoji}</Text>
+                    <Text style={{ fontSize: 24 }}>{row.emoji}</Text>
                   </View>
                   <View style={{ flex: 1, gap: 4 }}>
-                    <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: "#2D1B1B" }}>{row.title}</Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 19, color: "#746B66" }}>{row.subtitle}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: momentFlow.ink, letterSpacing: 0.3 }}>
+                      {row.title.toUpperCase()}
+                    </Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: momentFlow.muted }}>{row.subtitle}</Text>
                   </View>
-                  <CaretRight size={18} color="#9A7B4F" />
+                  <Image source={{ uri: thumb }} style={{ width: 72, height: 72, borderRadius: 14 }} accessibilityIgnoresInvertColors />
                 </Pressable>
-              ))}
-            </View>
-          </ScrollView>
-        </SafeAreaView>
-      </LinearGradient>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     </View>
   );
 }

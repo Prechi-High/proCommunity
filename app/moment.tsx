@@ -4,15 +4,15 @@ import { useRouter, type Href } from "expo-router";
 
 import { ChooseMoment } from "@/components/moment/ChooseMoment";
 import { MomentCamera } from "@/components/moment/MomentCamera";
-import { MomentCaptureReview } from "@/components/moment/MomentCaptureReview";
 import { MomentComplete, type MomentContext } from "@/components/moment/MomentComplete";
-import { UnmaskPreview } from "@/components/moment/UnmaskPreview";
+import { MomentShareScreen } from "@/components/moment/MomentShareScreen";
+import { MomentStoryPreview } from "@/components/moment/MomentStoryPreview";
 import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
 import { hapticSaved } from "@/lib/haptics";
 import { useLocalMoments } from "@/lib/moment/localPosts";
 import { useAppStore } from "@/lib/store";
 
-type Step = "choose" | "camera" | "review" | "complete" | "preview";
+type Step = "choose" | "camera" | "setup" | "preview" | "share";
 
 export default function Moment() {
   const router = useRouter();
@@ -24,8 +24,9 @@ export default function Moment() {
   const [kind, setKind] = useState<MomentKind | null>(null);
   const [mediaUri, setMediaUri] = useState("");
   const [mediaKind, setMediaKind] = useState<"photo" | "video">("photo");
-  const [destination, setDestination] = useState<"post" | "story" | "both">("story");
   const [context, setContext] = useState<MomentContext>({});
+  const [saveToJourney, setSaveToJourney] = useState(true);
+  const [openProductOnSetup, setOpenProductOnSetup] = useState(false);
 
   const pickKind = (k: MomentKind) => {
     if (!uid) {
@@ -57,7 +58,7 @@ export default function Moment() {
       occasion: context.occasion,
       usageDuration: context.usageDuration,
       routineTags: context.routineTags,
-      stickers: [`${config.title} ${config.emoji}`, ...(context.routineTags ?? [])],
+      stickers: [`${config.title} ${config.emoji}`, context.occasion].filter(Boolean) as string[],
     });
     hapticSaved("moment");
     router.replace("/community" as Href);
@@ -84,43 +85,34 @@ export default function Moment() {
         <MomentCamera
           kind={kind}
           onClose={() => {
-            if (mediaUri) setStep("review");
+            if (mediaUri) setStep("setup");
             else router.replace("/" as Href);
+          }}
+          onAddProduct={() => {
+            setOpenProductOnSetup(true);
+            if (mediaUri) setStep("setup");
           }}
           onShot={(uri, mk) => {
             setMediaUri(uri);
             setMediaKind(mk);
-            setStep("review");
+            setStep("setup");
           }}
         />
       </View>
     );
   }
 
-  if (step === "review" && mediaUri) {
-    return (
-      <MomentCaptureReview
-        mediaUri={mediaUri}
-        mediaKind={mediaKind}
-        storyOnly
-        onRetake={() => setStep("camera")}
-        onNext={(dest) => {
-          setDestination(dest);
-          setStep("complete");
-        }}
-      />
-    );
-  }
-
-  if (step === "complete" && kind && mediaUri) {
+  if (step === "setup" && kind && mediaUri) {
     return (
       <MomentComplete
         kind={kind}
         mediaUri={mediaUri}
         mediaKind={mediaKind}
-        onBack={() => setStep("review")}
+        initialOpenProduct={openProductOnSetup}
+        onBack={() => setStep("camera")}
         onNext={(ctx) => {
           setContext(ctx);
+          setOpenProductOnSetup(false);
           setStep("preview");
         }}
       />
@@ -128,7 +120,30 @@ export default function Moment() {
   }
 
   if (step === "preview" && kind && mediaUri) {
-    return <UnmaskPreview kind={kind} mediaUri={mediaUri} mediaKind={mediaKind} context={context} destination={destination} onPost={post} />;
+    return (
+      <MomentStoryPreview
+        kind={kind}
+        mediaUri={mediaUri}
+        mediaKind={mediaKind}
+        context={context}
+        onBack={() => setStep("setup")}
+        onNext={() => setStep("share")}
+      />
+    );
+  }
+
+  if (step === "share" && kind && mediaUri) {
+    return (
+      <MomentShareScreen
+        kind={kind}
+        mediaUri={mediaUri}
+        context={context}
+        onBack={() => setStep("preview")}
+        onPublish={post}
+        saveToJourney={saveToJourney}
+        onToggleJourney={setSaveToJourney}
+      />
+    );
   }
 
   return (

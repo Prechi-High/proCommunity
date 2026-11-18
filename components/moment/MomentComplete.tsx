@@ -1,10 +1,12 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ArrowLeft, Package, Plus } from "@/components/icons";
+import { ArrowLeft, DotsThree, Handbag, Package, Plus } from "@/components/icons";
+import { AddProductSheet } from "@/components/moment/AddProductSheet";
+import { momentFlow } from "@/lib/moment/flowTheme";
 import { routineIconFor } from "@/lib/moment/routineIcons";
 import { ActionSheet } from "@/components/unmask-ui";
 import { fonts, livelyRadii } from "@/constants/theme";
@@ -17,6 +19,7 @@ import { useAppStore } from "@/lib/store";
 export type MomentContext = {
   productName?: string;
   productImage?: string;
+  products?: { name: string; image?: string }[];
   timelineId?: string;
   timelineLabel?: string;
   routineTags?: string[];
@@ -38,19 +41,25 @@ export function MomentComplete({
   mediaKind,
   onBack,
   onNext,
+  initialOpenProduct,
 }: {
   kind: MomentKind;
   mediaUri: string;
   mediaKind: "photo" | "video";
   onBack: () => void;
   onNext: (ctx: MomentContext) => void;
+  initialOpenProduct?: boolean;
 }) {
   const config = momentConfig(kind);
   const tone = useRoomTone();
   const uid = useAppStore((s) => s.profile?.id);
   const journeys = useQuery({ queryKey: ["living", "journeys", uid, "moment"], queryFn: living.journeys, enabled: !!uid });
   const [picker, setPicker] = useState(false);
-  const [ctx, setCtx] = useState<MomentContext>({});
+  const [productSheet, setProductSheet] = useState(!!initialOpenProduct);
+  useEffect(() => {
+    if (initialOpenProduct) setProductSheet(true);
+  }, [initialOpenProduct]);
+  const [ctx, setCtx] = useState<MomentContext>({ occasion: kind === "grwm" ? "Date Night" : undefined });
   const cream = kind === "morning" || kind === "currently";
   const bg = cream ? "#F9F5EB" : kind === "evening" ? "#140B12" : "#FFF8F4";
   const ink = kind === "evening" ? "#FFF8F4" : "#2D1B1B";
@@ -123,21 +132,47 @@ export function MomentComplete({
     </Pressable>
   );
 
+  const addDemoProduct = () => {
+    const name = "CeraVe Foaming Cleanser";
+    const image = "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=200&q=80";
+    setCtx((c) => ({
+      ...c,
+      productName: name,
+      productImage: image,
+      products: [...(c.products ?? []), { name, image }],
+    }));
+  };
+
+  const flowBg = kind === "grwm" ? momentFlow.bg : bg;
+  const flowInk = kind === "grwm" ? momentFlow.ink : ink;
+
   return (
-    <View style={{ flex: 1, backgroundColor: bg }}>
-      <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: flowBg }}>
+      <SafeAreaView edges={["top", "bottom"]} style={{ flex: 1 }}>
         <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 8 }}>
           <Pressable onPress={onBack} style={{ width: 44, height: 44, justifyContent: "center" }}>
-            <ArrowLeft size={22} color={ink} />
+            <ArrowLeft size={22} color={flowInk} />
           </Pressable>
-          <Text style={{ flex: 1, textAlign: "center", fontFamily: fonts.serifBold, fontSize: 18, color: ink }}>{config.completeTitle}</Text>
-          <View style={{ width: 44 }} />
+          {kind === "grwm" ? (
+            <View style={{ flex: 1, alignItems: "center" }}>
+              <View style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, backgroundColor: momentFlow.accent }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4" }}>GRWM 💋</Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={{ flex: 1, textAlign: "center", fontFamily: fonts.serifBold, fontSize: 18, color: flowInk }}>{config.completeTitle}</Text>
+          )}
+          <Pressable onPress={() => hapticSelect()} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+            <DotsThree size={24} color={flowInk} weight="bold" />
+          </Pressable>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 48 }}>
-          <View style={{ borderRadius: livelyRadii.hero, overflow: "hidden", height: 200 }}>
-            <Image source={{ uri: mediaUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
-          </View>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 24 }}>
+          {kind !== "grwm" ? (
+            <View style={{ borderRadius: livelyRadii.hero, overflow: "hidden", height: 200 }}>
+              <Image source={{ uri: mediaUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
+            </View>
+          ) : null}
 
           {kind === "morning" ? (
             <View style={{ gap: 12 }}>
@@ -157,19 +192,58 @@ export function MomentComplete({
           ) : null}
 
           {kind === "grwm" ? (
-            <View style={{ gap: 12 }}>
-              <Card ink={ink}>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: ink }}>What did you use?</Text>
-                <Pressable onPress={() => setPicker(true)} style={{ marginTop: 10 }}>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: "#70323E" }}>→ Add product</Text>
-                </Pressable>
-              </Card>
-              <Card ink={ink}>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: ink, marginBottom: 10 }}>What are you getting ready for?</Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                  {GRWM_OCCASIONS.map((o) => chip(o, ctx.occasion === o, () => setCtx((c) => ({ ...c, occasion: o }))))}
+            <View style={{ gap: 16 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: momentFlow.ink }}>What are you getting ready for?</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+                {GRWM_OCCASIONS.map((o) => {
+                  const on = ctx.occasion === o;
+                  return (
+                    <Pressable
+                      key={o}
+                      onPress={() => {
+                        hapticSelect();
+                        setCtx((c) => ({ ...c, occasion: o }));
+                      }}
+                      style={{
+                        width: "30%",
+                        minWidth: 100,
+                        paddingVertical: 14,
+                        paddingHorizontal: 8,
+                        borderRadius: 14,
+                        backgroundColor: on ? momentFlow.accent : momentFlow.pillPink,
+                        alignItems: "center",
+                      }}
+                    >
+                      <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: on ? "#FFF8F4" : momentFlow.ink, textAlign: "center" }}>{o}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <View style={{ gap: 10 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: momentFlow.ink }}>Your GRWM</Text>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <View style={{ width: 88, height: 120, borderRadius: 14, overflow: "hidden" }}>
+                    <Image source={{ uri: mediaUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
+                  </View>
+                  <Pressable
+                    onPress={() => setProductSheet(true)}
+                    style={{
+                      flex: 1,
+                      minHeight: 120,
+                      borderRadius: 14,
+                      borderWidth: 1,
+                      borderStyle: "dashed",
+                      borderColor: momentFlow.accentSoft,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <Handbag size={22} color={momentFlow.accent} />
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.accent }}>Add Product</Text>
+                  </Pressable>
                 </View>
-              </Card>
+              </View>
             </View>
           ) : null}
 
@@ -231,17 +305,35 @@ export function MomentComplete({
             </View>
           ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => onNext(ctx)}
-            style={{ borderRadius: 999, overflow: "hidden", marginTop: 8 }}
-          >
+        </ScrollView>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => onNext(ctx)}
+          style={{
+            marginHorizontal: 16,
+            marginBottom: 8,
+            paddingVertical: 16,
+            borderRadius: momentFlow.radiusPill,
+            backgroundColor: kind === "grwm" ? momentFlow.accent : undefined,
+            overflow: "hidden",
+          }}
+        >
+          {kind === "grwm" ? (
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#FFF8F4", textAlign: "center" }}>Continue →</Text>
+          ) : (
             <LinearGradient colors={["#FF6B9D", "#70323E"]} style={{ paddingVertical: 16, alignItems: "center" }}>
               <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#FFF8F4" }}>Preview your Unmask ✨</Text>
             </LinearGradient>
-          </Pressable>
-        </ScrollView>
+          )}
+        </Pressable>
       </SafeAreaView>
+
+      <AddProductSheet
+        open={productSheet}
+        onClose={() => setProductSheet(false)}
+        selectedName={ctx.productName}
+        onSelectDemo={addDemoProduct}
+      />
 
       <ActionSheet open={picker} title="Add product" onClose={() => setPicker(false)}>
         {choices.map((row) => (

@@ -87,5 +87,17 @@ export function momentConfig(kind: MomentKind): MomentConfig {
   return MOMENTS.find((m) => m.id === kind) ?? MOMENTS[0];
 }
 
-export const GRWM_OCCASIONS = ["Everyday", "Date night", "Event", "Going out", "Just because"] as const;
+export const GRWM_OCCASIONS = [
+  "Date Night",
+  "Work",
+  "Girls' Night",
+  "Dinner",
+  "Party",
+  "Wedding",
+  "Vacation",
+  "Photoshoot",
+  "Going Out",
+  "Casual Day",
+  "My Own",
+] as const;
 export const USAGE_DURATION = ["Just started", "1–2 weeks", "1 month", "2+ months"] as const;
