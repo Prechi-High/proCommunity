@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Platform, View } from "react-native";
 import * as VideoThumbnails from "expo-video-thumbnails";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
@@ -12,6 +12,10 @@ import { MomentCamera } from "@/components/moment/MomentCamera";
 import { MomentComplete } from "@/components/moment/MomentComplete";
 import { MomentShareScreen } from "@/components/moment/MomentShareScreen";
 import { MomentStoryPreview } from "@/components/moment/MomentStoryPreview";
+import { RenderJobWebView } from "@/components/moment/RenderJobWebView";
+import { needsUnmaskRender } from "@/lib/moment/render/needsRender";
+import { registerNativeRenderMount } from "@/lib/moment/render/nativeRenderBus";
+import { renderUnmaskMedia } from "@/lib/moment/render/renderUnmask";
 import { hapticSaved } from "@/lib/haptics";
 import * as living from "@/lib/living/api";
 import { useLocalMoments } from "@/lib/moment/localPosts";
@@ -46,6 +50,14 @@ export default function Moment() {
   const [importError, setImportError] = useState("");
   const [reviewProcessing, setReviewProcessing] = useState(false);
   const [studioTool, setStudioTool] = useState<CreatorToolKind>(null);
+  const [nativeRenderJobId, setNativeRenderJobId] = useState<string | null>(null);
+  const renderToken = useRef(0);
+
+  useEffect(() => {
+    registerNativeRenderMount((jobId) => setNativeRenderJobId(jobId));
+    return () => registerNativeRenderMount(null);
+  }, []);
+
   const healedDraft = useRef(false);
 
   useEffect(() => {
@@ -99,6 +111,68 @@ export default function Moment() {
     (part: Partial<MomentBatchDraft>) => setDraft((d) => normalizeMomentBatchDraft({ ...d, ...part })),
     [setDraft],
   );
+
+  const renderFingerprint = useMemo(
+    () =>
+      JSON.stringify({
+        media: draft.originalMediaUri ?? draft.mediaUri,
+        mediaKind: draft.mediaKind,
+        creator: draft.creator,
+        audioBehavior: draft.audioBehavior,
+      }),
+    [draft.originalMediaUri, draft.mediaUri, draft.mediaKind, draft.creator, draft.audioBehavior],
+  );
+
+  const runRender = useCallback(async () => {
+    const snapshot = draft;
+    if (!snapshot.mediaUri) return snapshot.mediaUri;
+    if (!needsUnmaskRender(snapshot)) {
+      patch({ renderStatus: "ready", renderedMediaUri: snapshot.mediaUri, renderProgress: 1, renderError: "" });
+      return snapshot.mediaUri;
+    }
+    const token = ++renderToken.current;
+    patch({ renderStatus: "processing", renderProgress: 0.02, renderError: "", renderLabel: "Preparing Unmask…" });
+    try {
+      const out = await renderUnmaskMedia(snapshot, (ratio, label) => {
+        if (token !== renderToken.current) return;
+        patch({ renderProgress: ratio, renderLabel: label });
+      });
+      if (token !== renderToken.current) return snapshot.mediaUri;
+      patch({
+        renderedMediaUri: out.outputUri,
+        renderStatus: "ready",
+        renderProgress: 1,
+        renderLabel: "Ready",
+        coverPosterUri: out.posterUri ?? snapshot.coverPosterUri,
+      });
+      return out.outputUri;
+    } catch (e) {
+      if (token !== renderToken.current) return snapshot.mediaUri;
+      patch({
+        renderStatus: "error",
+        renderError: e instanceof Error ? e.message : "Could not finish Unmask processing.",
+      });
+      throw e;
+    }
+  }, [draft, patch]);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (draft.step !== "preview" && draft.step !== "share") return;
+    if (draft.renderStatus === "processing") return;
+    if (draft.renderStatus === "ready" && draft.renderedMediaUri) return;
+    if (draft.renderStatus === "error") return;
+    void runRender().catch(() => undefined);
+  }, [ready, draft.step, renderFingerprint, runRender, draft.renderStatus, draft.renderedMediaUri]);
+
+  const lastRenderFingerprint = useRef(renderFingerprint);
+  useEffect(() => {
+    if (lastRenderFingerprint.current === renderFingerprint) return;
+    lastRenderFingerprint.current = renderFingerprint;
+    if (draft.renderedMediaUri) {
+      patch({ renderStatus: "idle", renderedMediaUri: undefined, renderError: "" });
+    }
+  }, [renderFingerprint, draft.renderedMediaUri, patch]);
 
   const applyTrend = useCallback(
     (trendId: string) => {
@@ -252,11 +326,20 @@ export default function Moment() {
   };
 
   const post = async () => {
-    const { kind, mediaUri, context, saveToJourney, audience } = draft;
-    if (!kind || !mediaUri || publishing) return;
+    const { kind, context, saveToJourney, audience } = draft;
+    if (!kind || !draft.mediaUri || publishing) return;
     setPublishing(true);
     setPublishError("");
     try {
+      let publishUri = draft.renderedMediaUri ?? draft.mediaUri;
+      if (needsUnmaskRender(draft) && draft.renderStatus !== "ready") {
+        publishUri = (await runRender()) ?? publishUri;
+      }
+      if (draft.renderStatus === "error" && needsUnmaskRender(draft)) {
+        setPublishError(draft.renderError || "Unmask processing failed. Try again or reset background/music.");
+        setPublishing(false);
+        return;
+      }
       const products = context.products ?? [];
       for (const p of products) {
         try {
@@ -292,7 +375,7 @@ export default function Moment() {
         config.tagline;
 
       add({
-        photo: mediaUri,
+        photo: publishUri,
         caption,
         author: display,
         productName: context.productName,
@@ -324,6 +407,9 @@ export default function Moment() {
   };
 
   if (!ready) return <View style={{ flex: 1, backgroundColor: "#FFF1ED" }} />;
+
+  const previewUri =
+    draft.renderStatus === "ready" && draft.renderedMediaUri ? draft.renderedMediaUri : draft.mediaUri;
 
   if (draft.step === "choose") {
     return (
@@ -448,24 +534,40 @@ export default function Moment() {
 
   if (draft.step === "preview" && draft.kind && draft.mediaUri) {
     return (
+      <>
       <MomentStoryPreview
         kind={draft.kind}
-        mediaUri={draft.mediaUri}
+        mediaUri={previewUri}
         mediaKind={draft.mediaKind}
         creator={draft.creator}
         coverPosterUri={draft.coverPosterUri}
         context={draft.context}
+        processing={draft.renderStatus === "processing" || (needsUnmaskRender(draft) && draft.renderStatus !== "ready" && draft.renderStatus !== "error")}
+        processingLabel={draft.renderLabel}
+        processingProgress={draft.renderProgress}
+        renderError={draft.renderStatus === "error" ? draft.renderError : undefined}
+        baked={draft.renderStatus === "ready" && Boolean(draft.renderedMediaUri)}
+        onRetryRender={() => {
+          patch({ renderStatus: "idle", renderedMediaUri: undefined });
+          void runRender();
+        }}
         onBack={() => patch({ step: "setup" })}
-        onNext={() => patch({ step: "share" })}
+        onNext={() => {
+          if (draft.renderStatus === "processing") return;
+          patch({ step: "share" });
+        }}
       />
+      <RenderJobWebView jobId={nativeRenderJobId} />
+      </>
     );
   }
 
   if (draft.step === "share" && draft.kind && draft.mediaUri) {
     return (
+      <>
       <MomentShareScreen
         kind={draft.kind}
-        mediaUri={draft.mediaUri}
+        mediaUri={previewUri}
         context={draft.context}
         creator={draft.creator}
         caption={draft.caption ?? ""}
@@ -485,16 +587,21 @@ export default function Moment() {
         audience={draft.audience}
         onAudienceChange={(audience) => patch({ audience })}
       />
+      <RenderJobWebView jobId={nativeRenderJobId} />
+      </>
     );
   }
 
   return (
-    <ChooseMoment
-      onPick={pickKind}
-      onStartCamera={() => pickKind("grwm")}
-      onJoinTrend={applyTrend}
-      onBack={() => router.back()}
-      onProductStory={() => router.push("/contribute" as Href)}
-    />
+    <>
+      <ChooseMoment
+        onPick={pickKind}
+        onStartCamera={() => pickKind("grwm")}
+        onJoinTrend={applyTrend}
+        onBack={() => router.back()}
+        onProductStory={() => router.push("/contribute" as Href)}
+      />
+      <RenderJobWebView jobId={nativeRenderJobId} />
+    </>
   );
 }

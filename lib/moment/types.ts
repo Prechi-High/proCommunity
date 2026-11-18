@@ -85,6 +85,11 @@ export type MomentBatchDraft = {
   creator: CreatorSettings;
   caption: string;
   trendId?: string;
+  renderedMediaUri?: string;
+  renderStatus?: "idle" | "processing" | "ready" | "error";
+  renderProgress?: number;
+  renderLabel?: string;
+  renderError?: string;
 };
 
 export function initialMomentBatchDraft(): MomentBatchDraft {
@@ -128,6 +133,11 @@ export function normalizeMomentBatchDraft(raw: Partial<MomentBatchDraft> & { ste
     creator: { ...CREATOR_DEFAULT, ...(raw.creator ?? {}) },
     caption: typeof raw.caption === "string" ? raw.caption : "",
     trendId: raw.trendId,
+    renderedMediaUri: raw.renderedMediaUri,
+    renderStatus: raw.renderStatus ?? "idle",
+    renderProgress: raw.renderProgress,
+    renderLabel: raw.renderLabel,
+    renderError: raw.renderError,
   };
 
   if (merged.step !== "choose" && !merged.kind) merged.step = "choose";

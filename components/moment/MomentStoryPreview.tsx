@@ -22,6 +22,12 @@ export function MomentStoryPreview({
   context,
   creator,
   coverPosterUri,
+  processing,
+  processingLabel,
+  processingProgress,
+  renderError,
+  onRetryRender,
+  baked,
   onBack,
   onNext,
 }: {
@@ -31,6 +37,12 @@ export function MomentStoryPreview({
   context: MomentContext;
   creator: CreatorSettings;
   coverPosterUri?: string;
+  processing?: boolean;
+  processingLabel?: string;
+  processingProgress?: number;
+  renderError?: string;
+  onRetryRender?: () => void;
+  baked?: boolean;
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -51,10 +63,15 @@ export function MomentStoryPreview({
 
   const toolbarHeight = 168 + insets.bottom;
   const soundLabel = selectedSoundLabel(creator);
-
   return (
     <View style={{ flex: 1, backgroundColor: "#1A0A14" }}>
-      <UnmaskPreviewFrame mediaUri={mediaUri} mediaKind={mediaKind} creator={creator} soundLabel={soundLabel} posterUri={coverPosterUri}>
+      <UnmaskPreviewFrame
+        mediaUri={mediaUri}
+        mediaKind={mediaKind}
+        creator={baked ? { ...creator, backgroundId: "original", localBackgroundUri: undefined, lookId: undefined, lightingId: undefined } : creator}
+        soundLabel={baked ? null : soundLabel}
+        posterUri={coverPosterUri}
+      >
         <SafeAreaView edges={["top"]} style={{ position: "absolute", zIndex: 2, left: 0, right: 0 }}>
           <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8 }}>
             <Pressable onPress={onBack} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
@@ -201,14 +218,40 @@ export function MomentStoryPreview({
             </Pressable>
           ))}
         </View>
+        {processing ? (
+          <View style={{ marginHorizontal: 20, marginBottom: 8, padding: 12, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.35)", gap: 4 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4", textAlign: "center" }}>
+              {processingLabel || "Building your Unmask…"}
+            </Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: "rgba(255,248,244,0.8)", textAlign: "center" }}>
+              {Math.round((processingProgress ?? 0) * 100)}%
+            </Text>
+          </View>
+        ) : null}
+        {renderError ? (
+          <Pressable
+            onPress={() => onRetryRender?.()}
+            style={{ marginHorizontal: 20, marginBottom: 8, paddingVertical: 12, borderRadius: 999, borderWidth: 1, borderColor: "#FFB4B4", alignItems: "center" }}
+          >
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFB4B4" }}>Retry processing</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           onPress={() => {
             hapticSelect();
             onNext();
           }}
-          style={{ marginHorizontal: 20, marginBottom: 12, paddingVertical: 16, borderRadius: 999, backgroundColor: momentFlow.accent, alignItems: "center" }}
+          disabled={processing}
+          style={{
+            marginHorizontal: 20,
+            marginBottom: 12,
+            paddingVertical: 16,
+            borderRadius: 999,
+            backgroundColor: processing ? "rgba(255,107,157,0.45)" : momentFlow.accent,
+            alignItems: "center",
+          }}
         >
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#FFF8F4" }}>Continue →</Text>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#FFF8F4" }}>{processing ? "Processing…" : "Continue →"}</Text>
         </Pressable>
       </SafeAreaView>
     </View>
