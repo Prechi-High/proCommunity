@@ -1,10 +1,10 @@
 /**
  * Still cutout for mobile web via MediaPipe/tfjs body segmentation.
- * (Avoid @imgly/background-removal — onnxruntime-web breaks Metro/Expo export.)
  * Always time-bounded so UI never spins forever.
  */
 import type { PreviewLayers } from "@/lib/moment/unmaskCompose";
 
+import type { BrandOverlayInput } from "./brandOverlay.web";
 import { compositePhotoFrame } from "./composite.web";
 import { withTimeout } from "./withTimeout";
 
@@ -14,8 +14,9 @@ export async function compositePhotoCutout(
   canvas: HTMLCanvasElement,
   sourceUri: string,
   layers: PreviewLayers,
+  brand?: BrandOverlayInput,
 ): Promise<void> {
-  await withTimeout(compositePhotoFrame(canvas, sourceUri, layers), CUTOUT_MS, "photo_cutout_timeout");
+  await withTimeout(compositePhotoFrame(canvas, sourceUri, layers, brand), CUTOUT_MS, "photo_cutout_timeout");
 }
 
 export async function canvasToJpegDataUri(canvas: HTMLCanvasElement, quality = 0.82): Promise<string> {

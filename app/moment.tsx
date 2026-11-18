@@ -121,21 +121,31 @@ export default function Moment() {
         mediaKind: draft.mediaKind,
         creator: draft.creator,
         audioBehavior: draft.audioBehavior,
+        context: draft.context,
+        kind: draft.kind,
+        brand: draft.step === "share",
       }),
-    [draft.originalMediaUri, draft.mediaUri, draft.mediaKind, draft.creator, draft.audioBehavior],
+    [draft.originalMediaUri, draft.mediaUri, draft.mediaKind, draft.creator, draft.audioBehavior, draft.context, draft.kind, draft.step],
   );
 
-  const runRender = useCallback(async () => {
+  const runRender = useCallback(async (opts?: { burnBranding?: boolean }) => {
     const snapshot = draft;
     if (!snapshot.mediaUri) return snapshot.mediaUri;
-    if (!needsUnmaskRender(snapshot)) {
+    const burnBranding = opts?.burnBranding ?? snapshot.step === "share";
+    const input = { ...snapshot, burnBranding };
+    if (!needsUnmaskRender(input)) {
       patch({ renderStatus: "ready", renderedMediaUri: snapshot.mediaUri, renderProgress: 1, renderError: "" });
       return snapshot.mediaUri;
     }
     const token = ++renderToken.current;
-    patch({ renderStatus: "processing", renderProgress: 0.02, renderError: "", renderLabel: "Removing background…" });
+    patch({
+      renderStatus: "processing",
+      renderProgress: 0.02,
+      renderError: "",
+      renderLabel: burnBranding ? "Adding Unmask mark…" : "Removing background…",
+    });
     try {
-      const out = await renderUnmaskMedia(snapshot, (ratio, label) => {
+      const out = await renderUnmaskMedia(input, (ratio, label) => {
         if (token !== renderToken.current) return;
         patch({ renderProgress: ratio, renderLabel: label });
       });
@@ -340,15 +350,13 @@ export default function Moment() {
     setPublishError("");
     try {
       let publishUri = draft.renderedMediaUri ?? draft.mediaUri;
-      // Never block publish forever — try bake once, then fall back to original
-      if (needsUnmaskRender(draft) && draft.renderStatus !== "ready" && draft.renderStatus !== "error") {
+      // Prefer branded bake for publish; never block forever — fall back to original
+      if (draft.renderStatus === "error" || !draft.renderedMediaUri) {
         try {
-          publishUri = (await runRender()) || publishUri;
+          publishUri = (await runRender({ burnBranding: true })) || draft.mediaUri;
         } catch {
           publishUri = draft.mediaUri;
         }
-      } else if (draft.renderStatus === "error") {
-        publishUri = draft.mediaUri;
       }
       publishUri = pickPersistableMediaUri(publishUri, draft.originalMediaUri || draft.mediaUri);
 
@@ -502,6 +510,7 @@ export default function Moment() {
           }}
           onAddProduct={() => patch({ productSheetOpen: true })}
           onShot={(uri, mk, multi) => recordCapture(uri, mk, multi)}
+          onPickDevice={() => void uploadFromDevice()}
           onContinueMulti={() => {
             if (draft.mediaUri) patch({ step: "setup" });
           }}
@@ -618,6 +627,10 @@ export default function Moment() {
         onOpenProducts={() => patch({ step: "setup", productSheetOpen: true })}
         onBack={() => patch({ step: "preview" })}
         onPublish={() => void post()}
+        onExportShare={async () => {
+          const uri = await runRender({ burnBranding: true });
+          return uri || previewUri;
+        }}
         onSaveDraft={() => {
           hapticSaved("moment");
           patch({ step: "choose" });

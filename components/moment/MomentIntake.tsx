@@ -63,7 +63,9 @@ export function MomentIntake({
             <Camera size={24} color="#FFF8F4" weight="fill" />
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: "#FFF8F4" }}>Record in Unmask</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: "rgba(255,248,244,0.85)" }}>Use the creator camera and studio tools</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: "rgba(255,248,244,0.85)" }}>
+                Film now — add background & style after you stop
+              </Text>
             </View>
           </Pressable>
 
@@ -86,8 +88,12 @@ export function MomentIntake({
           >
             <UploadSimple size={24} color={momentFlow.accent} weight="bold" />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: momentFlow.ink }}>{importing ? "Opening library…" : "Upload from device"}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted }}>Pick a video or photo from your library</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: momentFlow.ink }}>
+                {importing ? "Opening library…" : "Upload from device"}
+              </Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted }}>
+                Use a video you already filmed on your phone
+              </Text>
             </View>
           </Pressable>
 

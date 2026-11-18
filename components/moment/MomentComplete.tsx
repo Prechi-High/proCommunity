@@ -209,7 +209,9 @@ export function MomentComplete({
           {onStyleTool ? (
             <View style={{ gap: 8 }}>
               <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.muted }}>
-                {mediaSource === "device_upload" ? "Unmask styling — changes show live on Preview" : "Studio tools"}
+                {mediaSource === "device_upload"
+                  ? "Style your upload — background, blur & looks apply on Preview"
+                  : "Style after capture — background, blur & looks"}
               </Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {(

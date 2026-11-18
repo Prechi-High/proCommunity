@@ -2,6 +2,7 @@ import { MOMENT_MEDIA_LIMITS } from "@/lib/moment/mediaLimits";
 import { resolvePreviewLayers } from "@/lib/moment/unmaskCompose";
 import type { CreatorSettings } from "@/lib/moment/types";
 
+import type { BrandOverlayInput } from "./brandOverlay.web";
 import { compositePhotoFrame, compositeVideoFrame } from "./composite.web";
 
 const MAX_RENDER_SEC = Math.min(90, MOMENT_MEDIA_LIMITS.maxVideoDurationSec);
@@ -41,12 +42,13 @@ export async function exportProcessedVideo(
   mediaKind: "photo" | "video",
   creator: CreatorSettings,
   onProgress: (ratio: number) => void,
+  brand?: BrandOverlayInput,
 ): Promise<Blob> {
   const layers = resolvePreviewLayers(creator);
   const canvas = document.createElement("canvas");
 
   if (mediaKind === "photo") {
-    await compositePhotoFrame(canvas, mediaUri, layers);
+    await compositePhotoFrame(canvas, mediaUri, layers, brand);
     onProgress(0.4);
     const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("blob"))), "image/jpeg", 0.92);
@@ -86,7 +88,7 @@ export async function exportProcessedVideo(
     await waitForSeek(video);
     canvas.width = w;
     canvas.height = h;
-    await compositeVideoFrame(canvas, video, layers);
+    await compositeVideoFrame(canvas, video, layers, brand);
     onProgress(Math.min(0.92, i / frames));
     await new Promise((r) => requestAnimationFrame(() => r(undefined)));
   }

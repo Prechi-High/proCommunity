@@ -4,6 +4,7 @@ type PersonSegmentation = Awaited<ReturnType<bodySegmentation.BodySegmenter["seg
 
 import type { PreviewLayers } from "@/lib/moment/unmaskCompose";
 
+import { drawUnmaskBrandOverlay, type BrandOverlayInput } from "./brandOverlay.web";
 import { segmentPerson } from "./segmentation.web";
 
 async function loadImage(uri: string): Promise<HTMLImageElement> {
@@ -86,6 +87,7 @@ export async function compositePhotoFrame(
   canvas: HTMLCanvasElement,
   sourceUri: string,
   layers: PreviewLayers,
+  brand?: BrandOverlayInput,
 ): Promise<void> {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("canvas");
@@ -96,6 +98,7 @@ export async function compositePhotoFrame(
   if (layers.backgroundMode === "original") {
     ctx.drawImage(img, 0, 0);
     applyTint(ctx, canvas.width, canvas.height, layers);
+    if (brand) await drawUnmaskBrandOverlay(ctx, canvas.width, canvas.height, brand);
     return;
   }
 
@@ -108,6 +111,7 @@ export async function compositePhotoFrame(
     drawScene(ctx, img, canvas.width, canvas.height, blurAmt);
     ctx.drawImage(person, 0, 0);
     applyTint(ctx, canvas.width, canvas.height, layers);
+    if (brand) await drawUnmaskBrandOverlay(ctx, canvas.width, canvas.height, brand);
     return;
   }
 
@@ -115,12 +119,14 @@ export async function compositePhotoFrame(
   drawScene(ctx, bg, canvas.width, canvas.height, layers.sceneBlurAmount || 0);
   ctx.drawImage(person, 0, 0);
   applyTint(ctx, canvas.width, canvas.height, layers);
+  if (brand) await drawUnmaskBrandOverlay(ctx, canvas.width, canvas.height, brand);
 }
 
 export async function compositeVideoFrame(
   canvas: HTMLCanvasElement,
   video: HTMLVideoElement,
   layers: PreviewLayers,
+  brand?: BrandOverlayInput,
 ): Promise<void> {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("canvas");
@@ -133,6 +139,7 @@ export async function compositeVideoFrame(
   if (layers.backgroundMode === "original") {
     ctx.drawImage(video, 0, 0, w, h);
     applyTint(ctx, w, h, layers);
+    if (brand) await drawUnmaskBrandOverlay(ctx, w, h, brand);
     return;
   }
 
@@ -150,6 +157,7 @@ export async function compositeVideoFrame(
     drawScene(ctx, bgImg, w, h, layers.sceneBlurAmount || 22);
     ctx.drawImage(person, 0, 0);
     applyTint(ctx, w, h, layers);
+    if (brand) await drawUnmaskBrandOverlay(ctx, w, h, brand);
     return;
   }
 
@@ -157,6 +165,7 @@ export async function compositeVideoFrame(
   drawScene(ctx, bg, w, h, layers.sceneBlurAmount || 0);
   ctx.drawImage(person, 0, 0);
   applyTint(ctx, w, h, layers);
+  if (brand) await drawUnmaskBrandOverlay(ctx, w, h, brand);
 }
 
 function applyTint(ctx: CanvasRenderingContext2D, w: number, h: number, layers: PreviewLayers) {

@@ -27,6 +27,7 @@ export function MomentShareScreen({
   onOpenProducts,
   onBack,
   onPublish,
+  onExportShare,
   onSaveDraft,
   publishing,
   publishError,
@@ -45,6 +46,8 @@ export function MomentShareScreen({
   onOpenProducts?: () => void;
   onBack: () => void;
   onPublish: () => void;
+  /** Bake Unmask watermark + context into media before OS share sheet. */
+  onExportShare?: () => Promise<string>;
   onSaveDraft?: () => void;
   publishing?: boolean;
   publishError?: string;
@@ -58,16 +61,37 @@ export function MomentShareScreen({
   const occasion = displayOccasion(context);
   const title = `${config.title} ${config.emoji}${occasion ? ` · ${occasion}` : ""}`.trim();
   const products = productCount(context);
+  const productNames = (context.products ?? [])
+    .map((p) => (p.brand ? `${p.brand} ${p.name}` : p.name).trim())
+    .filter(Boolean)
+    .slice(0, 4);
   const sound = selectedSoundLabel(creator);
   const [audienceOpen, setAudienceOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   async function shareOutside() {
-    const message = `${title} — My routine + ${products} products on Unmask`;
+    const productLine = productNames.length
+      ? productNames.join(" · ")
+      : products
+        ? `${products} product${products === 1 ? "" : "s"}`
+        : "";
+    const message = [
+      title,
+      productLine ? `Using: ${productLine}` : null,
+      caption?.trim() || null,
+      "Shared from Unmask",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    setExporting(true);
     try {
-      await Share.share({ message, url: mediaUri });
+      const url = onExportShare ? await onExportShare() : mediaUri;
+      await Share.share({ message, url: url || mediaUri });
     } catch {
       /* cancelled */
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -173,7 +197,9 @@ export function MomentShareScreen({
           </Text>
         </Pressable>
 
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.muted, textAlign: "center", marginBottom: 12 }}>Also share to</Text>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.muted, textAlign: "center", marginBottom: 12 }}>
+          {exporting ? "Preparing Unmask export…" : "Export & share outside"}
+        </Text>
         <View style={{ flexDirection: "row", justifyContent: "center", gap: 20, paddingBottom: 8 }}>
           {[
             { Icon: WhatsappLogo, color: "#25D366" },
@@ -183,13 +209,14 @@ export function MomentShareScreen({
           ].map(({ Icon, color }, i) => (
             <Pressable
               key={i}
+              disabled={exporting || publishing}
               onPress={() => {
                 hapticSelect();
                 void shareOutside();
               }}
-              style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: momentFlow.card, alignItems: "center", justifyContent: "center" }}
+              style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: momentFlow.card, alignItems: "center", justifyContent: "center", opacity: exporting ? 0.5 : 1 }}
             >
-              <Icon size={28} color={color} weight="fill" />
+              {exporting && i === 0 ? <ActivityIndicator color={momentFlow.accent} /> : <Icon size={28} color={color} weight="fill" />}
             </Pressable>
           ))}
         </View>

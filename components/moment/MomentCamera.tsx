@@ -2,18 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Image, Platform, Pressable, Text, View } from "react-native";
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as ImagePicker from "expo-image-picker";
 import Svg, { Circle } from "react-native-svg";
 
 import { CameraRotate, Clock, Handbag, ImageSquare, Lightning, X } from "@/components/icons";
 import { CreatorToolSheets, type CreatorToolKind } from "@/components/moment/CreatorToolSheets";
-import { LiveMattingStage } from "@/components/moment/LiveMattingStage";
 import { StudioDock } from "@/components/moment/StudioDock";
 import { momentFlow } from "@/lib/moment/flowTheme";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
-import { MOMENT_LOOKS } from "@/lib/moment/creatorCatalog";
-import { resolvePreviewLayers } from "@/lib/moment/unmaskCompose";
 import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
 import type { CreatorSettings } from "@/lib/moment/types";
 
@@ -26,6 +22,7 @@ export function MomentCamera({
   lastThumb,
   onClose,
   onShot,
+  onPickDevice,
   onContinueMulti,
   onAddProduct,
 }: {
@@ -35,6 +32,8 @@ export function MomentCamera({
   lastThumb?: string;
   onClose: () => void;
   onShot: (uri: string, mediaKind: "photo" | "video", multi: boolean) => void;
+  /** Device library → parent routes through upload/review (not live BG while recording). */
+  onPickDevice?: () => void;
   onContinueMulti?: () => void;
   onAddProduct?: () => void;
 }) {
@@ -47,25 +46,27 @@ export function MomentCamera({
   const [facing, setFacing] = useState<"front" | "back">("front");
   const [recordingUi, setRecordingUi] = useState(false);
   const [recordMs, setRecordMs] = useState(0);
-  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recording = useRef(false);
-  const held = useRef(false);
   const webStop = useRef<(() => Promise<string>) | null>(null);
-  const suppressTap = useRef(false);
   const recordTick = useRef<ReturnType<typeof setInterval> | null>(null);
+  const maxStopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [ready, setReady] = useState(false);
   const [torchMode, setTorchMode] = useState<"off" | "on" | "auto">("off");
   const [captureMode, setCaptureMode] = useState<"photo" | "video" | "multi">(config.defaultMode);
   const [error, setError] = useState("");
   const [toolOpen, setToolOpen] = useState<CreatorToolKind>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const previewLayers = resolvePreviewLayers(creator);
-  const lookTint =
-    creator.lookId && creator.lookId !== "none" ? MOMENT_LOOKS.find((l) => l.id === creator.lookId)?.preview : undefined;
   const torchOn = torchMode === "on";
   const evening = kind === "evening";
   const cream = kind === "currently" || kind === "morning";
   const headerColor = evening ? "#FFF8F4" : cream ? "#2D1B1B" : "#FFF8F4";
+
+  // Capture-only creator: timer/grid — BG/looks apply after recording on Setup/Preview
+  const captureCreator: CreatorSettings = {
+    ...creator,
+    backgroundId: "original",
+    localBackgroundUri: undefined,
+  };
 
   useEffect(() => {
     if (permission && !permission.granted && permission.canAskAgain) void requestPermission();
@@ -74,33 +75,42 @@ export function MomentCamera({
   useEffect(() => {
     return () => {
       if (recordTick.current) clearInterval(recordTick.current);
-      if (holdTimer.current) clearTimeout(holdTimer.current);
+      if (maxStopTimer.current) clearTimeout(maxStopTimer.current);
     };
   }, []);
 
-  function startRecordUi() {
-    setRecordMs(0);
-    setRecordingUi(true);
-    if (recordTick.current) clearInterval(recordTick.current);
-    recordTick.current = setInterval(() => {
-      setRecordMs((ms) => {
-        if (ms >= MAX_RECORD_MS) return ms;
-        return ms + 100;
-      });
-    }, 100);
-  }
-
-  function stopRecordUi() {
-    setRecordingUi(false);
+  function clearRecordTimers() {
     if (recordTick.current) {
       clearInterval(recordTick.current);
       recordTick.current = null;
     }
+    if (maxStopTimer.current) {
+      clearTimeout(maxStopTimer.current);
+      maxStopTimer.current = null;
+    }
+  }
+
+  function startRecordUi() {
+    setRecordMs(0);
+    setRecordingUi(true);
+    clearRecordTimers();
+    recordTick.current = setInterval(() => {
+      setRecordMs((ms) => Math.min(MAX_RECORD_MS, ms + 100));
+    }, 100);
+    maxStopTimer.current = setTimeout(() => {
+      void stopRecord();
+    }, MAX_RECORD_MS);
+  }
+
+  function stopRecordUi() {
+    setRecordingUi(false);
+    clearRecordTimers();
     setRecordMs(0);
   }
 
   async function beginWebClip() {
     if (typeof document === "undefined") return null;
+    // Prefer the camera preview video inside this screen
     const video = document.querySelector("video") as (HTMLVideoElement & { captureStream?: () => MediaStream }) | null;
     const base = video?.captureStream?.();
     if (!base) return null;
@@ -110,8 +120,8 @@ export function MomentCamera({
     } catch {
       /* silent clip */
     }
-    const mime = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find((type) =>
-      typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type),
+    const mime = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find(
+      (type) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type),
     );
     const rec = new MediaRecorder(base, mime ? { mimeType: mime } : undefined);
     const chunks: Blob[] = [];
@@ -146,8 +156,7 @@ export function MomentCamera({
       if (!clip) {
         recording.current = false;
         stopRecordUi();
-        held.current = false;
-        setError("Hold to record isn’t available here. Switch to Photo.");
+        setError("Recording isn’t available here. Upload a video instead.");
         return;
       }
       webStop.current = clip.stop;
@@ -164,11 +173,19 @@ export function MomentCamera({
     }
     try {
       void camera.current
-        ?.recordAsync({ maxDuration: 60 })
+        ?.recordAsync({ maxDuration: Math.ceil(MAX_RECORD_MS / 1000) })
         .then((clip) => {
           if (clip?.uri) shotRef.current(clip.uri, "video", captureMode === "multi");
         })
-        .catch(() => setError("Couldn’t record that."));
+        .catch(() => {
+          if (recording.current) setError("Couldn’t record that.");
+        })
+        .finally(() => {
+          // Native maxDuration / stopRecording always lands here — clear UI
+          recording.current = false;
+          webStop.current = null;
+          stopRecordUi();
+        });
     } catch {
       setError("Couldn’t start recording.");
       recording.current = false;
@@ -176,51 +193,37 @@ export function MomentCamera({
     }
   }
 
-  function pressIn() {
-    if (captureMode !== "video") return;
-    held.current = false;
-    if (holdTimer.current) clearTimeout(holdTimer.current);
-    holdTimer.current = setTimeout(() => {
-      held.current = true;
-      void startRecord();
-    }, 200);
-  }
-
   async function stopRecord() {
     if (!recording.current) return;
-    if (webStop.current) {
-      const stop = webStop.current;
-      webStop.current = null;
-      void stop()
-        .then((uri) => shotRef.current(uri, "video", captureMode === "multi"))
-        .catch(() => setError("That clip didn’t save."));
-    } else if (Platform.OS !== "web") {
-      camera.current?.stopRecording();
-    }
+    const stop = webStop.current;
+    webStop.current = null;
     recording.current = false;
     stopRecordUi();
-    held.current = false;
+    if (stop) {
+      try {
+        const uri = await stop();
+        shotRef.current(uri, "video", captureMode === "multi");
+      } catch {
+        setError("That clip didn’t save.");
+      }
+      return;
+    }
+    if (Platform.OS !== "web") {
+      try {
+        camera.current?.stopRecording();
+      } catch {
+        setError("Couldn’t stop recording.");
+      }
+    }
   }
 
   async function toggleVideoRecord() {
-    if (captureMode !== "video") return;
-    if (recording.current) {
+    if (captureMode !== "video" && captureMode !== "multi") return;
+    if (recording.current || recordingUi) {
       await stopRecord();
     } else {
-      void startRecord();
+      await startRecord();
     }
-  }
-
-  function pressOut() {
-    if (captureMode !== "video") {
-      if (holdTimer.current) clearTimeout(holdTimer.current);
-      return;
-    }
-    if (holdTimer.current) clearTimeout(holdTimer.current);
-    if (!held.current && !recording.current) return;
-
-    if (held.current) suppressTap.current = true;
-    void stopRecord();
   }
 
   async function waitTimer() {
@@ -252,9 +255,7 @@ export function MomentCamera({
         shutterSound: false,
       });
       if (!photo) return;
-      const uri =
-        photo.uri ||
-        (photo.base64 ? `data:image/jpeg;base64,${photo.base64}` : "");
+      const uri = photo.uri || (photo.base64 ? `data:image/jpeg;base64,${photo.base64}` : "");
       if (!uri) return;
       shotRef.current(uri, "photo", captureMode === "multi");
     } catch {
@@ -262,29 +263,12 @@ export function MomentCamera({
     }
   }
 
-  async function upload() {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images", "videos"],
-        quality: 0.75,
-        base64: false, // never base64 videos — hangs web + blows storage
-      });
-      if (result.canceled || !result.assets[0]) return;
-      const asset = result.assets[0];
-      const mime = (asset.mimeType || "").toLowerCase();
-      const isVideo = asset.type === "video" || mime.startsWith("video/");
-      const uri =
-        Platform.OS === "web" && asset.file
-          ? URL.createObjectURL(asset.file)
-          : asset.uri;
-      if (!uri) {
-        setError("Couldn’t read that file.");
-        return;
-      }
-      shotRef.current(uri, isVideo ? "video" : "photo", captureMode === "multi");
-    } catch {
-      setError("Upload failed. Try a shorter MP4.");
+  function openLibrary() {
+    if (onPickDevice) {
+      onPickDevice();
+      return;
     }
+    setError("Use Upload from device on the previous screen.");
   }
 
   const ringProgress = Math.min(1, recordMs / MAX_RECORD_MS);
@@ -292,44 +276,46 @@ export function MomentCamera({
   const stroke = 4;
   const radius = (ringSize - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
+  const videoMode = captureMode === "video" || captureMode === "multi";
 
   return (
     <View style={{ flex: 1, backgroundColor: evening ? "#0A0610" : cream ? "#F9F5EB" : "#1A0A14" }}>
       {permission?.granted ? (
         <CameraView
           ref={camera}
-          style={{
-            flex: 1,
-            opacity: previewLayers.backgroundMode !== "original" ? 0.88 : 1,
-          }}
+          style={{ flex: 1 }}
           facing={facing}
-          mode={captureMode === "video" ? "video" : "picture"}
+          mode={captureMode === "video" || captureMode === "multi" ? "video" : "picture"}
           enableTorch={torchOn && facing === "back"}
           mirror={facing === "front"}
           onCameraReady={() => setReady(true)}
         />
       ) : (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 28, gap: 12 }}>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: headerColor, textAlign: "center" }}>Allow camera — or upload media and style it live</Text>
-          <Pressable onPress={() => void requestPermission()} style={{ marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999, backgroundColor: "#FF6B9D" }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: headerColor, textAlign: "center" }}>
+            Allow camera — or upload a video you already filmed
+          </Text>
+          <Pressable
+            onPress={() => void requestPermission()}
+            style={{ marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999, backgroundColor: "#FF6B9D" }}
+          >
             <Text style={{ fontFamily: fonts.semibold, color: "#1A0A14" }}>Allow camera</Text>
           </Pressable>
-          <Pressable onPress={() => void upload()} style={{ paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: "#FF8BC8" }}>
+          <Pressable
+            onPress={openLibrary}
+            style={{ paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: "#FF8BC8" }}
+          >
             <Text style={{ fontFamily: fonts.semibold, color: "#FF8BC8" }}>Upload from device</Text>
           </Pressable>
         </View>
       )}
-      <LiveMattingStage mediaKind="camera" creator={creator} />
-      {previewLayers.backgroundMode === "original" ? (
-        <>
-          <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: config.tint }} />
-          {config.scrim ? <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: config.scrim }} /> : null}
-          {previewLayers.lightOverlay && previewLayers.lightOpacity > 0 ? (
-            <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: previewLayers.lightOverlay, opacity: previewLayers.lightOpacity }} />
-          ) : null}
-          {lookTint ? <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: lookTint, opacity: 0.18 }} /> : null}
-        </>
+
+      {/* Kind tint only — no live BG matting while recording */}
+      <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: config.tint }} />
+      {config.scrim ? (
+        <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: config.scrim }} />
       ) : null}
+
       {creator.gridEnabled ? (
         <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, opacity: 0.35 }}>
           {[0.33, 0.66].map((p) => (
@@ -341,7 +327,19 @@ export function MomentCamera({
         </View>
       ) : null}
       {countdown !== null ? (
-        <View style={{ position: "absolute", alignSelf: "center", top: "42%", width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" }}>
+        <View
+          style={{
+            position: "absolute",
+            alignSelf: "center",
+            top: "42%",
+            width: 72,
+            height: 72,
+            borderRadius: 36,
+            backgroundColor: "rgba(0,0,0,0.55)",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
           <Text style={{ fontFamily: fonts.bold, fontSize: 32, color: "#FFF8F4" }}>{countdown}</Text>
         </View>
       ) : null}
@@ -373,12 +371,36 @@ export function MomentCamera({
         </View>
 
         {recordingUi ? (
-          <View style={{ position: "absolute", top: 108, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(0,0,0,0.55)" }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4" }}>
-              {Math.ceil(recordMs / 1000)}s
+          <View
+            style={{
+              position: "absolute",
+              top: 108,
+              alignSelf: "center",
+              paddingHorizontal: 14,
+              paddingVertical: 6,
+              borderRadius: 999,
+              backgroundColor: "rgba(0,0,0,0.55)",
+            }}
+          >
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4" }}>{Math.ceil(recordMs / 1000)}s · tap to stop</Text>
+          </View>
+        ) : (
+          <View
+            style={{
+              position: "absolute",
+              top: 108,
+              alignSelf: "center",
+              paddingHorizontal: 14,
+              paddingVertical: 6,
+              borderRadius: 999,
+              backgroundColor: "rgba(0,0,0,0.4)",
+            }}
+          >
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: "#FFF8F4" }}>
+              Record first — background & style after
             </Text>
           </View>
-        ) : null}
+        )}
 
         <View style={{ position: "absolute", right: 14, top: "28%", gap: 12, zIndex: 2 }}>
           {[
@@ -409,8 +431,14 @@ export function MomentCamera({
 
         <View style={{ flex: 1 }} />
 
+        {/* Capture dock: music/timer only — no BG while recording */}
         <View style={{ paddingHorizontal: 12, marginBottom: 10, zIndex: 3 }}>
-          <StudioDock creator={creator} open={toolOpen} onOpen={setToolOpen} />
+          <StudioDock
+            creator={captureCreator}
+            open={toolOpen}
+            onOpen={setToolOpen}
+            hideTools={["background", "looks", "lighting", "effects"]}
+          />
         </View>
 
         {captureMode === "multi" && lastThumb ? (
@@ -452,15 +480,31 @@ export function MomentCamera({
           <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4" }}>Add Product</Text>
         </Pressable>
 
-        <View style={{ flexDirection: "row", alignSelf: "center", marginBottom: 12, padding: 4, borderRadius: 999, backgroundColor: evening ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)", zIndex: 2 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignSelf: "center",
+            marginBottom: 12,
+            padding: 4,
+            borderRadius: 999,
+            backgroundColor: evening ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)",
+            zIndex: 2,
+          }}
+        >
           {(["photo", "video", "multi"] as const).map((mode) => (
             <Pressable
               key={mode}
+              disabled={recordingUi}
               onPress={() => {
                 hapticSelect();
                 setCaptureMode(mode);
               }}
-              style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: captureMode === mode ? momentFlow.accent : "transparent" }}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 999,
+                backgroundColor: captureMode === mode ? momentFlow.accent : "transparent",
+              }}
             >
               <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: captureMode === mode ? "#FFF8F4" : headerColor }}>
                 {mode === "photo" ? "Photo" : mode === "video" ? "Video" : "Multi"}
@@ -469,10 +513,29 @@ export function MomentCamera({
           ))}
         </View>
 
-        <View style={{ paddingBottom: 8, paddingHorizontal: 28, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 2 }}>
+        <View
+          style={{
+            paddingBottom: 8,
+            paddingHorizontal: 28,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            zIndex: 2,
+          }}
+        >
           <Pressable
-            onPress={() => (lastThumb ? onContinueMulti?.() : void upload())}
-            style={{ width: 52, height: 52, borderRadius: 16, borderWidth: 1, borderColor: evening ? "rgba(255,255,255,0.35)" : "rgba(45,27,27,0.25)", alignItems: "center", justifyContent: "center", backgroundColor: evening ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.65)", overflow: "hidden" }}
+            onPress={() => (lastThumb ? onContinueMulti?.() : openLibrary())}
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: evening ? "rgba(255,255,255,0.35)" : "rgba(45,27,27,0.25)",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: evening ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.65)",
+              overflow: "hidden",
+            }}
           >
             {lastThumb ? (
               <Image source={{ uri: lastThumb }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
@@ -481,14 +544,9 @@ export function MomentCamera({
             )}
           </Pressable>
           <Pressable
-            accessibilityLabel={captureMode === "video" ? "Tap or hold to record" : "Take photo"}
-            onPressIn={pressIn}
-            onPressOut={pressOut}
+            accessibilityLabel={videoMode ? (recordingUi ? "Stop recording" : "Start recording") : "Take photo"}
             onPress={() => {
-              if (suppressTap.current) {
-                suppressTap.current = false;
-                return;
-              }
+              hapticSelect();
               if (captureMode === "photo") void shoot();
               else void toggleVideoRecord();
             }}
@@ -522,11 +580,25 @@ export function MomentCamera({
               }}
             />
           </Pressable>
-          <Pressable onPress={() => void upload()} style={{ width: 52, height: 52, borderRadius: 16, borderWidth: 1, borderColor: evening ? "rgba(255,255,255,0.35)" : "rgba(45,27,27,0.25)", alignItems: "center", justifyContent: "center", backgroundColor: evening ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.65)" }}>
+          <Pressable
+            onPress={openLibrary}
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: evening ? "rgba(255,255,255,0.35)" : "rgba(45,27,27,0.25)",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: evening ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.65)",
+            }}
+          >
             <ImageSquare size={26} color={headerColor} />
           </Pressable>
         </View>
-        {error ? <Text style={{ color: "#FF8BC8", textAlign: "center", fontFamily: fonts.medium, paddingBottom: 6, zIndex: 2 }}>{error}</Text> : null}
+        {error ? (
+          <Text style={{ color: "#FF8BC8", textAlign: "center", fontFamily: fonts.medium, paddingBottom: 6, zIndex: 2 }}>{error}</Text>
+        ) : null}
       </SafeAreaView>
 
       <CreatorToolSheets open={toolOpen} creator={creator} onClose={() => setToolOpen(null)} onChange={onCreatorChange} />

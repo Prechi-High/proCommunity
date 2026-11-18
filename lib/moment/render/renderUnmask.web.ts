@@ -19,7 +19,13 @@ export async function renderUnmaskMediaWeb(
   onProgress?: (ratio: number, label: string) => void,
 ): Promise<RenderOutput> {
   if (!input.mediaUri) throw new Error("missing_media");
-  if (!needsUnmaskRender(input)) {
+  const layers = resolvePreviewLayers(input.creator);
+  const needsBg = layers.backgroundMode !== "original" || layers.lookOpacity > 0 || layers.lightOpacity > 0;
+  // Burn watermark whenever we bake FX, or when share/export explicitly asks for branding.
+  const burnBranding = Boolean(input.burnBranding) || needsBg;
+  const brand = burnBranding ? { kind: input.kind, context: input.context } : undefined;
+
+  if (!needsUnmaskRender({ ...input, burnBranding: input.burnBranding })) {
     return {
       outputUri: input.mediaUri,
       posterUri: input.coverPosterUri,
@@ -28,27 +34,17 @@ export async function renderUnmaskMediaWeb(
     };
   }
 
-  const layers = resolvePreviewLayers(input.creator);
-  const needsBg = layers.backgroundMode !== "original" || layers.lookOpacity > 0 || layers.lightOpacity > 0;
   // Skip mux for local device audio — blob/file mux is flaky on mobile; attach as BGM instead.
   const musicUri = resolveMusicUri(input.creator);
   const localMusic = Boolean(input.creator.localSoundUri);
   const needsMux = shouldMuxAudio(input.mediaKind, input.audioBehavior, input.creator) && !localMusic && Boolean(musicUri);
 
-  onProgress?.(0.05, "Preparing Unmask…");
+  onProgress?.(0.05, burnBranding && !needsBg ? "Adding Unmask mark…" : "Preparing Unmask…");
 
   if (input.mediaKind === "photo") {
-    if (!needsBg) {
-      return {
-        outputUri: input.mediaUri,
-        posterUri: input.coverPosterUri || input.mediaUri,
-        processed: false,
-        mimeType: "image/jpeg",
-      };
-    }
-    onProgress?.(0.15, "Removing background…");
+    onProgress?.(0.15, needsBg ? "Removing background…" : "Adding Unmask mark…");
     const canvas = document.createElement("canvas");
-    await withTimeout(compositePhotoCutout(canvas, input.mediaUri, layers), PHOTO_RENDER_MS, "photo_cutout_timeout");
+    await withTimeout(compositePhotoCutout(canvas, input.mediaUri, layers, brand), PHOTO_RENDER_MS, "photo_cutout_timeout");
     onProgress?.(0.85, "Saving…");
     const outputUri = await canvasToJpegDataUri(canvas, 0.8);
     onProgress?.(1, "Ready");
@@ -56,12 +52,18 @@ export async function renderUnmaskMediaWeb(
   }
 
   let blob: Blob;
-  if (needsBg) {
-    onProgress?.(0.08, "Segmenting video…");
+  if (needsBg || burnBranding) {
+    onProgress?.(0.08, needsBg ? "Segmenting video…" : "Burning Unmask mark…");
     blob = await withTimeout(
-      exportProcessedVideo(input.mediaUri, input.mediaKind, input.creator, (ratio) => {
-        onProgress?.(0.08 + ratio * 0.7, "Replacing background…");
-      }),
+      exportProcessedVideo(
+        input.mediaUri,
+        input.mediaKind,
+        input.creator,
+        (ratio) => {
+          onProgress?.(0.08 + ratio * 0.7, needsBg ? "Replacing background…" : "Adding Unmask mark…");
+        },
+        brand,
+      ),
       VIDEO_RENDER_MS,
       "video_cutout_timeout",
     );

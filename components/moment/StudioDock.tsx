@@ -23,14 +23,18 @@ export function StudioDock({
   open,
   onOpen,
   compact,
+  hideTools,
 }: {
   creator: CreatorSettings;
   open: CreatorToolKind;
   onOpen: (k: CreatorToolKind) => void;
   compact?: boolean;
+  /** Tools to omit (e.g. hide BG while recording — edit after capture). */
+  hideTools?: Array<Exclude<CreatorToolKind, null>>;
 }) {
   const [playing, setPlaying] = useState(false);
   const sound = selectedSoundLabel(creator);
+  const tools = hideTools?.length ? TOOLS.filter((t) => !hideTools.includes(t.key)) : TOOLS;
 
   useEffect(() => {
     let alive = true;
@@ -74,7 +78,7 @@ export function StudioDock({
       ) : null}
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 4 }}>
-        {TOOLS.map(({ key, label, Icon }) => {
+        {tools.map(({ key, label, Icon }) => {
           const active = open === key || toolHasValue(creator, key);
           return (
             <Pressable
