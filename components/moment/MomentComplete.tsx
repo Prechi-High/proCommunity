@@ -12,9 +12,11 @@ import { ActionSheet } from "@/components/unmask-ui";
 import { fonts, livelyRadii } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import * as living from "@/lib/living/api";
+import { CaretDown } from "@/components/icons";
+import { MOOD_LOOKS, SKIN_GOALS, SKIN_TYPES } from "@/lib/moment/creatorCatalog";
 import { GRWM_OCCASION_TILES } from "@/lib/moment/grwmOccasions";
 import { USAGE_DURATION, momentConfig, type MomentKind } from "@/lib/moment/kinds";
-import type { MomentAttachedProduct, MomentContext } from "@/lib/moment/types";
+import type { MomentAttachedProduct, MomentContext, MomentMediaAsset } from "@/lib/moment/types";
 import { useRoomTone } from "@/lib/social/roomTone";
 import { useAppStore } from "@/lib/store";
 
@@ -30,6 +32,8 @@ export function MomentComplete({
   kind,
   mediaUri,
   mediaKind,
+  mediaAssets = [],
+  onRemoveMedia,
   onBack,
   onNext,
   context,
@@ -42,6 +46,8 @@ export function MomentComplete({
   kind: MomentKind;
   mediaUri: string;
   mediaKind: "photo" | "video";
+  mediaAssets?: MomentMediaAsset[];
+  onRemoveMedia?: () => void;
   onBack: () => void;
   onNext: (ctx: MomentContext) => void;
   context: MomentContext;
@@ -59,6 +65,8 @@ export function MomentComplete({
   const [menu, setMenu] = useState(false);
   const [customOccasionOpen, setCustomOccasionOpen] = useState(false);
   const [customDraft, setCustomDraft] = useState(context.customOccasion ?? "");
+  const [contextPicker, setContextPicker] = useState<"skinType" | "skinGoal" | "moodLook" | null>(null);
+  const clips = mediaAssets.length ? mediaAssets : [{ id: "primary", uri: mediaUri, kind: mediaKind }];
   const ctx = context;
   const setCtx = (updater: MomentContext | ((c: MomentContext) => MomentContext)) => {
     const next = typeof updater === "function" ? updater(ctx) : updater;
@@ -262,22 +270,57 @@ export function MomentComplete({
                 })}
               </View>
               <View style={{ gap: 10 }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: momentFlow.muted }}>Add a quick context (optional)</Text>
+                <View style={{ gap: 8 }}>
+                  {(
+                    [
+                      ["skinType", "Skin type", ctx.skinType || "Choose"],
+                      ["skinGoal", "Skin goal", ctx.skinGoal || "Choose"],
+                      ["moodLook", "Mood / Look", ctx.moodLook || "Choose"],
+                    ] as const
+                  ).map(([key, label, value]) => (
+                    <Pressable
+                      key={key}
+                      onPress={() => setContextPicker(key)}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        padding: 14,
+                        borderRadius: 14,
+                        backgroundColor: momentFlow.card,
+                        borderWidth: 1,
+                        borderColor: momentFlow.accentSoft,
+                      }}
+                    >
+                      <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 15, color: momentFlow.ink }}>{label}</Text>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: momentFlow.muted, marginRight: 6 }}>{value}</Text>
+                      <CaretDown size={16} color={momentFlow.muted} />
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+              <View style={{ gap: 10 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: momentFlow.ink }}>Your GRWM</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-                  <View style={{ width: 88, height: 120, borderRadius: 14, overflow: "hidden" }}>
-                    <Image source={{ uri: mediaUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
-                    {mediaKind === "video" ? (
+                  {clips.map((clip) => (
+                  <View key={clip.id} style={{ width: 88, height: 120, borderRadius: 14, overflow: "hidden" }}>
+                    <Image source={{ uri: clip.uri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
+                    {clip.kind === "video" ? (
                       <View style={{ position: "absolute", bottom: 6, right: 6, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: "rgba(0,0,0,0.55)" }}>
                         <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: "#FFF8F4" }}>0:28</Text>
                       </View>
                     ) : null}
                     <Pressable
-                      onPress={() => hapticSelect()}
+                      onPress={() => {
+                        hapticSelect();
+                        onRemoveMedia?.();
+                      }}
                       style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" }}
                     >
                       <X size={12} color="#FFF" weight="bold" />
                     </Pressable>
                   </View>
+                  ))}
                   <Pressable
                     onPress={() => onProductSheetOpenChange(true)}
                     style={{
@@ -415,6 +458,23 @@ export function MomentComplete({
         >
           <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#B42318" }}>Discard draft</Text>
         </Pressable>
+      </ActionSheet>
+
+      <ActionSheet open={!!contextPicker} title="Context" onClose={() => setContextPicker(null)}>
+        {(contextPicker === "skinType" ? SKIN_TYPES : contextPicker === "skinGoal" ? SKIN_GOALS : MOOD_LOOKS).map((opt) => (
+          <Pressable
+            key={opt}
+            onPress={() => {
+              if (contextPicker === "skinType") setCtx((c) => ({ ...c, skinType: opt }));
+              if (contextPicker === "skinGoal") setCtx((c) => ({ ...c, skinGoal: opt }));
+              if (contextPicker === "moodLook") setCtx((c) => ({ ...c, moodLook: opt }));
+              setContextPicker(null);
+            }}
+            style={{ paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: momentFlow.accentSoft }}
+          >
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: momentFlow.ink }}>{opt}</Text>
+          </Pressable>
+        ))}
       </ActionSheet>
 
       <ActionSheet open={customOccasionOpen} title="My own occasion" onClose={() => setCustomOccasionOpen(false)}>

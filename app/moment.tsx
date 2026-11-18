@@ -1,6 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, Platform, View } from "react-native";
-import { useRouter, type Href } from "expo-router";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 
 import { AddProductSheet } from "@/components/moment/AddProductSheet";
 import { ChooseMoment } from "@/components/moment/ChooseMoment";
@@ -18,12 +18,15 @@ import {
   type MomentAttachedProduct,
   type MomentBatchDraft,
   type MomentContext,
+  type MomentMediaAsset,
 } from "@/lib/moment/types";
+import { SAMPLE_TRENDS } from "@/lib/moment/creatorCatalog";
 import { useTrackingDraft } from "@/lib/tracking/draft";
 import { useAppStore } from "@/lib/store";
 
 export default function Moment() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ trend?: string }>();
   const uid = useAppStore((s) => s.profile?.id);
   const display = useAppStore((s) => s.profile?.displayName) || "You";
   const add = useLocalMoments((s) => s.add);
@@ -34,6 +37,43 @@ export default function Moment() {
   const [publishError, setPublishError] = useState("");
 
   const patch = useCallback((part: Partial<MomentBatchDraft>) => setDraft((d) => ({ ...d, ...part })), [setDraft]);
+
+  const applyTrend = useCallback(
+    (trendId: string) => {
+      const t = SAMPLE_TRENDS.find((x) => x.id === trendId);
+      if (!t) return;
+      patch({
+        trendId: t.id,
+        kind: t.momentKind,
+        step: "camera",
+        creator: {
+          backgroundId: "original",
+          captureSpeed: 1,
+          soundId: t.soundId,
+          lookId: t.lookId,
+        },
+        context: t.momentKind === "grwm" ? { occasion: "Date Night" } : {},
+      });
+    },
+    [patch],
+  );
+
+  const recordCapture = useCallback(
+    (uri: string, mk: "photo" | "video", multi: boolean) => {
+      const asset: MomentMediaAsset = { id: `cap-${Date.now()}`, uri, kind: mk };
+      if (multi) {
+        setDraft((d) => ({
+          ...d,
+          mediaAssets: [...d.mediaAssets, asset],
+          mediaUri: d.mediaUri || uri,
+          mediaKind: mk,
+        }));
+        return;
+      }
+      patch({ mediaUri: uri, mediaKind: mk, mediaAssets: [asset], step: "setup" });
+    },
+    [patch, setDraft],
+  );
 
   const setContext = useCallback(
     (context: MomentContext) => setDraft((d) => ({ ...d, context })),
@@ -128,6 +168,7 @@ export default function Moment() {
       const config = momentConfig(kind);
       const occasion = displayOccasion(context);
       const caption =
+        draft.caption.trim() ||
         context.experience?.trim() ||
         [config.title, occasion, context.productName].filter(Boolean).join(" · ") ||
         config.tagline;
@@ -149,6 +190,7 @@ export default function Moment() {
         audience,
         saveToJourney,
         stickers: [`${config.title} ${config.emoji}`, occasion].filter(Boolean) as string[],
+        trendId: draft.trendId,
       });
       hapticSaved("moment");
       await clear();
@@ -163,10 +205,18 @@ export default function Moment() {
 
   if (!ready) return <View style={{ flex: 1, backgroundColor: "#FFF1ED" }} />;
 
+  useEffect(() => {
+    if (params.trend && ready && draft.step === "choose" && !draft.kind) {
+      applyTrend(String(params.trend));
+    }
+  }, [params.trend, ready, draft.step, draft.kind, applyTrend]);
+
   if (draft.step === "choose") {
     return (
       <ChooseMoment
         onPick={pickKind}
+        onStartCamera={() => pickKind("grwm")}
+        onJoinTrend={applyTrend}
         onBack={() => router.back()}
         onProductStory={() => {
           if (!uid) {
@@ -184,6 +234,9 @@ export default function Moment() {
       <View style={{ flex: 1 }}>
         <MomentCamera
           kind={draft.kind}
+          creator={draft.creator}
+          onCreatorChange={(creator) => patch({ creator })}
+          lastThumb={draft.mediaAssets.at(-1)?.uri ?? draft.mediaUri}
           onClose={() => {
             if (draft.mediaUri) patch({ step: "setup" });
             else confirmDiscard(() => {
@@ -192,8 +245,9 @@ export default function Moment() {
             });
           }}
           onAddProduct={() => patch({ productSheetOpen: true })}
-          onShot={(uri, mk) => {
-            patch({ mediaUri: uri, mediaKind: mk, step: "setup" });
+          onShot={(uri, mk, multi) => recordCapture(uri, mk, multi)}
+          onContinueMulti={() => {
+            if (draft.mediaUri) patch({ step: "setup" });
           }}
         />
         <AddProductSheet
@@ -213,6 +267,10 @@ export default function Moment() {
           kind={draft.kind}
           mediaUri={draft.mediaUri}
           mediaKind={draft.mediaKind}
+          mediaAssets={draft.mediaAssets}
+          onRemoveMedia={() => {
+            patch({ mediaUri: "", mediaAssets: [], step: "camera" });
+          }}
           context={draft.context}
           onContextChange={setContext}
           productSheetOpen={draft.productSheetOpen}
@@ -251,8 +309,16 @@ export default function Moment() {
         kind={draft.kind}
         mediaUri={draft.mediaUri}
         context={draft.context}
+        caption={draft.caption}
+        onCaptionChange={(caption) => patch({ caption })}
+        onOpenProducts={() => patch({ step: "setup", productSheetOpen: true })}
         onBack={() => patch({ step: "preview" })}
         onPublish={() => void post()}
+        onSaveDraft={() => {
+          hapticSaved("moment");
+          patch({ step: "choose" });
+          router.replace("/" as Href);
+        }}
         publishing={publishing}
         publishError={publishError}
         saveToJourney={draft.saveToJourney}

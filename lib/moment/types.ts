@@ -10,6 +10,25 @@ export type MomentAttachedProduct = {
   verificationState: "confirmed" | "pending";
 };
 
+export type MomentMediaAsset = {
+  id: string;
+  uri: string;
+  kind: "photo" | "video";
+  durationMs?: number;
+};
+
+export type CreatorSettings = {
+  soundId?: string;
+  lookId?: string;
+  backgroundId?: string;
+  lightingId?: string;
+  beautyEnabled?: boolean;
+  effectId?: string;
+  timerSec?: number;
+  gridEnabled?: boolean;
+  captureSpeed?: 0.5 | 1 | 2;
+};
+
 export type MomentContext = {
   productName?: string;
   productImage?: string;
@@ -22,6 +41,10 @@ export type MomentContext = {
   usageDuration?: string;
   eveningSteps?: string;
   experience?: string;
+  skinType?: string;
+  skinGoal?: string;
+  moodLook?: string;
+  taggedPeople?: string[];
 };
 
 export type MomentAudience = "everyone" | "followers" | "private";
@@ -34,10 +57,14 @@ export type MomentBatchDraft = {
   kind: MomentKind | null;
   mediaUri: string;
   mediaKind: "photo" | "video";
+  mediaAssets: MomentMediaAsset[];
   context: MomentContext;
   audience: MomentAudience;
   saveToJourney: boolean;
   productSheetOpen: boolean;
+  creator: CreatorSettings;
+  caption: string;
+  trendId?: string;
 };
 
 export function initialMomentBatchDraft(): MomentBatchDraft {
@@ -47,10 +74,13 @@ export function initialMomentBatchDraft(): MomentBatchDraft {
     kind: null,
     mediaUri: "",
     mediaKind: "photo",
+    mediaAssets: [],
     context: {},
     audience: "everyone",
     saveToJourney: true,
     productSheetOpen: false,
+    creator: { backgroundId: "original", captureSpeed: 1 },
+    caption: "",
   };
 }
 

@@ -4,7 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter, type Href } from "expo-router";
 
-import { Camera, MagnifyingGlass, Package, SealCheck } from "@/components/icons";
+import { Camera, MagnifyingGlass, Package, Scan, SealCheck } from "@/components/icons";
+import { PRODUCT_CATEGORY_FILTERS } from "@/lib/moment/creatorCatalog";
 import { SearchField } from "@/components/unmask-ui/SearchField";
 import { ActionSheet } from "@/components/unmask-ui";
 import { fonts } from "@/constants/theme";
@@ -17,7 +18,7 @@ import type { Product } from "@/lib/types";
 import { searchCommunityProducts, popularBeautyProducts } from "@/lib/unmask/communitySearch";
 import { useAppStore } from "@/lib/store";
 
-type Mode = "home" | "find" | "mine" | "show";
+type Mode = "find" | "mine";
 
 function pickJourneyId(
   productId: string,
@@ -39,7 +40,8 @@ export function AddProductSheet({
 }) {
   const router = useRouter();
   const uid = useAppStore((s) => s.profile?.id);
-  const [mode, setMode] = useState<Mode>("home");
+  const [mode, setMode] = useState<Mode>("find");
+  const [category, setCategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [scanError, setScanError] = useState("");
@@ -59,11 +61,12 @@ export function AddProductSheet({
   const mine = useQuery({
     queryKey: ["living", "journeys", uid, "moment-sheet"],
     queryFn: living.journeys,
-    enabled: !!uid && mode === "mine",
+    enabled: !!uid && open,
   });
 
   const reset = () => {
-    setMode("home");
+    setMode("find");
+    setCategory(null);
     setSearch("");
     setPicked(null);
     setVerifyPending(false);
@@ -142,69 +145,100 @@ export function AddProductSheet({
   }
 
   return (
-    <ActionSheet
-      open={open}
-      title={mode === "find" ? "Find it" : mode === "mine" ? "From my products" : "Add a Product"}
-      onClose={close}
-    >
-      {mode === "home" ? (
-        <>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: momentFlow.muted, marginBottom: 16 }}>
-            Quickly add what you&apos;re using in this Unmask.
-          </Text>
-          <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
-            {[
-              { label: "Show me", sub: "Take a photo of the product", Icon: Camera, go: () => void showMe() },
-              { label: "Find it", sub: "Search by name or brand", Icon: MagnifyingGlass, go: () => setMode("find") },
-              { label: "From my products", sub: "Pick from what you already use", Icon: Package, go: () => setMode("mine") },
-            ].map(({ label, sub, Icon, go }) => (
-              <Pressable
-                key={label}
-                onPress={() => {
-                  hapticSelect();
-                  go();
-                }}
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  borderRadius: 16,
-                  backgroundColor: momentFlow.pillPink,
-                  gap: 8,
-                  minHeight: 120,
-                }}
-              >
-                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: momentFlow.card, alignItems: "center", justifyContent: "center" }}>
-                  <Icon size={22} color={momentFlow.accent} />
-                </View>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: momentFlow.ink }}>{label}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 11, lineHeight: 15, color: momentFlow.muted }}>{sub}</Text>
-              </Pressable>
-            ))}
+    <ActionSheet open={open} title="Add a Product" onClose={close}>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: momentFlow.muted, marginBottom: 12 }}>
+        Add what you&apos;re using in this Unmask.
+      </Text>
+      <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
+        {[
+          { id: "find" as const, label: "Search", Icon: MagnifyingGlass },
+          { id: "scan" as const, label: "Scan", Icon: Scan },
+          { id: "mine" as const, label: "From my products", Icon: Package },
+        ].map((tab) => {
+          const on = tab.id === "mine" ? mode === "mine" : tab.id === "find" ? mode === "find" : false;
+          return (
+            <Pressable
+              key={tab.id}
+              onPress={() => {
+                hapticSelect();
+                if (tab.id === "scan") void showMe();
+                else setMode(tab.id === "mine" ? "mine" : "find");
+              }}
+              style={{
+                flex: 1,
+                alignItems: "center",
+                gap: 4,
+                paddingVertical: 10,
+                borderRadius: 12,
+                backgroundColor: on ? momentFlow.accent : momentFlow.pillPink,
+              }}
+            >
+              <tab.Icon size={20} color={on ? "#FFF8F4" : momentFlow.accent} />
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: on ? "#FFF8F4" : momentFlow.ink }}>{tab.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {busy ? <ActivityIndicator color={momentFlow.accent} style={{ marginBottom: 12 }} /> : null}
+      {scanError ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.warnInk, marginBottom: 12 }}>{scanError}</Text> : null}
+      {(mine.data ?? []).length > 0 && mode === "find" ? (
+        <View style={{ marginBottom: 12, gap: 8 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.ink }}>Recently used</Text>
+            <Pressable onPress={() => setMode("mine")}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: momentFlow.accent }}>See all</Text>
+            </Pressable>
           </View>
-          {busy ? <ActivityIndicator color={momentFlow.accent} style={{ marginBottom: 12 }} /> : null}
-          {scanError ? (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.warnInk, marginBottom: 12 }}>{scanError}</Text>
-          ) : null}
-          {attached.length ? (
-            <View style={{ gap: 8, marginBottom: 12 }}>
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.ink }}>In this Unmask</Text>
-              {attached.map((p) => (
-                <View key={p.productId} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  {p.image ? (
-                    <Image source={{ uri: p.image }} style={{ width: 40, height: 40, borderRadius: 10 }} accessibilityIgnoresInvertColors />
-                  ) : null}
-                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: momentFlow.ink }}>{p.name}</Text>
-                  <SealCheck size={18} color={momentFlow.accent} weight="fill" />
-                </View>
-              ))}
-            </View>
-          ) : null}
-        </>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {(mine.data ?? []).slice(0, 6).map((row) => {
+              const name = row.unmask_catalog?.name || "Product";
+              const image = row.unmask_catalog?.image_url;
+              return (
+                <Pressable
+                  key={row.id}
+                  onPress={() => {
+                    void attachFromCatalog(
+                      {
+                        id: row.product_id,
+                        name,
+                        brand: row.unmask_catalog?.brand || "",
+                        category: row.unmask_catalog?.category || "",
+                        heroImageUrl: image,
+                      },
+                      "confirmed",
+                    );
+                  }}
+                  style={{ width: 56, height: 56, borderRadius: 12, overflow: "hidden", backgroundColor: momentFlow.pillPink }}
+                >
+                  {image ? <Image source={{ uri: image }} style={{ width: "100%", height: "100%" }} accessibilityIgnoresInvertColors /> : null}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
       ) : null}
 
       {mode === "find" ? (
         <View style={{ gap: 12, maxHeight: 420 }}>
-          <SearchField value={search} onChange={setSearch} placeholder="Search by name or brand" />
+          <SearchField value={search} onChange={setSearch} placeholder="Search products, brands or ingredients…" />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {PRODUCT_CATEGORY_FILTERS.map((c) => {
+              const on = category === c;
+              return (
+                <Pressable
+                  key={c}
+                  onPress={() => {
+                    hapticSelect();
+                    setCategory(on ? null : c);
+                    if (!on) setSearch(c);
+                  }}
+                  style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: on ? momentFlow.accent : momentFlow.card, borderWidth: 1, borderColor: momentFlow.accentSoft }}
+                >
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? "#FFF8F4" : momentFlow.ink }}>{c}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
           {matches.isFetching || popular.isFetching ? <ActivityIndicator color={momentFlow.accent} /> : null}
           <ScrollView keyboardShouldPersistTaps="handled">
             {(search.trim().length > 1 ? matches.data : popular.data)?.map((row) => {
@@ -260,9 +294,6 @@ export function AddProductSheet({
               </View>
             ) : null}
           </ScrollView>
-          <Pressable onPress={() => setMode("home")} style={{ paddingVertical: 8 }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: momentFlow.muted, textAlign: "center" }}>← Back</Text>
-          </Pressable>
         </View>
       ) : null}
 
@@ -321,9 +352,6 @@ export function AddProductSheet({
               </Text>
             ) : null}
           </ScrollView>
-          <Pressable onPress={() => setMode("home")} style={{ paddingVertical: 8 }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: momentFlow.muted, textAlign: "center" }}>← Back</Text>
-          </Pressable>
         </View>
       ) : null}
 

@@ -37,6 +37,7 @@ export type LocalMoment = {
   productIds?: string[];
   audience?: "everyone" | "followers" | "private";
   saveToJourney?: boolean;
+  trendId?: string;
   createdAt: string;
 };
 

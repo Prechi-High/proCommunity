@@ -2,7 +2,7 @@ import { Image, Pressable, Text, useWindowDimensions, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ArrowLeft, Handbag, ImageSquare, PencilSimple, Sparkle } from "@/components/icons";
+import { ArrowLeft, Handbag, ImageSquare, PencilSimple, Sparkle, Tag, Waveform } from "@/components/icons";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { momentFlow } from "@/lib/moment/flowTheme";
@@ -164,22 +164,34 @@ export function MomentStoryPreview({
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 }}>
           <Handbag size={15} color="#FFF8F4" weight="fill" />
           <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: "rgba(255,248,244,0.95)" }}>
-            My routine • {count} product{count === 1 ? "" : "s"}
+            Tonight&apos;s lineup ({count})
           </Text>
         </View>
+
+        <Pressable
+          onPress={() => hapticSelect()}
+          style={{ alignSelf: "flex-start", marginTop: 10, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(0,0,0,0.45)" }}
+        >
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#FFF8F4" }}>Edit Cover</Text>
+        </Pressable>
       </View>
 
       <SafeAreaView edges={["bottom"]} style={{ position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "rgba(0,0,0,0.55)" }}>
         <View style={{ flexDirection: "row", justifyContent: "space-around", paddingVertical: 14 }}>
           {[
-            { label: "Edit", Icon: PencilSimple },
+            { label: "Edit", Icon: PencilSimple, onPress: onBack },
             { label: "Filters", Icon: Sparkle },
             { label: "Text", text: "Aa" },
-            { label: "Cover", Icon: ImageSquare },
+            { label: "Stickers", Icon: Tag },
+            { label: "Music", Icon: Waveform },
+            { label: "Cover", Icon: ImageSquare, onPress: onBack },
           ].map((item) => (
             <Pressable
               key={item.label}
-              onPress={() => hapticSelect()}
+              onPress={() => {
+                hapticSelect();
+                item.onPress?.();
+              }}
               style={{ alignItems: "center", gap: 4 }}
             >
               {"text" in item ? (

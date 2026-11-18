@@ -1,27 +1,38 @@
 import { useEffect, useRef, useState } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
+import { Image, Platform, Pressable, Text, View } from "react-native";
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import Svg, { Circle } from "react-native-svg";
 
-import { CameraRotate, Clock, Handbag, ImageSquare, Lightning, Sparkle, Waveform, X } from "@/components/icons";
+import { CameraRotate, Clock, Handbag, ImageSquare, Lightning, ListBullets, Microphone, Sparkle, Waveform, X } from "@/components/icons";
+import { CreatorToolSheets, type CreatorToolKind } from "@/components/moment/CreatorToolSheets";
 import { momentFlow } from "@/lib/moment/flowTheme";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
+import { MOMENT_LOOKS } from "@/lib/moment/creatorCatalog";
 import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
+import type { CreatorSettings } from "@/lib/moment/types";
 
 const MAX_RECORD_MS = 60000;
 
 export function MomentCamera({
   kind,
+  creator,
+  onCreatorChange,
+  lastThumb,
   onClose,
   onShot,
+  onContinueMulti,
   onAddProduct,
 }: {
   kind: MomentKind;
+  creator: CreatorSettings;
+  onCreatorChange: (next: CreatorSettings) => void;
+  lastThumb?: string;
   onClose: () => void;
-  onShot: (uri: string, mediaKind: "photo" | "video") => void;
+  onShot: (uri: string, mediaKind: "photo" | "video", multi: boolean) => void;
+  onContinueMulti?: () => void;
   onAddProduct?: () => void;
 }) {
   const config = momentConfig(kind);
@@ -43,6 +54,10 @@ export function MomentCamera({
   const [torch, setTorch] = useState(false);
   const [captureMode, setCaptureMode] = useState<"photo" | "video" | "multi">(config.defaultMode);
   const [error, setError] = useState("");
+  const [toolOpen, setToolOpen] = useState<CreatorToolKind>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const lookTint = MOMENT_LOOKS.find((l) => l.id === creator.lookId)?.preview;
+  const blurBg = creator.backgroundId === "blur";
   const evening = kind === "evening";
   const cream = kind === "currently" || kind === "morning";
   const headerColor = evening ? "#FFF8F4" : cream ? "#2D1B1B" : "#FFF8F4";
@@ -146,7 +161,7 @@ export function MomentCamera({
       void camera.current
         ?.recordAsync({ maxDuration: 60 })
         .then((clip) => {
-          if (clip?.uri) shotRef.current(clip.uri, "video");
+          if (clip?.uri) shotRef.current(clip.uri, "video", captureMode === "multi");
         })
         .catch(() => setError("Couldn’t record that."));
     } catch {
@@ -172,7 +187,7 @@ export function MomentCamera({
       const stop = webStop.current;
       webStop.current = null;
       void stop()
-        .then((uri) => shotRef.current(uri, "video"))
+        .then((uri) => shotRef.current(uri, "video", captureMode === "multi"))
         .catch(() => setError("That clip didn’t save."));
     } else if (Platform.OS !== "web") {
       camera.current?.stopRecording();
@@ -203,6 +218,16 @@ export function MomentCamera({
     void stopRecord();
   }
 
+  async function waitTimer() {
+    const sec = creator.timerSec ?? 0;
+    if (!sec) return;
+    for (let n = sec; n > 0; n -= 1) {
+      setCountdown(n);
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    setCountdown(null);
+  }
+
   async function shoot() {
     if (!ready) {
       setError("Camera is still starting…");
@@ -210,6 +235,7 @@ export function MomentCamera({
     }
     setError("");
     try {
+      await waitTimer();
       if (Platform.OS !== "web" && captureMode === "video") {
         setCaptureMode("photo");
         await new Promise((r) => setTimeout(r, 160));
@@ -225,7 +251,7 @@ export function MomentCamera({
         photo.uri ||
         (photo.base64 ? `data:image/jpeg;base64,${photo.base64}` : "");
       if (!uri) return;
-      shotRef.current(uri, "photo");
+      shotRef.current(uri, "photo", captureMode === "multi");
     } catch {
       setError("Couldn’t take that photo. Try again.");
     }
@@ -236,8 +262,15 @@ export function MomentCamera({
     if (result.canceled) return;
     const asset = result.assets[0];
     const uri = asset.base64 ? `data:${asset.mimeType || "image/jpeg"};base64,${asset.base64}` : asset.uri;
-    shotRef.current(uri, asset.type === "video" ? "video" : "photo");
+    shotRef.current(uri, asset.type === "video" ? "video" : "photo", captureMode === "multi");
   }
+
+  const creatorTools: { key: CreatorToolKind; label: string }[] = [
+    { key: "music", label: "Music" },
+    { key: "looks", label: "Looks" },
+    { key: "background", label: "BG" },
+    { key: "effects", label: "FX" },
+  ];
 
   const ringProgress = Math.min(1, recordMs / MAX_RECORD_MS);
   const ringSize = 84;
@@ -267,6 +300,25 @@ export function MomentCamera({
       )}
       <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: config.tint }} />
       {config.scrim ? <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: config.scrim }} /> : null}
+      {lookTint ? <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: lookTint, opacity: 0.18 }} /> : null}
+      {blurBg ? (
+        <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: "rgba(26,10,20,0.42)" }} />
+      ) : null}
+      {creator.gridEnabled ? (
+        <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, opacity: 0.35 }}>
+          {[0.33, 0.66].map((p) => (
+            <View key={`v${p}`} style={{ position: "absolute", left: `${p * 100}%`, top: 0, bottom: 0, width: 1, backgroundColor: "#FFF8F4" }} />
+          ))}
+          {[0.33, 0.66].map((p) => (
+            <View key={`h${p}`} style={{ position: "absolute", top: `${p * 100}%`, left: 0, right: 0, height: 1, backgroundColor: "#FFF8F4" }} />
+          ))}
+        </View>
+      ) : null}
+      {countdown !== null ? (
+        <View style={{ position: "absolute", alignSelf: "center", top: "42%", width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 32, color: "#FFF8F4" }}>{countdown}</Text>
+        </View>
+      ) : null}
 
       <SafeAreaView style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} edges={["top", "bottom"]} pointerEvents="box-none">
         <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingTop: 4, zIndex: 2 }}>
@@ -293,12 +345,20 @@ export function MomentCamera({
           </View>
         ) : null}
 
-        {/* Right-side capture tools (reference mock) */}
-        <View style={{ position: "absolute", right: 14, top: "38%", gap: 18, zIndex: 2 }}>
-          {[Clock, Sparkle, Waveform].map((Icon, i) => (
+        <View style={{ position: "absolute", right: 14, top: "34%", gap: 14, zIndex: 2 }}>
+          {[
+            { Icon: CameraRotate, onPress: () => setFacing((f) => (f === "front" ? "back" : "front")) },
+            { Icon: Clock, onPress: () => setToolOpen("timer") },
+            { Icon: ListBullets, onPress: () => onCreatorChange({ ...creator, gridEnabled: !creator.gridEnabled }) },
+            { Icon: Sparkle, onPress: () => setToolOpen("beauty") },
+            { Icon: Microphone, onPress: () => setToolOpen("music") },
+          ].map(({ Icon, onPress }, i) => (
             <Pressable
               key={i}
-              onPress={() => hapticSelect()}
+              onPress={() => {
+                hapticSelect();
+                onPress();
+              }}
               style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(0,0,0,0.35)", alignItems: "center", justifyContent: "center" }}
             >
               <Icon size={22} color="#FFF8F4" />
@@ -307,6 +367,25 @@ export function MomentCamera({
         </View>
 
         <View style={{ flex: 1 }} />
+
+        <ScrollRow tools={creatorTools} onOpen={(key) => setToolOpen(key)} onLighting={() => setToolOpen("lighting")} />
+
+        {captureMode === "multi" && lastThumb ? (
+          <Pressable
+            onPress={() => onContinueMulti?.()}
+            style={{
+              alignSelf: "center",
+              marginBottom: 10,
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              borderRadius: 999,
+              backgroundColor: "rgba(255,255,255,0.9)",
+              zIndex: 2,
+            }}
+          >
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.accent }}>Continue with clips →</Text>
+          </Pressable>
+        ) : null}
 
         <Pressable
           onPress={() => {
@@ -348,8 +427,15 @@ export function MomentCamera({
         </View>
 
         <View style={{ paddingBottom: 8, paddingHorizontal: 28, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 2 }}>
-          <Pressable onPress={() => void upload()} style={{ width: 52, height: 52, borderRadius: 16, borderWidth: 1, borderColor: evening ? "rgba(255,255,255,0.35)" : "rgba(45,27,27,0.25)", alignItems: "center", justifyContent: "center", backgroundColor: evening ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.65)" }}>
-            <ImageSquare size={26} color={headerColor} />
+          <Pressable
+            onPress={() => (lastThumb ? onContinueMulti?.() : void upload())}
+            style={{ width: 52, height: 52, borderRadius: 16, borderWidth: 1, borderColor: evening ? "rgba(255,255,255,0.35)" : "rgba(45,27,27,0.25)", alignItems: "center", justifyContent: "center", backgroundColor: evening ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.65)", overflow: "hidden" }}
+          >
+            {lastThumb ? (
+              <Image source={{ uri: lastThumb }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
+            ) : (
+              <ImageSquare size={26} color={headerColor} />
+            )}
           </Pressable>
           <Pressable
             accessibilityLabel={captureMode === "video" ? "Tap or hold to record" : "Take photo"}
@@ -393,12 +479,46 @@ export function MomentCamera({
               }}
             />
           </Pressable>
-          <Pressable onPress={() => setFacing((f) => (f === "front" ? "back" : "front"))} style={{ width: 52, height: 52, alignItems: "center", justifyContent: "center" }}>
-            <CameraRotate size={28} color={headerColor} />
+          <Pressable onPress={() => void upload()} style={{ width: 52, height: 52, borderRadius: 16, borderWidth: 1, borderColor: evening ? "rgba(255,255,255,0.35)" : "rgba(45,27,27,0.25)", alignItems: "center", justifyContent: "center", backgroundColor: evening ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.65)" }}>
+            <ImageSquare size={26} color={headerColor} />
           </Pressable>
         </View>
         {error ? <Text style={{ color: "#FF8BC8", textAlign: "center", fontFamily: fonts.medium, paddingBottom: 6, zIndex: 2 }}>{error}</Text> : null}
       </SafeAreaView>
+
+      <CreatorToolSheets open={toolOpen} creator={creator} onClose={() => setToolOpen(null)} onChange={onCreatorChange} />
+    </View>
+  );
+}
+
+export { MomentCamera as CameraStudioScreen };
+
+function ScrollRow({
+  tools,
+  onOpen,
+  onLighting,
+}: {
+  tools: { key: CreatorToolKind; label: string }[];
+  onOpen: (key: CreatorToolKind) => void;
+  onLighting: () => void;
+}) {
+  return (
+    <View style={{ flexDirection: "row", alignSelf: "center", gap: 8, marginBottom: 8, zIndex: 2 }}>
+      {tools.map((t) => (
+        <Pressable
+          key={t.label}
+          onPress={() => {
+            hapticSelect();
+            if (t.key) onOpen(t.key);
+          }}
+          style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: "rgba(0,0,0,0.4)" }}
+        >
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#FFF8F4" }}>{t.label}</Text>
+        </Pressable>
+      ))}
+      <Pressable onPress={() => { hapticSelect(); onLighting(); }} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: "rgba(0,0,0,0.4)" }}>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#FFF8F4" }}>Light</Text>
+      </Pressable>
     </View>
   );
 }
