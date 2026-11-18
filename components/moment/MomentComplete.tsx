@@ -237,14 +237,12 @@ export function MomentComplete({
                         alignItems: "center",
                         justifyContent: "center",
                         gap: 8,
-                        borderWidth: on ? 0 : 1,
-                        borderColor: momentFlow.accentSoft,
-                        borderWidth: isCustom ? 1.5 : 0,
+                        borderWidth: isCustom ? 1.5 : on ? 0 : 1,
                         borderStyle: isCustom ? "dashed" : "solid",
-                        borderColor: isCustom ? momentFlow.accentSoft : "transparent",
+                        borderColor: isCustom || !on ? momentFlow.accentSoft : "transparent",
                       }}
                     >
-                      <tile.Icon size={26} color={on ? "#FFF8F4" : momentFlow.ink} weight={on ? "fill" : "regular"} />
+                      <tile.Icon size={28} color={on ? "#FFF8F4" : momentFlow.ink} weight={on ? "fill" : "bold"} />
                       {tile.lines.map((line) => (
                         <Text
                           key={line}
