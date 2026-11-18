@@ -1,10 +1,11 @@
-/** Curated creator catalog — licensed / project-owned demo assets for the studio library. */
+/** Curated creator catalog — project-owned demo assets with reliable CORS audio. */
 
 export type SoundOption = {
   id: string;
   title: string;
   artist: string;
   duration: string;
+  durationSec: number;
   category: string;
   previewUri: string;
   trending?: boolean;
@@ -21,14 +22,17 @@ export type BackgroundOption = {
 export type LightingOption = { id: string; title: string; hint: string };
 export type EffectOption = { id: string; title: string; provider: "unmask" | "snap"; hint: string };
 
-const DEMO_SOUND =
-  "https://cdn.pixabay.com/download/audio/2022/03/24/audio_8b2b3338b8.mp3?filename=lofi-study-112191.mp3";
+/** Stable CORS-friendly MP3s (SoundHelix / remotion). */
+const S1 = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+const S2 = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3";
+const S3 = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3";
+const S4 = "https://remotion.media/audio.mp3";
 
 export const MOMENT_SOUNDS: SoundOption[] = [
-  { id: "soft-glow", title: "Soft Glow", artist: "Unmask Originals", duration: "0:32", category: "Beauty / GRWM", previewUri: DEMO_SOUND, trending: true },
-  { id: "morning-hum", title: "Morning Hum", artist: "Unmask Originals", duration: "0:28", category: "Chill", previewUri: DEMO_SOUND, trending: true },
-  { id: "night-room", title: "Night Room", artist: "Unmask Originals", duration: "0:41", category: "Chill", previewUri: DEMO_SOUND },
-  { id: "grwm-beat", title: "GRWM Beat", artist: "Unmask Originals", duration: "0:36", category: "Trending", previewUri: DEMO_SOUND, trending: true },
+  { id: "soft-glow", title: "Soft Glow", artist: "Unmask Originals", duration: "6:12", durationSec: 372, category: "Beauty / GRWM", previewUri: S1, trending: true },
+  { id: "morning-hum", title: "Morning Hum", artist: "Unmask Originals", duration: "7:05", durationSec: 425, category: "Chill", previewUri: S2, trending: true },
+  { id: "night-room", title: "Night Room", artist: "Unmask Originals", duration: "5:48", durationSec: 348, category: "Chill", previewUri: S3 },
+  { id: "grwm-beat", title: "GRWM Beat", artist: "Unmask Originals", duration: "0:08", durationSec: 8, category: "Trending", previewUri: S4, trending: true },
 ];
 
 export const MOMENT_LOOKS: LookOption[] = [
@@ -43,24 +47,18 @@ const SCENE_PINK =
   "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1200&q=80";
 const SCENE_CREAM =
   "https://images.unsplash.com/photo-1616628188859-7a11abc34b1f?auto=format&fit=crop&w=1200&q=80";
+const SCENE_CITY =
+  "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1200&q=80";
+const SCENE_GLOW =
+  "https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1200&q=80";
 
 export const MOMENT_BACKGROUNDS: BackgroundOption[] = [
   { id: "original", title: "Original", mode: "original", thumb: "#2D1B1B" },
   { id: "blur", title: "Portrait blur", mode: "blur", thumb: "#6B5B63" },
-  {
-    id: "studio-pink",
-    title: "Studio Pink",
-    mode: "studio",
-    sceneUri: SCENE_PINK,
-    thumb: SCENE_PINK,
-  },
-  {
-    id: "studio-cream",
-    title: "Studio Cream",
-    mode: "studio",
-    sceneUri: SCENE_CREAM,
-    thumb: SCENE_CREAM,
-  },
+  { id: "studio-pink", title: "Studio Pink", mode: "studio", sceneUri: SCENE_PINK, thumb: SCENE_PINK },
+  { id: "studio-cream", title: "Studio Cream", mode: "studio", sceneUri: SCENE_CREAM, thumb: SCENE_CREAM },
+  { id: "city-night", title: "City Night", mode: "studio", sceneUri: SCENE_CITY, thumb: SCENE_CITY },
+  { id: "soft-glow-bg", title: "Soft Glow Room", mode: "studio", sceneUri: SCENE_GLOW, thumb: SCENE_GLOW },
 ];
 
 export const MOMENT_LIGHTING: LightingOption[] = [
@@ -108,4 +106,9 @@ export function selectedSoundLabel(creator: {
   if (creator.localSoundName) return creator.localSoundName;
   if (!creator.soundId) return null;
   return MOMENT_SOUNDS.find((s) => s.id === creator.soundId)?.title ?? null;
+}
+
+export function selectedSoundDurationSec(creator: { soundId?: string }): number | null {
+  if (!creator.soundId) return null;
+  return MOMENT_SOUNDS.find((s) => s.id === creator.soundId)?.durationSec ?? null;
 }

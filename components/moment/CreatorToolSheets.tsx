@@ -1,7 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, Platform, Pressable, ScrollView, Switch, Text, View } from "react-native";
-import { Audio } from "expo-av";
-
 import { SearchField } from "@/components/unmask-ui/SearchField";
 import { ActionSheet } from "@/components/unmask-ui";
 import { fonts } from "@/constants/theme";
@@ -17,6 +15,7 @@ import {
 } from "@/lib/moment/creatorCatalog";
 import { pickLocalAudio, pickLocalBackground } from "@/lib/moment/localMediaPicker";
 import { momentFlow } from "@/lib/moment/flowTheme";
+import { playStudioSound, stopStudioSound } from "@/lib/moment/studioAudio";
 import type { CreatorSettings, MomentAudioBehavior } from "@/lib/moment/types";
 
 export type CreatorToolKind = "music" | "looks" | "background" | "lighting" | "beauty" | "effects" | "timer" | null;
@@ -75,24 +74,25 @@ export function CreatorToolSheets({
   const [soundBusy, setSoundBusy] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [pickerError, setPickerError] = useState("");
-  const soundRef = useRef<Audio.Sound | null>(null);
 
   useEffect(() => {
     return () => {
-      void soundRef.current?.unloadAsync();
-      soundRef.current = null;
+      /* dock / preview owns shared player — don't kill on sheet close */
     };
   }, []);
 
   async function previewSound(track: SoundOption) {
     try {
       setPreviewId(track.id);
-      await soundRef.current?.unloadAsync();
-      const { sound } = await Audio.Sound.createAsync({ uri: track.previewUri }, { shouldPlay: true });
-      soundRef.current = sound;
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) setPreviewId(null);
-      });
+      setPickerError("");
+      const ok = await playStudioSound(
+        { soundId: track.id, localSoundUri: undefined, localSoundName: undefined },
+        { loop: true },
+      );
+      if (!ok) {
+        setPreviewId(null);
+        setPickerError("Couldn’t play that preview. Check network / allow autoplay.");
+      }
     } catch {
       setPreviewId(null);
       setPickerError("Couldn’t play that preview on this device.");
@@ -101,8 +101,10 @@ export function CreatorToolSheets({
 
   async function useLibrarySound(track: SoundOption) {
     hapticSelect();
-    onChange({ ...creator, soundId: track.id, localSoundUri: undefined, localSoundName: undefined });
-    onClose();
+    const next = { ...creator, soundId: track.id, localSoundUri: undefined, localSoundName: undefined };
+    onChange(next);
+    await playStudioSound(next, { loop: true });
+    setPreviewId(track.id);
   }
 
   async function pickDeviceSound() {
@@ -128,17 +130,27 @@ export function CreatorToolSheets({
       setPickerError("Couldn’t load that background.");
       return;
     }
-    onChange({ ...creator, backgroundId: "custom", localBackgroundUri: picked.uri });
-    onClose();
+    onChange({
+      ...creator,
+      backgroundId: "custom",
+      localBackgroundUri: picked.uri,
+      backgroundBlurAmount: creator.backgroundBlurAmount ?? 8,
+    });
   }
 
   function resetTool(kind: CreatorToolKind) {
-    if (kind === "music") onChange({ ...creator, soundId: undefined, localSoundUri: undefined, localSoundName: undefined });
+    if (kind === "music") {
+      void stopStudioSound();
+      onChange({ ...creator, soundId: undefined, localSoundUri: undefined, localSoundName: undefined });
+    }
     if (kind === "looks") onChange({ ...creator, lookId: undefined });
-    if (kind === "background") onChange({ ...creator, backgroundId: "original", localBackgroundUri: undefined });
+    if (kind === "background") onChange({ ...creator, backgroundId: "original", localBackgroundUri: undefined, backgroundBlurAmount: 0 });
     if (kind === "lighting") onChange({ ...creator, lightingId: undefined });
     if (kind === "effects") onChange({ ...creator, effectId: undefined });
   }
+
+  const blurAmount = creator.backgroundBlurAmount ?? 0;
+  const sceneActive = (creator.backgroundId && creator.backgroundId !== "original") || Boolean(creator.localBackgroundUri);
 
   if (!open) return null;
 
@@ -256,6 +268,9 @@ export function CreatorToolSheets({
 
         {open === "background" ? (
           <>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted, lineHeight: 18 }}>
+              We cut you out cleanly and replace the entire scene. Adjust blur so the new background blends with you.
+            </Text>
             {MOMENT_BACKGROUNDS.map((bg) => {
               const active = (creator.backgroundId ?? "original") === bg.id && !creator.localBackgroundUri;
               return (
@@ -263,8 +278,12 @@ export function CreatorToolSheets({
                   key={bg.id}
                   onPress={() => {
                     hapticSelect();
-                    onChange({ ...creator, backgroundId: bg.id, localBackgroundUri: undefined });
-                    onClose();
+                    onChange({
+                      ...creator,
+                      backgroundId: bg.id,
+                      localBackgroundUri: undefined,
+                      backgroundBlurAmount: bg.mode === "blur" ? Math.max(blurAmount, 18) : blurAmount,
+                    });
                   }}
                 >
                   {rowCard(
@@ -277,9 +296,10 @@ export function CreatorToolSheets({
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: momentFlow.ink }}>{bg.title}</Text>
                         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted }}>
-                          {bg.mode === "original" ? "Keep captured environment" : bg.mode === "blur" ? "Portrait blur fallback" : "Full scene replacement"}
+                          {bg.mode === "original" ? "Keep captured environment" : bg.mode === "blur" ? "Blur your real background" : "Full scene replacement"}
                         </Text>
                       </View>
+                      {active ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: momentFlow.accent }}>Live</Text> : null}
                     </View>,
                     active,
                   )}
@@ -288,8 +308,33 @@ export function CreatorToolSheets({
             })}
             <Pressable onPress={() => void pickDeviceBackground()} style={{ padding: 14, borderRadius: 16, borderWidth: 1.5, borderStyle: "dashed", borderColor: momentFlow.accent, gap: 4 }}>
               <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: momentFlow.accent }}>From my device</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: momentFlow.muted }}>Use your own background photo or clip.</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: momentFlow.muted }}>Upload your own background, then dial blur to blend.</Text>
             </Pressable>
+            {sceneActive ? (
+              <View style={{ gap: 8, padding: 14, borderRadius: 16, backgroundColor: momentFlow.card, borderWidth: 1, borderColor: momentFlow.accentSoft }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: momentFlow.ink }}>Background blur · {blurAmount}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: momentFlow.muted }}>Softer scenes blend more naturally with hair and edges.</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {[0, 6, 12, 18, 28, 40].map((v) => (
+                    <Pressable
+                      key={v}
+                      onPress={() => {
+                        hapticSelect();
+                        onChange({ ...creator, backgroundBlurAmount: v });
+                      }}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: 999,
+                        backgroundColor: blurAmount === v ? momentFlow.accent : momentFlow.accentSoft,
+                      }}
+                    >
+                      <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: blurAmount === v ? "#FFF8F4" : momentFlow.ink }}>{v === 0 ? "Sharp" : v}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            ) : null}
             <Pressable onPress={() => resetTool("background")} style={{ alignItems: "center", paddingVertical: 8 }}>
               <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: momentFlow.muted }}>Reset to Original</Text>
             </Pressable>

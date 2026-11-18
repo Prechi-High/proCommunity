@@ -17,6 +17,7 @@ import { MOOD_LOOKS, SKIN_GOALS, SKIN_TYPES } from "@/lib/moment/creatorCatalog"
 import { GRWM_OCCASION_TILES } from "@/lib/moment/grwmOccasions";
 import { USAGE_DURATION, momentConfig, type MomentKind } from "@/lib/moment/kinds";
 import type { CreatorToolKind } from "@/components/moment/CreatorToolSheets";
+import { SlideStrip } from "@/components/moment/SlideStrip";
 import type { MomentAttachedProduct, MomentContext, MomentMediaAsset, MomentMediaSource } from "@/lib/moment/types";
 import { useRoomTone } from "@/lib/social/roomTone";
 import { useAppStore } from "@/lib/store";
@@ -37,6 +38,8 @@ export function MomentComplete({
   mediaSource = "camera",
   onRemoveMedia,
   onStyleTool,
+  onMediaAssetsChange,
+  onAddSlide,
   onBack,
   onNext,
   context,
@@ -53,6 +56,8 @@ export function MomentComplete({
   mediaSource?: MomentMediaSource;
   onRemoveMedia?: () => void;
   onStyleTool?: (tool: CreatorToolKind) => void;
+  onMediaAssetsChange?: (assets: MomentMediaAsset[]) => void;
+  onAddSlide?: () => void;
   onBack: () => void;
   onNext: (ctx: MomentContext) => void;
   context: MomentContext;
@@ -73,6 +78,7 @@ export function MomentComplete({
   const [contextPicker, setContextPicker] = useState<"skinType" | "skinGoal" | "moodLook" | null>(null);
   const [contextOpen, setContextOpen] = useState(false);
   const clips = mediaAssets.length ? mediaAssets : [{ id: "primary", uri: mediaUri, kind: mediaKind }];
+  const [activeSlideId, setActiveSlideId] = useState(clips[0]?.id);
   const ctx = context;
   const setCtx = (updater: MomentContext | ((c: MomentContext) => MomentContext)) => {
     const next = typeof updater === "function" ? updater(ctx) : updater;
@@ -203,7 +209,7 @@ export function MomentComplete({
           {onStyleTool ? (
             <View style={{ gap: 8 }}>
               <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.muted }}>
-                {mediaSource === "device_upload" ? "Unmask styling for your upload" : "Studio tools"}
+                {mediaSource === "device_upload" ? "Unmask styling — changes show live on Preview" : "Studio tools"}
               </Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {(
@@ -228,6 +234,24 @@ export function MomentComplete({
                 ))}
               </View>
             </View>
+          ) : null}
+
+          {clips.length > 0 && onMediaAssetsChange ? (
+            <SlideStrip
+              slides={clips}
+              activeId={activeSlideId}
+              onSelect={setActiveSlideId}
+              onCaption={(id, caption) => {
+                onMediaAssetsChange(clips.map((c) => (c.id === id ? { ...c, caption } : c)));
+              }}
+              onRemove={(id) => {
+                const next = clips.filter((c) => c.id !== id);
+                onMediaAssetsChange(next);
+                setActiveSlideId(next[0]?.id);
+                if (!next.length) onRemoveMedia?.();
+              }}
+              onAdd={() => onAddSlide?.()}
+            />
           ) : null}
           {kind !== "grwm" ? (
             <View style={{ borderRadius: livelyRadii.hero, overflow: "hidden", height: 200 }}>

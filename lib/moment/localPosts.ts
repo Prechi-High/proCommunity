@@ -40,6 +40,9 @@ export type LocalMoment = {
   trendId?: string;
   mediaSource?: "camera" | "device_upload";
   coverPosterUri?: string;
+  soundUri?: string;
+  soundMaxMs?: number;
+  slideCaptions?: string[];
   createdAt: string;
 };
 

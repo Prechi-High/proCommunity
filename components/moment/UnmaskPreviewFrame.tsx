@@ -1,6 +1,7 @@
 import { Image, Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { Waveform } from "@/components/icons";
+import { LiveMattingStage } from "@/components/moment/LiveMattingStage";
 import { fonts } from "@/constants/theme";
 import { resolvePreviewLayers } from "@/lib/moment/unmaskCompose";
 import type { CreatorSettings } from "@/lib/moment/types";
@@ -24,52 +25,40 @@ export function UnmaskPreviewFrame({
   const { height } = useWindowDimensions();
   const layers = resolvePreviewLayers(creator);
   const label = soundLabel ?? layers.soundLabel;
-  const framed = layers.backgroundMode !== "original";
+  const matting = layers.backgroundMode !== "original" && Platform.OS === "web";
 
   return (
     <View style={styles.root}>
-      {layers.backgroundMode === "scene" && layers.backgroundUri ? (
-        <Image source={{ uri: layers.backgroundUri }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors />
-      ) : layers.backgroundMode === "blur" ? (
-        <>
-          <Image
-            source={{ uri: mediaUri }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-            blurRadius={Platform.OS === "ios" ? 18 : 0}
-            accessibilityIgnoresInvertColors
-          />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(26,10,20,0.55)" }]} />
-        </>
+      {matting ? (
+        <LiveMattingStage mediaUri={mediaUri} mediaKind={mediaKind} creator={creator} height={height} />
       ) : (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: "#1A0A14" }]} />
+        <>
+          {layers.backgroundMode === "scene" && layers.backgroundUri ? (
+            <Image source={{ uri: layers.backgroundUri }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: "#1A0A14" }]} />
+          )}
+          <View style={[styles.hero, { maxHeight: height * 0.72 }]}>
+            {mediaKind === "video" ? (
+              <LoopClip uri={mediaUri} poster={posterUri || mediaUri} height={height * 0.72} />
+            ) : (
+              <Image source={{ uri: mediaUri }} style={styles.subjectContain} resizeMode="cover" accessibilityIgnoresInvertColors />
+            )}
+          </View>
+          {layers.lookTint && layers.lookOpacity > 0 ? (
+            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: layers.lookTint, opacity: layers.lookOpacity }]} />
+          ) : null}
+          {layers.lightOverlay && layers.lightOpacity > 0 ? (
+            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: layers.lightOverlay, opacity: layers.lightOpacity }]} />
+          ) : null}
+        </>
       )}
-
-      <View style={[styles.hero, { maxHeight: height * 0.68 }]}>
-        {mediaKind === "video" ? (
-          <LoopClip uri={mediaUri} poster={posterUri || mediaUri} height={framed ? height * 0.68 : height} />
-        ) : (
-          <Image
-            source={{ uri: mediaUri }}
-            style={framed ? styles.subjectContain : StyleSheet.absoluteFill}
-            resizeMode={framed ? "contain" : "cover"}
-            accessibilityIgnoresInvertColors
-          />
-        )}
-      </View>
-
-      {layers.lookTint && layers.lookOpacity > 0 ? (
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: layers.lookTint, opacity: layers.lookOpacity }]} />
-      ) : null}
-      {layers.lightOverlay && layers.lightOpacity > 0 ? (
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: layers.lightOverlay, opacity: layers.lightOpacity }]} />
-      ) : null}
 
       {label ? (
         <View style={styles.soundPill}>
           <Waveform size={14} color="#FFF8F4" weight="fill" />
           <Text style={styles.soundText} numberOfLines={1}>
-            {label}
+            ♪ {label}
           </Text>
         </View>
       ) : null}
@@ -100,6 +89,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 58,
     right: 16,
+    zIndex: 4,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -116,5 +106,6 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFill,
+    zIndex: 5,
   },
 });

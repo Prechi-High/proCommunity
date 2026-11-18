@@ -5,8 +5,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import Svg, { Circle } from "react-native-svg";
 
-import { CameraRotate, Clock, Flask, Handbag, ImageSquare, Lightning, Sparkle, Sun, Waveform, X } from "@/components/icons";
+import { CameraRotate, Clock, Handbag, ImageSquare, Lightning, X } from "@/components/icons";
 import { CreatorToolSheets, type CreatorToolKind } from "@/components/moment/CreatorToolSheets";
+import { LiveMattingStage } from "@/components/moment/LiveMattingStage";
+import { StudioDock } from "@/components/moment/StudioDock";
 import { momentFlow } from "@/lib/moment/flowTheme";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
@@ -60,8 +62,6 @@ export function MomentCamera({
   const previewLayers = resolvePreviewLayers(creator);
   const lookTint =
     creator.lookId && creator.lookId !== "none" ? MOMENT_LOOKS.find((l) => l.id === creator.lookId)?.preview : undefined;
-  const sceneBg = previewLayers.backgroundMode === "scene" ? previewLayers.backgroundUri : null;
-  const blurBg = previewLayers.backgroundMode === "blur";
   const torchOn = torchMode === "on";
   const evening = kind === "evening";
   const cream = kind === "currently" || kind === "morning";
@@ -270,19 +270,6 @@ export function MomentCamera({
     shotRef.current(uri, asset.type === "video" ? "video" : "photo", captureMode === "multi");
   }
 
-  const toolActive = (kind: CreatorToolKind) =>
-    kind === "music"
-      ? Boolean(creator.soundId || creator.localSoundUri)
-      : kind === "looks"
-        ? Boolean(creator.lookId && creator.lookId !== "none")
-        : kind === "background"
-          ? previewLayers.backgroundMode !== "original"
-          : kind === "lighting"
-            ? Boolean(creator.lightingId)
-            : kind === "effects"
-              ? Boolean(creator.effectId && creator.effectId !== "none")
-              : false;
-
   const ringProgress = Math.min(1, recordMs / MAX_RECORD_MS);
   const ringSize = 84;
   const stroke = 4;
@@ -291,19 +278,12 @@ export function MomentCamera({
 
   return (
     <View style={{ flex: 1, backgroundColor: evening ? "#0A0610" : cream ? "#F9F5EB" : "#1A0A14" }}>
-      {sceneBg ? (
-        <Image source={{ uri: sceneBg }} style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} resizeMode="cover" accessibilityIgnoresInvertColors />
-      ) : null}
       {permission?.granted ? (
         <CameraView
           ref={camera}
           style={{
             flex: 1,
-            opacity: sceneBg ? 0.92 : 1,
-            marginHorizontal: sceneBg ? 12 : 0,
-            marginVertical: sceneBg ? 48 : 0,
-            borderRadius: sceneBg ? 20 : 0,
-            overflow: "hidden",
+            opacity: previewLayers.backgroundMode !== "original" ? 0.01 : 1,
           }}
           facing={facing}
           mode={captureMode === "video" ? "video" : "picture"}
@@ -312,21 +292,26 @@ export function MomentCamera({
           onCameraReady={() => setReady(true)}
         />
       ) : (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 28 }}>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: headerColor, textAlign: "center" }}>Allow camera to Unmask this moment</Text>
-          <Pressable onPress={() => void requestPermission()} style={{ marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999, backgroundColor: "#FF6B9D" }}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 28, gap: 12 }}>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: headerColor, textAlign: "center" }}>Allow camera — or upload media and style it live</Text>
+          <Pressable onPress={() => void requestPermission()} style={{ marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999, backgroundColor: "#FF6B9D" }}>
             <Text style={{ fontFamily: fonts.semibold, color: "#1A0A14" }}>Allow camera</Text>
+          </Pressable>
+          <Pressable onPress={() => void upload()} style={{ paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: "#FF8BC8" }}>
+            <Text style={{ fontFamily: fonts.semibold, color: "#FF8BC8" }}>Upload from device</Text>
           </Pressable>
         </View>
       )}
-      <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: config.tint }} />
-      {config.scrim ? <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: config.scrim }} /> : null}
-      {previewLayers.lightOverlay && previewLayers.lightOpacity > 0 ? (
-        <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: previewLayers.lightOverlay, opacity: previewLayers.lightOpacity }} />
-      ) : null}
-      {lookTint ? <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: lookTint, opacity: 0.18 }} /> : null}
-      {blurBg ? (
-        <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: "rgba(26,10,20,0.42)" }} />
+      <LiveMattingStage mediaKind="camera" creator={creator} />
+      {previewLayers.backgroundMode === "original" ? (
+        <>
+          <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: config.tint }} />
+          {config.scrim ? <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: config.scrim }} /> : null}
+          {previewLayers.lightOverlay && previewLayers.lightOpacity > 0 ? (
+            <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: previewLayers.lightOverlay, opacity: previewLayers.lightOpacity }} />
+          ) : null}
+          {lookTint ? <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: lookTint, opacity: 0.18 }} /> : null}
+        </>
       ) : null}
       {creator.gridEnabled ? (
         <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, opacity: 0.35 }}>
@@ -378,14 +363,9 @@ export function MomentCamera({
           </View>
         ) : null}
 
-        <View style={{ position: "absolute", right: 14, top: "30%", gap: 12, zIndex: 2 }}>
+        <View style={{ position: "absolute", right: 14, top: "28%", gap: 12, zIndex: 2 }}>
           {[
             { Icon: CameraRotate, active: false, onPress: () => setFacing((f) => (f === "front" ? "back" : "front")) },
-            { Icon: Waveform, active: toolActive("music"), onPress: () => setToolOpen("music") },
-            { Icon: Sparkle, active: toolActive("looks"), onPress: () => setToolOpen("looks") },
-            { Icon: ImageSquare, active: toolActive("background"), onPress: () => setToolOpen("background") },
-            { Icon: Flask, active: toolActive("effects"), onPress: () => setToolOpen("effects") },
-            { Icon: Sun, active: toolActive("lighting"), onPress: () => setToolOpen("lighting") },
             { Icon: Clock, active: Boolean(creator.timerSec || creator.gridEnabled), onPress: () => setToolOpen("timer") },
           ].map(({ Icon, active, onPress }, i) => (
             <Pressable
@@ -411,6 +391,10 @@ export function MomentCamera({
         </View>
 
         <View style={{ flex: 1 }} />
+
+        <View style={{ paddingHorizontal: 12, marginBottom: 10, zIndex: 3 }}>
+          <StudioDock creator={creator} open={toolOpen} onOpen={setToolOpen} />
+        </View>
 
         {captureMode === "multi" && lastThumb ? (
           <Pressable

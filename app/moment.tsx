@@ -31,7 +31,8 @@ import {
   type MomentMediaAsset,
 } from "@/lib/moment/types";
 import { pickDeviceMomentMedia } from "@/lib/moment/pickDeviceMomentMedia";
-import { SAMPLE_TRENDS } from "@/lib/moment/creatorCatalog";
+import { SAMPLE_TRENDS, selectedSoundDurationSec } from "@/lib/moment/creatorCatalog";
+import { resolveStudioSoundUri, UNMASK_IMAGE_BGM_MAX_SEC } from "@/lib/moment/studioAudio";
 import { useTrackingDraft } from "@/lib/tracking/draft";
 import { useAppStore } from "@/lib/store";
 
@@ -291,10 +292,7 @@ export default function Moment() {
   }, [clear, setDraft]);
 
   const pickKind = (k: MomentKind) => {
-    if (!uid) {
-      router.push({ pathname: "/(auth)/sign-in", params: { returnTo: "/moment" } } as Href);
-      return;
-    }
+    // Guests can still craft a draft locally; publish remains the auth gate.
     const keepMedia = draft.kind === k && draftHasMedia(draft);
     patch({
       draftId: keepMedia ? draft.draftId : `draft-${Date.now()}`,
@@ -394,6 +392,12 @@ export default function Moment() {
         trendId: draft.trendId,
         mediaSource: draft.mediaSource,
         coverPosterUri: draft.coverPosterUri,
+        soundUri: resolveStudioSoundUri(draft.creator) || undefined,
+        soundMaxMs:
+          draft.mediaKind === "photo"
+            ? Math.min(UNMASK_IMAGE_BGM_MAX_SEC, selectedSoundDurationSec(draft.creator) ?? UNMASK_IMAGE_BGM_MAX_SEC) * 1000
+            : undefined,
+        slideCaptions: draft.mediaAssets.map((a) => a.caption || "").filter(Boolean),
       });
       hapticSaved("moment");
       await clear();
@@ -504,6 +508,22 @@ export default function Moment() {
             patch({ mediaUri: "", mediaAssets: [], step: "intake" });
           }}
           onStyleTool={(tool) => setStudioTool(tool)}
+          onMediaAssetsChange={(mediaAssets) => {
+            const primary = mediaAssets[0];
+            patch({
+              mediaAssets,
+              mediaUri: primary?.uri ?? "",
+              mediaKind: primary?.kind ?? draft.mediaKind,
+            });
+          }}
+          onAddSlide={() => {
+            void (async () => {
+              const result = await pickDeviceMomentMedia({ videoFirst: false });
+              if (!result.ok) return;
+              const mediaAssets = [...(draft.mediaAssets.length ? draft.mediaAssets : [{ id: "primary", uri: draft.mediaUri, kind: draft.mediaKind }]), result.asset];
+              patch({ mediaAssets, mediaUri: mediaAssets[0].uri, mediaKind: mediaAssets[0].kind });
+            })();
+          }}
           context={draft.context}
           onContextChange={setContext}
           productSheetOpen={draft.productSheetOpen}
@@ -547,6 +567,7 @@ export default function Moment() {
         processingProgress={draft.renderProgress}
         renderError={draft.renderStatus === "error" ? draft.renderError : undefined}
         baked={draft.renderStatus === "ready" && Boolean(draft.renderedMediaUri)}
+        onCreatorChange={(creator) => patch({ creator, renderStatus: "idle", renderedMediaUri: undefined })}
         onRetryRender={() => {
           patch({ renderStatus: "idle", renderedMediaUri: undefined });
           void runRender();

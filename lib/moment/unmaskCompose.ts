@@ -10,6 +10,8 @@ import type { CreatorSettings } from "@/lib/moment/types";
 export type PreviewLayers = {
   backgroundUri: string | null;
   backgroundMode: "original" | "blur" | "scene";
+  /** Blur applied to the replacement scene (or portrait blur strength). */
+  sceneBlurAmount: number;
   lookTint: string | null;
   lookOpacity: number;
   lightOverlay: string | null;
@@ -53,9 +55,17 @@ export function resolvePreviewLayers(creator: CreatorSettings): PreviewLayers {
   const sound = creator.soundId ? (MOMENT_SOUNDS.find((s) => s.id === creator.soundId) ?? null) : null;
   const soundLabel = creator.localSoundName || sound?.title || (creator.localSoundUri ? "Your audio" : null);
 
+  const sceneBlurAmount =
+    typeof creator.backgroundBlurAmount === "number"
+      ? Math.max(0, Math.min(40, creator.backgroundBlurAmount))
+      : backgroundMode === "blur"
+        ? 22
+        : 0;
+
   return {
     backgroundUri,
     backgroundMode,
+    sceneBlurAmount,
     lookTint: look?.preview ?? null,
     lookOpacity: look ? 0.22 : 0,
     lightOverlay: light.opacity > 0 ? light.color : null,

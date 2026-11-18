@@ -16,6 +16,72 @@ async function loadImage(uri: string): Promise<HTMLImageElement> {
   });
 }
 
+/** Soft person cutout: RGB from source, alpha from MediaPipe mask. */
+async function cutoutPerson(
+  source: HTMLImageElement | HTMLVideoElement,
+  segmentation: PersonSegmentation,
+  w: number,
+  h: number,
+): Promise<HTMLCanvasElement> {
+  const mask = await bodySegmentation.toBinaryMask(
+    [segmentation],
+    { r: 255, g: 255, b: 255, a: 255 },
+    { r: 0, g: 0, b: 0, a: 0 },
+  );
+
+  const person = document.createElement("canvas");
+  person.width = w;
+  person.height = h;
+  const pctx = person.getContext("2d");
+  if (!pctx) return person;
+  pctx.drawImage(source, 0, 0, w, h);
+
+  const alpha = document.createElement("canvas");
+  alpha.width = w;
+  alpha.height = h;
+  const actx = alpha.getContext("2d");
+  if (!actx) return person;
+  actx.putImageData(mask, 0, 0);
+  // Soften edges so hair/shoulders blend
+  actx.filter = "blur(3px)";
+  actx.drawImage(alpha, 0, 0);
+  actx.filter = "none";
+
+  pctx.globalCompositeOperation = "destination-in";
+  pctx.drawImage(alpha, 0, 0);
+  pctx.globalCompositeOperation = "source-over";
+  return person;
+}
+
+function drawScene(
+  ctx: CanvasRenderingContext2D,
+  bg: HTMLImageElement | null,
+  w: number,
+  h: number,
+  blurPx: number,
+) {
+  if (!bg) {
+    ctx.fillStyle = "#1A0A14";
+    ctx.fillRect(0, 0, w, h);
+    return;
+  }
+  const scale = Math.max(w / bg.naturalWidth, h / bg.naturalHeight);
+  const bw = bg.naturalWidth * scale;
+  const bh = bg.naturalHeight * scale;
+  const bx = (w - bw) / 2;
+  const by = (h - bh) / 2;
+  if (blurPx > 0) {
+    ctx.save();
+    ctx.filter = `blur(${Math.min(40, blurPx)}px)`;
+    // Scale up slightly so blur doesn't show edges
+    const pad = blurPx * 2;
+    ctx.drawImage(bg, bx - pad, by - pad, bw + pad * 2, bh + pad * 2);
+    ctx.restore();
+  } else {
+    ctx.drawImage(bg, bx, by, bw, bh);
+  }
+}
+
 export async function compositePhotoFrame(
   canvas: HTMLCanvasElement,
   sourceUri: string,
@@ -34,15 +100,20 @@ export async function compositePhotoFrame(
   }
 
   const segmentation = await segmentPerson(img);
+  const person = await cutoutPerson(img, segmentation, canvas.width, canvas.height);
 
   if (layers.backgroundMode === "blur") {
-    await bodySegmentation.drawBokehEffect(canvas, img, [segmentation], 0.25, 28, 6);
+    // Blurred original as scene, person on top — clean isolation
+    const blurAmt = layers.sceneBlurAmount || 22;
+    drawScene(ctx, img, canvas.width, canvas.height, blurAmt);
+    ctx.drawImage(person, 0, 0);
     applyTint(ctx, canvas.width, canvas.height, layers);
     return;
   }
 
   const bg = layers.backgroundUri ? await loadImage(layers.backgroundUri) : null;
-  await drawSceneComposite(ctx, img, segmentation, bg, canvas.width, canvas.height);
+  drawScene(ctx, bg, canvas.width, canvas.height, layers.sceneBlurAmount || 0);
+  ctx.drawImage(person, 0, 0);
   applyTint(ctx, canvas.width, canvas.height, layers);
 }
 
@@ -66,50 +137,26 @@ export async function compositeVideoFrame(
   }
 
   const segmentation = await segmentPerson(video);
+  const person = await cutoutPerson(video, segmentation, w, h);
 
   if (layers.backgroundMode === "blur") {
-    await bodySegmentation.drawBokehEffect(canvas, video, [segmentation], 0.25, 24, 5);
+    // Snapshot current frame as blur scene
+    const snap = document.createElement("canvas");
+    snap.width = w;
+    snap.height = h;
+    snap.getContext("2d")?.drawImage(video, 0, 0, w, h);
+    const url = snap.toDataURL("image/jpeg", 0.7);
+    const bgImg = await loadImage(url);
+    drawScene(ctx, bgImg, w, h, layers.sceneBlurAmount || 22);
+    ctx.drawImage(person, 0, 0);
     applyTint(ctx, w, h, layers);
     return;
   }
 
   const bg = layers.backgroundUri ? await loadImage(layers.backgroundUri) : null;
-  await drawSceneComposite(ctx, video, segmentation, bg, w, h);
-  applyTint(ctx, w, h, layers);
-}
-
-async function drawSceneComposite(
-  ctx: CanvasRenderingContext2D,
-  source: HTMLImageElement | HTMLVideoElement,
-  segmentation: PersonSegmentation,
-  bg: HTMLImageElement | null,
-  w: number,
-  h: number,
-) {
-  if (bg) {
-    const scale = Math.max(w / bg.naturalWidth, h / bg.naturalHeight);
-    const bw = bg.naturalWidth * scale;
-    const bh = bg.naturalHeight * scale;
-    const bx = (w - bw) / 2;
-    const by = (h - bh) / 2;
-    ctx.drawImage(bg, bx, by, bw, bh);
-  } else {
-    ctx.fillStyle = "#1A0A14";
-    ctx.fillRect(0, 0, w, h);
-  }
-
-  const mask = await bodySegmentation.toBinaryMask(
-    [segmentation],
-    { r: 255, g: 255, b: 255, a: 255 },
-    { r: 0, g: 0, b: 0, a: 0 },
-  );
-  const person = document.createElement("canvas");
-  person.width = w;
-  person.height = h;
-  const personCtx = person.getContext("2d");
-  if (!personCtx) return;
-  await bodySegmentation.drawMask(person, source, mask, 1, 6);
+  drawScene(ctx, bg, w, h, layers.sceneBlurAmount || 0);
   ctx.drawImage(person, 0, 0);
+  applyTint(ctx, w, h, layers);
 }
 
 function applyTint(ctx: CanvasRenderingContext2D, w: number, h: number, layers: PreviewLayers) {

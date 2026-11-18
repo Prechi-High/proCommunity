@@ -1,17 +1,21 @@
-import { Pressable, Text, useWindowDimensions, View } from "react-native";
+import { useEffect } from "react";
+import { Image, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ArrowLeft, Handbag, ImageSquare, PencilSimple, Sparkle, Tag, Waveform } from "@/components/icons";
+import { CreatorToolSheets, type CreatorToolKind } from "@/components/moment/CreatorToolSheets";
+import { StudioDock } from "@/components/moment/StudioDock";
 import { UnmaskPreviewFrame } from "@/components/moment/UnmaskPreviewFrame";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
-import { selectedSoundLabel } from "@/lib/moment/creatorCatalog";
+import { selectedSoundDurationSec, selectedSoundLabel } from "@/lib/moment/creatorCatalog";
 import { momentFlow } from "@/lib/moment/flowTheme";
 import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
+import { playStudioSound, stopStudioSound, UNMASK_IMAGE_BGM_MAX_SEC } from "@/lib/moment/studioAudio";
 
 import { displayOccasion, productCount, type CreatorSettings, type MomentContext } from "@/lib/moment/types";
-import { Image } from "react-native";
+import { useState } from "react";
 
 const LINEUP_MAX = 5;
 
@@ -28,6 +32,7 @@ export function MomentStoryPreview({
   renderError,
   onRetryRender,
   baked,
+  onCreatorChange,
   onBack,
   onNext,
 }: {
@@ -43,11 +48,13 @@ export function MomentStoryPreview({
   renderError?: string;
   onRetryRender?: () => void;
   baked?: boolean;
+  onCreatorChange?: (next: CreatorSettings) => void;
   onBack: () => void;
   onNext: () => void;
 }) {
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const [toolOpen, setToolOpen] = useState<CreatorToolKind>(null);
   const config = momentConfig(kind);
   const occasionLabel = (displayOccasion(context) || "Date Night").toUpperCase();
   const products = context.products ?? [];
@@ -61,8 +68,32 @@ export function MomentStoryPreview({
         ? [{ productId: "primary", name: context.productName || "Product", image: context.productImage }]
         : [];
 
-  const toolbarHeight = 168 + insets.bottom;
+  const toolbarHeight = 210 + insets.bottom;
   const soundLabel = selectedSoundLabel(creator);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      if (!soundLabel) {
+        await stopStudioSound();
+        return;
+      }
+      const catalogSec = selectedSoundDurationSec(creator);
+      const maxMs =
+        mediaKind === "photo"
+          ? Math.min(UNMASK_IMAGE_BGM_MAX_SEC, catalogSec ?? UNMASK_IMAGE_BGM_MAX_SEC) * 1000
+          : undefined;
+      const ok = await playStudioSound(creator, {
+        loop: mediaKind === "photo" ? Boolean(catalogSec && catalogSec > UNMASK_IMAGE_BGM_MAX_SEC) : true,
+        maxMs,
+      });
+      if (!alive && !ok) return;
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [creator.soundId, creator.localSoundUri, mediaKind, soundLabel]);
+
   return (
     <View style={{ flex: 1, backgroundColor: "#1A0A14" }}>
       <UnmaskPreviewFrame
@@ -192,32 +223,38 @@ export function MomentStoryPreview({
       </UnmaskPreviewFrame>
 
       <SafeAreaView edges={["bottom"]} style={{ position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "rgba(0,0,0,0.55)" }}>
-        <View style={{ flexDirection: "row", justifyContent: "space-around", paddingVertical: 14 }}>
-          {[
-            { label: "Edit", Icon: PencilSimple, onPress: onBack },
-            { label: "Looks", Icon: Sparkle, onPress: onBack },
-            { label: "Text", text: "Aa" },
-            { label: "Stickers", Icon: Tag },
-            { label: "Music", Icon: Waveform, onPress: onBack },
-            { label: "Cover", Icon: ImageSquare, onPress: onBack },
-          ].map((item) => (
-            <Pressable
-              key={item.label}
-              onPress={() => {
-                hapticSelect();
-                item.onPress?.();
-              }}
-              style={{ alignItems: "center", gap: 4 }}
-            >
-              {"text" in item ? (
-                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: "#FFF8F4" }}>{item.text}</Text>
-              ) : (
-                <item.Icon size={22} color="#FFF8F4" />
-              )}
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: "#FFF8F4" }}>{item.label}</Text>
-            </Pressable>
-          ))}
-        </View>
+        {onCreatorChange ? (
+          <View style={{ paddingHorizontal: 12, paddingTop: 10 }}>
+            <StudioDock creator={creator} open={toolOpen} onOpen={setToolOpen} compact />
+          </View>
+        ) : (
+          <View style={{ flexDirection: "row", justifyContent: "space-around", paddingVertical: 14 }}>
+            {[
+              { label: "Edit", Icon: PencilSimple, onPress: onBack },
+              { label: "Looks", Icon: Sparkle, onPress: () => setToolOpen("looks") },
+              { label: "Text", text: "Aa" },
+              { label: "Stickers", Icon: Tag },
+              { label: "Music", Icon: Waveform, onPress: () => setToolOpen("music") },
+              { label: "Cover", Icon: ImageSquare, onPress: onBack },
+            ].map((item) => (
+              <Pressable
+                key={item.label}
+                onPress={() => {
+                  hapticSelect();
+                  item.onPress?.();
+                }}
+                style={{ alignItems: "center", gap: 4 }}
+              >
+                {"text" in item ? (
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: "#FFF8F4" }}>{item.text}</Text>
+                ) : (
+                  <item.Icon size={22} color="#FFF8F4" />
+                )}
+                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: "#FFF8F4" }}>{item.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
         {processing ? (
           <View style={{ marginHorizontal: 20, marginBottom: 8, padding: 12, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.35)", gap: 4 }}>
             <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4", textAlign: "center" }}>
@@ -254,6 +291,9 @@ export function MomentStoryPreview({
           <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#FFF8F4" }}>{processing ? "Processing…" : "Continue →"}</Text>
         </Pressable>
       </SafeAreaView>
+      {onCreatorChange ? (
+        <CreatorToolSheets open={toolOpen} creator={creator} onClose={() => setToolOpen(null)} onChange={onCreatorChange} mediaKind={mediaKind} />
+      ) : null}
     </View>
   );
 }

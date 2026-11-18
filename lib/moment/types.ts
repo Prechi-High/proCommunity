@@ -26,6 +26,8 @@ export type MomentMediaAsset = {
   source?: MomentMediaSource;
   /** Working preview — original uri is never replaced */
   posterUri?: string;
+  /** Per-slide caption for photo carousels */
+  caption?: string;
 };
 
 export type CreatorSettings = {
@@ -35,6 +37,8 @@ export type CreatorSettings = {
   lookId?: string;
   backgroundId?: string;
   localBackgroundUri?: string;
+  /** Blur strength applied to the replacement scene (0–40). */
+  backgroundBlurAmount?: number;
   lightingId?: string;
   beautyEnabled?: boolean;
   effectId?: string;
