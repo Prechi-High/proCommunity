@@ -30,6 +30,7 @@ export function MomentShareScreen({
   onSaveDraft,
   publishing,
   publishError,
+  renderHint,
   saveToJourney,
   onToggleJourney,
   audience,
@@ -47,6 +48,7 @@ export function MomentShareScreen({
   onSaveDraft?: () => void;
   publishing?: boolean;
   publishError?: string;
+  renderHint?: string;
   saveToJourney: boolean;
   onToggleJourney: (v: boolean) => void;
   audience: MomentAudience;
@@ -138,6 +140,9 @@ export function MomentShareScreen({
           </View>
         </View>
 
+        {renderHint && !publishError ? (
+          <Text style={{ marginHorizontal: 20, marginTop: 16, fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted }}>{renderHint}</Text>
+        ) : null}
         {publishError ? (
           <Text style={{ marginHorizontal: 20, marginTop: 16, fontFamily: fonts.regular, fontSize: 14, color: "#B42318" }}>{publishError}</Text>
         ) : null}

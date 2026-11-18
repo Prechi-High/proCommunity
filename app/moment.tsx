@@ -33,6 +33,7 @@ import {
 import { pickDeviceMomentMedia } from "@/lib/moment/pickDeviceMomentMedia";
 import { SAMPLE_TRENDS, selectedSoundDurationSec } from "@/lib/moment/creatorCatalog";
 import { resolveStudioSoundUri, UNMASK_IMAGE_BGM_MAX_SEC } from "@/lib/moment/studioAudio";
+import { pickPersistableMediaUri } from "@/lib/moment/safeMediaUri";
 import { useTrackingDraft } from "@/lib/tracking/draft";
 import { useAppStore } from "@/lib/store";
 
@@ -132,7 +133,7 @@ export default function Moment() {
       return snapshot.mediaUri;
     }
     const token = ++renderToken.current;
-    patch({ renderStatus: "processing", renderProgress: 0.02, renderError: "", renderLabel: "Preparing Unmask…" });
+    patch({ renderStatus: "processing", renderProgress: 0.02, renderError: "", renderLabel: "Removing background…" });
     try {
       const out = await renderUnmaskMedia(snapshot, (ratio, label) => {
         if (token !== renderToken.current) return;
@@ -149,11 +150,17 @@ export default function Moment() {
       return out.outputUri;
     } catch (e) {
       if (token !== renderToken.current) return snapshot.mediaUri;
+      const msg = e instanceof Error ? e.message : "Background processing timed out";
+      // Soft-fail: keep original media so publish still works
       patch({
         renderStatus: "error",
-        renderError: e instanceof Error ? e.message : "Could not finish Unmask processing.",
+        renderError: msg.includes("timeout")
+          ? "Background removal took too long on this device. You can retry or publish with the original background."
+          : "Couldn’t finish background removal. Retry or publish without it.",
+        renderedMediaUri: undefined,
+        renderProgress: 0,
       });
-      throw e;
+      return snapshot.mediaUri;
     }
   }, [draft, patch]);
 
@@ -251,7 +258,10 @@ export default function Moment() {
           /* poster optional */
         }
       }
+      // Avoid persisting giant binary into AsyncStorage — keep blob:/file uri for this session
       ingestMedia(asset, result.mediaKind, "device_upload");
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : "Upload failed. Try a shorter MP4.");
     } finally {
       setImporting(false);
       setReviewProcessing(false);
@@ -330,14 +340,18 @@ export default function Moment() {
     setPublishError("");
     try {
       let publishUri = draft.renderedMediaUri ?? draft.mediaUri;
-      if (needsUnmaskRender(draft) && draft.renderStatus !== "ready") {
-        publishUri = (await runRender()) ?? publishUri;
+      // Never block publish forever — try bake once, then fall back to original
+      if (needsUnmaskRender(draft) && draft.renderStatus !== "ready" && draft.renderStatus !== "error") {
+        try {
+          publishUri = (await runRender()) || publishUri;
+        } catch {
+          publishUri = draft.mediaUri;
+        }
+      } else if (draft.renderStatus === "error") {
+        publishUri = draft.mediaUri;
       }
-      if (draft.renderStatus === "error" && needsUnmaskRender(draft)) {
-        setPublishError(draft.renderError || "Unmask processing failed. Try again or reset background/music.");
-        setPublishing(false);
-        return;
-      }
+      publishUri = pickPersistableMediaUri(publishUri, draft.originalMediaUri || draft.mediaUri);
+
       const products = context.products ?? [];
       for (const p of products) {
         try {
@@ -391,7 +405,7 @@ export default function Moment() {
         stickers: [`${config.title} ${config.emoji}`, occasion].filter(Boolean) as string[],
         trendId: draft.trendId,
         mediaSource: draft.mediaSource,
-        coverPosterUri: draft.coverPosterUri,
+        coverPosterUri: pickPersistableMediaUri(draft.coverPosterUri, publishUri),
         soundUri: resolveStudioSoundUri(draft.creator) || undefined,
         soundMaxMs:
           draft.mediaKind === "photo"
@@ -400,11 +414,18 @@ export default function Moment() {
         slideCaptions: draft.mediaAssets.map((a) => a.caption || "").filter(Boolean),
       });
       hapticSaved("moment");
-      await clear();
+      try {
+        await clear();
+      } catch {
+        /* storage clear optional */
+      }
       setDraft(initialMomentBatchDraft());
       router.replace("/community" as Href);
-    } catch {
-      setPublishError("Publish didn’t finish. Your draft is still here — tap Publish to retry.");
+    } catch (e) {
+      const detail = e instanceof Error && e.name === "QuotaExceededError"
+        ? "Storage is full — try a smaller photo or clear old drafts."
+        : "Publish didn’t finish. Your draft is still here — tap Publish to retry.";
+      setPublishError(detail);
     } finally {
       setPublishing(false);
     }
@@ -591,6 +612,7 @@ export default function Moment() {
         mediaUri={previewUri}
         context={draft.context}
         creator={draft.creator}
+        renderHint={draft.renderStatus === "error" ? draft.renderError : draft.renderStatus === "processing" ? draft.renderLabel : undefined}
         caption={draft.caption ?? ""}
         onCaptionChange={(caption) => patch({ caption })}
         onOpenProducts={() => patch({ step: "setup", productSheetOpen: true })}

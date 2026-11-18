@@ -35,7 +35,14 @@ export function useTrackingDraft<T extends object>(
     if (!ready) return;
     const t = setTimeout(() => {
       if (!cleared.current)
-        void AsyncStorage.setItem(key, JSON.stringify(value));
+        try {
+          const raw = JSON.stringify(value);
+          // Skip persisting oversized payloads (e.g. accidental data: video URIs)
+          if (raw.length > 2_500_000) return;
+          void AsyncStorage.setItem(key, raw);
+        } catch {
+          /* QuotaExceeded — keep in-memory draft */
+        }
     }, 350);
     return () => clearTimeout(t);
   }, [key, value, ready]);

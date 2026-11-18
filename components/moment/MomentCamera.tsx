@@ -263,11 +263,28 @@ export function MomentCamera({
   }
 
   async function upload() {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images", "videos"], quality: 0.75, base64: true });
-    if (result.canceled) return;
-    const asset = result.assets[0];
-    const uri = asset.base64 ? `data:${asset.mimeType || "image/jpeg"};base64,${asset.base64}` : asset.uri;
-    shotRef.current(uri, asset.type === "video" ? "video" : "photo", captureMode === "multi");
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images", "videos"],
+        quality: 0.75,
+        base64: false, // never base64 videos — hangs web + blows storage
+      });
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+      const mime = (asset.mimeType || "").toLowerCase();
+      const isVideo = asset.type === "video" || mime.startsWith("video/");
+      const uri =
+        Platform.OS === "web" && asset.file
+          ? URL.createObjectURL(asset.file)
+          : asset.uri;
+      if (!uri) {
+        setError("Couldn’t read that file.");
+        return;
+      }
+      shotRef.current(uri, isVideo ? "video" : "photo", captureMode === "multi");
+    } catch {
+      setError("Upload failed. Try a shorter MP4.");
+    }
   }
 
   const ringProgress = Math.min(1, recordMs / MAX_RECORD_MS);
@@ -283,7 +300,7 @@ export function MomentCamera({
           ref={camera}
           style={{
             flex: 1,
-            opacity: previewLayers.backgroundMode !== "original" ? 0.01 : 1,
+            opacity: previewLayers.backgroundMode !== "original" ? 0.88 : 1,
           }}
           facing={facing}
           mode={captureMode === "video" ? "video" : "picture"}

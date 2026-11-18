@@ -20,10 +20,15 @@ export function ScrubVideo({
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [barW, setBarW] = useState(1);
+  const [loadError, setLoadError] = useState("");
 
   const onStatus = useCallback(
     (status: AVPlaybackStatus) => {
-      if (!status.isLoaded) return;
+      if (!status.isLoaded) {
+        if ("error" in status && status.error) setLoadError("Couldn’t play this video. Try MP4.");
+        return;
+      }
+      setLoadError("");
       setPlaying(status.isPlaying);
       setPositionMs(status.positionMillis);
       if (status.durationMillis) setDurationMs(status.durationMillis);
@@ -60,9 +65,16 @@ export function ScrubVideo({
         resizeMode={ResizeMode.CONTAIN}
         shouldPlay={false}
         isLooping={false}
+        useNativeControls={false}
         onPlaybackStatusUpdate={onStatus}
+        onError={() => setLoadError("Couldn’t play this video. Try a shorter MP4.")}
         style={{ flex: 1, width: "100%" }}
       />
+      {loadError ? (
+        <Text style={{ position: "absolute", alignSelf: "center", top: "46%", fontFamily: fonts.medium, fontSize: 13, color: "#FFB4B4", paddingHorizontal: 16, textAlign: "center" }}>
+          {loadError}
+        </Text>
+      ) : null}
       <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 10, backgroundColor: "rgba(0,0,0,0.65)" }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <Pressable
