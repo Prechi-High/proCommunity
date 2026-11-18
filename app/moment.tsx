@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Platform, View } from "react-native";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 
 import { AddProductSheet } from "@/components/moment/AddProductSheet";
+import { CreatorToolSheets, type CreatorToolKind } from "@/components/moment/CreatorToolSheets";
 import { ChooseMoment } from "@/components/moment/ChooseMoment";
+import { MomentIntake } from "@/components/moment/MomentIntake";
+import { MomentUploadedReview } from "@/components/moment/MomentUploadedReview";
 import { MomentCamera } from "@/components/moment/MomentCamera";
 import { MomentComplete } from "@/components/moment/MomentComplete";
 import { MomentShareScreen } from "@/components/moment/MomentShareScreen";
@@ -15,12 +19,14 @@ import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
 import {
   displayOccasion,
   initialMomentBatchDraft,
+  draftHasMedia,
   normalizeMomentBatchDraft,
   type MomentAttachedProduct,
   type MomentBatchDraft,
   type MomentContext,
   type MomentMediaAsset,
 } from "@/lib/moment/types";
+import { pickDeviceMomentMedia } from "@/lib/moment/pickDeviceMomentMedia";
 import { SAMPLE_TRENDS } from "@/lib/moment/creatorCatalog";
 import { useTrackingDraft } from "@/lib/tracking/draft";
 import { useAppStore } from "@/lib/store";
@@ -36,6 +42,10 @@ export default function Moment() {
   const { value: draft, setValue: setDraft, ready, clear } = useTrackingDraft<MomentBatchDraft>(storageKey, initialMomentBatchDraft());
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [reviewProcessing, setReviewProcessing] = useState(false);
+  const [studioTool, setStudioTool] = useState<CreatorToolKind>(null);
   const healedDraft = useRef(false);
 
   useEffect(() => {
@@ -73,7 +83,7 @@ export default function Moment() {
         ...d,
         trendId: t.id,
         kind: t.momentKind,
-        step: "camera",
+        step: "intake",
         creator: {
           backgroundId: "original",
           captureSpeed: 1,
@@ -97,7 +107,7 @@ export default function Moment() {
       patch({
         trendId: t.id,
         kind: t.momentKind,
-        step: "camera",
+        step: "intake",
         creator: {
           backgroundId: "original",
           captureSpeed: 1,
@@ -110,9 +120,24 @@ export default function Moment() {
     [patch],
   );
 
+  const ingestMedia = useCallback(
+    (asset: MomentMediaAsset, mk: "photo" | "video", source: "camera" | "device_upload") => {
+      patch({
+        mediaSource: source,
+        mediaUri: asset.uri,
+        originalMediaUri: asset.uri,
+        mediaKind: mk,
+        mediaAssets: [asset],
+        coverPosterUri: asset.posterUri,
+        step: source === "device_upload" ? "review" : "setup",
+      });
+    },
+    [patch],
+  );
+
   const recordCapture = useCallback(
     (uri: string, mk: "photo" | "video", multi: boolean) => {
-      const asset: MomentMediaAsset = { id: `cap-${Date.now()}`, uri, kind: mk };
+      const asset: MomentMediaAsset = { id: `cap-${Date.now()}`, uri, kind: mk, source: "camera" };
       if (multi) {
         setDraft((d) =>
           normalizeMomentBatchDraft({
@@ -125,10 +150,38 @@ export default function Moment() {
         );
         return;
       }
-      patch({ mediaUri: uri, originalMediaUri: uri, mediaKind: mk, mediaAssets: [asset], step: "setup" });
+      ingestMedia(asset, mk, "camera");
     },
-    [patch, setDraft],
+    [ingestMedia, patch, setDraft],
   );
+
+  const uploadFromDevice = useCallback(async () => {
+    if (!draft.kind) return;
+    setImportError("");
+    setImporting(true);
+    try {
+      const videoFirst = momentConfig(draft.kind).videoFirst ?? false;
+      const result = await pickDeviceMomentMedia({ videoFirst });
+      if (!result.ok) {
+        if (result.reason !== "cancelled" && result.message) setImportError(result.message);
+        return;
+      }
+      setReviewProcessing(true);
+      const asset = { ...result.asset };
+      if (asset.kind === "video" && Platform.OS !== "web") {
+        try {
+          const thumb = await VideoThumbnails.getThumbnailAsync(asset.uri, { time: 0 });
+          asset.posterUri = thumb.uri;
+        } catch {
+          /* poster optional */
+        }
+      }
+      ingestMedia(asset, result.mediaKind, "device_upload");
+    } finally {
+      setImporting(false);
+      setReviewProcessing(false);
+    }
+  }, [draft.kind, ingestMedia]);
 
   const setContext = useCallback(
     (context: MomentContext) => setDraft((d) => ({ ...d, context })),
@@ -168,12 +221,22 @@ export default function Moment() {
       router.push({ pathname: "/(auth)/sign-in", params: { returnTo: "/moment" } } as Href);
       return;
     }
+    const keepMedia = draft.kind === k && draftHasMedia(draft);
     patch({
-      draftId: `draft-${Date.now()}`,
+      draftId: keepMedia ? draft.draftId : `draft-${Date.now()}`,
       kind: k,
-      step: "camera",
-      mediaUri: "",
-      context: k === "grwm" ? { occasion: "Date Night" } : {},
+      step: "intake",
+      ...(keepMedia
+        ? {}
+        : {
+            mediaUri: "",
+            mediaAssets: [],
+            originalMediaUri: undefined,
+            coverTimeMs: undefined,
+            coverPosterUri: undefined,
+            mediaSource: "camera" as const,
+          }),
+      context: k === "grwm" ? { ...(keepMedia ? draft.context : {}), occasion: draft.context.occasion || "Date Night" } : keepMedia ? draft.context : {},
     });
   };
 
@@ -246,6 +309,8 @@ export default function Moment() {
         saveToJourney,
         stickers: [`${config.title} ${config.emoji}`, occasion].filter(Boolean) as string[],
         trendId: draft.trendId,
+        mediaSource: draft.mediaSource,
+        coverPosterUri: draft.coverPosterUri,
       });
       hapticSaved("moment");
       await clear();
@@ -278,6 +343,38 @@ export default function Moment() {
     );
   }
 
+  if (draft.step === "intake" && draft.kind) {
+    const canContinue = draftHasMedia(draft);
+    return (
+      <MomentIntake
+        kind={draft.kind}
+        hasExistingDraft={canContinue}
+        importing={importing}
+        importError={importError}
+        onBack={() => patch({ step: "choose", kind: null })}
+        onRecord={() => patch({ step: "camera", mediaSource: "camera" })}
+        onUpload={() => void uploadFromDevice()}
+        onContinueDraft={() => patch({ step: draft.mediaSource === "device_upload" ? "review" : "setup" })}
+      />
+    );
+  }
+
+  if (draft.step === "review" && draft.kind && draft.mediaUri) {
+    const asset = draft.mediaAssets[0] ?? { id: "primary", uri: draft.mediaUri, kind: draft.mediaKind, source: draft.mediaSource };
+    return (
+      <MomentUploadedReview
+        asset={{ ...asset, uri: draft.mediaUri, kind: draft.mediaKind }}
+        processing={reviewProcessing}
+        error={importError || undefined}
+        onBack={() => patch({ step: "intake" })}
+        onRemove={() => patch({ mediaUri: "", mediaAssets: [], originalMediaUri: undefined, coverPosterUri: undefined, step: "intake" })}
+        onReselect={() => void uploadFromDevice()}
+        onCover={(coverPosterUri, coverTimeMs) => patch({ coverPosterUri, coverTimeMs })}
+        onContinue={() => patch({ step: "setup" })}
+      />
+    );
+  }
+
   if (draft.step === "camera" && draft.kind) {
     return (
       <View style={{ flex: 1 }}>
@@ -289,8 +386,7 @@ export default function Moment() {
           onClose={() => {
             if (draft.mediaUri) patch({ step: "setup" });
             else confirmDiscard(() => {
-              resetFlow();
-              router.replace("/" as Href);
+              patch({ step: "intake" });
             });
           }}
           onAddProduct={() => patch({ productSheetOpen: true })}
@@ -317,9 +413,11 @@ export default function Moment() {
           mediaUri={draft.mediaUri}
           mediaKind={draft.mediaKind}
           mediaAssets={draft.mediaAssets}
+          mediaSource={draft.mediaSource}
           onRemoveMedia={() => {
-            patch({ mediaUri: "", mediaAssets: [], step: "camera" });
+            patch({ mediaUri: "", mediaAssets: [], step: "intake" });
           }}
+          onStyleTool={(tool) => setStudioTool(tool)}
           context={draft.context}
           onContextChange={setContext}
           productSheetOpen={draft.productSheetOpen}
@@ -329,11 +427,20 @@ export default function Moment() {
             resetFlow();
             router.replace("/" as Href);
           })}
-          onBack={() => patch({ step: "camera" })}
+          onBack={() => patch({ step: draft.mediaSource === "device_upload" ? "review" : "camera" })}
           onNext={(ctx) => {
             setContext(ctx);
             patch({ productSheetOpen: false, step: "preview" });
           }}
+        />
+        <CreatorToolSheets
+          open={studioTool}
+          creator={draft.creator}
+          onClose={() => setStudioTool(null)}
+          onChange={(creator) => patch({ creator })}
+          mediaKind={draft.mediaKind}
+          audioBehavior={draft.audioBehavior}
+          onAudioBehaviorChange={(audioBehavior) => patch({ audioBehavior })}
         />
       </>
     );
@@ -346,6 +453,7 @@ export default function Moment() {
         mediaUri={draft.mediaUri}
         mediaKind={draft.mediaKind}
         creator={draft.creator}
+        coverPosterUri={draft.coverPosterUri}
         context={draft.context}
         onBack={() => patch({ step: "setup" })}
         onNext={() => patch({ step: "share" })}

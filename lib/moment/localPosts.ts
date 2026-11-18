@@ -38,6 +38,8 @@ export type LocalMoment = {
   audience?: "everyone" | "followers" | "private";
   saveToJourney?: boolean;
   trendId?: string;
+  mediaSource?: "camera" | "device_upload";
+  coverPosterUri?: string;
   createdAt: string;
 };
 

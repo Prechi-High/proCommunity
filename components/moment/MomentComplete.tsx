@@ -16,7 +16,8 @@ import { CaretDown } from "@/components/icons";
 import { MOOD_LOOKS, SKIN_GOALS, SKIN_TYPES } from "@/lib/moment/creatorCatalog";
 import { GRWM_OCCASION_TILES } from "@/lib/moment/grwmOccasions";
 import { USAGE_DURATION, momentConfig, type MomentKind } from "@/lib/moment/kinds";
-import type { MomentAttachedProduct, MomentContext, MomentMediaAsset } from "@/lib/moment/types";
+import type { CreatorToolKind } from "@/components/moment/CreatorToolSheets";
+import type { MomentAttachedProduct, MomentContext, MomentMediaAsset, MomentMediaSource } from "@/lib/moment/types";
 import { useRoomTone } from "@/lib/social/roomTone";
 import { useAppStore } from "@/lib/store";
 
@@ -33,7 +34,9 @@ export function MomentComplete({
   mediaUri,
   mediaKind,
   mediaAssets = [],
+  mediaSource = "camera",
   onRemoveMedia,
+  onStyleTool,
   onBack,
   onNext,
   context,
@@ -47,7 +50,9 @@ export function MomentComplete({
   mediaUri: string;
   mediaKind: "photo" | "video";
   mediaAssets?: MomentMediaAsset[];
+  mediaSource?: MomentMediaSource;
   onRemoveMedia?: () => void;
+  onStyleTool?: (tool: CreatorToolKind) => void;
   onBack: () => void;
   onNext: (ctx: MomentContext) => void;
   context: MomentContext;
@@ -195,6 +200,35 @@ export function MomentComplete({
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 24 }}>
+          {onStyleTool ? (
+            <View style={{ gap: 8 }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.muted }}>
+                {mediaSource === "device_upload" ? "Unmask styling for your upload" : "Studio tools"}
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {(
+                  [
+                    ["music", "Music"],
+                    ["looks", "Looks"],
+                    ["background", "Background"],
+                    ["lighting", "Light"],
+                    ["effects", "FX"],
+                  ] as const
+                ).map(([tool, label]) => (
+                  <Pressable
+                    key={tool}
+                    onPress={() => {
+                      hapticSelect();
+                      onStyleTool(tool);
+                    }}
+                    style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, backgroundColor: momentFlow.pillPink }}
+                  >
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: momentFlow.accent }}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
           {kind !== "grwm" ? (
             <View style={{ borderRadius: livelyRadii.hero, overflow: "hidden", height: 200 }}>
               <Image source={{ uri: mediaUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />

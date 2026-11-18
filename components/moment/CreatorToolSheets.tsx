@@ -17,7 +17,7 @@ import {
 } from "@/lib/moment/creatorCatalog";
 import { pickLocalAudio, pickLocalBackground } from "@/lib/moment/localMediaPicker";
 import { momentFlow } from "@/lib/moment/flowTheme";
-import type { CreatorSettings } from "@/lib/moment/types";
+import type { CreatorSettings, MomentAudioBehavior } from "@/lib/moment/types";
 
 export type CreatorToolKind = "music" | "looks" | "background" | "lighting" | "beauty" | "effects" | "timer" | null;
 
@@ -38,16 +38,28 @@ function rowCard(children: React.ReactNode, active?: boolean) {
   );
 }
 
+const AUDIO_MIX: { id: MomentAudioBehavior; label: string; hint: string }[] = [
+  { id: "keep_original", label: "Keep video audio", hint: "Preserve sound from your clip" },
+  { id: "replace", label: "Replace with music", hint: "Use only the selected Unmask track" },
+  { id: "mix", label: "Mix both", hint: "Blend clip audio with music where supported" },
+];
+
 export function CreatorToolSheets({
   open,
   creator,
   onClose,
   onChange,
+  mediaKind,
+  audioBehavior = "keep_original",
+  onAudioBehaviorChange,
 }: {
   open: CreatorToolKind;
   creator: CreatorSettings;
   onClose: () => void;
   onChange: (next: CreatorSettings) => void;
+  mediaKind?: "photo" | "video";
+  audioBehavior?: MomentAudioBehavior;
+  onAudioBehaviorChange?: (next: MomentAudioBehavior) => void;
 }) {
   const titles: Record<Exclude<CreatorToolKind, null>, string> = {
     music: "Music",
@@ -187,6 +199,28 @@ export function CreatorToolSheets({
               <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: momentFlow.accent }}>From my device</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: momentFlow.muted, textAlign: "center" }}>Attach a local audio file to this Unmask draft.</Text>
             </Pressable>
+            {mediaKind === "video" && onAudioBehaviorChange ? (
+              <View style={{ gap: 8, marginTop: 4 }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.muted }}>Uploaded video audio</Text>
+                {AUDIO_MIX.map((row) => (
+                  <Pressable
+                    key={row.id}
+                    onPress={() => {
+                      hapticSelect();
+                      onAudioBehaviorChange(row.id);
+                    }}
+                  >
+                    {rowCard(
+                      <View style={{ gap: 2 }}>
+                        <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: momentFlow.ink }}>{row.label}</Text>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: momentFlow.muted }}>{row.hint}</Text>
+                      </View>,
+                      audioBehavior === row.id,
+                    )}
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
           </>
         ) : null}
 

@@ -10,11 +10,22 @@ export type MomentAttachedProduct = {
   verificationState: "confirmed" | "pending";
 };
 
+export type MomentMediaSource = "camera" | "device_upload";
+
+export type MomentAudioBehavior = "keep_original" | "replace" | "mix";
+
 export type MomentMediaAsset = {
   id: string;
   uri: string;
   kind: "photo" | "video";
   durationMs?: number;
+  width?: number;
+  height?: number;
+  fileSizeBytes?: number;
+  mimeType?: string;
+  source?: MomentMediaSource;
+  /** Working preview — original uri is never replaced */
+  posterUri?: string;
 };
 
 export type CreatorSettings = {
@@ -52,17 +63,21 @@ export type MomentContext = {
 
 export type MomentAudience = "everyone" | "followers" | "private";
 
-export type MomentFlowStep = "choose" | "camera" | "setup" | "preview" | "share";
+export type MomentFlowStep = "choose" | "intake" | "camera" | "review" | "setup" | "preview" | "share";
 
 export type MomentBatchDraft = {
   draftId: string;
   step: MomentFlowStep;
   kind: MomentKind | null;
+  mediaSource: MomentMediaSource;
   mediaUri: string;
   /** Raw capture kept for reverting background/look processing. */
   originalMediaUri?: string;
   mediaKind: "photo" | "video";
   mediaAssets: MomentMediaAsset[];
+  coverTimeMs?: number;
+  coverPosterUri?: string;
+  audioBehavior?: MomentAudioBehavior;
   context: MomentContext;
   audience: MomentAudience;
   saveToJourney: boolean;
@@ -77,6 +92,7 @@ export function initialMomentBatchDraft(): MomentBatchDraft {
     draftId: `draft-${Date.now()}`,
     step: "choose",
     kind: null,
+    mediaSource: "camera",
     mediaUri: "",
     mediaKind: "photo",
     mediaAssets: [],
@@ -97,7 +113,12 @@ export function normalizeMomentBatchDraft(raw: Partial<MomentBatchDraft> & { ste
     draftId: raw.draftId ?? `draft-${Date.now()}`,
     step: raw.step ?? "choose",
     kind: raw.kind ?? null,
+    mediaSource: raw.mediaSource ?? "camera",
     mediaUri: raw.mediaUri ?? "",
+    originalMediaUri: raw.originalMediaUri,
+    coverTimeMs: raw.coverTimeMs,
+    coverPosterUri: raw.coverPosterUri,
+    audioBehavior: raw.audioBehavior ?? "keep_original",
     mediaKind: raw.mediaKind ?? "photo",
     mediaAssets: Array.isArray(raw.mediaAssets) ? raw.mediaAssets : [],
     context: raw.context ?? {},
@@ -114,7 +135,15 @@ export function normalizeMomentBatchDraft(raw: Partial<MomentBatchDraft> & { ste
     merged.step = merged.kind ? "camera" : "choose";
   }
   if (merged.step === "camera" && !merged.kind) merged.step = "choose";
+  if (merged.step === "intake" && !merged.kind) merged.step = "choose";
+  if (merged.step === "review" && !merged.mediaUri) {
+    merged.step = merged.kind ? "intake" : "choose";
+  }
   return merged;
+}
+
+export function draftHasMedia(draft: MomentBatchDraft): boolean {
+  return Boolean(draft.mediaUri && draft.mediaAssets?.length);
 }
 
 export function displayOccasion(ctx: MomentContext): string | undefined {

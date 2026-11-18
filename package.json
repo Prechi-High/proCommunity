@@ -50,6 +50,7 @@
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.3",
+    "expo-video-thumbnails": "~57.0.2",
     "expo-web-browser": "~57.0.3",
     "livekit-client": "^2.23.0",
     "livekit-server-sdk": "2.19.1",

@@ -21,6 +21,7 @@ export function MomentStoryPreview({
   mediaKind,
   context,
   creator,
+  coverPosterUri,
   onBack,
   onNext,
 }: {
@@ -29,6 +30,7 @@ export function MomentStoryPreview({
   mediaKind: "photo" | "video";
   context: MomentContext;
   creator: CreatorSettings;
+  coverPosterUri?: string;
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -52,7 +54,7 @@ export function MomentStoryPreview({
 
   return (
     <View style={{ flex: 1, backgroundColor: "#1A0A14" }}>
-      <UnmaskPreviewFrame mediaUri={mediaUri} mediaKind={mediaKind} creator={creator} soundLabel={soundLabel}>
+      <UnmaskPreviewFrame mediaUri={mediaUri} mediaKind={mediaKind} creator={creator} soundLabel={soundLabel} posterUri={coverPosterUri}>
         <SafeAreaView edges={["top"]} style={{ position: "absolute", zIndex: 2, left: 0, right: 0 }}>
           <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8 }}>
             <Pressable onPress={onBack} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>

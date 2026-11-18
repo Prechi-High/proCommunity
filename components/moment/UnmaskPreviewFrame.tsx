@@ -11,12 +11,14 @@ export function UnmaskPreviewFrame({
   mediaKind,
   creator,
   soundLabel,
+  posterUri,
   children,
 }: {
   mediaUri: string;
   mediaKind: "photo" | "video";
   creator: CreatorSettings;
   soundLabel?: string | null;
+  posterUri?: string;
   children?: React.ReactNode;
 }) {
   const { height } = useWindowDimensions();
@@ -45,7 +47,7 @@ export function UnmaskPreviewFrame({
 
       <View style={[styles.hero, { maxHeight: height * 0.68 }]}>
         {mediaKind === "video" ? (
-          <LoopClip uri={mediaUri} poster={mediaUri} height={framed ? height * 0.68 : height} />
+          <LoopClip uri={mediaUri} poster={posterUri || mediaUri} height={framed ? height * 0.68 : height} />
         ) : (
           <Image
             source={{ uri: mediaUri }}
