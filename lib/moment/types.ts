@@ -84,6 +84,29 @@ export function initialMomentBatchDraft(): MomentBatchDraft {
   };
 }
 
+/** Heal AsyncStorage drafts from older app versions so the flow never crashes mid-step. */
+export function normalizeMomentBatchDraft(raw: Partial<MomentBatchDraft> & { step?: MomentFlowStep }): MomentBatchDraft {
+  const base = initialMomentBatchDraft();
+  const merged: MomentBatchDraft = {
+    ...base,
+    ...raw,
+    context: { ...base.context, ...(raw.context ?? {}) },
+    creator: { ...base.creator, ...(raw.creator ?? {}) },
+    mediaAssets: Array.isArray(raw.mediaAssets) ? raw.mediaAssets : [],
+    caption: typeof raw.caption === "string" ? raw.caption : "",
+    audience: raw.audience ?? base.audience,
+    saveToJourney: raw.saveToJourney ?? base.saveToJourney,
+    productSheetOpen: raw.productSheetOpen ?? false,
+  };
+
+  if (merged.step !== "choose" && !merged.kind) merged.step = "choose";
+  if (["setup", "preview", "share"].includes(merged.step) && !merged.mediaUri) {
+    merged.step = merged.kind ? "camera" : "choose";
+  }
+  if (merged.step === "camera" && !merged.kind) merged.step = "choose";
+  return merged;
+}
+
 export function displayOccasion(ctx: MomentContext): string | undefined {
   if (ctx.occasion === "My Own" && ctx.customOccasion?.trim()) return ctx.customOccasion.trim();
   return ctx.occasion;

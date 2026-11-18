@@ -18,7 +18,7 @@ const MAX_RECORD_MS = 60000;
 
 export function MomentCamera({
   kind,
-  creator,
+  creator = { backgroundId: "original", captureSpeed: 1 },
   onCreatorChange,
   lastThumb,
   onClose,
@@ -27,7 +27,7 @@ export function MomentCamera({
   onAddProduct,
 }: {
   kind: MomentKind;
-  creator: CreatorSettings;
+  creator?: CreatorSettings;
   onCreatorChange: (next: CreatorSettings) => void;
   lastThumb?: string;
   onClose: () => void;

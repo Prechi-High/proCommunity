@@ -174,20 +174,20 @@ export function YouProfileHub() {
         </View>
 
         {tab === "unmask" ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 16, paddingTop: 16 }}>
+          <View style={{ flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingTop: 16 }}>
             {tiles.map((tile) => {
-              const hasPhoto = "image" in tile && tile.image;
+              const photoUri = "image" in tile && tile.image ? tile.image : null;
               return (
                 <Pressable key={tile.label} onPress={() => router.push(tile.href as Href)} style={{ width: 140, height: 200, borderRadius: 18, overflow: "hidden", backgroundColor: youVision.maroon }}>
                   <View style={{ flex: 1 }}>
-                    {hasPhoto ? (
-                      <Image source={{ uri: tile.image }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors />
+                    {photoUri ? (
+                      <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors />
                     ) : (
                       <LinearGradient colors={[...tile.grad]} style={StyleSheet.absoluteFill} />
                     )}
                     <LinearGradient
-                      colors={hasPhoto ? ["rgba(0,0,0,0.05)", "rgba(0,0,0,0.75)"] : [...tile.grad, tile.grad[1] ?? tile.grad[0]]}
-                      locations={hasPhoto ? [0.35, 1] : undefined}
+                      colors={photoUri ? ["rgba(0,0,0,0.05)", "rgba(0,0,0,0.75)"] : [tile.grad[0], tile.grad[1] ?? tile.grad[0]]}
+                      locations={photoUri ? [0.35, 1] : undefined}
                       style={{ flex: 1, padding: 14, justifyContent: "flex-end" }}
                     >
                       <tile.Icon size={22} color="#FFF" weight="fill" />
@@ -198,7 +198,7 @@ export function YouProfileHub() {
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
         ) : null}
 
         {tab === "products" ? (

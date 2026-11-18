@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Platform, View } from "react-native";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 
@@ -15,6 +15,7 @@ import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
 import {
   displayOccasion,
   initialMomentBatchDraft,
+  normalizeMomentBatchDraft,
   type MomentAttachedProduct,
   type MomentBatchDraft,
   type MomentContext,
@@ -35,8 +36,18 @@ export default function Moment() {
   const { value: draft, setValue: setDraft, ready, clear } = useTrackingDraft<MomentBatchDraft>(storageKey, initialMomentBatchDraft());
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState("");
+  const healedDraft = useRef(false);
 
-  const patch = useCallback((part: Partial<MomentBatchDraft>) => setDraft((d) => ({ ...d, ...part })), [setDraft]);
+  useEffect(() => {
+    if (!ready || healedDraft.current) return;
+    healedDraft.current = true;
+    setDraft((d) => normalizeMomentBatchDraft(d));
+  }, [ready, setDraft]);
+
+  const patch = useCallback(
+    (part: Partial<MomentBatchDraft>) => setDraft((d) => normalizeMomentBatchDraft({ ...d, ...part })),
+    [setDraft],
+  );
 
   const applyTrend = useCallback(
     (trendId: string) => {
@@ -62,12 +73,14 @@ export default function Moment() {
     (uri: string, mk: "photo" | "video", multi: boolean) => {
       const asset: MomentMediaAsset = { id: `cap-${Date.now()}`, uri, kind: mk };
       if (multi) {
-        setDraft((d) => ({
-          ...d,
-          mediaAssets: [...d.mediaAssets, asset],
-          mediaUri: d.mediaUri || uri,
-          mediaKind: mk,
-        }));
+        setDraft((d) =>
+          normalizeMomentBatchDraft({
+            ...d,
+            mediaAssets: [...(d.mediaAssets ?? []), asset],
+            mediaUri: d.mediaUri || uri,
+            mediaKind: mk,
+          }),
+        );
         return;
       }
       patch({ mediaUri: uri, mediaKind: mk, mediaAssets: [asset], step: "setup" });
@@ -236,7 +249,7 @@ export default function Moment() {
           kind={draft.kind}
           creator={draft.creator}
           onCreatorChange={(creator) => patch({ creator })}
-          lastThumb={draft.mediaAssets.at(-1)?.uri ?? draft.mediaUri}
+          lastThumb={draft.mediaAssets?.at(-1)?.uri ?? draft.mediaUri}
           onClose={() => {
             if (draft.mediaUri) patch({ step: "setup" });
             else confirmDiscard(() => {
@@ -309,7 +322,7 @@ export default function Moment() {
         kind={draft.kind}
         mediaUri={draft.mediaUri}
         context={draft.context}
-        caption={draft.caption}
+        caption={draft.caption ?? ""}
         onCaptionChange={(caption) => patch({ caption })}
         onOpenProducts={() => patch({ step: "setup", productSheetOpen: true })}
         onBack={() => patch({ step: "preview" })}
@@ -332,6 +345,8 @@ export default function Moment() {
   return (
     <ChooseMoment
       onPick={pickKind}
+      onStartCamera={() => pickKind("grwm")}
+      onJoinTrend={applyTrend}
       onBack={() => router.back()}
       onProductStory={() => router.push("/contribute" as Href)}
     />
