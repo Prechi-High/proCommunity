@@ -40,9 +40,50 @@ export default function Moment() {
 
   useEffect(() => {
     if (!ready || healedDraft.current) return;
-    healedDraft.current = true;
-    setDraft((d) => normalizeMomentBatchDraft(d));
+    setDraft((d) => {
+      const needsHeal =
+        !d.creator ||
+        !Array.isArray(d.mediaAssets) ||
+        typeof d.caption !== "string" ||
+        (d.step !== "choose" && !d.kind) ||
+        (["setup", "preview", "share"].includes(d.step) && !d.mediaUri);
+      if (!needsHeal) {
+        healedDraft.current = true;
+        return d;
+      }
+      healedDraft.current = true;
+      return normalizeMomentBatchDraft(d);
+    });
   }, [ready, setDraft]);
+
+  const trendApplied = useRef(false);
+  useEffect(() => {
+    if (!ready || trendApplied.current) return;
+    const trend = params.trend ? String(params.trend) : null;
+    if (!trend) return;
+    if (draft.step !== "choose" || draft.kind) {
+      trendApplied.current = true;
+      return;
+    }
+    trendApplied.current = true;
+    const t = SAMPLE_TRENDS.find((x) => x.id === trend);
+    if (!t) return;
+    setDraft((d) =>
+      normalizeMomentBatchDraft({
+        ...d,
+        trendId: t.id,
+        kind: t.momentKind,
+        step: "camera",
+        creator: {
+          backgroundId: "original",
+          captureSpeed: 1,
+          soundId: t.soundId,
+          lookId: t.lookId,
+        },
+        context: t.momentKind === "grwm" ? { occasion: "Date Night" } : {},
+      }),
+    );
+  }, [ready, params.trend, draft.step, draft.kind, setDraft]);
 
   const patch = useCallback(
     (part: Partial<MomentBatchDraft>) => setDraft((d) => normalizeMomentBatchDraft({ ...d, ...part })),
@@ -181,7 +222,7 @@ export default function Moment() {
       const config = momentConfig(kind);
       const occasion = displayOccasion(context);
       const caption =
-        draft.caption.trim() ||
+        (draft.caption ?? "").trim() ||
         context.experience?.trim() ||
         [config.title, occasion, context.productName].filter(Boolean).join(" · ") ||
         config.tagline;
@@ -217,12 +258,6 @@ export default function Moment() {
   };
 
   if (!ready) return <View style={{ flex: 1, backgroundColor: "#FFF1ED" }} />;
-
-  useEffect(() => {
-    if (params.trend && ready && draft.step === "choose" && !draft.kind) {
-      applyTrend(String(params.trend));
-    }
-  }, [params.trend, ready, draft.step, draft.kind, applyTrend]);
 
   if (draft.step === "choose") {
     return (

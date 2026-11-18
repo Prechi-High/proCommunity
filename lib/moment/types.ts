@@ -85,18 +85,23 @@ export function initialMomentBatchDraft(): MomentBatchDraft {
 }
 
 /** Heal AsyncStorage drafts from older app versions so the flow never crashes mid-step. */
+const CREATOR_DEFAULT: CreatorSettings = { backgroundId: "original", captureSpeed: 1 };
+
 export function normalizeMomentBatchDraft(raw: Partial<MomentBatchDraft> & { step?: MomentFlowStep }): MomentBatchDraft {
-  const base = initialMomentBatchDraft();
   const merged: MomentBatchDraft = {
-    ...base,
-    ...raw,
-    context: { ...base.context, ...(raw.context ?? {}) },
-    creator: { ...base.creator, ...(raw.creator ?? {}) },
+    draftId: raw.draftId ?? `draft-${Date.now()}`,
+    step: raw.step ?? "choose",
+    kind: raw.kind ?? null,
+    mediaUri: raw.mediaUri ?? "",
+    mediaKind: raw.mediaKind ?? "photo",
     mediaAssets: Array.isArray(raw.mediaAssets) ? raw.mediaAssets : [],
-    caption: typeof raw.caption === "string" ? raw.caption : "",
-    audience: raw.audience ?? base.audience,
-    saveToJourney: raw.saveToJourney ?? base.saveToJourney,
+    context: raw.context ?? {},
+    audience: raw.audience ?? "everyone",
+    saveToJourney: raw.saveToJourney ?? true,
     productSheetOpen: raw.productSheetOpen ?? false,
+    creator: { ...CREATOR_DEFAULT, ...(raw.creator ?? {}) },
+    caption: typeof raw.caption === "string" ? raw.caption : "",
+    trendId: raw.trendId,
   };
 
   if (merged.step !== "choose" && !merged.kind) merged.step = "choose";

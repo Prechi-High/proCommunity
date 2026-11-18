@@ -25,7 +25,11 @@ export function YouProfileHub() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const p = useAppStore((s) => s.profile);
-  const stories = useLocalMoments((s) => s.activeStories());
+  const storyItems = useLocalMoments((s) => s.stories);
+  const stories = useMemo(() => {
+    const now = Date.now();
+    return storyItems.filter((s) => new Date(s.expiresAt).getTime() > now);
+  }, [storyItems]);
   const posts = useLocalMoments((s) => s.posts);
   const [tab, setTab] = useState<ProfileTab>("unmask");
 

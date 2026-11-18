@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
@@ -24,7 +24,11 @@ export default function MyMoments() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const uid = useAppStore((s) => s.profile?.id);
-  const stories = useLocalMoments((s) => s.activeStories());
+  const storyItems = useLocalMoments((s) => s.stories);
+  const stories = useMemo(() => {
+    const now = Date.now();
+    return storyItems.filter((s) => new Date(s.expiresAt).getTime() > now);
+  }, [storyItems]);
   const posts = useLocalMoments((s) => s.posts.filter((p) => p.momentKind && p.photo));
   const [filter, setFilter] = useState<"all" | MomentKind>("all");
 
