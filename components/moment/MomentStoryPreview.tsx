@@ -1,4 +1,5 @@
 import { Image, Pressable, Text, useWindowDimensions, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ArrowLeft, Handbag, ImageSquare, PencilSimple, Sparkle } from "@/components/icons";
@@ -28,11 +29,21 @@ export function MomentStoryPreview({
   onNext: () => void;
 }) {
   const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const config = momentConfig(kind);
-  const occasion = (displayOccasion(context) || "Date Night").toUpperCase();
+  const occasionLabel = (displayOccasion(context) || "Date Night").toUpperCase();
   const products = context.products ?? [];
   const count = productCount(context);
   const extra = Math.max(0, products.length - LINEUP_MAX);
+
+  const lineupItems =
+    products.length > 0
+      ? products
+      : context.productImage
+        ? [{ productId: "primary", name: context.productName || "Product", image: context.productImage }]
+        : [];
+
+  const toolbarHeight = 168 + insets.bottom;
 
   return (
     <View style={{ flex: 1, backgroundColor: "#1A0A14" }}>
@@ -52,60 +63,79 @@ export function MomentStoryPreview({
         <Image source={{ uri: mediaUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
       )}
 
-      {/* Top-left wordmark */}
-      <View pointerEvents="none" style={{ position: "absolute", top: 56, left: 16, flexDirection: "row", alignItems: "center", gap: 4 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: "#FFF8F4" }}>Unmask</Text>
+      <View pointerEvents="none" style={{ position: "absolute", top: 52, left: 16, flexDirection: "row", alignItems: "center", gap: 4 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: "#FFF8F4" }}>Unmask</Text>
         <Sparkle size={14} color="#FFF8F4" weight="fill" />
       </View>
 
-      {/* Bottom-left moment stickers (reference placement) */}
-      <View pointerEvents="none" style={{ position: "absolute", left: 20, bottom: 210, gap: 10, maxWidth: "70%" }}>
-        <Text style={{ fontFamily: fonts.serifBold, fontSize: 34, lineHeight: 38, color: "#FFF8F4", textShadowColor: "rgba(0,0,0,0.45)", textShadowRadius: 8 }}>
-          {config.title} {config.emoji}
-        </Text>
-        <View
-          style={{
-            alignSelf: "flex-start",
-            paddingHorizontal: 14,
-            paddingVertical: 8,
-            borderRadius: 10,
-            backgroundColor: "rgba(255,255,255,0.92)",
-          }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, letterSpacing: 1.2, color: momentFlow.ink }}>
-            {occasion} ♡
-          </Text>
-        </View>
-      </View>
-
-      {/* Tonight's lineup — glass card with product thumbs */}
+      {/* Stacked overlays above toolbar — single column avoids overlap */}
       <View
         pointerEvents="none"
         style={{
           position: "absolute",
           left: 16,
           right: 16,
-          bottom: 168,
-          padding: 14,
-          borderRadius: 18,
-          backgroundColor: "rgba(255,255,255,0.22)",
-          borderWidth: 1,
-          borderColor: "rgba(255,255,255,0.35)",
+          bottom: toolbarHeight,
         }}
       >
-        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: "#FFF8F4" }}>Tonight&apos;s lineup</Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 }}>
-          {products.slice(0, LINEUP_MAX).map((p) => (
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, marginBottom: 10 }}>
+          <Text
+            style={{
+              fontFamily: fonts.serifBold,
+              fontSize: 36,
+              lineHeight: 40,
+              color: "#FFF8F4",
+              textShadowColor: "rgba(0,0,0,0.5)",
+              textShadowOffset: { width: 0, height: 1 },
+              textShadowRadius: 6,
+            }}
+          >
+            {config.title}
+          </Text>
+          <Text style={{ fontSize: 28, marginBottom: 4, textShadowColor: "rgba(0,0,0,0.35)", textShadowRadius: 4 }}>{config.emoji}</Text>
+        </View>
+
+        <View
+          style={{
+            alignSelf: "flex-start",
+            marginBottom: 14,
+            paddingHorizontal: 12,
+            paddingVertical: 7,
+            borderRadius: 8,
+            backgroundColor: "rgba(255,255,255,0.94)",
+          }}
+        >
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12, letterSpacing: 1, color: momentFlow.ink }} numberOfLines={1}>
+            {occasionLabel} ♡
+          </Text>
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderRadius: 999,
+            backgroundColor: "rgba(255,255,255,0.26)",
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.42)",
+          }}
+        >
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#FFF8F4", marginRight: 4 }}>Tonight&apos;s lineup</Text>
+          {lineupItems.slice(0, LINEUP_MAX).map((p) => (
             <View
               key={p.productId}
               style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
+                width: 36,
+                height: 36,
+                borderRadius: 18,
                 overflow: "hidden",
-                borderWidth: 2,
-                borderColor: "rgba(255,255,255,0.85)",
-                backgroundColor: "rgba(74,21,44,0.35)",
+                borderWidth: 1.5,
+                borderColor: "rgba(255,255,255,0.9)",
+                backgroundColor: "rgba(74,21,44,0.4)",
               }}
             >
               {p.image ? (
@@ -113,31 +143,27 @@ export function MomentStoryPreview({
               ) : null}
             </View>
           ))}
-          {products.length === 0 && context.productImage ? (
-            <View style={{ width: 44, height: 44, borderRadius: 22, overflow: "hidden", borderWidth: 2, borderColor: "rgba(255,255,255,0.85)" }}>
-              <Image source={{ uri: context.productImage }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
-            </View>
-          ) : null}
           {extra > 0 ? (
             <View
               style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: "rgba(74,21,44,0.65)",
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: "rgba(74,21,44,0.7)",
                 alignItems: "center",
                 justifyContent: "center",
-                borderWidth: 2,
-                borderColor: "rgba(255,255,255,0.5)",
+                borderWidth: 1.5,
+                borderColor: "rgba(255,255,255,0.75)",
               }}
             >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: "#FFF8F4" }}>+{extra}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: "#FFF8F4" }}>+{extra}</Text>
             </View>
           ) : null}
         </View>
+
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 }}>
-          <Handbag size={16} color="#FFF8F4" weight="fill" />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: "rgba(255,248,244,0.92)" }}>
+          <Handbag size={15} color="#FFF8F4" weight="fill" />
+          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: "rgba(255,248,244,0.95)" }}>
             My routine • {count} product{count === 1 ? "" : "s"}
           </Text>
         </View>

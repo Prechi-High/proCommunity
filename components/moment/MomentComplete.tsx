@@ -233,16 +233,18 @@ export function MomentComplete({
                         paddingVertical: 10,
                         paddingHorizontal: 6,
                         borderRadius: 16,
-                        backgroundColor: on ? momentFlow.accent : momentFlow.pillPink,
+                        backgroundColor: on ? momentFlow.accent : momentFlow.card,
                         alignItems: "center",
                         justifyContent: "center",
-                        gap: 6,
+                        gap: 8,
+                        borderWidth: on ? 0 : 1,
+                        borderColor: momentFlow.accentSoft,
                         borderWidth: isCustom ? 1.5 : 0,
                         borderStyle: isCustom ? "dashed" : "solid",
                         borderColor: isCustom ? momentFlow.accentSoft : "transparent",
                       }}
                     >
-                      <Text style={{ fontSize: 22, lineHeight: 26 }}>{tile.icon}</Text>
+                      <tile.Icon size={26} color={on ? "#FFF8F4" : momentFlow.ink} weight={on ? "fill" : "regular"} />
                       {tile.lines.map((line) => (
                         <Text
                           key={line}
