@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import Svg, { Circle } from "react-native-svg";
 
-import { CameraRotate, Handbag, ImageSquare, Lightning, X } from "@/components/icons";
+import { CameraRotate, Clock, Handbag, ImageSquare, Lightning, Sparkle, Waveform, X } from "@/components/icons";
 import { momentFlow } from "@/lib/moment/flowTheme";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
@@ -274,7 +274,7 @@ export function MomentCamera({
             <X size={24} color={headerColor} />
           </Pressable>
           <View style={{ flex: 1, alignItems: "center" }}>
-            <View style={{ paddingHorizontal: 16, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(74,30,60,0.92)" }}>
+            <View style={{ paddingHorizontal: 16, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(74,21,44,0.92)" }}>
               <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: "#FFF8F4" }}>
                 {config.title} {config.emoji}
               </Text>
@@ -285,6 +285,29 @@ export function MomentCamera({
           </Pressable>
         </View>
 
+        {recordingUi ? (
+          <View style={{ position: "absolute", top: 108, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(0,0,0,0.55)" }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4" }}>
+              {Math.ceil(recordMs / 1000)}s
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Right-side capture tools (reference mock) */}
+        <View style={{ position: "absolute", right: 14, top: "38%", gap: 18, zIndex: 2 }}>
+          {[Clock, Sparkle, Waveform].map((Icon, i) => (
+            <Pressable
+              key={i}
+              onPress={() => hapticSelect()}
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(0,0,0,0.35)", alignItems: "center", justifyContent: "center" }}
+            >
+              <Icon size={22} color="#FFF8F4" />
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={{ flex: 1 }} />
+
         <Pressable
           onPress={() => {
             hapticSelect();
@@ -292,12 +315,12 @@ export function MomentCamera({
           }}
           style={{
             alignSelf: "center",
-            marginTop: 12,
+            marginBottom: 14,
             flexDirection: "row",
             alignItems: "center",
             gap: 8,
-            paddingHorizontal: 18,
-            paddingVertical: 10,
+            paddingHorizontal: 20,
+            paddingVertical: 11,
             borderRadius: 999,
             backgroundColor: momentFlow.accent,
             zIndex: 2,
@@ -307,15 +330,24 @@ export function MomentCamera({
           <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4" }}>Add Product</Text>
         </Pressable>
 
-        {recordingUi ? (
-          <View style={{ position: "absolute", top: 108, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(0,0,0,0.55)" }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4" }}>
-              {Math.ceil(recordMs / 1000)}s
-            </Text>
-          </View>
-        ) : null}
+        <View style={{ flexDirection: "row", alignSelf: "center", marginBottom: 12, padding: 4, borderRadius: 999, backgroundColor: evening ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)", zIndex: 2 }}>
+          {(["photo", "video", "multi"] as const).map((mode) => (
+            <Pressable
+              key={mode}
+              onPress={() => {
+                hapticSelect();
+                setCaptureMode(mode);
+              }}
+              style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: captureMode === mode ? momentFlow.accent : "transparent" }}
+            >
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: captureMode === mode ? "#FFF8F4" : headerColor }}>
+                {mode === "photo" ? "Photo" : mode === "video" ? "Video" : "Multi"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
 
-        <View style={{ marginTop: "auto", paddingBottom: 8, paddingHorizontal: 28, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 2 }}>
+        <View style={{ paddingBottom: 8, paddingHorizontal: 28, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 2 }}>
           <Pressable onPress={() => void upload()} style={{ width: 52, height: 52, borderRadius: 16, borderWidth: 1, borderColor: evening ? "rgba(255,255,255,0.35)" : "rgba(45,27,27,0.25)", alignItems: "center", justifyContent: "center", backgroundColor: evening ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.65)" }}>
             <ImageSquare size={26} color={headerColor} />
           </Pressable>
@@ -364,23 +396,6 @@ export function MomentCamera({
           <Pressable onPress={() => setFacing((f) => (f === "front" ? "back" : "front"))} style={{ width: 52, height: 52, alignItems: "center", justifyContent: "center" }}>
             <CameraRotate size={28} color={headerColor} />
           </Pressable>
-        </View>
-
-        <View style={{ flexDirection: "row", alignSelf: "center", marginBottom: 12, padding: 4, borderRadius: 999, backgroundColor: evening ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)", zIndex: 2 }}>
-          {(["photo", "video", "multi"] as const).map((mode) => (
-            <Pressable
-              key={mode}
-              onPress={() => {
-                hapticSelect();
-                setCaptureMode(mode);
-              }}
-              style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: captureMode === mode ? momentFlow.accent : "transparent" }}
-            >
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: captureMode === mode ? "#FFF8F4" : headerColor }}>
-                {mode === "photo" ? "Photo" : mode === "video" ? "Video" : "Multi"}
-              </Text>
-            </Pressable>
-          ))}
         </View>
         {error ? <Text style={{ color: "#FF8BC8", textAlign: "center", fontFamily: fonts.medium, paddingBottom: 6, zIndex: 2 }}>{error}</Text> : null}
       </SafeAreaView>

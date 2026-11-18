@@ -12,7 +12,8 @@ import { ActionSheet } from "@/components/unmask-ui";
 import { fonts, livelyRadii } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import * as living from "@/lib/living/api";
-import { GRWM_OCCASIONS, USAGE_DURATION, momentConfig, type MomentKind } from "@/lib/moment/kinds";
+import { GRWM_OCCASION_TILES } from "@/lib/moment/grwmOccasions";
+import { USAGE_DURATION, momentConfig, type MomentKind } from "@/lib/moment/kinds";
 import type { MomentAttachedProduct, MomentContext } from "@/lib/moment/types";
 import { useRoomTone } from "@/lib/social/roomTone";
 import { useAppStore } from "@/lib/store";
@@ -211,46 +212,77 @@ export function MomentComplete({
           {kind === "grwm" ? (
             <View style={{ gap: 16 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: momentFlow.ink }}>What are you getting ready for?</Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-                {GRWM_OCCASIONS.map((o) => {
-                  const on = ctx.occasion === o;
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "space-between" }}>
+                {GRWM_OCCASION_TILES.map((tile) => {
+                  const on = ctx.occasion === tile.id;
+                  const isCustom = "custom" in tile && tile.custom;
                   return (
                     <Pressable
-                      key={o}
+                      key={tile.id}
                       onPress={() => {
                         hapticSelect();
-                        if (o === "My Own") {
+                        if (tile.id === "My Own") {
                           setCustomDraft(ctx.customOccasion ?? "");
                           setCustomOccasionOpen(true);
                         }
-                        setCtx((c) => ({ ...c, occasion: o }));
+                        setCtx((c) => ({ ...c, occasion: tile.id }));
                       }}
                       style={{
-                        width: "30%",
-                        minWidth: 100,
-                        paddingVertical: 14,
-                        paddingHorizontal: 8,
-                        borderRadius: 14,
+                        width: "30.5%",
+                        aspectRatio: 1,
+                        paddingVertical: 10,
+                        paddingHorizontal: 6,
+                        borderRadius: 16,
                         backgroundColor: on ? momentFlow.accent : momentFlow.pillPink,
                         alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        borderWidth: isCustom ? 1.5 : 0,
+                        borderStyle: isCustom ? "dashed" : "solid",
+                        borderColor: isCustom ? momentFlow.accentSoft : "transparent",
                       }}
                     >
-                      <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: on ? "#FFF8F4" : momentFlow.ink, textAlign: "center" }}>{o}</Text>
+                      <Text style={{ fontSize: 22, lineHeight: 26 }}>{tile.icon}</Text>
+                      {tile.lines.map((line) => (
+                        <Text
+                          key={line}
+                          style={{
+                            fontFamily: fonts.semibold,
+                            fontSize: 11,
+                            lineHeight: 14,
+                            color: on ? "#FFF8F4" : momentFlow.ink,
+                            textAlign: "center",
+                          }}
+                        >
+                          {line}
+                        </Text>
+                      ))}
                     </Pressable>
                   );
                 })}
               </View>
               <View style={{ gap: 10 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: momentFlow.ink }}>Your GRWM</Text>
-                <View style={{ flexDirection: "row", gap: 10 }}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
                   <View style={{ width: 88, height: 120, borderRadius: 14, overflow: "hidden" }}>
                     <Image source={{ uri: mediaUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
+                    {mediaKind === "video" ? (
+                      <View style={{ position: "absolute", bottom: 6, right: 6, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: "rgba(0,0,0,0.55)" }}>
+                        <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: "#FFF8F4" }}>0:28</Text>
+                      </View>
+                    ) : null}
+                    <Pressable
+                      onPress={() => hapticSelect()}
+                      style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" }}
+                    >
+                      <X size={12} color="#FFF" weight="bold" />
+                    </Pressable>
                   </View>
                   <Pressable
                     onPress={() => onProductSheetOpenChange(true)}
                     style={{
-                      flex: 1,
-                      minHeight: 120,
+                      width: 120,
+                      height: 120,
                       borderRadius: 14,
                       borderWidth: 1,
                       borderStyle: "dashed",
@@ -263,10 +295,7 @@ export function MomentComplete({
                     <Handbag size={22} color={momentFlow.accent} />
                     <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.accent }}>Add Product</Text>
                   </Pressable>
-                </View>
-                {(ctx.products ?? []).length ? (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-                    {(ctx.products ?? []).map((p) => (
+                  {(ctx.products ?? []).map((p) => (
                       <View key={p.productId} style={{ width: 72, alignItems: "center" }}>
                         <View style={{ width: 64, height: 64, borderRadius: 12, overflow: "hidden" }}>
                           {p.image ? (
@@ -288,8 +317,7 @@ export function MomentComplete({
                         </Text>
                       </View>
                     ))}
-                  </ScrollView>
-                ) : null}
+                </ScrollView>
               </View>
             </View>
           ) : null}
