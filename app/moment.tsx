@@ -119,12 +119,13 @@ export default function Moment() {
             ...d,
             mediaAssets: [...(d.mediaAssets ?? []), asset],
             mediaUri: d.mediaUri || uri,
+            originalMediaUri: d.originalMediaUri || uri,
             mediaKind: mk,
           }),
         );
         return;
       }
-      patch({ mediaUri: uri, mediaKind: mk, mediaAssets: [asset], step: "setup" });
+      patch({ mediaUri: uri, originalMediaUri: uri, mediaKind: mk, mediaAssets: [asset], step: "setup" });
     },
     [patch, setDraft],
   );
@@ -344,6 +345,7 @@ export default function Moment() {
         kind={draft.kind}
         mediaUri={draft.mediaUri}
         mediaKind={draft.mediaKind}
+        creator={draft.creator}
         context={draft.context}
         onBack={() => patch({ step: "setup" })}
         onNext={() => patch({ step: "share" })}
@@ -357,6 +359,7 @@ export default function Moment() {
         kind={draft.kind}
         mediaUri={draft.mediaUri}
         context={draft.context}
+        creator={draft.creator}
         caption={draft.caption ?? ""}
         onCaptionChange={(caption) => patch({ caption })}
         onOpenProducts={() => patch({ step: "setup", productSheetOpen: true })}

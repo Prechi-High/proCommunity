@@ -5,12 +5,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import Svg, { Circle } from "react-native-svg";
 
-import { CameraRotate, Clock, Handbag, ImageSquare, Lightning, ListBullets, Microphone, Sparkle, Waveform, X } from "@/components/icons";
+import { CameraRotate, Clock, Flask, Handbag, ImageSquare, Lightning, Sparkle, Sun, Waveform, X } from "@/components/icons";
 import { CreatorToolSheets, type CreatorToolKind } from "@/components/moment/CreatorToolSheets";
 import { momentFlow } from "@/lib/moment/flowTheme";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { MOMENT_LOOKS } from "@/lib/moment/creatorCatalog";
+import { resolvePreviewLayers } from "@/lib/moment/unmaskCompose";
 import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
 import type { CreatorSettings } from "@/lib/moment/types";
 
@@ -51,13 +52,17 @@ export function MomentCamera({
   const suppressTap = useRef(false);
   const recordTick = useRef<ReturnType<typeof setInterval> | null>(null);
   const [ready, setReady] = useState(false);
-  const [torch, setTorch] = useState(false);
+  const [torchMode, setTorchMode] = useState<"off" | "on" | "auto">("off");
   const [captureMode, setCaptureMode] = useState<"photo" | "video" | "multi">(config.defaultMode);
   const [error, setError] = useState("");
   const [toolOpen, setToolOpen] = useState<CreatorToolKind>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const lookTint = MOMENT_LOOKS.find((l) => l.id === creator.lookId)?.preview;
-  const blurBg = creator.backgroundId === "blur";
+  const previewLayers = resolvePreviewLayers(creator);
+  const lookTint =
+    creator.lookId && creator.lookId !== "none" ? MOMENT_LOOKS.find((l) => l.id === creator.lookId)?.preview : undefined;
+  const sceneBg = previewLayers.backgroundMode === "scene" ? previewLayers.backgroundUri : null;
+  const blurBg = previewLayers.backgroundMode === "blur";
+  const torchOn = torchMode === "on";
   const evening = kind === "evening";
   const cream = kind === "currently" || kind === "morning";
   const headerColor = evening ? "#FFF8F4" : cream ? "#2D1B1B" : "#FFF8F4";
@@ -265,12 +270,18 @@ export function MomentCamera({
     shotRef.current(uri, asset.type === "video" ? "video" : "photo", captureMode === "multi");
   }
 
-  const creatorTools: { key: CreatorToolKind; label: string }[] = [
-    { key: "music", label: "Music" },
-    { key: "looks", label: "Looks" },
-    { key: "background", label: "BG" },
-    { key: "effects", label: "FX" },
-  ];
+  const toolActive = (kind: CreatorToolKind) =>
+    kind === "music"
+      ? Boolean(creator.soundId || creator.localSoundUri)
+      : kind === "looks"
+        ? Boolean(creator.lookId && creator.lookId !== "none")
+        : kind === "background"
+          ? previewLayers.backgroundMode !== "original"
+          : kind === "lighting"
+            ? Boolean(creator.lightingId)
+            : kind === "effects"
+              ? Boolean(creator.effectId && creator.effectId !== "none")
+              : false;
 
   const ringProgress = Math.min(1, recordMs / MAX_RECORD_MS);
   const ringSize = 84;
@@ -280,13 +291,23 @@ export function MomentCamera({
 
   return (
     <View style={{ flex: 1, backgroundColor: evening ? "#0A0610" : cream ? "#F9F5EB" : "#1A0A14" }}>
+      {sceneBg ? (
+        <Image source={{ uri: sceneBg }} style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} resizeMode="cover" accessibilityIgnoresInvertColors />
+      ) : null}
       {permission?.granted ? (
         <CameraView
           ref={camera}
-          style={{ flex: 1 }}
+          style={{
+            flex: 1,
+            opacity: sceneBg ? 0.92 : 1,
+            marginHorizontal: sceneBg ? 12 : 0,
+            marginVertical: sceneBg ? 48 : 0,
+            borderRadius: sceneBg ? 20 : 0,
+            overflow: "hidden",
+          }}
           facing={facing}
           mode={captureMode === "video" ? "video" : "picture"}
-          enableTorch={torch && facing === "back"}
+          enableTorch={torchOn && facing === "back"}
           mirror={facing === "front"}
           onCameraReady={() => setReady(true)}
         />
@@ -300,6 +321,9 @@ export function MomentCamera({
       )}
       <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: config.tint }} />
       {config.scrim ? <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: config.scrim }} /> : null}
+      {previewLayers.lightOverlay && previewLayers.lightOpacity > 0 ? (
+        <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: previewLayers.lightOverlay, opacity: previewLayers.lightOpacity }} />
+      ) : null}
       {lookTint ? <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: lookTint, opacity: 0.18 }} /> : null}
       {blurBg ? (
         <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: "rgba(26,10,20,0.42)" }} />
@@ -332,8 +356,17 @@ export function MomentCamera({
               </Text>
             </View>
           </View>
-          <Pressable onPress={() => setTorch((v) => !v)} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
-            <Lightning size={22} color={torch ? "#FF8BC8" : headerColor} weight={torch ? "fill" : "regular"} />
+          <Pressable
+            onPress={() => {
+              hapticSelect();
+              setTorchMode((m) => (m === "off" ? "on" : m === "on" ? "auto" : "off"));
+            }}
+            style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
+          >
+            <Lightning size={22} color={torchMode !== "off" ? "#FF8BC8" : headerColor} weight={torchMode !== "off" ? "fill" : "regular"} />
+            {torchMode === "auto" ? (
+              <Text style={{ position: "absolute", bottom: 2, fontFamily: fonts.bold, fontSize: 8, color: "#FF8BC8" }}>A</Text>
+            ) : null}
           </Pressable>
         </View>
 
@@ -345,21 +378,32 @@ export function MomentCamera({
           </View>
         ) : null}
 
-        <View style={{ position: "absolute", right: 14, top: "34%", gap: 14, zIndex: 2 }}>
+        <View style={{ position: "absolute", right: 14, top: "30%", gap: 12, zIndex: 2 }}>
           {[
-            { Icon: CameraRotate, onPress: () => setFacing((f) => (f === "front" ? "back" : "front")) },
-            { Icon: Clock, onPress: () => setToolOpen("timer") },
-            { Icon: ListBullets, onPress: () => onCreatorChange({ ...creator, gridEnabled: !creator.gridEnabled }) },
-            { Icon: Sparkle, onPress: () => setToolOpen("beauty") },
-            { Icon: Microphone, onPress: () => setToolOpen("music") },
-          ].map(({ Icon, onPress }, i) => (
+            { Icon: CameraRotate, active: false, onPress: () => setFacing((f) => (f === "front" ? "back" : "front")) },
+            { Icon: Waveform, active: toolActive("music"), onPress: () => setToolOpen("music") },
+            { Icon: Sparkle, active: toolActive("looks"), onPress: () => setToolOpen("looks") },
+            { Icon: ImageSquare, active: toolActive("background"), onPress: () => setToolOpen("background") },
+            { Icon: Flask, active: toolActive("effects"), onPress: () => setToolOpen("effects") },
+            { Icon: Sun, active: toolActive("lighting"), onPress: () => setToolOpen("lighting") },
+            { Icon: Clock, active: Boolean(creator.timerSec || creator.gridEnabled), onPress: () => setToolOpen("timer") },
+          ].map(({ Icon, active, onPress }, i) => (
             <Pressable
               key={i}
               onPress={() => {
                 hapticSelect();
                 onPress();
               }}
-              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(0,0,0,0.35)", alignItems: "center", justifyContent: "center" }}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: active ? "rgba(74,21,44,0.9)" : "rgba(0,0,0,0.35)",
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: active ? 1 : 0,
+                borderColor: "#FF8BC8",
+              }}
             >
               <Icon size={22} color="#FFF8F4" />
             </Pressable>
@@ -367,8 +411,6 @@ export function MomentCamera({
         </View>
 
         <View style={{ flex: 1 }} />
-
-        <ScrollRow tools={creatorTools} onOpen={(key) => setToolOpen(key)} onLighting={() => setToolOpen("lighting")} />
 
         {captureMode === "multi" && lastThumb ? (
           <Pressable
@@ -492,33 +534,3 @@ export function MomentCamera({
 }
 
 export { MomentCamera as CameraStudioScreen };
-
-function ScrollRow({
-  tools,
-  onOpen,
-  onLighting,
-}: {
-  tools: { key: CreatorToolKind; label: string }[];
-  onOpen: (key: CreatorToolKind) => void;
-  onLighting: () => void;
-}) {
-  return (
-    <View style={{ flexDirection: "row", alignSelf: "center", gap: 8, marginBottom: 8, zIndex: 2 }}>
-      {tools.map((t) => (
-        <Pressable
-          key={t.label}
-          onPress={() => {
-            hapticSelect();
-            if (t.key) onOpen(t.key);
-          }}
-          style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: "rgba(0,0,0,0.4)" }}
-        >
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#FFF8F4" }}>{t.label}</Text>
-        </Pressable>
-      ))}
-      <Pressable onPress={() => { hapticSelect(); onLighting(); }} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: "rgba(0,0,0,0.4)" }}>
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#FFF8F4" }}>Light</Text>
-      </Pressable>
-    </View>
-  );
-}

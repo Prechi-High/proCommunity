@@ -8,7 +8,8 @@ import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { momentFlow } from "@/lib/moment/flowTheme";
 import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
-import { displayOccasion, productCount, type MomentAudience, type MomentContext } from "@/lib/moment/types";
+import { selectedSoundLabel } from "@/lib/moment/creatorCatalog";
+import { displayOccasion, productCount, type CreatorSettings, type MomentAudience, type MomentContext } from "@/lib/moment/types";
 
 const AUDIENCE_LABEL: Record<MomentAudience, string> = {
   everyone: "Everyone",
@@ -20,6 +21,7 @@ export function MomentShareScreen({
   kind,
   mediaUri,
   context,
+  creator,
   caption,
   onCaptionChange,
   onOpenProducts,
@@ -36,6 +38,7 @@ export function MomentShareScreen({
   kind: MomentKind;
   mediaUri: string;
   context: MomentContext;
+  creator: CreatorSettings;
   caption: string;
   onCaptionChange: (v: string) => void;
   onOpenProducts?: () => void;
@@ -53,6 +56,7 @@ export function MomentShareScreen({
   const occasion = displayOccasion(context);
   const title = `${config.title} ${config.emoji}${occasion ? ` · ${occasion}` : ""}`.trim();
   const products = productCount(context);
+  const sound = selectedSoundLabel(creator);
   const [audienceOpen, setAudienceOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
 
@@ -98,6 +102,7 @@ export function MomentShareScreen({
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: momentFlow.ink }}>{title}</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted }}>
               {products} product{products === 1 ? "" : "s"}
+              {sound ? ` · Sound: ${sound}` : ""}
             </Text>
           </View>
         </View>

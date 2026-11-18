@@ -1,5 +1,8 @@
-import { Pressable, ScrollView, Switch, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Image, Platform, Pressable, ScrollView, Switch, Text, View } from "react-native";
+import { Audio } from "expo-av";
 
+import { SearchField } from "@/components/unmask-ui/SearchField";
 import { ActionSheet } from "@/components/unmask-ui";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
@@ -9,11 +12,31 @@ import {
   MOMENT_LIGHTING,
   MOMENT_LOOKS,
   MOMENT_SOUNDS,
+  selectedSoundLabel,
+  type SoundOption,
 } from "@/lib/moment/creatorCatalog";
+import { pickLocalAudio, pickLocalBackground } from "@/lib/moment/localMediaPicker";
 import { momentFlow } from "@/lib/moment/flowTheme";
 import type { CreatorSettings } from "@/lib/moment/types";
 
 export type CreatorToolKind = "music" | "looks" | "background" | "lighting" | "beauty" | "effects" | "timer" | null;
+
+function rowCard(children: React.ReactNode, active?: boolean) {
+  return (
+    <View
+      style={{
+        padding: 14,
+        borderRadius: 16,
+        backgroundColor: active ? momentFlow.pillPink : momentFlow.card,
+        borderWidth: 1,
+        borderColor: active ? momentFlow.accent : momentFlow.accentSoft,
+        gap: 8,
+      }}
+    >
+      {children}
+    </View>
+  );
+}
 
 export function CreatorToolSheets({
   open,
@@ -30,190 +53,314 @@ export function CreatorToolSheets({
     music: "Music",
     looks: "Looks",
     background: "Background",
-    lighting: "Lighting",
+    lighting: "Light",
     beauty: "Beauty",
-    effects: "Effects",
-    timer: "Timer & speed",
+    effects: "FX",
+    timer: "Timer & grid",
   };
+
+  const [musicQuery, setMusicQuery] = useState("");
+  const [soundBusy, setSoundBusy] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [pickerError, setPickerError] = useState("");
+  const soundRef = useRef<Audio.Sound | null>(null);
+
+  useEffect(() => {
+    return () => {
+      void soundRef.current?.unloadAsync();
+      soundRef.current = null;
+    };
+  }, []);
+
+  async function previewSound(track: SoundOption) {
+    try {
+      setPreviewId(track.id);
+      await soundRef.current?.unloadAsync();
+      const { sound } = await Audio.Sound.createAsync({ uri: track.previewUri }, { shouldPlay: true });
+      soundRef.current = sound;
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) setPreviewId(null);
+      });
+    } catch {
+      setPreviewId(null);
+      setPickerError("Couldn’t play that preview on this device.");
+    }
+  }
+
+  async function useLibrarySound(track: SoundOption) {
+    hapticSelect();
+    onChange({ ...creator, soundId: track.id, localSoundUri: undefined, localSoundName: undefined });
+    onClose();
+  }
+
+  async function pickDeviceSound() {
+    setPickerError("");
+    setSoundBusy(true);
+    try {
+      const picked = await pickLocalAudio();
+      if (!picked) {
+        setPickerError("No supported audio file selected (mp3, m4a, wav).");
+        return;
+      }
+      onChange({ ...creator, soundId: undefined, localSoundUri: picked.uri, localSoundName: picked.name });
+      onClose();
+    } finally {
+      setSoundBusy(false);
+    }
+  }
+
+  async function pickDeviceBackground() {
+    setPickerError("");
+    const picked = await pickLocalBackground();
+    if (!picked) {
+      setPickerError("Couldn’t load that background.");
+      return;
+    }
+    onChange({ ...creator, backgroundId: "custom", localBackgroundUri: picked.uri });
+    onClose();
+  }
+
+  function resetTool(kind: CreatorToolKind) {
+    if (kind === "music") onChange({ ...creator, soundId: undefined, localSoundUri: undefined, localSoundName: undefined });
+    if (kind === "looks") onChange({ ...creator, lookId: undefined });
+    if (kind === "background") onChange({ ...creator, backgroundId: "original", localBackgroundUri: undefined });
+    if (kind === "lighting") onChange({ ...creator, lightingId: undefined });
+    if (kind === "effects") onChange({ ...creator, effectId: undefined });
+  }
 
   if (!open) return null;
 
+  const filteredSounds = MOMENT_SOUNDS.filter(
+    (s) =>
+      !musicQuery.trim() ||
+      s.title.toLowerCase().includes(musicQuery.toLowerCase()) ||
+      s.category.toLowerCase().includes(musicQuery.toLowerCase()),
+  );
+
   return (
     <ActionSheet open title={titles[open]} onClose={onClose}>
-      {open === "music" ? (
-        <ScrollView style={{ maxHeight: 360 }}>
-          {MOMENT_SOUNDS.map((s) => {
-            const on = creator.soundId === s.id;
+      <ScrollView style={{ maxHeight: Platform.OS === "web" ? 420 : 380 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12, paddingBottom: 8 }}>
+        {open === "music" ? (
+          <>
+            <SearchField value={musicQuery} onChange={setMusicQuery} placeholder="Search sounds" />
+            {selectedSoundLabel(creator) ? (
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: momentFlow.accent }}>Using: {selectedSoundLabel(creator)}</Text>
+                <Pressable onPress={() => resetTool("music")}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: momentFlow.muted }}>Remove</Text>
+                </Pressable>
+              </View>
+            ) : null}
+            {filteredSounds.map((track) =>
+              rowCard(
+                <View style={{ gap: 8 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: momentFlow.ink }}>{track.title}</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted }}>
+                        {track.artist} · {track.duration} · {track.category}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => void previewSound(track)}
+                      style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: momentFlow.accentSoft }}
+                    >
+                      <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: momentFlow.accent }}>{previewId === track.id ? "Playing…" : "Play"}</Text>
+                    </Pressable>
+                  </View>
+                  <Pressable
+                    onPress={() => void useLibrarySound(track)}
+                    style={{ paddingVertical: 12, borderRadius: 999, backgroundColor: momentFlow.accent, alignItems: "center" }}
+                  >
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4" }}>Use sound</Text>
+                  </Pressable>
+                </View>,
+                creator.soundId === track.id,
+              ),
+            )}
+            <Pressable
+              disabled={soundBusy}
+              onPress={() => void pickDeviceSound()}
+              style={{ padding: 14, borderRadius: 16, borderWidth: 1.5, borderStyle: "dashed", borderColor: momentFlow.accent, alignItems: "center", gap: 6 }}
+            >
+              {soundBusy ? <ActivityIndicator color={momentFlow.accent} /> : null}
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: momentFlow.accent }}>From my device</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: momentFlow.muted, textAlign: "center" }}>Attach a local audio file to this Unmask draft.</Text>
+            </Pressable>
+          </>
+        ) : null}
+
+        {open === "looks" ? (
+          <>
+            {MOMENT_LOOKS.map((look) => {
+              const active = (look.id === "none" ? !creator.lookId : creator.lookId === look.id);
+              return (
+                <Pressable
+                  key={look.id}
+                  onPress={() => {
+                    hapticSelect();
+                    onChange({ ...creator, lookId: look.id === "none" ? undefined : look.id });
+                    if (look.id !== "none") onClose();
+                  }}
+                >
+                  {rowCard(
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                      <View style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: look.thumb, borderWidth: 1, borderColor: momentFlow.accentSoft }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: momentFlow.ink }}>{look.title}</Text>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted }}>Applies to live preview & final render</Text>
+                      </View>
+                      {active ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: momentFlow.accent }}>On</Text> : null}
+                    </View>,
+                    active,
+                  )}
+                </Pressable>
+              );
+            })}
+          </>
+        ) : null}
+
+        {open === "background" ? (
+          <>
+            {MOMENT_BACKGROUNDS.map((bg) => {
+              const active = (creator.backgroundId ?? "original") === bg.id && !creator.localBackgroundUri;
+              return (
+                <Pressable
+                  key={bg.id}
+                  onPress={() => {
+                    hapticSelect();
+                    onChange({ ...creator, backgroundId: bg.id, localBackgroundUri: undefined });
+                    onClose();
+                  }}
+                >
+                  {rowCard(
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                      {bg.sceneUri ? (
+                        <Image source={{ uri: bg.sceneUri }} style={{ width: 64, height: 64, borderRadius: 12 }} accessibilityIgnoresInvertColors />
+                      ) : (
+                        <View style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: typeof bg.thumb === "string" && bg.thumb.startsWith("http") ? undefined : (bg.thumb as string) }} />
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: momentFlow.ink }}>{bg.title}</Text>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted }}>
+                          {bg.mode === "original" ? "Keep captured environment" : bg.mode === "blur" ? "Portrait blur fallback" : "Full scene replacement"}
+                        </Text>
+                      </View>
+                    </View>,
+                    active,
+                  )}
+                </Pressable>
+              );
+            })}
+            <Pressable onPress={() => void pickDeviceBackground()} style={{ padding: 14, borderRadius: 16, borderWidth: 1.5, borderStyle: "dashed", borderColor: momentFlow.accent, gap: 4 }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: momentFlow.accent }}>From my device</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: momentFlow.muted }}>Use your own background photo or clip.</Text>
+            </Pressable>
+            <Pressable onPress={() => resetTool("background")} style={{ alignItems: "center", paddingVertical: 8 }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: momentFlow.muted }}>Reset to Original</Text>
+            </Pressable>
+          </>
+        ) : null}
+
+        {open === "lighting" ? (
+          MOMENT_LIGHTING.map((light) => {
+            const active = creator.lightingId === light.id;
             return (
               <Pressable
-                key={s.id}
+                key={light.id}
                 onPress={() => {
                   hapticSelect();
-                  onChange({ ...creator, soundId: on ? undefined : s.id });
+                  onChange({ ...creator, lightingId: active ? undefined : light.id });
+                  onClose();
                 }}
-                style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: momentFlow.accentSoft }}
               >
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: on ? momentFlow.accent : momentFlow.ink }}>{s.title}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted }}>
-                  {s.artist}
-                  {s.trending ? " · Trending" : ""}
-                </Text>
+                {rowCard(
+                  <View style={{ gap: 2 }}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: momentFlow.ink }}>{light.title}</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted }}>{light.hint}</Text>
+                  </View>,
+                  active,
+                )}
               </Pressable>
             );
-          })}
-        </ScrollView>
-      ) : null}
+          })
+        ) : null}
 
-      {open === "looks" ? (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-          {MOMENT_LOOKS.map((l) => {
-            const on = creator.lookId === l.id;
+        {open === "beauty" ? (
+          rowCard(
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 16, color: momentFlow.ink }}>Subtle beauty</Text>
+              <Switch
+                value={!!creator.beautyEnabled}
+                onValueChange={(beautyEnabled) => onChange({ ...creator, beautyEnabled })}
+                trackColor={{ true: momentFlow.accent, false: momentFlow.accentSoft }}
+              />
+            </View>,
+          )
+        ) : null}
+
+        {open === "effects" ? (
+          MOMENT_EFFECTS.map((effect) => {
+            const active = (creator.effectId ?? "none") === effect.id;
             return (
               <Pressable
-                key={l.id}
+                key={effect.id}
                 onPress={() => {
                   hapticSelect();
-                  onChange({ ...creator, lookId: on ? undefined : l.id });
-                }}
-                style={{
-                  width: "47%",
-                  padding: 12,
-                  borderRadius: 14,
-                  backgroundColor: l.preview,
-                  borderWidth: on ? 2 : 0,
-                  borderColor: momentFlow.accent,
+                  onChange({ ...creator, effectId: effect.id === "none" ? undefined : effect.id });
+                  onClose();
                 }}
               >
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.ink }}>{l.title}</Text>
+                {rowCard(
+                  <View style={{ gap: 2 }}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: momentFlow.ink }}>{effect.title}</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted }}>{effect.hint}</Text>
+                  </View>,
+                  active,
+                )}
               </Pressable>
             );
-          })}
-        </View>
-      ) : null}
+          })
+        ) : null}
 
-      {open === "background" ? (
-        <View style={{ gap: 8 }}>
-          {MOMENT_BACKGROUNDS.map((b) => {
-            const on = (creator.backgroundId ?? "original") === b.id;
-            return (
-              <Pressable
-                key={b.id}
-                onPress={() => {
-                  hapticSelect();
-                  onChange({ ...creator, backgroundId: b.id });
-                }}
-                style={{
-                  padding: 14,
-                  borderRadius: 14,
-                  backgroundColor: on ? momentFlow.accent : momentFlow.card,
-                  borderWidth: 1,
-                  borderColor: momentFlow.accentSoft,
-                }}
-              >
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: on ? "#FFF8F4" : momentFlow.ink }}>{b.title}</Text>
-                {b.mode === "blur" ? (
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: on ? "rgba(255,248,244,0.85)" : momentFlow.muted }}>Portrait blur (fallback: original on web)</Text>
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
-
-      {open === "lighting" ? (
-        <View style={{ gap: 8 }}>
-          {MOMENT_LIGHTING.map((l) => {
-            const on = creator.lightingId === l.id;
-            return (
-              <Pressable
-                key={l.id}
-                onPress={() => {
-                  hapticSelect();
-                  onChange({ ...creator, lightingId: on ? undefined : l.id });
-                }}
-                style={{ padding: 14, borderRadius: 14, backgroundColor: on ? momentFlow.pillPink : momentFlow.card }}
-              >
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: momentFlow.ink }}>{l.title}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
-
-      {open === "beauty" ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 }}>
-          <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 16, color: momentFlow.ink }}>Subtle beauty</Text>
-          <Switch
-            value={!!creator.beautyEnabled}
-            onValueChange={(beautyEnabled) => onChange({ ...creator, beautyEnabled })}
-            trackColor={{ true: momentFlow.accent, false: momentFlow.accentSoft }}
-          />
-        </View>
-      ) : null}
-
-      {open === "effects" ? (
-        <View style={{ gap: 8 }}>
-          {MOMENT_EFFECTS.map((e) => {
-            const on = (creator.effectId ?? "none") === e.id;
-            return (
-              <Pressable
-                key={e.id}
-                onPress={() => {
-                  hapticSelect();
-                  onChange({ ...creator, effectId: e.id === "none" ? undefined : e.id });
-                }}
-                style={{ padding: 14, borderRadius: 14, backgroundColor: on ? momentFlow.accent : momentFlow.card }}
-              >
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: on ? "#FFF8F4" : momentFlow.ink }}>{e.title}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: on ? "rgba(255,248,244,0.85)" : momentFlow.muted }}>
-                  {e.provider === "snap" ? "Snap Lens preview (flagged)" : "Unmask effect"}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
-
-      {open === "timer" ? (
-        <View style={{ gap: 14 }}>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.muted }}>Timer</Text>
-          <View style={{ flexDirection: "row", gap: 10 }}>
+        {open === "timer" ? (
+          <>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.muted }}>Self-timer</Text>
             {[0, 3, 5, 10].map((sec) => {
               const on = (creator.timerSec ?? 0) === sec;
               return (
                 <Pressable
                   key={sec}
-                  onPress={() => {
-                    hapticSelect();
-                    onChange({ ...creator, timerSec: sec || undefined });
-                  }}
-                  style={{ flex: 1, paddingVertical: 10, borderRadius: 999, backgroundColor: on ? momentFlow.accent : momentFlow.pillPink, alignItems: "center" }}
+                  onPress={() => onChange({ ...creator, timerSec: sec || undefined })}
+                  style={{ paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, backgroundColor: on ? momentFlow.accent : momentFlow.card }}
                 >
-                  <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: on ? "#FFF8F4" : momentFlow.ink }}>{sec ? `${sec}s` : "Off"}</Text>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: on ? "#FFF8F4" : momentFlow.ink }}>{sec ? `${sec} seconds` : "Off"}</Text>
                 </Pressable>
               );
             })}
-          </View>
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.muted }}>Speed</Text>
-          <View style={{ flexDirection: "row", gap: 10 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.muted, marginTop: 4 }}>Capture grid</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14, borderRadius: 14, backgroundColor: momentFlow.card }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: momentFlow.ink }}>Composition grid</Text>
+              <Switch
+                value={!!creator.gridEnabled}
+                onValueChange={(gridEnabled) => onChange({ ...creator, gridEnabled })}
+                trackColor={{ true: momentFlow.accent, false: momentFlow.accentSoft }}
+              />
+            </View>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.muted }}>Speed</Text>
             {([0.5, 1, 2] as const).map((speed) => {
               const on = (creator.captureSpeed ?? 1) === speed;
               return (
-                <Pressable
-                  key={speed}
-                  onPress={() => {
-                    hapticSelect();
-                    onChange({ ...creator, captureSpeed: speed });
-                  }}
-                  style={{ flex: 1, paddingVertical: 10, borderRadius: 999, backgroundColor: on ? momentFlow.accent : momentFlow.pillPink, alignItems: "center" }}
-                >
-                  <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: on ? "#FFF8F4" : momentFlow.ink }}>{speed}x</Text>
+                <Pressable key={speed} onPress={() => onChange({ ...creator, captureSpeed: speed })} style={{ paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14, backgroundColor: on ? momentFlow.accent : momentFlow.card }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: on ? "#FFF8F4" : momentFlow.ink }}>{speed}x</Text>
                 </Pressable>
               );
             })}
-          </View>
-        </View>
-      ) : null}
+          </>
+        ) : null}
+
+        {pickerError ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.warnInk }}>{pickerError}</Text> : null}
+      </ScrollView>
     </ActionSheet>
   );
 }

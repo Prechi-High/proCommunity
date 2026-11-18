@@ -19,8 +19,11 @@ export type MomentMediaAsset = {
 
 export type CreatorSettings = {
   soundId?: string;
+  localSoundUri?: string;
+  localSoundName?: string;
   lookId?: string;
   backgroundId?: string;
+  localBackgroundUri?: string;
   lightingId?: string;
   beautyEnabled?: boolean;
   effectId?: string;
@@ -56,6 +59,8 @@ export type MomentBatchDraft = {
   step: MomentFlowStep;
   kind: MomentKind | null;
   mediaUri: string;
+  /** Raw capture kept for reverting background/look processing. */
+  originalMediaUri?: string;
   mediaKind: "photo" | "video";
   mediaAssets: MomentMediaAsset[];
   context: MomentContext;

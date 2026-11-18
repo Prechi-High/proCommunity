@@ -66,6 +66,7 @@ export function MomentComplete({
   const [customOccasionOpen, setCustomOccasionOpen] = useState(false);
   const [customDraft, setCustomDraft] = useState(context.customOccasion ?? "");
   const [contextPicker, setContextPicker] = useState<"skinType" | "skinGoal" | "moodLook" | null>(null);
+  const [contextOpen, setContextOpen] = useState(false);
   const clips = mediaAssets.length ? mediaAssets : [{ id: "primary", uri: mediaUri, kind: mediaKind }];
   const ctx = context;
   const setCtx = (updater: MomentContext | ((c: MomentContext) => MomentContext)) => {
@@ -269,8 +270,23 @@ export function MomentComplete({
                   );
                 })}
               </View>
-              <View style={{ gap: 10 }}>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: momentFlow.muted }}>Add a quick context (optional)</Text>
+              <Pressable
+                onPress={() => setContextOpen((v) => !v)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: 14,
+                  borderRadius: 14,
+                  backgroundColor: momentFlow.card,
+                  borderWidth: 1,
+                  borderColor: momentFlow.accentSoft,
+                }}
+              >
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: momentFlow.ink }}>Add optional context</Text>
+                <CaretDown size={16} color={momentFlow.muted} />
+              </Pressable>
+              {contextOpen ? (
                 <View style={{ gap: 8 }}>
                   {(
                     [
@@ -298,7 +314,7 @@ export function MomentComplete({
                     </Pressable>
                   ))}
                 </View>
-              </View>
+              ) : null}
               <View style={{ gap: 10 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: momentFlow.ink }}>Your GRWM</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
