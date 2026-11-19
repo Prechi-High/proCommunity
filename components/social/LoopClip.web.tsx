@@ -1,14 +1,24 @@
 import { createElement, useEffect, useRef, useState, type CSSProperties } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, View } from "react-native";
 
-import { Play } from "@/components/icons";
-import { fonts } from "@/constants/theme";
-import { resolvePlayableUri } from "@/lib/moment/mediaBlobStore";
+import { isMediaStoreUri, resolvePlayableUri } from "@/lib/moment/mediaBlobStore";
 import { usePageActive } from "@/lib/usePageActive";
 
+function isPlayableSrc(uri: string | undefined | null): boolean {
+  if (!uri) return false;
+  if (isMediaStoreUri(uri)) return false;
+  return (
+    uri.startsWith("blob:") ||
+    uri.startsWith("data:") ||
+    uri.startsWith("http://") ||
+    uri.startsWith("https://") ||
+    uri.startsWith("file:")
+  );
+}
+
 /**
- * Web video — mount a real HTMLVideoElement, force muted for autoplay,
- * resolve durable unmask-media: URIs from IndexedDB, pause when the tab hides.
+ * Web video — muted autoplay everywhere (preview, status, feed).
+ * Resolves durable `unmask-media:` keys before setting `src`.
  */
 export function LoopClip({
   uri,
@@ -19,33 +29,36 @@ export function LoopClip({
   uri: string;
   poster: string;
   height: number;
-  /** When false, pause (e.g. story closed or tab hidden). */
   active?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const pageActive = usePageActive();
-  const live = active && pageActive;
-  const [playable, setPlayable] = useState(uri);
+  const [src, setSrc] = useState("");
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
-  const [needsTap, setNeedsTap] = useState(false);
 
+  const live = active && pageActive;
   const still =
-    poster && !/\.(mp4|mov|webm|m4v)(\?|$)/i.test(poster) && !poster.startsWith("unmask-media:")
-      ? poster
-      : "";
+    poster && isPlayableSrc(poster) && !/\.(mp4|mov|webm|m4v)(\?|$)/i.test(poster) ? poster : "";
 
   useEffect(() => {
     let cancelled = false;
     setFailed(false);
     setReady(false);
-    setNeedsTap(false);
+    setSrc("");
+    if (!uri) return;
     void (async () => {
       try {
         const next = await resolvePlayableUri(uri);
-        if (!cancelled) setPlayable(next || uri);
+        if (cancelled) return;
+        if (isPlayableSrc(next)) setSrc(next);
+        else if (isPlayableSrc(uri)) setSrc(uri);
+        else setFailed(true);
       } catch {
-        if (!cancelled) setPlayable(uri);
+        if (!cancelled) {
+          if (isPlayableSrc(uri)) setSrc(uri);
+          else setFailed(true);
+        }
       }
     })();
     return () => {
@@ -53,94 +66,71 @@ export function LoopClip({
     };
   }, [uri]);
 
+  // Keep forcing muted autoplay while the clip should be live
   useEffect(() => {
     const el = videoRef.current;
-    if (!el || !playable) return;
+    if (!el || !src) return;
 
-    // React's `muted` prop is unreliable for autoplay policy — set the DOM property.
-    el.muted = true;
-    el.defaultMuted = true;
-    el.playsInline = true;
-    el.setAttribute("playsinline", "true");
-    el.setAttribute("webkit-playsinline", "true");
-    el.loop = true;
-    el.preload = "auto";
+    const arm = () => {
+      el.muted = true;
+      el.defaultMuted = true;
+      el.volume = 0;
+      el.playsInline = true;
+      el.autoplay = true;
+      el.loop = true;
+      el.setAttribute("muted", "");
+      el.setAttribute("playsinline", "");
+      el.setAttribute("webkit-playsinline", "");
+      el.setAttribute("autoplay", "");
+    };
 
-    if (el.getAttribute("src") !== playable && el.src !== playable) {
-      el.src = playable;
-      el.load();
-    }
-
-    const tryPlay = () => {
+    const play = () => {
+      arm();
       if (!live) {
         el.pause();
         return;
       }
-      el.muted = true;
-      void el.play().then(
-        () => {
-          setNeedsTap(false);
-          setReady(true);
-        },
-        () => setNeedsTap(true),
-      );
+      const p = el.play();
+      if (p && typeof p.then === "function") {
+        void p.then(
+          () => setReady(true),
+          () => undefined,
+        );
+      }
     };
 
-    el.addEventListener("loadeddata", tryPlay);
-    el.addEventListener("canplay", tryPlay);
-    tryPlay();
+    arm();
+    el.addEventListener("loadeddata", play);
+    el.addEventListener("canplay", play);
+    el.addEventListener("canplaythrough", play);
+    play();
+
+    const retry = window.setInterval(() => {
+      if (!live) return;
+      if (el.paused) play();
+    }, 350);
 
     return () => {
-      el.removeEventListener("loadeddata", tryPlay);
-      el.removeEventListener("canplay", tryPlay);
+      el.removeEventListener("loadeddata", play);
+      el.removeEventListener("canplay", play);
+      el.removeEventListener("canplaythrough", play);
+      window.clearInterval(retry);
       el.pause();
     };
-  }, [playable, live]);
+  }, [src, live]);
 
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
-    if (!live) el.pause();
-    else if (!needsTap) {
-      el.muted = true;
-      void el.play().catch(() => setNeedsTap(true));
-    }
-  }, [live, needsTap]);
+  if (failed && still) {
+    return (
+      <Image
+        source={{ uri: still }}
+        style={{ width: "100%", height }}
+        resizeMode="cover"
+        accessibilityIgnoresInvertColors
+      />
+    );
+  }
 
-  // Story overlays often sit above this player — any user gesture in the page can unlock autoplay.
-  useEffect(() => {
-    if (!needsTap || !live || typeof document === "undefined") return;
-    const kick = () => {
-      const el = videoRef.current;
-      if (!el) return;
-      el.muted = true;
-      void el.play().then(
-        () => {
-          setNeedsTap(false);
-          setReady(true);
-        },
-        () => undefined,
-      );
-    };
-    document.addEventListener("pointerdown", kick, true);
-    document.addEventListener("touchstart", kick, true);
-    return () => {
-      document.removeEventListener("pointerdown", kick, true);
-      document.removeEventListener("touchstart", kick, true);
-    };
-  }, [needsTap, live]);
-
-  if (failed) {
-    if (still) {
-      return (
-        <Image
-          source={{ uri: still }}
-          style={{ width: "100%", height }}
-          resizeMode="cover"
-          accessibilityIgnoresInvertColors
-        />
-      );
-    }
+  if (failed || (!src && !still)) {
     return <View style={{ width: "100%", height, backgroundColor: "#120810" }} />;
   }
 
@@ -149,77 +139,37 @@ export function LoopClip({
       {!ready && still ? (
         <Image
           source={{ uri: still }}
-          style={{ position: "absolute", width: "100%", height: "100%" }}
+          style={{ position: "absolute", width: "100%", height: "100%", zIndex: 1 }}
           resizeMode="cover"
           accessibilityIgnoresInvertColors
         />
       ) : null}
-      {createElement("video", {
-        ref: videoRef,
-        muted: true,
-        autoPlay: true,
-        playsInline: true,
-        loop: true,
-        preload: "auto",
-        poster: still || undefined,
-        controls: false,
-        onLoadedData: () => setReady(true),
-        onPlaying: () => {
-          setReady(true);
-          setNeedsTap(false);
-        },
-        onError: () => setFailed(true),
-        style: {
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          display: "block",
-          backgroundColor: "#120810",
-        } as CSSProperties,
-      })}
-      {needsTap ? (
-        <Pressable
-          accessibilityLabel="Play video"
-          onPress={() => {
-            const el = videoRef.current;
-            if (!el) return;
-            el.muted = true;
-            void el.play().then(
-              () => {
-                setNeedsTap(false);
-                setReady(true);
-              },
-              () => setFailed(true),
-            );
-          }}
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "rgba(0,0,0,0.35)",
-          }}
-        >
-          <View
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 32,
-              backgroundColor: "rgba(255,255,255,0.92)",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Play size={28} color="#1A0A14" weight="fill" />
-          </View>
-          <Text style={{ marginTop: 10, fontFamily: fonts.semibold, fontSize: 13, color: "#FFF8F4" }}>
-            Tap to play
-          </Text>
-        </Pressable>
-      ) : null}
+      {src
+        ? createElement("video", {
+            key: src,
+            ref: videoRef,
+            src,
+            muted: true,
+            defaultMuted: true,
+            autoPlay: true,
+            playsInline: true,
+            loop: true,
+            preload: "auto",
+            poster: still || undefined,
+            controls: false,
+            "webkit-playsinline": "true",
+            onLoadedData: () => setReady(true),
+            onPlaying: () => setReady(true),
+            onError: () => setFailed(true),
+            style: {
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+              backgroundColor: "#120810",
+            } as CSSProperties,
+          })
+        : null}
     </View>
   );
 }

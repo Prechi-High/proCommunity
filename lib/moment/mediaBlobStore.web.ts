@@ -67,7 +67,10 @@ export async function resolvePlayableUri(uri: string): Promise<string> {
   const db = await openDb();
   try {
     const blob = await idbReq<Blob | undefined>(db.transaction(STORE, "readonly").objectStore(STORE).get(id));
-    if (!blob) return uri;
+    if (!blob) {
+      // Never return unmask-media: to <video>/<img> — browsers can't fetch that scheme.
+      throw new Error("media_blob_missing");
+    }
     const url = URL.createObjectURL(blob);
     objectUrlCache.set(id, url);
     return url;

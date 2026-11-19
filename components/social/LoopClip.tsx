@@ -4,6 +4,7 @@ import { Video, ResizeMode } from "expo-av";
 
 import { usePageActive } from "@/lib/usePageActive";
 
+/** Native / default: muted looping autoplay whenever the clip is active. */
 export function LoopClip({
   uri,
   poster,
@@ -22,11 +23,35 @@ export function LoopClip({
   const still = poster && !/\.(mp4|mov|webm|m4v)(\?|$)/i.test(poster) ? poster : "";
 
   useEffect(() => {
+    setFailed(false);
+  }, [uri]);
+
+  useEffect(() => {
     const v = ref.current;
-    if (!v) return;
-    if (live) void v.playAsync().catch(() => setFailed(true));
-    else void v.pauseAsync().catch(() => undefined);
-  }, [live]);
+    if (!v || !uri) return;
+    let cancelled = false;
+    const kick = async () => {
+      try {
+        if (!live) {
+          await v.pauseAsync();
+          return;
+        }
+        await v.setIsMutedAsync(true);
+        await v.playAsync();
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    };
+    void kick();
+    const t = setInterval(() => {
+      void kick();
+    }, 800);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+      void v.pauseAsync().catch(() => undefined);
+    };
+  }, [live, uri]);
 
   if (failed || !uri) {
     if (still) {
