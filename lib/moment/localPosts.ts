@@ -10,6 +10,8 @@ export type StoryItem = {
   id: string;
   media: string;
   mediaKind: "photo" | "video";
+  /** Still frame for video stories (never a video URI). */
+  coverPosterUri?: string;
   caption?: string;
   createdAt: string;
   expiresAt: string;
@@ -129,6 +131,7 @@ export const useLocalMoments = create<State>()(
                 id: `story-${Date.now()}`,
                 media: post.photo,
                 mediaKind: post.mediaKind || "photo",
+                coverPosterUri: post.coverPosterUri || undefined,
                 caption: post.caption,
                 momentKind: post.momentKind,
                 authorName: post.author,

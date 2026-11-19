@@ -95,7 +95,7 @@ function storyToPulse(s: StoryItem): PulseMoment {
     id: s.id,
     name: s.authorName || "Unmasker",
     face: "",
-    media: s.mediaKind === "video" ? "" : s.media,
+    media: s.mediaKind === "video" ? s.coverPosterUri || "" : s.media,
     video: s.mediaKind === "video" ? s.media : undefined,
     caption: s.caption || label,
     likes: s.likes,

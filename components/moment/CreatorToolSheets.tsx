@@ -7,7 +7,9 @@ import { hapticSelect } from "@/lib/haptics";
 import { MOMENT_SOUNDS, selectedSoundLabel, type SoundOption } from "@/lib/moment/creatorCatalog";
 import { pickLocalAudio } from "@/lib/moment/localMediaPicker";
 import { momentFlow } from "@/lib/moment/flowTheme";
-import { playStudioSound, stopStudioSound } from "@/lib/moment/studioAudio";
+import { ensureStudioSoundStopsWhenHidden, playStudioSound, stopStudioSound } from "@/lib/moment/studioAudio";
+
+ensureStudioSoundStopsWhenHidden();
 import type { CreatorSettings } from "@/lib/moment/types";
 
 /** Music only — BG/looks/FX removed from create. */

@@ -101,7 +101,7 @@ export function MomentComposeScreen({
         <View style={{ flexDirection: "row", gap: 14, alignItems: "flex-start" }}>
           <Pressable onPress={onRecapture} style={{ width: 112, height: 140, borderRadius: 16, overflow: "hidden", backgroundColor: "#1A0A14" }}>
             {mediaKind === "video" ? (
-              <LoopClip uri={mediaUri} poster={mediaAssets[0]?.posterUri || mediaUri} height={140} />
+              <LoopClip uri={mediaUri} poster={mediaAssets[0]?.posterUri || ""} height={140} />
             ) : (
               <Image source={{ uri: mediaUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
             )}

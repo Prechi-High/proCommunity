@@ -45,7 +45,7 @@ export function MomentCaptureReview({
 
         <View style={{ flex: 1, marginHorizontal: 12, borderRadius: livelyRadii.hero, overflow: "hidden", backgroundColor: "#1A0A14" }}>
           {mediaKind === "video" ? (
-            <LoopClip uri={mediaUri} poster={mediaUri} height={480} />
+            <LoopClip uri={mediaUri} poster="" height={480} />
           ) : (
             <Image source={{ uri: mediaUri }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
           )}

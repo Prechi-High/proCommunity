@@ -43,7 +43,10 @@ export function StoryStatusRail({ onQueueChange }: { onQueueChange?: (open: bool
     const now = Date.now();
     return stories.filter((s) => new Date(s.expiresAt).getTime() > now);
   }, [stories]);
-  const ringThumb = myStories[0]?.media;
+  const ringThumb =
+    myStories[0]?.mediaKind === "video"
+      ? myStories[0]?.coverPosterUri || undefined
+      : myStories[0]?.media;
 
   const goPost = () => {
     hapticSelect();
@@ -55,7 +58,7 @@ export function StoryStatusRail({ onQueueChange }: { onQueueChange?: (open: bool
       id: s.id,
       name,
       face: avatarUrl,
-      media: s.mediaKind === "video" ? "" : s.media,
+      media: s.mediaKind === "video" ? s.coverPosterUri || "" : s.media,
       video: s.mediaKind === "video" ? s.media : undefined,
       caption: s.caption || "Your story.",
       likes: s.likes,

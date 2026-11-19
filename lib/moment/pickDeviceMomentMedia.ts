@@ -113,8 +113,29 @@ export async function pickDeviceMomentMedia(opts?: {
       };
     }
 
+    const assetId = `upload-${Date.now()}`;
+    let posterUri: string | undefined = mediaKind === "photo" ? uri : undefined;
+
+    // Web videos: stash File in IndexedDB so status still plays after reload (blob: dies).
+    if (Platform.OS === "web" && mediaKind === "video") {
+      try {
+        const { captureVideoPosterUri } = await import("@/lib/moment/videoPoster");
+        posterUri = (await captureVideoPosterUri(uri)) || undefined;
+      } catch {
+        posterUri = undefined;
+      }
+      if (raw.file) {
+        try {
+          const { persistMediaBlob } = await import("@/lib/moment/mediaBlobStore");
+          uri = await persistMediaBlob(assetId, raw.file);
+        } catch {
+          /* keep ephemeral blob uri */
+        }
+      }
+    }
+
     const asset: MomentMediaAsset = {
-      id: `upload-${Date.now()}`,
+      id: assetId,
       uri,
       kind: mediaKind,
       durationMs,
@@ -123,7 +144,7 @@ export async function pickDeviceMomentMedia(opts?: {
       fileSizeBytes: raw.fileSize ?? raw.file?.size,
       source: "device_upload",
       mimeType: mime || undefined,
-      posterUri: mediaKind === "photo" ? uri : undefined,
+      posterUri,
     };
 
     return { ok: true, asset, mediaKind };

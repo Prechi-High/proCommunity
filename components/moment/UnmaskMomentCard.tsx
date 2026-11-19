@@ -1,6 +1,6 @@
-import { Image, Pressable, Text, View, useWindowDimensions } from "react-native";
+import { Image, Text, View, useWindowDimensions } from "react-native";
 
-import { CaretRight } from "@/components/icons";
+import { ArrowClockwise, CalendarBlank, CaretRight, Sun, UserCircle } from "@/components/icons";
 import { fonts } from "@/constants/theme";
 import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
 import { momentFlow } from "@/lib/moment/flowTheme";
@@ -10,6 +10,39 @@ import {
   type MomentContext,
 } from "@/lib/moment/types";
 import { LoopClip } from "@/components/social/LoopClip";
+
+type ContextChip = {
+  key: string;
+  label: string;
+  Icon: typeof UserCircle;
+};
+
+function buildContextChips(
+  context: MomentContext,
+  kind: MomentKind,
+  productStory?: boolean,
+): ContextChip[] {
+  const config = momentConfig(kind);
+  const chips: ContextChip[] = [];
+  if (context.skinType) {
+    const skin = /skin/i.test(context.skinType) ? context.skinType : `${context.skinType} Skin`;
+    chips.push({ key: "skin", label: skin, Icon: UserCircle });
+  }
+  if (context.usageFrequency) {
+    chips.push({ key: "usage", label: context.usageFrequency, Icon: ArrowClockwise });
+  }
+  if (context.usageDuration) {
+    const d = context.usageDuration;
+    const label = d.startsWith("Day") && !/of use/i.test(d) ? `${d} of Use` : d;
+    chips.push({ key: "duration", label, Icon: CalendarBlank });
+  }
+  const occasion = displayOccasion(context);
+  const routine = occasion || (productStory ? "Product Story" : config.title);
+  if (routine) {
+    chips.push({ key: "routine", label: routine, Icon: Sun });
+  }
+  return chips.slice(0, 4);
+}
 
 /**
  * The "new image" card — media + Unmask brand + products + context.
@@ -47,10 +80,10 @@ export function UnmaskMomentCard({
   const extra = Math.max(0, products.length - shown.length);
   const badge = productStory ? "PRODUCT STORY 📖" : `${config.title} ${config.emoji}`;
   const duration = context.usageDuration;
-  const skin = context.skinType;
-  const usage = context.usageFrequency;
-  const occasion = displayOccasion(context);
   const play = playing !== false;
+  const chips = buildContextChips(context, kind, productStory);
+  // Never feed a video URI into Image — that renders black.
+  const stillPoster = posterUri && !/\.(mp4|mov|webm|m4v)(\?|$)/i.test(posterUri) ? posterUri : undefined;
 
   return (
     <View
@@ -66,10 +99,10 @@ export function UnmaskMomentCard({
     >
       <View style={{ width: "100%", height: mediaH, backgroundColor: "#1A0A14" }}>
         {mediaKind === "video" && play ? (
-          <LoopClip uri={mediaUri} poster={posterUri || mediaUri} height={mediaH} />
+          <LoopClip uri={mediaUri} poster={stillPoster || ""} height={mediaH} />
         ) : (
           <Image
-            source={{ uri: posterUri || mediaUri }}
+            source={{ uri: stillPoster || mediaUri }}
             style={{ width: "100%", height: "100%" }}
             resizeMode="cover"
             accessibilityIgnoresInvertColors
@@ -87,7 +120,8 @@ export function UnmaskMomentCard({
             </View>
           </View>
           {duration ? (
-            <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.92)" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.92)" }}>
+              <CalendarBlank size={12} color={momentFlow.ink} />
               <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: momentFlow.ink }}>{duration}</Text>
             </View>
           ) : null}
@@ -168,27 +202,47 @@ export function UnmaskMomentCard({
         ) : null}
       </View>
 
-      {/* Context row */}
-      <View style={{ flexDirection: "row", paddingHorizontal: 10, paddingVertical: 12, gap: 4, backgroundColor: "#FFF" }}>
-        {[
-          skin,
-          usage,
-          duration ? (duration.startsWith("Day") ? `${duration} of Use` : duration) : null,
-          occasion || (productStory ? "Product Story" : config.title),
-        ]
-          .filter(Boolean)
-          .slice(0, 4)
-          .map((label) => (
-            <View key={String(label)} style={{ flex: 1, alignItems: "center", gap: 4 }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: momentFlow.muted, textAlign: "center" }} numberOfLines={2}>
-                {label}
+      {/* Context row — icons match Preview mockup */}
+      {chips.length > 0 ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "stretch",
+            paddingHorizontal: 6,
+            paddingVertical: 12,
+            backgroundColor: "#FFF",
+            borderTopWidth: 1,
+            borderTopColor: "rgba(74,21,44,0.08)",
+          }}
+        >
+          {chips.map((chip, i) => (
+            <View
+              key={chip.key}
+              style={{
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 5,
+                paddingHorizontal: 4,
+                borderRightWidth: i < chips.length - 1 ? 1 : 0,
+                borderRightColor: "rgba(74,21,44,0.12)",
+              }}
+            >
+              <chip.Icon size={14} color={momentFlow.ink} weight="regular" />
+              <Text
+                style={{ flexShrink: 1, fontFamily: fonts.medium, fontSize: 10, color: momentFlow.ink, textAlign: "left" }}
+                numberOfLines={2}
+              >
+                {chip.label}
               </Text>
             </View>
           ))}
-      </View>
+        </View>
+      ) : null}
 
       {caption?.trim() ? (
-        <View style={{ marginHorizontal: 12, marginBottom: 14, padding: 12, borderRadius: 14, backgroundColor: momentFlow.pillPink }}>
+        <View style={{ marginHorizontal: 12, marginBottom: 14, marginTop: chips.length ? 0 : 12, padding: 12, borderRadius: 14, backgroundColor: momentFlow.pillPink }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: momentFlow.ink }}>
             “{caption.trim()}”
           </Text>
