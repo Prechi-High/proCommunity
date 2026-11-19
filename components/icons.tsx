@@ -127,6 +127,7 @@ import {
   Flag,
   ArrowsOut,
   ArrowsIn,
+  CalendarBlank,
 } from "phosphor-react-native";
 
 export {
@@ -146,6 +147,7 @@ export {
   Flag,
   ArrowsOut,
   ArrowsIn,
+  CalendarBlank,
   ArrowFatDown,
   BellRinging,
   ChatCircleDots,

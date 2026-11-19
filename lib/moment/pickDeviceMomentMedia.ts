@@ -113,6 +113,16 @@ export async function pickDeviceMomentMedia(opts?: {
       };
     }
 
+    let posterUri: string | undefined = mediaKind === "photo" ? uri : undefined;
+    if (mediaKind === "video" && Platform.OS === "web") {
+      try {
+        const { captureVideoPosterUri } = await import("@/lib/moment/videoPoster");
+        posterUri = (await captureVideoPosterUri(uri)) || undefined;
+      } catch {
+        posterUri = undefined;
+      }
+    }
+
     const asset: MomentMediaAsset = {
       id: `upload-${Date.now()}`,
       uri,
@@ -123,7 +133,7 @@ export async function pickDeviceMomentMedia(opts?: {
       fileSizeBytes: raw.fileSize ?? raw.file?.size,
       source: "device_upload",
       mimeType: mime || undefined,
-      posterUri: mediaKind === "photo" ? uri : undefined,
+      posterUri,
     };
 
     return { ok: true, asset, mediaKind };

@@ -371,18 +371,25 @@ export default function Moment() {
     setPublishing(true);
     setPublishError("");
     try {
-      // Prefer baked Unmask card for status + export so overlays stick
+      // Photos: bake Unmask card so overlays stick in status.
+      // Videos: always play the original file in-app (canvas bake often yields a black webm).
+      // External share still uses renderedMediaUri when available.
       let publishUri = draft.renderedMediaUri ?? draft.mediaUri;
-      if (draft.renderStatus !== "ready" || !draft.renderedMediaUri) {
+      if (draft.mediaKind === "photo" && (draft.renderStatus !== "ready" || !draft.renderedMediaUri)) {
         try {
           publishUri = (await runRender({ burnBranding: true })) || draft.mediaUri;
         } catch {
           publishUri = draft.mediaUri;
         }
+      } else if (draft.mediaKind === "video" && draft.renderStatus !== "ready") {
+        try {
+          await runRender({ burnBranding: true });
+        } catch {
+          /* share bake optional — status uses original */
+        }
       }
-      // For in-app video playback quality, keep original video URI when bake failed to image/static
       const playUri =
-        draft.mediaKind === "video" && (!publishUri || publishUri === draft.mediaUri)
+        draft.mediaKind === "video"
           ? draft.originalMediaUri || draft.mediaUri
           : publishUri;
       const statusUri = pickPersistableMediaUri(playUri, draft.originalMediaUri || draft.mediaUri);
@@ -448,7 +455,11 @@ export default function Moment() {
         ].filter(Boolean) as string[],
         trendId: draft.trendId,
         mediaSource: draft.mediaSource,
-        coverPosterUri: pickPersistableMediaUri(draft.coverPosterUri, statusUri),
+        coverPosterUri: (() => {
+          if (!draft.coverPosterUri) return undefined;
+          const u = pickPersistableMediaUri(draft.coverPosterUri, "");
+          return u || undefined;
+        })(),
         soundUri: draft.mediaKind === "photo" ? resolveStudioSoundUri(draft.creator) || undefined : undefined,
         soundMaxMs:
           draft.mediaKind === "photo"
@@ -545,7 +556,21 @@ export default function Moment() {
           onOpenProducts={() => patch({ productSheetOpen: true })}
           onBack={() => patch({ step: "capture" })}
           onRecapture={() => patch({ step: "capture" })}
-          onNext={() => patch({ step: "preview" })}
+          onNext={async () => {
+            // Ensure video has a still poster so preview/status never Image() a video URI
+            if (draft.mediaKind === "video" && !draft.coverPosterUri && draft.mediaUri && Platform.OS === "web") {
+              try {
+                const { captureVideoPosterUri } = await import("@/lib/moment/videoPoster");
+                const poster = await captureVideoPosterUri(draft.mediaUri);
+                if (poster) patch({ coverPosterUri: poster, step: "preview" });
+                else patch({ step: "preview" });
+                return;
+              } catch {
+                /* fall through */
+              }
+            }
+            patch({ step: "preview" });
+          }}
         />
         <AddProductSheet
           open={draft.productSheetOpen}

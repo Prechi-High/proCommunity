@@ -12,22 +12,27 @@ export function LoopClip({
   height: number;
 }) {
   const [failed, setFailed] = useState(false);
-  if (failed) {
-    return (
-      <Image
-        source={{ uri: poster }}
-        style={{ width: "100%", height }}
-        resizeMode="cover"
-        accessibilityIgnoresInvertColors
-      />
-    );
+  const still = poster && !/\.(mp4|mov|webm|m4v)(\?|$)/i.test(poster) ? poster : "";
+  if (failed || !uri) {
+    if (still) {
+      return (
+        <Image
+          source={{ uri: still }}
+          style={{ width: "100%", height }}
+          resizeMode="cover"
+          accessibilityIgnoresInvertColors
+        />
+      );
+    }
+    return <View style={{ width: "100%", height, backgroundColor: "#120810" }} />;
   }
   return (
     <View style={{ width: "100%", height, backgroundColor: "#120810" }}>
       <Video
+        key={uri}
         source={{ uri }}
-        posterSource={{ uri: poster }}
-        usePoster
+        posterSource={still ? { uri: still } : undefined}
+        usePoster={Boolean(still)}
         isLooping
         shouldPlay
         isMuted

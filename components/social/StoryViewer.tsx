@@ -3,7 +3,7 @@ import { Image, Modal, Pressable, Share, Text, useWindowDimensions, View } from 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Audio } from "expo-av";
 
-import { Heart, ShareNetwork, X } from "@/components/icons";
+import { ArrowClockwise, CalendarBlank, Heart, ShareNetwork, Sun, UserCircle, X } from "@/components/icons";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { useLocalMoments } from "@/lib/moment/localPosts";
@@ -215,11 +215,46 @@ export function StoryViewer({
               </View>
             ) : null}
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-              {[item.usageDuration, item.skinType, item.usageFrequency].filter(Boolean).map((chip) => (
-                <View key={String(chip)} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(0,0,0,0.5)" }}>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: "#FFF8F4" }}>{chip}</Text>
-                </View>
-              ))}
+              {[
+                item.skinType
+                  ? { key: "skin", label: /skin/i.test(item.skinType) ? item.skinType : `${item.skinType} Skin`, Icon: UserCircle }
+                  : null,
+                item.usageFrequency
+                  ? { key: "usage", label: item.usageFrequency, Icon: ArrowClockwise }
+                  : null,
+                item.usageDuration
+                  ? {
+                      key: "duration",
+                      label:
+                        item.usageDuration.startsWith("Day") && !/of use/i.test(item.usageDuration)
+                          ? `${item.usageDuration} of Use`
+                          : item.usageDuration,
+                      Icon: CalendarBlank,
+                    }
+                  : null,
+                item.occasion ? { key: "routine", label: item.occasion, Icon: Sun } : null,
+              ]
+                .filter(Boolean)
+                .map((chip) => {
+                  const row = chip!;
+                  return (
+                    <View
+                      key={row.key}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 5,
+                        paddingHorizontal: 10,
+                        paddingVertical: 5,
+                        borderRadius: 999,
+                        backgroundColor: "rgba(0,0,0,0.5)",
+                      }}
+                    >
+                      <row.Icon size={12} color="#FFF8F4" />
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: "#FFF8F4" }}>{row.label}</Text>
+                    </View>
+                  );
+                })}
             </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: "#FFF8F4" }}>{item.caption}</Text>
             {interactive && item.storyId ? (
