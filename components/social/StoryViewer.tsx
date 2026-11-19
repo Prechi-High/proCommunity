@@ -6,10 +6,12 @@ import { Audio } from "expo-av";
 import { ArrowClockwise, CalendarBlank, Heart, ShareNetwork, Sun, UserCircle, X } from "@/components/icons";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
+import { resolvePlayableUri } from "@/lib/moment/mediaBlobStore";
 import { useLocalMoments } from "@/lib/moment/localPosts";
-import { UNMASK_IMAGE_BGM_MAX_SEC } from "@/lib/moment/studioAudio";
+import { stopStudioSound, UNMASK_IMAGE_BGM_MAX_SEC } from "@/lib/moment/studioAudio";
 import { useAppStore } from "@/lib/store";
 import type { PulseMoment } from "@/lib/social/previewMoments";
+import { usePageActive } from "@/lib/usePageActive";
 
 import { LoopClip } from "./LoopClip";
 
@@ -33,13 +35,17 @@ export function StoryViewer({
   const { height } = useWindowDimensions();
   const [index, setIndex] = useState(startIndex);
   const [progress, setProgress] = useState(0);
+  const [videoUri, setVideoUri] = useState<string>("");
   const elapsed = useRef(0);
   const paused = useRef(false);
   const soundRef = useRef<Audio.Sound | null>(null);
+  const pageActive = usePageActive();
   const toggleLike = useLocalMoments((s) => s.toggleStoryLike);
   const reshareStory = useLocalMoments((s) => s.reshareStory);
   const storyLikes = useLocalMoments((s) => s.storyLikes);
   const display = useAppStore((s) => s.profile?.displayName) || "You";
+
+  const live = visible && pageActive;
 
   useEffect(() => {
     if (!visible) return;
@@ -49,15 +55,39 @@ export function StoryViewer({
     paused.current = false;
   }, [visible, startIndex, queue, queue.length]);
 
+  // Leaving the tab / backgrounding must stop status + BGM — do not keep running off-screen.
+  const hadFocus = useRef(false);
+  useEffect(() => {
+    if (visible && pageActive) hadFocus.current = true;
+    if (!visible) {
+      hadFocus.current = false;
+      return;
+    }
+    if (!hadFocus.current || pageActive) return;
+    paused.current = true;
+    void (async () => {
+      try {
+        await soundRef.current?.stopAsync();
+        await soundRef.current?.unloadAsync();
+      } catch {
+        /* ignore */
+      }
+      soundRef.current = null;
+      await stopStudioSound();
+    })();
+    onClose();
+  }, [pageActive, visible, onClose]);
+
   const item = queue[index];
   const durationMs = item?.video
     ? STORY_MS
     : Math.min((item?.soundMaxMs || UNMASK_IMAGE_BGM_MAX_SEC * 1000), UNMASK_IMAGE_BGM_MAX_SEC * 1000) || STORY_MS;
 
   useEffect(() => {
-    if (!visible || !item) return;
+    if (!live || !item) return;
     setProgress(0);
     elapsed.current = 0;
+    paused.current = false;
     const tick = setInterval(() => {
       if (paused.current) return;
       elapsed.current += 80;
@@ -71,9 +101,29 @@ export function StoryViewer({
       }
     }, 80);
     return () => clearInterval(tick);
-  }, [visible, index, item?.id, queue.length, onClose, onFinishedPerson, durationMs]);
+  }, [live, index, item?.id, queue.length, onClose, onFinishedPerson, durationMs]);
 
-  // Photo / slide BGM — loop for ~30s while status is visible
+  // Resolve durable video URIs (IndexedDB) before LoopClip plays
+  useEffect(() => {
+    let cancelled = false;
+    if (!item?.video) {
+      setVideoUri("");
+      return;
+    }
+    void (async () => {
+      try {
+        const next = await resolvePlayableUri(item.video!);
+        if (!cancelled) setVideoUri(next || item.video!);
+      } catch {
+        if (!cancelled) setVideoUri(item.video!);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [item?.video, item?.id]);
+
+  // Photo / slide BGM — only while status is visible AND tab is foreground
   useEffect(() => {
     let alive = true;
     void (async () => {
@@ -83,28 +133,62 @@ export function StoryViewer({
         /* ignore */
       }
       soundRef.current = null;
-      if (!visible || !item?.soundUri || item.video) return;
+      if (!live || !item?.soundUri || item.video) return;
       try {
-        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          allowsRecordingIOS: false,
+          staysActiveInBackground: false,
+        });
+        const playUri = await resolvePlayableUri(item.soundUri);
         const { sound } = await Audio.Sound.createAsync(
-          { uri: item.soundUri },
-          { shouldPlay: true, isLooping: true, volume: 1 },
+          { uri: playUri },
+          { shouldPlay: true, isLooping: false, volume: 1 },
         );
         if (!alive) {
           await sound.unloadAsync();
           return;
         }
         soundRef.current = sound;
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if (!status.isLoaded) return;
+          const maxMs = Math.min(item.soundMaxMs || UNMASK_IMAGE_BGM_MAX_SEC * 1000, UNMASK_IMAGE_BGM_MAX_SEC * 1000);
+          if (status.positionMillis >= maxMs) {
+            void sound.stopAsync();
+          }
+        });
       } catch {
         /* preview optional */
       }
     })();
     return () => {
       alive = false;
-      void soundRef.current?.unloadAsync();
-      soundRef.current = null;
+      void (async () => {
+        try {
+          await soundRef.current?.stopAsync();
+          await soundRef.current?.unloadAsync();
+        } catch {
+          /* ignore */
+        }
+        soundRef.current = null;
+      })();
     };
-  }, [visible, item?.id, item?.soundUri, item?.video]);
+  }, [live, item?.id, item?.soundUri, item?.video, item?.soundMaxMs]);
+
+  // Hard stop when viewer closes
+  useEffect(() => {
+    if (visible) return;
+    void (async () => {
+      try {
+        await soundRef.current?.stopAsync();
+        await soundRef.current?.unloadAsync();
+      } catch {
+        /* ignore */
+      }
+      soundRef.current = null;
+      await stopStudioSound();
+    })();
+  }, [visible]);
 
   if (!item) return null;
 
@@ -133,7 +217,7 @@ export function StoryViewer({
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: "#000" }}>
         {item.video ? (
-          <LoopClip uri={item.video} poster={item.media || item.video} height={height} />
+          <LoopClip uri={videoUri || item.video} poster={item.media || ""} height={height} active={live} />
         ) : item.media ? (
           <Image source={{ uri: item.media }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
         ) : (
@@ -166,7 +250,6 @@ export function StoryViewer({
             </View>
           </View>
 
-          {/* Same branding language as create Preview card */}
           <View style={{ position: "absolute", left: 16, right: 16, top: 100, gap: 8 }} pointerEvents="none">
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: "rgba(255,248,244,0.95)" }}>Unmask</Text>
             {item.momentBeat || item.stickers?.[0] ? (

@@ -388,11 +388,12 @@ export default function Moment() {
           /* share bake optional — status uses original */
         }
       }
+      // Prefer durable unmask-media: keys (IndexedDB) over ephemeral blob: URLs
       const playUri =
         draft.mediaKind === "video"
-          ? draft.originalMediaUri || draft.mediaUri
+          ? draft.mediaUri || draft.originalMediaUri || ""
           : publishUri;
-      const statusUri = pickPersistableMediaUri(playUri, draft.originalMediaUri || draft.mediaUri);
+      const statusUri = pickPersistableMediaUri(playUri, draft.mediaUri || draft.originalMediaUri || "");
 
       const products = context.products ?? [];
       for (const p of products) {

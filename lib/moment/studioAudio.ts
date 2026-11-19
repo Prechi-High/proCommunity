@@ -69,6 +69,7 @@ export async function playStudioSound(
   creator: CreatorSettings,
   opts?: { loop?: boolean; maxMs?: number; onStatus?: (s: AVPlaybackStatus) => void; toggleStop?: boolean },
 ): Promise<"playing" | "stopped" | "failed"> {
+  ensureStudioSoundStopsWhenHidden();
   const uri = resolveStudioSoundUri(creator);
   if (!uri) {
     await stopStudioSound();
@@ -161,3 +162,16 @@ export async function pauseStudioSound() {
   }
   htmlAudio?.pause();
 }
+
+/** Stop BGM when the tab/app goes to the background so songs don't keep playing off-screen. */
+let visibilityWired = false;
+export function ensureStudioSoundStopsWhenHidden() {
+  if (visibilityWired || Platform.OS !== "web" || typeof document === "undefined") return;
+  visibilityWired = true;
+  const halt = () => {
+    if (document.hidden) void stopStudioSound();
+  };
+  document.addEventListener("visibilitychange", halt);
+  window.addEventListener("pagehide", () => void stopStudioSound());
+}
+
