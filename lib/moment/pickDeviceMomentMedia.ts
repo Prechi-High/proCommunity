@@ -46,6 +46,7 @@ function detectKind(raw: ImagePicker.ImagePickerAsset): "photo" | "video" {
 export async function pickDeviceMomentMedia(opts?: {
   videoFirst?: boolean;
   videosOnly?: boolean;
+  photosOnly?: boolean;
 }): Promise<PickMomentMediaResult> {
   try {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -59,8 +60,9 @@ export async function pickDeviceMomentMedia(opts?: {
 
     // Never request base64 for videos — it hangs mobile browsers and blows memory.
     // Prefer blob:/file URIs; photos can stay as uri without base64 too.
+    const mediaTypes = opts?.videosOnly ? ["videos"] : opts?.photosOnly ? ["images"] : ["videos", "images"];
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: opts?.videosOnly ? ["videos"] : ["videos", "images"],
+      mediaTypes: mediaTypes as ("images" | "videos")[],
       allowsMultipleSelection: false,
       videoMaxDuration: MOMENT_MEDIA_LIMITS.maxVideoDurationSec,
       quality: 0.85,

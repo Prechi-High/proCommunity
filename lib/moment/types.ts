@@ -24,27 +24,15 @@ export type MomentMediaAsset = {
   fileSizeBytes?: number;
   mimeType?: string;
   source?: MomentMediaSource;
-  /** Working preview — original uri is never replaced */
   posterUri?: string;
-  /** Per-slide caption for photo carousels */
   caption?: string;
 };
 
+/** Sound only — no BG/looks/FX studio. */
 export type CreatorSettings = {
   soundId?: string;
   localSoundUri?: string;
   localSoundName?: string;
-  lookId?: string;
-  backgroundId?: string;
-  localBackgroundUri?: string;
-  /** Blur strength applied to the replacement scene (0–40). */
-  backgroundBlurAmount?: number;
-  lightingId?: string;
-  beautyEnabled?: boolean;
-  effectId?: string;
-  timerSec?: number;
-  gridEnabled?: boolean;
-  captureSpeed?: 0.5 | 1 | 2;
 };
 
 export type MomentContext = {
@@ -59,6 +47,7 @@ export type MomentContext = {
   usageDuration?: string;
   eveningSteps?: string;
   experience?: string;
+  confidence?: string;
   skinType?: string;
   skinGoal?: string;
   moodLook?: string;
@@ -67,15 +56,17 @@ export type MomentContext = {
 
 export type MomentAudience = "everyone" | "followers" | "private";
 
-export type MomentFlowStep = "choose" | "intake" | "camera" | "review" | "setup" | "preview" | "share";
+/** Simplified create: choose → capture → edit → share */
+export type MomentFlowStep = "choose" | "capture" | "edit" | "share";
 
 export type MomentBatchDraft = {
   draftId: string;
   step: MomentFlowStep;
   kind: MomentKind | null;
+  /** Product Story uses the same visual flow with experience fields. */
+  productStory?: boolean;
   mediaSource: MomentMediaSource;
   mediaUri: string;
-  /** Raw capture kept for reverting background/look processing. */
   originalMediaUri?: string;
   mediaKind: "photo" | "video";
   mediaAssets: MomentMediaAsset[];
@@ -101,6 +92,7 @@ export function initialMomentBatchDraft(): MomentBatchDraft {
     draftId: `draft-${Date.now()}`,
     step: "choose",
     kind: null,
+    productStory: false,
     mediaSource: "camera",
     mediaUri: "",
     mediaKind: "photo",
@@ -109,19 +101,35 @@ export function initialMomentBatchDraft(): MomentBatchDraft {
     audience: "everyone",
     saveToJourney: true,
     productSheetOpen: false,
-    creator: { backgroundId: "original", captureSpeed: 1 },
+    creator: {},
     caption: "",
   };
 }
 
-/** Heal AsyncStorage drafts from older app versions so the flow never crashes mid-step. */
-const CREATOR_DEFAULT: CreatorSettings = { backgroundId: "original", captureSpeed: 1 };
+const CREATOR_DEFAULT: CreatorSettings = {};
 
-export function normalizeMomentBatchDraft(raw: Partial<MomentBatchDraft> & { step?: MomentFlowStep }): MomentBatchDraft {
+/** Map legacy multi-step drafts onto the simple create flow. */
+function migrateStep(step: string | undefined): MomentFlowStep {
+  if (step === "share") return "share";
+  if (step === "edit" || step === "setup" || step === "preview") return "edit";
+  if (step === "capture" || step === "camera" || step === "intake" || step === "review") return "capture";
+  return "choose";
+}
+
+export function normalizeMomentBatchDraft(raw: Partial<MomentBatchDraft> & { step?: string }): MomentBatchDraft {
+  const step = migrateStep(raw.step);
+  const creatorRaw = (raw.creator ?? {}) as CreatorSettings & Record<string, unknown>;
+  const creator: CreatorSettings = {
+    soundId: typeof creatorRaw.soundId === "string" ? creatorRaw.soundId : undefined,
+    localSoundUri: typeof creatorRaw.localSoundUri === "string" ? creatorRaw.localSoundUri : undefined,
+    localSoundName: typeof creatorRaw.localSoundName === "string" ? creatorRaw.localSoundName : undefined,
+  };
+
   const merged: MomentBatchDraft = {
     draftId: raw.draftId ?? `draft-${Date.now()}`,
-    step: raw.step ?? "choose",
+    step,
     kind: raw.kind ?? null,
+    productStory: Boolean(raw.productStory),
     mediaSource: raw.mediaSource ?? "camera",
     mediaUri: raw.mediaUri ?? "",
     originalMediaUri: raw.originalMediaUri,
@@ -134,7 +142,7 @@ export function normalizeMomentBatchDraft(raw: Partial<MomentBatchDraft> & { ste
     audience: raw.audience ?? "everyone",
     saveToJourney: raw.saveToJourney ?? true,
     productSheetOpen: raw.productSheetOpen ?? false,
-    creator: { ...CREATOR_DEFAULT, ...(raw.creator ?? {}) },
+    creator: { ...CREATOR_DEFAULT, ...creator },
     caption: typeof raw.caption === "string" ? raw.caption : "",
     trendId: raw.trendId,
     renderedMediaUri: raw.renderedMediaUri,
@@ -144,15 +152,11 @@ export function normalizeMomentBatchDraft(raw: Partial<MomentBatchDraft> & { ste
     renderError: raw.renderError,
   };
 
-  if (merged.step !== "choose" && !merged.kind) merged.step = "choose";
-  if (["setup", "preview", "share"].includes(merged.step) && !merged.mediaUri) {
-    merged.step = merged.kind ? "camera" : "choose";
+  if (merged.step !== "choose" && !merged.kind && !merged.productStory) merged.step = "choose";
+  if ((merged.step === "edit" || merged.step === "share") && !merged.mediaUri) {
+    merged.step = merged.kind || merged.productStory ? "capture" : "choose";
   }
-  if (merged.step === "camera" && !merged.kind) merged.step = "choose";
-  if (merged.step === "intake" && !merged.kind) merged.step = "choose";
-  if (merged.step === "review" && !merged.mediaUri) {
-    merged.step = merged.kind ? "intake" : "choose";
-  }
+  if (merged.step === "capture" && !merged.kind && !merged.productStory) merged.step = "choose";
   return merged;
 }
 

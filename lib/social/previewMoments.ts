@@ -27,6 +27,10 @@ export type PulseMoment = {
   invite: string;
   stickers?: string[];
   storyId?: string;
+  occasion?: string;
+  productLabels?: string[];
+  soundUri?: string;
+  soundMaxMs?: number;
 };
 
 export const PREVIEW_MOMENTS: PulseMoment[] = [

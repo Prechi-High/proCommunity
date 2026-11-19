@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Image, Modal, Pressable, Share, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Audio } from "expo-av";
 
 import { Heart, ShareNetwork, X } from "@/components/icons";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { useLocalMoments } from "@/lib/moment/localPosts";
+import { UNMASK_IMAGE_BGM_MAX_SEC } from "@/lib/moment/studioAudio";
 import { useAppStore } from "@/lib/store";
 import type { PulseMoment } from "@/lib/social/previewMoments";
 
@@ -33,6 +35,7 @@ export function StoryViewer({
   const [progress, setProgress] = useState(0);
   const elapsed = useRef(0);
   const paused = useRef(false);
+  const soundRef = useRef<Audio.Sound | null>(null);
   const toggleLike = useLocalMoments((s) => s.toggleStoryLike);
   const reshareStory = useLocalMoments((s) => s.reshareStory);
   const storyLikes = useLocalMoments((s) => s.storyLikes);
@@ -47,6 +50,9 @@ export function StoryViewer({
   }, [visible, startIndex, queue, queue.length]);
 
   const item = queue[index];
+  const durationMs = item?.video
+    ? STORY_MS
+    : Math.min((item?.soundMaxMs || UNMASK_IMAGE_BGM_MAX_SEC * 1000), UNMASK_IMAGE_BGM_MAX_SEC * 1000) || STORY_MS;
 
   useEffect(() => {
     if (!visible || !item) return;
@@ -55,7 +61,7 @@ export function StoryViewer({
     const tick = setInterval(() => {
       if (paused.current) return;
       elapsed.current += 80;
-      const p = Math.min(1, elapsed.current / STORY_MS);
+      const p = Math.min(1, elapsed.current / durationMs);
       setProgress(p);
       if (p >= 1) {
         clearInterval(tick);
@@ -65,7 +71,40 @@ export function StoryViewer({
       }
     }, 80);
     return () => clearInterval(tick);
-  }, [visible, index, item?.id, queue.length, onClose, onFinishedPerson]);
+  }, [visible, index, item?.id, queue.length, onClose, onFinishedPerson, durationMs]);
+
+  // Photo / slide BGM — loop for ~30s while status is visible
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        await soundRef.current?.unloadAsync();
+      } catch {
+        /* ignore */
+      }
+      soundRef.current = null;
+      if (!visible || !item?.soundUri || item.video) return;
+      try {
+        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: item.soundUri },
+          { shouldPlay: true, isLooping: true, volume: 1 },
+        );
+        if (!alive) {
+          await sound.unloadAsync();
+          return;
+        }
+        soundRef.current = sound;
+      } catch {
+        /* preview optional */
+      }
+    })();
+    return () => {
+      alive = false;
+      void soundRef.current?.unloadAsync();
+      soundRef.current = null;
+    };
+  }, [visible, item?.id, item?.soundUri, item?.video]);
 
   if (!item) return null;
 
@@ -86,6 +125,9 @@ export function StoryViewer({
 
   const storyId = item.storyId || item.id;
   const loved = !!storyLikes[storyId];
+  const productLines = item.productLabels?.length
+    ? item.productLabels
+    : item.productTags?.map((p) => p.name) || (item.product ? [item.product] : []);
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -116,13 +158,29 @@ export function StoryViewer({
               )}
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: "#FFF8F4" }}>{item.name}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: "rgba(255,248,244,0.72)" }}>24h status</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: "rgba(255,248,244,0.72)" }}>Unmask · 24h</Text>
               </View>
               <Pressable accessibilityLabel="Close stories" onPress={onClose} hitSlop={12}>
                 <X size={22} color="#FFF8F4" />
               </Pressable>
             </View>
           </View>
+
+          {/* Same branding language as create preview */}
+          <View style={{ position: "absolute", left: 16, right: 16, top: 100, gap: 6 }} pointerEvents="none">
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: "rgba(255,248,244,0.95)" }}>Unmask</Text>
+            {item.occasion || item.momentBeat ? (
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: "#FFF8F4" }}>
+                {item.occasion || item.momentBeat}
+              </Text>
+            ) : null}
+            {productLines.slice(0, 3).map((line) => (
+              <Text key={line} style={{ fontFamily: fonts.medium, fontSize: 13, color: "rgba(255,248,244,0.9)" }}>
+                {line}
+              </Text>
+            ))}
+          </View>
+
           <View style={{ flex: 1, flexDirection: "row" }} pointerEvents="box-none">
             <Pressable style={{ flex: 1 }} onPress={goPrev} onPressIn={() => holdPause(true)} onPressOut={() => holdPause(false)} accessibilityLabel="Previous story" />
             <Pressable style={{ flex: 1 }} onPress={goNext} onPressIn={() => holdPause(true)} onPressOut={() => holdPause(false)} accessibilityLabel="Next story" />
@@ -155,7 +213,7 @@ export function StoryViewer({
                   accessibilityLabel="Share outside Unmask"
                   onPress={() => {
                     hapticSelect();
-                    void Share.share({ message: `${item.name} on Unmask: ${item.caption}` });
+                    void Share.share({ message: `${item.name} on Unmask: ${item.caption}`, url: item.video || item.media });
                   }}
                 >
                   <ShareNetwork size={24} color="#FFF8F4" />

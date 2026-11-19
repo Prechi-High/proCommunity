@@ -29,8 +29,8 @@ const ACTIONS = [
   },
   {
     label: COPY.createExperience,
-    detail: "What changed, in your words.",
-    href: "/contribute",
+    detail: "Photo or video, product, and your experience — same as a Moment.",
+    href: "/moment?story=1",
     Icon: PencilSimple,
     colors: ["#236044", "#3D0F15"] as const,
   },

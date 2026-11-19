@@ -103,6 +103,10 @@ function storyToPulse(s: StoryItem): PulseMoment {
     thread: [],
     invite: "24h status",
     storyId: s.id,
+    occasion: s.occasion,
+    productLabels: s.productLabels,
+    soundUri: s.soundUri,
+    soundMaxMs: s.soundMaxMs,
     stickers: s.momentKind ? [`${momentConfig(s.momentKind).title} ${momentConfig(s.momentKind).emoji}`] : undefined,
   };
 }

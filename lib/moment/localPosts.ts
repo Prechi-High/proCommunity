@@ -16,6 +16,10 @@ export type StoryItem = {
   momentKind?: MomentKind;
   authorName?: string;
   likes: number;
+  occasion?: string;
+  productLabels?: string[];
+  soundUri?: string;
+  soundMaxMs?: number;
 };
 
 export type LocalMoment = {
@@ -42,6 +46,7 @@ export type LocalMoment = {
   coverPosterUri?: string;
   soundUri?: string;
   soundMaxMs?: number;
+  productLabels?: string[];
   slideCaptions?: string[];
   createdAt: string;
 };
@@ -118,6 +123,10 @@ export const useLocalMoments = create<State>()(
                 caption: post.caption,
                 momentKind: post.momentKind,
                 authorName: post.author,
+                occasion: post.occasion,
+                productLabels: post.productLabels,
+                soundUri: post.mediaKind === "video" ? undefined : post.soundUri,
+                soundMaxMs: post.mediaKind === "video" ? undefined : post.soundMaxMs,
                 createdAt: row.createdAt,
                 expiresAt: new Date(Date.now() + STORY_TTL_MS).toISOString(),
                 likes: 0,

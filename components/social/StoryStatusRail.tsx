@@ -63,6 +63,10 @@ export function StoryStatusRail({ onQueueChange }: { onQueueChange?: (open: bool
       thread: [],
       invite: "Your story.",
       storyId: s.id,
+      occasion: s.occasion,
+      productLabels: s.productLabels,
+      soundUri: s.soundUri,
+      soundMaxMs: s.soundMaxMs,
     }));
 
   const openStories = (startId: string) => {

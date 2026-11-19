@@ -4,8 +4,8 @@ import { Platform } from "react-native";
 import { MOMENT_SOUNDS } from "@/lib/moment/creatorCatalog";
 import type { CreatorSettings } from "@/lib/moment/types";
 
-/** Max BGM length when attached to a still / story post (seconds). */
-export const UNMASK_IMAGE_BGM_MAX_SEC = 50;
+/** Max BGM length when attached to a still / slide post (seconds). */
+export const UNMASK_IMAGE_BGM_MAX_SEC = 30;
 
 let shared: ExpoAudio.Sound | null = null;
 let sharedKey: string | null = null;
@@ -49,29 +49,52 @@ export async function stopStudioSound() {
   }
 }
 
+export async function isStudioSoundPlaying(): Promise<boolean> {
+  try {
+    const status = await shared?.getStatusAsync();
+    if (status?.isLoaded && status.isPlaying) return true;
+  } catch {
+    /* ignore */
+  }
+  if (htmlAudio && !htmlAudio.paused && !htmlAudio.ended) return true;
+  return false;
+}
+
+/**
+ * Play studio sound.
+ * - Preview (loop:false): plays once then stops. Calling again while playing stops it.
+ * - Published/edit canvas (loop:true): loops until maxMs or stopStudioSound.
+ */
 export async function playStudioSound(
   creator: CreatorSettings,
-  opts?: { loop?: boolean; maxMs?: number; onStatus?: (s: AVPlaybackStatus) => void },
-): Promise<boolean> {
+  opts?: { loop?: boolean; maxMs?: number; onStatus?: (s: AVPlaybackStatus) => void; toggleStop?: boolean },
+): Promise<"playing" | "stopped" | "failed"> {
   const uri = resolveStudioSoundUri(creator);
   if (!uri) {
     await stopStudioSound();
-    return false;
+    return "failed";
   }
   const key = studioSoundKey(creator)!;
+  const loop = opts?.loop ?? false;
+  const toggleStop = opts?.toggleStop ?? !loop;
+
+  // Tap-again while same track is playing → stop (picker preview)
+  if (toggleStop && sharedKey === key) {
+    const playing = await isStudioSoundPlaying();
+    if (playing) {
+      await stopStudioSound();
+      return "stopped";
+    }
+  }
+
   try {
     await ensureAudioMode();
-    if (shared && sharedKey === key) {
-      const status = await shared.getStatusAsync();
-      if (status.isLoaded && !status.isPlaying) await shared.playAsync();
-      return true;
-    }
     await stopStudioSound();
     const { sound } = await ExpoAudio.Sound.createAsync(
       { uri },
       {
         shouldPlay: true,
-        isLooping: opts?.loop ?? true,
+        isLooping: loop,
         volume: 1,
       },
     );
@@ -81,11 +104,17 @@ export async function playStudioSound(
       opts?.onStatus?.(status);
       if (!status.isLoaded) return;
       if (opts?.maxMs && status.positionMillis >= opts.maxMs) {
-        void sound.setPositionAsync(0);
-        if (!opts.loop) void sound.pauseAsync();
+        if (loop) {
+          void sound.setPositionAsync(0);
+        } else {
+          void stopStudioSound();
+        }
+      }
+      if (!loop && status.didJustFinish) {
+        void stopStudioSound();
       }
     });
-    return true;
+    return "playing";
   } catch {
     shared = null;
     sharedKey = null;
@@ -94,25 +123,33 @@ export async function playStudioSound(
         await stopStudioSound();
         const el = document.createElement("audio");
         el.src = uri;
-        el.loop = opts?.loop ?? true;
+        el.loop = loop;
         el.crossOrigin = "anonymous";
         el.volume = 1;
         await el.play();
         htmlAudio = el;
+        el.onended = () => {
+          if (!loop) {
+            htmlAudio = null;
+          }
+        };
         if (opts?.maxMs) {
           el.ontimeupdate = () => {
             if (el.currentTime * 1000 >= opts.maxMs!) {
-              el.currentTime = 0;
-              if (!opts.loop) el.pause();
+              if (loop) el.currentTime = 0;
+              else {
+                el.pause();
+                htmlAudio = null;
+              }
             }
           };
         }
-        return true;
+        return "playing";
       } catch {
-        return false;
+        return "failed";
       }
     }
-    return false;
+    return "failed";
   }
 }
 
