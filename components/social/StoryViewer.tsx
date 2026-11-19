@@ -166,26 +166,61 @@ export function StoryViewer({
             </View>
           </View>
 
-          {/* Same branding language as create preview */}
-          <View style={{ position: "absolute", left: 16, right: 16, top: 100, gap: 6 }} pointerEvents="none">
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: "rgba(255,248,244,0.95)" }}>Unmask</Text>
-            {item.occasion || item.momentBeat ? (
-              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: "#FFF8F4" }}>
-                {item.occasion || item.momentBeat}
-              </Text>
+          {/* Same branding language as create Preview card */}
+          <View style={{ position: "absolute", left: 16, right: 16, top: 100, gap: 8 }} pointerEvents="none">
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: "rgba(255,248,244,0.95)" }}>Unmask</Text>
+            {item.momentBeat || item.stickers?.[0] ? (
+              <View style={{ alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(74,21,44,0.88)" }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: "#FFF8F4" }}>
+                  {item.momentBeat || item.stickers?.[0]}
+                </Text>
+              </View>
             ) : null}
-            {productLines.slice(0, 3).map((line) => (
-              <Text key={line} style={{ fontFamily: fonts.medium, fontSize: 13, color: "rgba(255,248,244,0.9)" }}>
-                {line}
-              </Text>
-            ))}
+            {item.momentTitle ? (
+              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: "#FFF8F4", marginTop: 12 }}>{item.momentTitle}</Text>
+            ) : item.occasion ? (
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#FFF8F4" }}>{item.occasion}</Text>
+            ) : null}
           </View>
 
           <View style={{ flex: 1, flexDirection: "row" }} pointerEvents="box-none">
             <Pressable style={{ flex: 1 }} onPress={goPrev} onPressIn={() => holdPause(true)} onPressOut={() => holdPause(false)} accessibilityLabel="Previous story" />
             <Pressable style={{ flex: 1 }} onPress={goNext} onPressIn={() => holdPause(true)} onPressOut={() => holdPause(false)} accessibilityLabel="Next story" />
           </View>
-          <View style={{ paddingHorizontal: 18, paddingBottom: 16, gap: 10 }} pointerEvents="box-none">
+          <View style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 10 }} pointerEvents="box-none">
+            {productLines.length > 0 ? (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {productLines.slice(0, 3).map((line, i) => (
+                  <View
+                    key={line}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      borderRadius: 999,
+                      backgroundColor: "rgba(0,0,0,0.55)",
+                      maxWidth: "100%",
+                    }}
+                  >
+                    {item.productImages?.[i] ? (
+                      <Image source={{ uri: item.productImages[i] }} style={{ width: 22, height: 22, borderRadius: 6 }} accessibilityIgnoresInvertColors />
+                    ) : null}
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: "#FFF8F4" }} numberOfLines={1}>
+                      {line}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {[item.usageDuration, item.skinType, item.usageFrequency].filter(Boolean).map((chip) => (
+                <View key={String(chip)} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(0,0,0,0.5)" }}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: "#FFF8F4" }}>{chip}</Text>
+                </View>
+              ))}
+            </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: "#FFF8F4" }}>{item.caption}</Text>
             {interactive && item.storyId ? (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 20 }}>

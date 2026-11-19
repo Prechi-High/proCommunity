@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Image, Platform, View } from "react-native";
+import { Image, View } from "react-native";
 import { Video, ResizeMode } from "expo-av";
 
 export function LoopClip({
@@ -29,9 +29,10 @@ export function LoopClip({
         posterSource={{ uri: poster }}
         usePoster
         isLooping
-        shouldPlay={Platform.OS !== "web"}
+        shouldPlay
         isMuted
         resizeMode={ResizeMode.COVER}
+        useNativeControls={false}
         onError={() => setFailed(true)}
         style={{ width: "100%", height }}
       />

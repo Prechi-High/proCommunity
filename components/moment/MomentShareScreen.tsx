@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { ActivityIndicator, Image, Pressable, Share, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ArrowLeft, CaretRight, InstagramLogo, NotePencil, Sparkle, TiktokLogo, UsersThree, WhatsappLogo } from "@/components/icons";
-import { ActionSheet } from "@/components/unmask-ui";
+import { ArrowLeft, BookmarkSimple, InstagramLogo, Lock, TiktokLogo, UsersThree, WhatsappLogo } from "@/components/icons";
+import { UnmaskMomentCard } from "@/components/moment/UnmaskMomentCard";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { momentFlow } from "@/lib/moment/flowTheme";
@@ -11,11 +11,11 @@ import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
 import { selectedSoundLabel } from "@/lib/moment/creatorCatalog";
 import { displayOccasion, productCount, type CreatorSettings, type MomentAudience, type MomentContext } from "@/lib/moment/types";
 
-const AUDIENCE_LABEL: Record<MomentAudience, string> = {
-  everyone: "Everyone",
-  followers: "Followers",
-  private: "Only me",
-};
+const AUDIENCE: { id: MomentAudience; label: string; hint: string; Icon: typeof UsersThree }[] = [
+  { id: "everyone", label: "Everyone", hint: "Public", Icon: UsersThree },
+  { id: "followers", label: "My Followers", hint: "Only", Icon: UsersThree },
+  { id: "private", label: "Only Me", hint: "Private", Icon: Lock },
+];
 
 export function MomentShareScreen({
   kind,
@@ -36,6 +36,9 @@ export function MomentShareScreen({
   onToggleJourney,
   audience,
   onAudienceChange,
+  productStory,
+  posterUri,
+  mediaKind = "photo",
 }: {
   kind: MomentKind;
   mediaUri: string;
@@ -46,7 +49,6 @@ export function MomentShareScreen({
   onOpenProducts?: () => void;
   onBack: () => void;
   onPublish: () => void;
-  /** Bake Unmask watermark + context into media before OS share sheet. */
   onExportShare?: () => Promise<string>;
   onSaveDraft?: () => void;
   publishing?: boolean;
@@ -56,31 +58,26 @@ export function MomentShareScreen({
   onToggleJourney: (v: boolean) => void;
   audience: MomentAudience;
   onAudienceChange: (a: MomentAudience) => void;
+  productStory?: boolean;
+  posterUri?: string;
+  mediaKind?: "photo" | "video";
 }) {
   const config = momentConfig(kind);
   const occasion = displayOccasion(context);
-  const title = `${config.title} ${config.emoji}${occasion ? ` · ${occasion}` : ""}`.trim();
-  const products = productCount(context);
-  const productNames = (context.products ?? [])
-    .map((p) => (p.brand ? `${p.brand} ${p.name}` : p.name).trim())
-    .filter(Boolean)
-    .slice(0, 4);
-  const sound = selectedSoundLabel(creator);
-  const [audienceOpen, setAudienceOpen] = useState(false);
-  const [peopleOpen, setPeopleOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   async function shareOutside() {
-    const productLine = productNames.length
-      ? productNames.join(" · ")
-      : products
-        ? `${products} product${products === 1 ? "" : "s"}`
-        : "";
+    const productLine = (context.products ?? [])
+      .map((p) => (p.brand ? `${p.brand} ${p.name}` : p.name).trim())
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(" · ");
+    const title = context.momentTitle || `${config.title}${occasion ? ` · ${occasion}` : ""}`;
     const message = [
-      title,
+      `${title} on Unmask`,
       productLine ? `Using: ${productLine}` : null,
       caption?.trim() || null,
-      "Shared from Unmask",
+      "Open Unmask to see the full routine & track progress with me.",
     ]
       .filter(Boolean)
       .join("\n");
@@ -98,174 +95,171 @@ export function MomentShareScreen({
   return (
     <View style={{ flex: 1, backgroundColor: momentFlow.bg }}>
       <SafeAreaView edges={["top", "bottom"]} style={{ flex: 1 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingBottom: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingBottom: 4 }}>
           <Pressable onPress={onBack} disabled={publishing} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
             <ArrowLeft size={22} color={momentFlow.ink} />
           </Pressable>
+          <Text style={{ flex: 1, textAlign: "center", fontFamily: fonts.bold, fontSize: 20, color: momentFlow.ink }}>Unmask</Text>
+          <View style={{ width: 44 }} />
         </View>
 
-        <View style={{ paddingHorizontal: 20, gap: 8, marginBottom: 20 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: momentFlow.ink }}>Share your Unmask</Text>
-            <Text style={{ fontSize: 22 }}>🎉</Text>
-          </View>
-        </View>
-
-        <View
-          style={{
-            marginHorizontal: 20,
-            flexDirection: "row",
-            gap: 14,
-            padding: 14,
-            borderRadius: momentFlow.radiusCard,
-            backgroundColor: momentFlow.card,
-            borderWidth: 1,
-            borderColor: momentFlow.accentSoft,
-          }}
-        >
-          <Image source={{ uri: mediaUri }} style={{ width: 64, height: 88, borderRadius: 12 }} accessibilityIgnoresInvertColors />
-          <View style={{ flex: 1, justifyContent: "center", gap: 4 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: momentFlow.ink }}>{title}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted }}>
-              {products} product{products === 1 ? "" : "s"}
-              {sound ? ` · Sound: ${sound}` : ""}
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 28, gap: 16 }}>
+          <View style={{ gap: 4 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: momentFlow.ink }}>Share Your Unmask ✨</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: momentFlow.muted }}>
+              Your moment is ready! Choose where to share it.
             </Text>
           </View>
-        </View>
 
-        <View style={{ marginHorizontal: 20, marginTop: 16, borderRadius: momentFlow.radiusCard, backgroundColor: momentFlow.card, overflow: "hidden" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 14, borderBottomWidth: 1, borderBottomColor: momentFlow.accentSoft }}>
-            <NotePencil size={18} color={momentFlow.muted} />
-            <TextInput
-              value={caption}
-              onChangeText={onCaptionChange}
-              placeholder="Add a caption…"
-              placeholderTextColor={momentFlow.muted}
-              style={{ flex: 1, fontFamily: fonts.regular, fontSize: 15, color: momentFlow.ink, paddingVertical: 4 }}
-            />
+          <UnmaskMomentCard
+            kind={kind}
+            productStory={productStory}
+            mediaUri={mediaUri}
+            mediaKind={mediaKind}
+            posterUri={posterUri}
+            context={context}
+            caption={caption}
+            compact
+            playing
+          />
+
+          <TextInput
+            value={caption}
+            onChangeText={onCaptionChange}
+            placeholder="Add a caption…"
+            placeholderTextColor={momentFlow.muted}
+            style={{
+              padding: 14,
+              borderRadius: 16,
+              backgroundColor: momentFlow.card,
+              borderWidth: 1,
+              borderColor: momentFlow.accentSoft,
+              fontFamily: fonts.regular,
+              fontSize: 15,
+              color: momentFlow.ink,
+            }}
+          />
+
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.ink }}>Who can see this?</Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {AUDIENCE.map(({ id, label, Icon }) => {
+              const active = audience === id;
+              return (
+                <Pressable
+                  key={id}
+                  onPress={() => {
+                    hapticSelect();
+                    onAudienceChange(id);
+                  }}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 14,
+                    paddingHorizontal: 8,
+                    borderRadius: 16,
+                    alignItems: "center",
+                    gap: 6,
+                    backgroundColor: active ? momentFlow.pillPink : momentFlow.card,
+                    borderWidth: 1.5,
+                    borderColor: active ? momentFlow.accent : momentFlow.accentSoft,
+                  }}
+                >
+                  <Icon size={20} color={active ? momentFlow.accent : momentFlow.muted} weight={active ? "fill" : "regular"} />
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: active ? momentFlow.accent : momentFlow.ink, textAlign: "center" }}>
+                    {label}
+                  </Text>
+                  {active ? (
+                    <View style={{ position: "absolute", top: 6, right: 6, width: 18, height: 18, borderRadius: 9, backgroundColor: "#E23B3B", alignItems: "center", justifyContent: "center" }}>
+                      <Text style={{ color: "#FFF", fontSize: 10, fontFamily: fonts.bold }}>✓</Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
           </View>
-          <Pressable onPress={() => onOpenProducts?.()} style={{ flexDirection: "row", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: momentFlow.accentSoft }}>
-            <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 16, color: momentFlow.ink }}>Tag products ({products})</Text>
-            <CaretRight size={18} color={momentFlow.muted} />
-          </Pressable>
-          <Pressable onPress={() => setPeopleOpen(true)} style={{ flexDirection: "row", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: momentFlow.accentSoft }}>
-            <UsersThree size={18} color={momentFlow.muted} style={{ marginRight: 10 }} />
-            <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 16, color: momentFlow.ink }}>Add people</Text>
-            <CaretRight size={18} color={momentFlow.muted} />
-          </Pressable>
-          <Pressable onPress={() => setAudienceOpen(true)} style={{ flexDirection: "row", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: momentFlow.accentSoft }}>
-            <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 16, color: momentFlow.ink }}>Audience</Text>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: momentFlow.muted, marginRight: 4 }}>{AUDIENCE_LABEL[audience]}</Text>
-            <CaretRight size={18} color={momentFlow.muted} />
-          </Pressable>
-          <View style={{ flexDirection: "row", alignItems: "center", padding: 16, gap: 12 }}>
-            <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 16, color: momentFlow.ink }}>Save to Product Journey</Text>
-            <Switch value={saveToJourney} onValueChange={onToggleJourney} trackColor={{ true: momentFlow.accent, false: momentFlow.accentSoft }} />
-          </View>
-        </View>
 
-        {renderHint && !publishError ? (
-          <Text style={{ marginHorizontal: 20, marginTop: 16, fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted }}>{renderHint}</Text>
-        ) : null}
-        {publishError ? (
-          <Text style={{ marginHorizontal: 20, marginTop: 16, fontFamily: fonts.regular, fontSize: 14, color: "#B42318" }}>{publishError}</Text>
-        ) : null}
+          {renderHint && !publishError ? (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: momentFlow.muted }}>{renderHint}</Text>
+          ) : null}
+          {publishError ? (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: "#B42318" }}>{publishError}</Text>
+          ) : null}
 
-        <View style={{ flex: 1 }} />
-
-        <Pressable
-          onPress={() => {
-            hapticSelect();
-            onPublish();
-          }}
-          disabled={publishing}
-          style={{
-            marginHorizontal: 20,
-            marginBottom: 12,
-            paddingVertical: 16,
-            borderRadius: momentFlow.radiusPill,
-            backgroundColor: publishing ? momentFlow.muted : momentFlow.accent,
-            alignItems: "center",
-            flexDirection: "row",
-            justifyContent: "center",
-            gap: 8,
-          }}
-        >
-          {publishing ? <ActivityIndicator color="#FFF8F4" /> : null}
-          <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#FFF8F4" }}>
-            {publishing ? "Publishing…" : "Publish to Unmask ✨"}
-          </Text>
-        </Pressable>
-
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.muted, textAlign: "center", marginBottom: 12 }}>
-          {exporting ? "Preparing Unmask export…" : "Export & share outside"}
-        </Text>
-        <View style={{ flexDirection: "row", justifyContent: "center", gap: 20, paddingBottom: 8 }}>
-          {[
-            { Icon: WhatsappLogo, color: "#25D366" },
-            { Icon: InstagramLogo, color: "#E1306C" },
-            { Icon: TiktokLogo, color: "#000" },
-            { Icon: Sparkle, color: momentFlow.accent },
-          ].map(({ Icon, color }, i) => (
-            <Pressable
-              key={i}
-              disabled={exporting || publishing}
-              onPress={() => {
-                hapticSelect();
-                void shareOutside();
-              }}
-              style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: momentFlow.card, alignItems: "center", justifyContent: "center", opacity: exporting ? 0.5 : 1 }}
-            >
-              {exporting && i === 0 ? <ActivityIndicator color={momentFlow.accent} /> : <Icon size={28} color={color} weight="fill" />}
-            </Pressable>
-          ))}
-        </View>
-
-        {onSaveDraft ? (
           <Pressable
             onPress={() => {
               hapticSelect();
-              onSaveDraft();
+              onPublish();
             }}
             disabled={publishing}
             style={{
-              marginHorizontal: 20,
-              marginBottom: 16,
-              paddingVertical: 14,
+              paddingVertical: 16,
               borderRadius: momentFlow.radiusPill,
-              borderWidth: 1.5,
-              borderColor: momentFlow.accent,
+              backgroundColor: publishing ? momentFlow.muted : "#C94B6A",
               alignItems: "center",
             }}
           >
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: momentFlow.accent }}>Save as Draft</Text>
+            {publishing ? <ActivityIndicator color="#FFF8F4" /> : (
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#FFF8F4" }}>Share to Unmask</Text>
+            )}
           </Pressable>
-        ) : null}
-      </SafeAreaView>
 
-      <ActionSheet open={audienceOpen} title="Audience" onClose={() => setAudienceOpen(false)}>
-        {(Object.keys(AUDIENCE_LABEL) as MomentAudience[]).map((key) => (
           <Pressable
-            key={key}
-            onPress={() => {
-              hapticSelect();
-              onAudienceChange(key);
-              setAudienceOpen(false);
+            onPress={() => onToggleJourney(!saveToJourney)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+              padding: 16,
+              borderRadius: 16,
+              backgroundColor: momentFlow.card,
+              borderWidth: 1,
+              borderColor: saveToJourney ? momentFlow.accent : momentFlow.accentSoft,
             }}
-            style={{ paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: momentFlow.accentSoft }}
           >
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: audience === key ? momentFlow.accent : momentFlow.ink }}>
-              {AUDIENCE_LABEL[key]}
-            </Text>
+            <BookmarkSimple size={22} color={momentFlow.accent} weight={saveToJourney ? "fill" : "regular"} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: momentFlow.ink }}>Save to My Journey</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: momentFlow.muted }}>Keep this moment in your product timeline</Text>
+            </View>
           </Pressable>
-        ))}
-      </ActionSheet>
 
-      <ActionSheet open={peopleOpen} title="Add people" onClose={() => setPeopleOpen(false)}>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: momentFlow.muted, paddingVertical: 8 }}>
-          Tag friends from Community soon. For now, your moment posts to your chosen audience.
-        </Text>
-      </ActionSheet>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: momentFlow.muted, textAlign: "center", marginTop: 4 }}>
+            {exporting ? "Preparing export…" : "Share externally"}
+          </Text>
+          <View style={{ flexDirection: "row", justifyContent: "center", gap: 18 }}>
+            {[
+              { Icon: InstagramLogo, color: "#E1306C", label: "Instagram" },
+              { Icon: TiktokLogo, color: "#111", label: "TikTok" },
+              { Icon: WhatsappLogo, color: "#25D366", label: "WhatsApp" },
+            ].map(({ Icon, color, label }) => (
+              <Pressable
+                key={label}
+                disabled={exporting || publishing}
+                onPress={() => {
+                  hapticSelect();
+                  void shareOutside();
+                }}
+                style={{ alignItems: "center", gap: 6, opacity: exporting ? 0.5 : 1 }}
+              >
+                <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: momentFlow.card, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: momentFlow.accentSoft }}>
+                  {exporting ? <ActivityIndicator color={momentFlow.accent} /> : <Icon size={26} color={color} weight="fill" />}
+                </View>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: momentFlow.muted }}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {onSaveDraft ? (
+            <Pressable onPress={onSaveDraft} style={{ alignItems: "center", paddingVertical: 12 }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: momentFlow.accent }}>Save as Draft</Text>
+            </Pressable>
+          ) : null}
+
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: momentFlow.muted, textAlign: "center" }}>
+            {productCount(context)} product{productCount(context) === 1 ? "" : "s"}
+            {selectedSoundLabel(creator) ? ` · ${selectedSoundLabel(creator)}` : ""}
+          </Text>
+        </ScrollView>
+      </SafeAreaView>
     </View>
   );
 }

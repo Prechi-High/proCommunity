@@ -100,4 +100,22 @@ export const GRWM_OCCASIONS = [
   "Casual Day",
   "My Own",
 ] as const;
-export const USAGE_DURATION = ["Just started", "1–2 weeks", "1 month", "2+ months"] as const;
+export const USAGE_DURATION = [
+  "Day 1",
+  "Day 7",
+  "Day 14",
+  "Day 21",
+  "Day 30",
+  "Just started",
+  "1–2 weeks",
+  "1 month",
+  "2+ months",
+] as const;
+
+export const USAGE_FREQUENCY = [
+  "Once daily (AM)",
+  "Once daily (PM)",
+  "Twice daily",
+  "As needed",
+  "Weekly",
+] as const;

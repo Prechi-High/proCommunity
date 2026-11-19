@@ -28,11 +28,12 @@ export type MomentMediaAsset = {
   caption?: string;
 };
 
-/** Sound only — no BG/looks/FX studio. */
 export type CreatorSettings = {
   soundId?: string;
   localSoundUri?: string;
   localSoundName?: string;
+  /** Optional light filter id baked into export. */
+  filterId?: string;
 };
 
 export type MomentContext = {
@@ -45,6 +46,7 @@ export type MomentContext = {
   occasion?: string;
   customOccasion?: string;
   usageDuration?: string;
+  usageFrequency?: string;
   eveningSteps?: string;
   experience?: string;
   confidence?: string;
@@ -52,18 +54,20 @@ export type MomentContext = {
   skinGoal?: string;
   moodLook?: string;
   taggedPeople?: string[];
+  location?: string;
+  /** Editable headline shown on the Unmask card */
+  momentTitle?: string;
 };
 
 export type MomentAudience = "everyone" | "followers" | "private";
 
-/** Simplified create: choose → capture → edit → share */
-export type MomentFlowStep = "choose" | "capture" | "edit" | "share";
+/** Capture → Compose → Preview → Share */
+export type MomentFlowStep = "choose" | "capture" | "compose" | "preview" | "share";
 
 export type MomentBatchDraft = {
   draftId: string;
   step: MomentFlowStep;
   kind: MomentKind | null;
-  /** Product Story uses the same visual flow with experience fields. */
   productStory?: boolean;
   mediaSource: MomentMediaSource;
   mediaUri: string;
@@ -108,10 +112,10 @@ export function initialMomentBatchDraft(): MomentBatchDraft {
 
 const CREATOR_DEFAULT: CreatorSettings = {};
 
-/** Map legacy multi-step drafts onto the simple create flow. */
 function migrateStep(step: string | undefined): MomentFlowStep {
   if (step === "share") return "share";
-  if (step === "edit" || step === "setup" || step === "preview") return "edit";
+  if (step === "preview") return "preview";
+  if (step === "compose" || step === "edit" || step === "setup") return "compose";
   if (step === "capture" || step === "camera" || step === "intake" || step === "review") return "capture";
   return "choose";
 }
@@ -123,6 +127,7 @@ export function normalizeMomentBatchDraft(raw: Partial<MomentBatchDraft> & { ste
     soundId: typeof creatorRaw.soundId === "string" ? creatorRaw.soundId : undefined,
     localSoundUri: typeof creatorRaw.localSoundUri === "string" ? creatorRaw.localSoundUri : undefined,
     localSoundName: typeof creatorRaw.localSoundName === "string" ? creatorRaw.localSoundName : undefined,
+    filterId: typeof creatorRaw.filterId === "string" ? creatorRaw.filterId : undefined,
   };
 
   const merged: MomentBatchDraft = {
@@ -153,7 +158,7 @@ export function normalizeMomentBatchDraft(raw: Partial<MomentBatchDraft> & { ste
   };
 
   if (merged.step !== "choose" && !merged.kind && !merged.productStory) merged.step = "choose";
-  if ((merged.step === "edit" || merged.step === "share") && !merged.mediaUri) {
+  if ((merged.step === "compose" || merged.step === "preview" || merged.step === "share") && !merged.mediaUri) {
     merged.step = merged.kind || merged.productStory ? "capture" : "choose";
   }
   if (merged.step === "capture" && !merged.kind && !merged.productStory) merged.step = "choose";
@@ -171,4 +176,13 @@ export function displayOccasion(ctx: MomentContext): string | undefined {
 
 export function productCount(ctx: MomentContext): number {
   return ctx.products?.length ?? (ctx.productName ? 1 : 0);
+}
+
+export function defaultMomentTitle(kind: MomentKind | null, productStory?: boolean, occasion?: string): string {
+  if (productStory) return "My Product Story";
+  if (kind === "morning") return "My Morning Routine ☀️";
+  if (kind === "evening") return "My Evening Routine 🌙";
+  if (kind === "grwm") return occasion ? `GRWM · ${occasion}` : "Get Ready With Me 💋";
+  if (kind === "currently") return "Currently Using ✨";
+  return "My Unmask Moment";
 }

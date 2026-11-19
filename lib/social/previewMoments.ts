@@ -29,6 +29,11 @@ export type PulseMoment = {
   storyId?: string;
   occasion?: string;
   productLabels?: string[];
+  productImages?: string[];
+  momentTitle?: string;
+  skinType?: string;
+  usageFrequency?: string;
+  usageDuration?: string;
   soundUri?: string;
   soundMaxMs?: number;
 };

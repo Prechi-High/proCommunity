@@ -18,6 +18,11 @@ export type StoryItem = {
   likes: number;
   occasion?: string;
   productLabels?: string[];
+  productImages?: string[];
+  momentTitle?: string;
+  skinType?: string;
+  usageFrequency?: string;
+  usageDuration?: string;
   soundUri?: string;
   soundMaxMs?: number;
 };
@@ -47,6 +52,10 @@ export type LocalMoment = {
   soundUri?: string;
   soundMaxMs?: number;
   productLabels?: string[];
+  productImages?: string[];
+  momentTitle?: string;
+  skinType?: string;
+  usageFrequency?: string;
   slideCaptions?: string[];
   createdAt: string;
 };
@@ -125,6 +134,11 @@ export const useLocalMoments = create<State>()(
                 authorName: post.author,
                 occasion: post.occasion,
                 productLabels: post.productLabels,
+                productImages: post.productImages,
+                momentTitle: post.momentTitle,
+                skinType: post.skinType,
+                usageFrequency: post.usageFrequency,
+                usageDuration: post.usageDuration,
                 soundUri: post.mediaKind === "video" ? undefined : post.soundUri,
                 soundMaxMs: post.mediaKind === "video" ? undefined : post.soundMaxMs,
                 createdAt: row.createdAt,

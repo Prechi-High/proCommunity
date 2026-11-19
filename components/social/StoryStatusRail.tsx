@@ -65,6 +65,11 @@ export function StoryStatusRail({ onQueueChange }: { onQueueChange?: (open: bool
       storyId: s.id,
       occasion: s.occasion,
       productLabels: s.productLabels,
+      productImages: s.productImages,
+      momentTitle: s.momentTitle,
+      skinType: s.skinType,
+      usageFrequency: s.usageFrequency,
+      usageDuration: s.usageDuration,
       soundUri: s.soundUri,
       soundMaxMs: s.soundMaxMs,
     }));

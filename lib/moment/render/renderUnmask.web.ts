@@ -51,7 +51,12 @@ export async function renderUnmaskMediaWeb(
     };
   }
 
-  const brand = { kind: input.kind, context: input.context };
+  const brand = {
+    kind: input.kind,
+    context: input.context,
+    caption: input.caption,
+    productStory: input.productStory,
+  };
   onProgress?.(0.1, "Adding Unmask mark…");
 
   if (input.mediaKind === "photo") {

@@ -6,7 +6,8 @@ import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { AddProductSheet } from "@/components/moment/AddProductSheet";
 import { ChooseMoment } from "@/components/moment/ChooseMoment";
 import { MomentCaptureScreen } from "@/components/moment/MomentCaptureScreen";
-import { MomentEditScreen } from "@/components/moment/MomentEditScreen";
+import { MomentComposeScreen } from "@/components/moment/MomentComposeScreen";
+import { MomentPreviewScreen } from "@/components/moment/MomentPreviewScreen";
 import { MomentShareScreen } from "@/components/moment/MomentShareScreen";
 import { needsUnmaskRender } from "@/lib/moment/render/needsRender";
 import { renderUnmaskMedia } from "@/lib/moment/render/renderUnmask";
@@ -15,6 +16,7 @@ import * as living from "@/lib/living/api";
 import { useLocalMoments } from "@/lib/moment/localPosts";
 import { momentConfig, type MomentKind } from "@/lib/moment/kinds";
 import {
+  defaultMomentTitle,
   displayOccasion,
   initialMomentBatchDraft,
   draftHasMedia,
@@ -31,14 +33,14 @@ import { pickPersistableMediaUri } from "@/lib/moment/safeMediaUri";
 import { useTrackingDraft } from "@/lib/tracking/draft";
 import { useAppStore } from "@/lib/store";
 
-/**
- * Simple create: choose → capture (photo take/upload | video upload) → fullscreen edit → share.
- */
+/** Capture → Compose → Preview → Share (mockup flow). */
 export default function Moment() {
   const router = useRouter();
   const params = useLocalSearchParams<{ trend?: string; story?: string }>();
   const uid = useAppStore((s) => s.profile?.id);
   const display = useAppStore((s) => s.profile?.displayName) || "You";
+  const profileSkin = useAppStore((s) => (s.profile as { skin_type?: string; skinType?: string } | null)?.skin_type
+    || (s.profile as { skinType?: string } | null)?.skinType);
   const add = useLocalMoments((s) => s.add);
 
   const storageKey = uid ? `unmask:moment-batch:${uid}` : "unmask:moment-batch:guest";
@@ -72,9 +74,14 @@ export default function Moment() {
         kind: "currently",
         step: "capture",
         creator: {},
+        context: {
+          skinType: profileSkin || "Combination",
+          usageFrequency: "Once daily (AM)",
+          usageDuration: "Day 14",
+        },
       }),
     );
-  }, [ready, params.story, setDraft]);
+  }, [ready, params.story, setDraft, profileSkin]);
 
   const trendApplied = useRef(false);
   useEffect(() => {
@@ -95,10 +102,15 @@ export default function Moment() {
         kind: t.momentKind,
         step: "capture",
         creator: { soundId: t.soundId },
-        context: t.momentKind === "grwm" ? { occasion: "Date Night" } : {},
+        context: {
+          skinType: profileSkin || "Combination",
+          usageFrequency: "Once daily (AM)",
+          usageDuration: "Day 14",
+          ...(t.momentKind === "grwm" ? { occasion: "Date Night" } : {}),
+        },
       }),
     );
-  }, [ready, params.trend, draft.step, draft.kind, setDraft]);
+  }, [ready, params.trend, draft.step, draft.kind, setDraft, profileSkin]);
 
   const patch = useCallback(
     (part: Partial<MomentBatchDraft>) => setDraft((d) => normalizeMomentBatchDraft({ ...d, ...part })),
@@ -112,16 +124,18 @@ export default function Moment() {
         mediaKind: draft.mediaKind,
         context: draft.context,
         kind: draft.kind,
-        brand: draft.step === "share",
+        caption: draft.caption,
+        creator: draft.creator,
+        brand: draft.step === "preview" || draft.step === "share",
       }),
-    [draft.originalMediaUri, draft.mediaUri, draft.mediaKind, draft.context, draft.kind, draft.step],
+    [draft.originalMediaUri, draft.mediaUri, draft.mediaKind, draft.context, draft.kind, draft.caption, draft.creator, draft.step],
   );
 
   const runRender = useCallback(
     async (opts?: { burnBranding?: boolean }) => {
       const snapshot = draft;
       if (!snapshot.mediaUri) return snapshot.mediaUri;
-      const burnBranding = opts?.burnBranding ?? snapshot.step === "share";
+      const burnBranding = opts?.burnBranding ?? true;
       const input = { ...snapshot, burnBranding };
       if (!needsUnmaskRender(input)) {
         patch({ renderStatus: "ready", renderedMediaUri: snapshot.mediaUri, renderProgress: 1, renderError: "" });
@@ -132,7 +146,7 @@ export default function Moment() {
         renderStatus: "processing",
         renderProgress: 0.02,
         renderError: "",
-        renderLabel: "Adding Unmask mark…",
+        renderLabel: "Creating your Unmask…",
       });
       try {
         const out = await renderUnmaskMedia(input, (ratio, label) => {
@@ -152,7 +166,7 @@ export default function Moment() {
         if (token !== renderToken.current) return snapshot.mediaUri;
         patch({
           renderStatus: "error",
-          renderError: e instanceof Error ? e.message : "Couldn’t finish Unmask mark. You can still publish.",
+          renderError: e instanceof Error ? e.message : "Couldn’t finish Unmask export.",
           renderedMediaUri: undefined,
           renderProgress: 0,
         });
@@ -164,7 +178,7 @@ export default function Moment() {
 
   useEffect(() => {
     if (!ready) return;
-    if (draft.step !== "share") return;
+    if (draft.step !== "preview" && draft.step !== "share") return;
     if (draft.renderStatus === "processing") return;
     if (draft.renderStatus === "ready" && draft.renderedMediaUri) return;
     void runRender({ burnBranding: true }).catch(() => undefined);
@@ -179,6 +193,24 @@ export default function Moment() {
     }
   }, [renderFingerprint, draft.renderedMediaUri, patch]);
 
+  const defaultContext = useCallback(
+    (kind: MomentKind, keep?: MomentContext): MomentContext => ({
+      skinType: keep?.skinType || profileSkin || "Combination",
+      usageFrequency: keep?.usageFrequency || "Once daily (AM)",
+      usageDuration: keep?.usageDuration || "Day 14",
+      occasion: kind === "grwm" ? keep?.occasion || "Date Night" : keep?.occasion,
+      customOccasion: keep?.customOccasion,
+      products: keep?.products,
+      productName: keep?.productName,
+      productImage: keep?.productImage,
+      momentTitle: keep?.momentTitle || defaultMomentTitle(kind, false, keep?.occasion),
+      experience: keep?.experience,
+      confidence: keep?.confidence,
+      location: keep?.location,
+    }),
+    [profileSkin],
+  );
+
   const applyTrend = useCallback(
     (trendId: string) => {
       const t = SAMPLE_TRENDS.find((x) => x.id === trendId);
@@ -189,11 +221,11 @@ export default function Moment() {
         productStory: false,
         step: "capture",
         creator: { soundId: t.soundId },
-        context: t.momentKind === "grwm" ? { occasion: "Date Night" } : {},
+        context: defaultContext(t.momentKind),
       });
       setCaptureMode(momentConfig(t.momentKind).videoFirst ? "video" : "photo");
     },
-    [patch],
+    [patch, defaultContext],
   );
 
   const ingestMedia = useCallback(
@@ -205,12 +237,18 @@ export default function Moment() {
         mediaKind: mk,
         mediaAssets: [asset],
         coverPosterUri: asset.posterUri,
-        step: "edit",
+        step: "compose",
         renderStatus: "idle",
         renderedMediaUri: undefined,
+        context: {
+          ...defaultContext(draft.kind || "morning", draft.context),
+          momentTitle:
+            draft.context.momentTitle ||
+            defaultMomentTitle(draft.kind, draft.productStory, displayOccasion(draft.context)),
+        },
       });
     },
-    [patch],
+    [patch, draft.kind, draft.context, draft.productStory, defaultContext],
   );
 
   const uploadFromDevice = useCallback(async () => {
@@ -293,12 +331,7 @@ export default function Moment() {
             mediaSource: "camera" as const,
             creator: {},
           }),
-      context:
-        k === "grwm"
-          ? { ...(keepMedia ? draft.context : {}), occasion: draft.context.occasion || "Date Night" }
-          : keepMedia
-            ? draft.context
-            : {},
+      context: defaultContext(k, keepMedia ? draft.context : undefined),
     });
     setCaptureMode(momentConfig(k).videoFirst ? "video" : "photo");
   };
@@ -313,7 +346,10 @@ export default function Moment() {
       mediaAssets: [],
       originalMediaUri: undefined,
       creator: {},
-      context: {},
+      context: {
+        ...defaultContext("currently"),
+        momentTitle: "My Product Story",
+      },
     });
     setCaptureMode("photo");
   };
@@ -335,15 +371,21 @@ export default function Moment() {
     setPublishing(true);
     setPublishError("");
     try {
+      // Prefer baked Unmask card for status + export so overlays stick
       let publishUri = draft.renderedMediaUri ?? draft.mediaUri;
-      if (draft.renderStatus === "error" || !draft.renderedMediaUri) {
+      if (draft.renderStatus !== "ready" || !draft.renderedMediaUri) {
         try {
           publishUri = (await runRender({ burnBranding: true })) || draft.mediaUri;
         } catch {
           publishUri = draft.mediaUri;
         }
       }
-      publishUri = pickPersistableMediaUri(publishUri, draft.originalMediaUri || draft.mediaUri);
+      // For in-app video playback quality, keep original video URI when bake failed to image/static
+      const playUri =
+        draft.mediaKind === "video" && (!publishUri || publishUri === draft.mediaUri)
+          ? draft.originalMediaUri || draft.mediaUri
+          : publishUri;
+      const statusUri = pickPersistableMediaUri(playUri, draft.originalMediaUri || draft.mediaUri);
 
       const products = context.products ?? [];
       for (const p of products) {
@@ -380,19 +422,23 @@ export default function Moment() {
         config.tagline;
 
       add({
-        photo: publishUri,
+        photo: statusUri,
         caption,
         author: display,
         productName: context.productName,
         productIds: products.map((p) => p.productId),
         productLabels: products.map((p) => (p.brand ? `${p.brand} ${p.name}` : p.name)),
+        productImages: products.map((p) => p.image || "").filter(Boolean),
+        momentTitle: context.momentTitle || defaultMomentTitle(kind, draft.productStory, occasion),
+        skinType: context.skinType,
+        usageFrequency: context.usageFrequency,
+        usageDuration: context.usageDuration,
         timelineId: context.timelineId,
         timelineLabel: context.timelineLabel,
         destination: "story",
         mediaKind: draft.mediaKind,
         momentKind: kind,
         occasion,
-        usageDuration: context.usageDuration,
         routineTags: context.routineTags,
         audience,
         saveToJourney,
@@ -402,7 +448,7 @@ export default function Moment() {
         ].filter(Boolean) as string[],
         trendId: draft.trendId,
         mediaSource: draft.mediaSource,
-        coverPosterUri: pickPersistableMediaUri(draft.coverPosterUri, publishUri),
+        coverPosterUri: pickPersistableMediaUri(draft.coverPosterUri, statusUri),
         soundUri: draft.mediaKind === "photo" ? resolveStudioSoundUri(draft.creator) || undefined : undefined,
         soundMaxMs:
           draft.mediaKind === "photo"
@@ -433,7 +479,9 @@ export default function Moment() {
   if (!ready) return <View style={{ flex: 1, backgroundColor: "#FFF1ED" }} />;
 
   const previewUri =
-    draft.renderStatus === "ready" && draft.renderedMediaUri ? draft.renderedMediaUri : draft.mediaUri;
+    draft.renderStatus === "ready" && draft.renderedMediaUri && draft.mediaKind === "photo"
+      ? draft.renderedMediaUri
+      : draft.mediaUri;
 
   if (draft.step === "choose") {
     return (
@@ -472,43 +520,32 @@ export default function Moment() {
     );
   }
 
-  if (draft.step === "edit" && draft.kind && draft.mediaUri) {
+  if (draft.step === "compose" && draft.kind && draft.mediaUri) {
     return (
       <View style={{ flex: 1 }}>
-        <MomentEditScreen
+        <MomentComposeScreen
           kind={draft.kind}
           productStory={draft.productStory}
           mediaUri={draft.mediaUri}
           mediaKind={draft.mediaKind}
           mediaAssets={draft.mediaAssets}
-          creator={draft.creator}
           context={draft.context}
-          onCreatorChange={(creator) => patch({ creator })}
-          onContextChange={setContext}
-          onOpenProducts={() => patch({ productSheetOpen: true })}
-          onAddSlide={() => {
-            void (async () => {
-              const result = await pickDeviceMomentMedia({ videoFirst: false });
-              if (!result.ok || result.mediaKind !== "photo") return;
-              const mediaAssets = [
-                ...(draft.mediaAssets.length
-                  ? draft.mediaAssets
-                  : [{ id: "primary", uri: draft.mediaUri, kind: draft.mediaKind as "photo" }]),
-                result.asset,
-              ];
-              patch({ mediaAssets, mediaUri: mediaAssets[0].uri, mediaKind: "photo" });
-            })();
-          }}
-          onMediaAssetsChange={(mediaAssets) => {
-            const primary = mediaAssets[0];
+          caption={draft.caption ?? ""}
+          onKindChange={(kind) =>
             patch({
-              mediaAssets,
-              mediaUri: primary?.uri ?? "",
-              mediaKind: primary?.kind ?? draft.mediaKind,
-            });
-          }}
+              kind,
+              context: {
+                ...draft.context,
+                momentTitle: defaultMomentTitle(kind, false, displayOccasion(draft.context)),
+              },
+            })
+          }
+          onContextChange={setContext}
+          onCaptionChange={(caption) => patch({ caption })}
+          onOpenProducts={() => patch({ productSheetOpen: true })}
           onBack={() => patch({ step: "capture" })}
-          onNext={() => patch({ step: "share", caption: draft.caption || draft.context.experience || "" })}
+          onRecapture={() => patch({ step: "capture" })}
+          onNext={() => patch({ step: "preview" })}
         />
         <AddProductSheet
           open={draft.productSheetOpen}
@@ -520,11 +557,39 @@ export default function Moment() {
     );
   }
 
+  if (draft.step === "preview" && draft.kind && draft.mediaUri) {
+    return (
+      <MomentPreviewScreen
+        kind={draft.kind}
+        productStory={draft.productStory}
+        mediaUri={draft.mediaUri}
+        mediaKind={draft.mediaKind}
+        posterUri={draft.coverPosterUri}
+        context={draft.context}
+        caption={draft.caption ?? ""}
+        creator={draft.creator}
+        audience={draft.audience}
+        processing={draft.renderStatus === "processing"}
+        processingLabel={draft.renderLabel}
+        onCreatorChange={(creator) => patch({ creator, renderStatus: "idle", renderedMediaUri: undefined })}
+        onAudienceChange={(audience) => patch({ audience })}
+        onBack={() => patch({ step: "compose" })}
+        onEditCompose={() => patch({ step: "compose" })}
+        onPublish={() => void post()}
+        onShareOutside={() => patch({ step: "share" })}
+        publishing={publishing}
+      />
+    );
+  }
+
   if (draft.step === "share" && draft.kind && draft.mediaUri) {
     return (
       <MomentShareScreen
         kind={draft.kind}
+        productStory={draft.productStory}
         mediaUri={previewUri}
+        mediaKind={draft.mediaKind}
+        posterUri={draft.coverPosterUri}
         context={draft.context}
         creator={draft.creator}
         renderHint={
@@ -536,8 +601,8 @@ export default function Moment() {
         }
         caption={draft.caption ?? ""}
         onCaptionChange={(caption) => patch({ caption })}
-        onOpenProducts={() => patch({ step: "edit", productSheetOpen: true })}
-        onBack={() => patch({ step: "edit" })}
+        onOpenProducts={() => patch({ step: "compose", productSheetOpen: true })}
+        onBack={() => patch({ step: "preview" })}
         onPublish={() => void post()}
         onExportShare={async () => {
           const uri = await runRender({ burnBranding: true });
