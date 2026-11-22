@@ -99,7 +99,7 @@ export function UnmaskMomentCard({
     >
       <View style={{ width: "100%", height: mediaH, backgroundColor: "#1A0A14" }}>
         {mediaKind === "video" && play ? (
-          <LoopClip uri={mediaUri} poster={stillPoster || ""} height={mediaH} />
+          <LoopClip uri={mediaUri} poster={stillPoster || ""} height={mediaH} playSound controls />
         ) : (
           <Image
             source={{ uri: stillPoster || mediaUri }}

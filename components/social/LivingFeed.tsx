@@ -249,7 +249,7 @@ function MomentCard({
 
       <View style={{ position: "relative" }}>
         {item.video ? (
-          <LoopClip uri={item.video} poster={item.media} height={420} controls />
+          <LoopClip uri={item.video} poster={item.media} height={420} controls playSound />
         ) : item.media ? (
           <Image source={{ uri: item.media }} style={{ width: "100%", height: 420 }} resizeMode="cover" accessibilityIgnoresInvertColors />
         ) : (

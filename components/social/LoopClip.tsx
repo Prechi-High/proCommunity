@@ -26,7 +26,9 @@ function isPlayableVideoSrc(uri: string | undefined | null): boolean {
 
 /**
  * Status / feed video.
- * Never permanently replace video with <Image> — that made status look like a photo.
+ * - Status: playSound=true plays the video's own audio (opened via tap = user gesture).
+ * - Feed cards: muted autoplay by default; controls can unmute.
+ * Never permanently replace video with <Image>.
  */
 export function LoopClip({
   uri,
@@ -34,17 +36,29 @@ export function LoopClip({
   height,
   active = true,
   controls = false,
+  /** Play the video's own audio track (status / detail). */
+  playSound = false,
 }: {
   uri: string;
   poster: string;
   height: number;
   active?: boolean;
   controls?: boolean;
+  playSound?: boolean;
 }) {
   if (Platform.OS === "web") {
-    return <WebLoopClip uri={uri} poster={poster} height={height} active={active} controls={controls} />;
+    return (
+      <WebLoopClip
+        uri={uri}
+        poster={poster}
+        height={height}
+        active={active}
+        controls={controls || playSound}
+        playSound={playSound}
+      />
+    );
   }
-  return <NativeLoopClip uri={uri} poster={poster} height={height} active={active} />;
+  return <NativeLoopClip uri={uri} poster={poster} height={height} active={active} playSound={playSound} />;
 }
 
 function WebLoopClip({
@@ -53,19 +67,21 @@ function WebLoopClip({
   height,
   active,
   controls,
+  playSound,
 }: {
   uri: string;
   poster: string;
   height: number;
   active: boolean;
   controls: boolean;
+  playSound: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const pageActive = usePageActive();
   const [src, setSrc] = useState("");
   const [ready, setReady] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(!playSound);
   const [resolveError, setResolveError] = useState<"missing" | "not_video" | "unresolved" | "">("");
 
   const live = active && pageActive && !paused;
@@ -80,7 +96,7 @@ function WebLoopClip({
     setSrc("");
     setResolveError("");
     setPaused(false);
-    setMuted(true);
+    setMuted(!playSound);
     if (!uri) {
       setResolveError("missing");
       return;
@@ -105,37 +121,45 @@ function WebLoopClip({
     return () => {
       cancelled = true;
     };
-  }, [uri]);
+  }, [uri, playSound]);
 
   useEffect(() => {
     const el = videoRef.current;
     if (!el || !src) return;
 
-    const playMuted = () => {
-      el.muted = true;
-      el.defaultMuted = true;
-      el.volume = 0;
+    const applyMute = (wantMuted: boolean) => {
+      el.muted = wantMuted;
+      el.defaultMuted = wantMuted;
+      el.volume = wantMuted ? 0 : 1;
+      if (wantMuted) el.setAttribute("muted", "");
+      else el.removeAttribute("muted");
+    };
+
+    const play = (preferSound: boolean) => {
       el.playsInline = true;
       el.autoplay = true;
       el.loop = true;
       el.setAttribute("playsinline", "true");
       el.setAttribute("webkit-playsinline", "true");
-      el.setAttribute("muted", "");
       el.setAttribute("autoplay", "");
       if (!live) {
         el.pause();
         return;
       }
+      const trySound = preferSound && playSound;
+      applyMute(!trySound);
       void el.play().then(
         () => {
           setReady(true);
-          if (!muted) {
-            el.muted = false;
-            el.volume = 1;
+          if (trySound) {
+            applyMute(false);
+            setMuted(false);
           }
         },
         () => {
-          el.muted = true;
+          // Browser blocked unmuted autoplay — start muted, keep a way to unmute.
+          applyMute(true);
+          setMuted(true);
           void el.play().then(() => setReady(true)).catch(() => undefined);
         },
       );
@@ -146,22 +170,53 @@ function WebLoopClip({
       el.src = src;
       el.load();
     }
-    el.addEventListener("loadeddata", playMuted);
-    el.addEventListener("canplay", playMuted);
+    const onReady = () => play(playSound);
+    el.addEventListener("loadeddata", onReady);
+    el.addEventListener("canplay", onReady);
     el.addEventListener("playing", () => setReady(true));
-    playMuted();
+    play(playSound);
 
     const retry = window.setInterval(() => {
-      if (live && el.paused) playMuted();
+      if (live && el.paused) play(false);
     }, 250);
 
     return () => {
-      el.removeEventListener("loadeddata", playMuted);
-      el.removeEventListener("canplay", playMuted);
+      el.removeEventListener("loadeddata", onReady);
+      el.removeEventListener("canplay", onReady);
       window.clearInterval(retry);
       el.pause();
     };
-  }, [src, live, muted]);
+  }, [src, live, playSound]);
+
+  // Keep mute state in sync when user toggles
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.muted = muted;
+    el.volume = muted ? 0 : 1;
+    if (muted) el.setAttribute("muted", "");
+    else el.removeAttribute("muted");
+  }, [muted]);
+
+  // If we had to start muted, first tap in the status unlocks original audio
+  useEffect(() => {
+    if (!playSound || !muted || !live || typeof document === "undefined") return;
+    const unlock = () => {
+      const el = videoRef.current;
+      if (!el) return;
+      el.muted = false;
+      el.volume = 1;
+      el.removeAttribute("muted");
+      setMuted(false);
+      void el.play().catch(() => undefined);
+    };
+    document.addEventListener("pointerdown", unlock, true);
+    document.addEventListener("touchstart", unlock, true);
+    return () => {
+      document.removeEventListener("pointerdown", unlock, true);
+      document.removeEventListener("touchstart", unlock, true);
+    };
+  }, [playSound, muted, live]);
 
   return (
     <View style={{ width: "100%", height, backgroundColor: "#120810", overflow: "hidden" }}>
@@ -169,8 +224,8 @@ function WebLoopClip({
         ? createElement("video", {
             ref: videoRef,
             src,
-            muted: true,
-            defaultMuted: true,
+            muted,
+            defaultMuted: !playSound,
             autoPlay: true,
             playsInline: true,
             loop: true,
@@ -188,7 +243,6 @@ function WebLoopClip({
           })
         : null}
 
-      {/* Temporary poster only — removed once video is playing (never the permanent renderer) */}
       {!ready && still ? (
         <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}>
           <Image
@@ -217,7 +271,7 @@ function WebLoopClip({
       ) : null}
 
       {controls ? (
-        <View style={{ position: "absolute", right: 12, bottom: 12, flexDirection: "row", gap: 8 }}>
+        <View style={{ position: "absolute", right: 12, bottom: 12, flexDirection: "row", gap: 8, zIndex: 3 }}>
           <Pressable
             accessibilityLabel={paused ? "Play video" : "Pause video"}
             onPress={() => setPaused((p) => !p)}
@@ -227,7 +281,16 @@ function WebLoopClip({
           </Pressable>
           <Pressable
             accessibilityLabel={muted ? "Unmute video" : "Mute video"}
-            onPress={() => setMuted((m) => !m)}
+            onPress={() => {
+              const next = !muted;
+              setMuted(next);
+              const el = videoRef.current;
+              if (el) {
+                el.muted = next;
+                el.volume = next ? 0 : 1;
+                if (!next) void el.play().catch(() => undefined);
+              }
+            }}
             style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" }}
           >
             {muted ? <SpeakerSlash size={18} color="#FFF8F4" /> : <SpeakerHigh size={18} color="#FFF8F4" />}
@@ -243,11 +306,13 @@ function NativeLoopClip({
   poster,
   height,
   active,
+  playSound,
 }: {
   uri: string;
   poster: string;
   height: number;
   active: boolean;
+  playSound: boolean;
 }) {
   const ref = useRef<Video>(null);
   const pageActive = usePageActive();
@@ -264,11 +329,14 @@ function NativeLoopClip({
           await v.pauseAsync();
           return;
         }
-        await v.setIsMutedAsync(true);
+        await v.setIsMutedAsync(!playSound);
         await v.playAsync();
       } catch {
-        if (!cancelled) {
-          /* keep retrying — do not swap to Image */
+        try {
+          await v.setIsMutedAsync(true);
+          await v.playAsync();
+        } catch {
+          /* keep trying */
         }
       }
     };
@@ -279,7 +347,7 @@ function NativeLoopClip({
       clearInterval(t);
       void v.pauseAsync().catch(() => undefined);
     };
-  }, [live, uri]);
+  }, [live, uri, playSound]);
 
   if (!uri || isImageUri(uri)) {
     return (
@@ -303,13 +371,14 @@ function NativeLoopClip({
     <View style={{ width: "100%", height, backgroundColor: "#120810" }}>
       <Video
         ref={ref}
-        key={uri}
+        key={`${uri}-${playSound ? "sound" : "mute"}`}
         source={{ uri }}
         posterSource={still ? { uri: still } : undefined}
         usePoster={Boolean(still)}
         isLooping
         shouldPlay={live}
-        isMuted
+        isMuted={!playSound}
+        volume={playSound ? 1 : 0}
         resizeMode={ResizeMode.COVER}
         useNativeControls={false}
         style={{ width: "100%", height }}

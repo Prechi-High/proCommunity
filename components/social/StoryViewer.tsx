@@ -222,6 +222,9 @@ export function StoryViewer({
             poster={item.media || ""}
             height={height}
             active={visible}
+            // Original video audio when no overlay track; mute under BGM if attached
+            playSound={!item.soundUri}
+            controls
           />
         ) : item.media ? (
           <Image source={{ uri: item.media }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />

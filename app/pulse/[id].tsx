@@ -45,9 +45,9 @@ export default function PulsePost() {
     <AppShell back title={author} subtitle="The post, then the conversation.">
       <View style={{ gap: 14 }}>
         {video && !local ? (
-          <LoopClip uri={video} poster={media} height={420} controls />
+          <LoopClip uri={video} poster={media} height={420} controls playSound />
         ) : local?.mediaKind === "video" && local.photo ? (
-          <LoopClip uri={local.photo} poster={local.coverPosterUri || ""} height={420} controls />
+          <LoopClip uri={local.photo} poster={local.coverPosterUri || ""} height={420} controls playSound />
         ) : media ? (
           <Image source={{ uri: media }} style={{ width: "100%", height: 420, borderRadius: 24 }} resizeMode="cover" accessibilityIgnoresInvertColors />
         ) : null}
