@@ -108,12 +108,17 @@ export function UpdatesFeed() {
 
 function storyToPulse(s: StoryItem): PulseMoment {
   const label = s.momentKind ? momentConfig(s.momentKind).title : "Unmask";
+  const isVideo =
+    s.mediaKind === "video" ||
+    Boolean(s.media?.startsWith("unmask-media:")) ||
+    Boolean(s.media?.startsWith("blob:")) ||
+    /\.(mp4|mov|webm|m4v)(\?|$)/i.test(s.media || "");
   return {
     id: s.id,
     name: s.authorName || "Unmasker",
     face: "",
-    media: s.mediaKind === "video" ? s.coverPosterUri || "" : s.media,
-    video: s.mediaKind === "video" ? s.media : undefined,
+    media: isVideo ? s.coverPosterUri || "" : s.media,
+    video: isVideo ? s.media : undefined,
     caption: s.caption || label,
     likes: s.likes,
     comments: 0,

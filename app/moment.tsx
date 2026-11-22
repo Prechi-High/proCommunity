@@ -388,11 +388,19 @@ export default function Moment() {
           /* share bake optional — status uses original */
         }
       }
-      // Prefer durable unmask-media: keys (IndexedDB) over ephemeral blob: URLs
-      const playUri =
+      // Prefer durable unmask-media: keys (IndexedDB) over ephemeral blob: URLs.
+      // Never persist a JPEG/still as the video status media — that made status render as an image.
+      let playUri =
         draft.mediaKind === "video"
           ? draft.mediaUri || draft.originalMediaUri || ""
           : publishUri;
+      if (
+        draft.mediaKind === "video" &&
+        playUri &&
+        (playUri.startsWith("data:image") || /\.(jpe?g|png|webp)(\?|$)/i.test(playUri))
+      ) {
+        playUri = draft.originalMediaUri || draft.mediaUri || playUri;
+      }
       const statusUri = pickPersistableMediaUri(playUri, draft.mediaUri || draft.originalMediaUri || "");
 
       const products = context.products ?? [];

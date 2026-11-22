@@ -54,28 +54,36 @@ export function StoryStatusRail({ onQueueChange }: { onQueueChange?: (open: bool
   };
 
   const myStoryQueue = (): PulseMoment[] =>
-    myStories.map((s) => ({
-      id: s.id,
-      name,
-      face: avatarUrl,
-      media: s.mediaKind === "video" ? s.coverPosterUri || "" : s.media,
-      video: s.mediaKind === "video" ? s.media : undefined,
-      caption: s.caption || "Your story.",
-      likes: s.likes,
-      comments: 0,
-      thread: [],
-      invite: "Your story.",
-      storyId: s.id,
-      occasion: s.occasion,
-      productLabels: s.productLabels,
-      productImages: s.productImages,
-      momentTitle: s.momentTitle,
-      skinType: s.skinType,
-      usageFrequency: s.usageFrequency,
-      usageDuration: s.usageDuration,
-      soundUri: s.soundUri,
-      soundMaxMs: s.soundMaxMs,
-    }));
+    myStories.map((s) => {
+      const isVideo =
+        s.mediaKind === "video" ||
+        Boolean(s.media?.startsWith("unmask-media:")) ||
+        Boolean(s.media?.startsWith("blob:")) ||
+        /\.(mp4|mov|webm|m4v)(\?|$)/i.test(s.media || "");
+      return {
+        id: s.id,
+        name,
+        face: avatarUrl,
+        // Poster only in media; playable URI always in video for video statuses
+        media: isVideo ? s.coverPosterUri || "" : s.media,
+        video: isVideo ? s.media : undefined,
+        caption: s.caption || "Your story.",
+        likes: s.likes,
+        comments: 0,
+        thread: [],
+        invite: "Your story.",
+        storyId: s.id,
+        occasion: s.occasion,
+        productLabels: s.productLabels,
+        productImages: s.productImages,
+        momentTitle: s.momentTitle,
+        skinType: s.skinType,
+        usageFrequency: s.usageFrequency,
+        usageDuration: s.usageDuration,
+        soundUri: s.soundUri,
+        soundMaxMs: s.soundMaxMs,
+      };
+    });
 
   const openStories = (startId: string) => {
     hapticSelect();

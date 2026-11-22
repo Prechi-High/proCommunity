@@ -17,14 +17,18 @@ Select video (expo-image-picker, base64:false)
   → StoryViewer / LivingFeed / pulse → LoopClip (<video> on web)
 ```
 
-## B. Root cause (why it looked like an image)
+## B. Root cause (why status looked like an image)
 
-On **master** (production until this PR merges):
+**Exact failure in the viewer:** `LoopClip` treated any play/decode error as terminal and **replaced the video with `<Image poster>`**. Opening status therefore showed a still photo even when `mediaKind === "video"`.
 
-1. **Bake overwrite** — successful Unmask brand bake set `playUri = publishUri`. For video that was a canvas webm/JPEG still, stored as `photo` while `mediaKind` stayed `"video"`.
-2. **Web player** — `LoopClip` used expo-av with `shouldPlay={Platform.OS !== "web"}`; on error it fell back to `<Image>`.
-3. **Ephemeral blobs** — `blob:` URLs persisted to AsyncStorage die on reload → decode fails → Image fallback.
-4. **Feed exclusion** — `toFeed = !isMoment`, so Moments never appeared as LivingFeed video posts (only 24h status). Status section cards always show a **poster Image** (correct for cards); playback only happens inside StoryViewer.
+Contributing causes:
+
+1. **Bake overwrite (master)** — brand bake could set `photo` to a JPEG/black webm while `mediaKind` stayed `"video"`.
+2. **expo-av on web** — unreliable with blob/`unmask-media` URIs → `onError` → Image fallback.
+3. **Ephemeral `blob:` URLs** — die after reload → decode fails → Image fallback.
+4. **Poster overlay** — loading poster could sit on top forever if `ready` never flipped.
+
+**Fix:** never demote video → Image; mount HTML5 `<video>` with muted autoplay; keep poster only until `playing`; reject `data:image` URIs as video sources.
 
 ## C. Required changes (this branch)
 

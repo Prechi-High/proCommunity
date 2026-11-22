@@ -216,9 +216,9 @@ export function StoryViewer({
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: "#000" }}>
-        {item.video ? (
+        {item.video || videoUri ? (
           <LoopClip
-            uri={videoUri || item.video}
+            uri={videoUri || item.video || ""}
             poster={item.media || ""}
             height={height}
             active={visible}
