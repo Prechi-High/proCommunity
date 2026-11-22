@@ -37,7 +37,6 @@ export function StoryViewer({
   const { height } = useWindowDimensions();
   const [index, setIndex] = useState(startIndex);
   const [progress, setProgress] = useState(0);
-  const [videoUri, setVideoUri] = useState<string>("");
   /** Always start muted so autoplay works; unmute only via Tap for sound / speaker. */
   const [videoMuted, setVideoMuted] = useState(true);
   const elapsed = useRef(0);
@@ -113,26 +112,6 @@ export function StoryViewer({
     }, 80);
     return () => clearInterval(tick);
   }, [live, index, item?.id, queue.length, onClose, onFinishedPerson, durationMs]);
-
-  // Resolve durable video URIs (IndexedDB) before LoopClip plays
-  useEffect(() => {
-    let cancelled = false;
-    if (!item?.video) {
-      setVideoUri("");
-      return;
-    }
-    void (async () => {
-      try {
-        const next = await resolvePlayableUri(item.video!);
-        if (!cancelled) setVideoUri(next || item.video!);
-      } catch {
-        if (!cancelled) setVideoUri(item.video!);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [item?.video, item?.id]);
 
   // Overlay BGM for photo OR video (video stays muted; sound is the audio layer)
   useEffect(() => {
@@ -234,9 +213,10 @@ export function StoryViewer({
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: "#000" }}>
-        {item.video || videoUri ? (
+        {item.video ? (
           <LoopClip
-            uri={videoUri || item.video || ""}
+            key={item.id}
+            uri={item.video}
             poster={item.media || ""}
             height={height}
             active={visible}

@@ -1,9 +1,8 @@
 import {
-  createElement,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
   type MutableRefObject,
 } from "react";
 import { ActivityIndicator, Image, Platform, Pressable, Text, View } from "react-native";
@@ -31,6 +30,18 @@ function isPlayableVideoSrc(uri: string | undefined | null): boolean {
   );
 }
 
+function hostDom(node: unknown): HTMLElement | null {
+  if (!node || typeof document === "undefined") return null;
+  if (node instanceof HTMLElement) return node;
+  const anyNode = node as { _nativeNode?: HTMLElement; getNode?: () => HTMLElement };
+  if (anyNode._nativeNode instanceof HTMLElement) return anyNode._nativeNode;
+  if (typeof anyNode.getNode === "function") {
+    const n = anyNode.getNode();
+    if (n instanceof HTMLElement) return n;
+  }
+  return null;
+}
+
 export type LoopClipHandle = {
   unmute: () => void;
   mute: () => void;
@@ -38,8 +49,8 @@ export type LoopClipHandle = {
 };
 
 /**
- * Always autoplay muted first (reliable). Sound only after an explicit unmute tap
- * from StoryViewer — never fight the browser with unmuted autoplay loops.
+ * Status / feed video. On web the <video> is mounted imperatively into a host
+ * div so StoryViewer progress re-renders (~12/s) never remount or remute it.
  */
 export function LoopClip({
   uri,
@@ -56,7 +67,7 @@ export function LoopClip({
   height: number;
   active?: boolean;
   controls?: boolean;
-  /** @deprecated kept for call-site compat — sound is via muted/unmute only */
+  /** @deprecated kept for call-site compat */
   playSound?: boolean;
   muted?: boolean;
   onMutedChange?: (muted: boolean) => void;
@@ -89,6 +100,18 @@ export function LoopClip({
   );
 }
 
+function applyMuteDom(el: HTMLVideoElement, wantMuted: boolean) {
+  el.muted = wantMuted;
+  el.defaultMuted = wantMuted;
+  el.volume = wantMuted ? 0 : 1;
+  if (wantMuted) el.setAttribute("muted", "");
+  else {
+    el.removeAttribute("muted");
+    el.muted = false;
+    el.volume = 1;
+  }
+}
+
 function WebLoopClip({
   uri,
   poster,
@@ -108,19 +131,23 @@ function WebLoopClip({
   onMutedChange?: (muted: boolean) => void;
   clipRef?: MutableRefObject<LoopClipHandle | null>;
 }) {
+  const hostRef = useRef<View>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const pageActive = usePageActive();
-  const startedRef = useRef(false);
+  const mountedSrcRef = useRef("");
   const mutedRef = useRef(true);
-  const [src, setSrc] = useState("");
+  const liveRef = useRef(true);
+  const pageActive = usePageActive();
   const [ready, setReady] = useState(false);
   const [paused, setPaused] = useState(false);
   const [internalMuted, setInternalMuted] = useState(true);
   const [resolveError, setResolveError] = useState<"missing" | "not_video" | "unresolved" | "">("");
+  const [hostReady, setHostReady] = useState(false);
 
   const muted = typeof mutedProp === "boolean" ? mutedProp : internalMuted;
   mutedRef.current = muted;
   const live = active && pageActive && !paused;
+  liveRef.current = live;
+
   const still =
     poster && !isMediaStoreUri(poster) && (isImageUri(poster) || poster.startsWith("blob:") || poster.startsWith("data:image"))
       ? poster
@@ -131,189 +158,256 @@ function WebLoopClip({
     onMutedChange?.(next);
   };
 
+  const markReady = () => setReady(true);
+
+  const kickPlay = (el: HTMLVideoElement) => {
+    if (!liveRef.current) {
+      el.pause();
+      return;
+    }
+    // Always attempt muted first for autoplay; respect unmute after started.
+    if (el.paused || el.ended) {
+      if (mutedRef.current) applyMuteDom(el, true);
+      void el.play().then(markReady).catch(() => {
+        applyMuteDom(el, true);
+        void el.play().then(markReady).catch(() => undefined);
+      });
+    } else {
+      markReady();
+    }
+  };
+
+  // Imperative <video> — never owned by React createElement
+  useLayoutEffect(() => {
+    if (typeof document === "undefined") return;
+    let el = videoRef.current;
+    let tries = 0;
+    let raf = 0;
+    let timer = 0;
+
+    const attach = () => {
+      const host = hostDom(hostRef.current);
+      if (!host) {
+        if (tries++ < 60) {
+          raf = requestAnimationFrame(attach);
+          return;
+        }
+        setResolveError("unresolved");
+        return;
+      }
+      if (el && el.parentElement === host) {
+        setHostReady(true);
+        return;
+      }
+      el = document.createElement("video");
+      el.setAttribute("playsinline", "true");
+      el.setAttribute("webkit-playsinline", "true");
+      el.setAttribute("muted", "");
+      el.muted = true;
+      el.defaultMuted = true;
+      el.autoplay = true;
+      el.playsInline = true;
+      el.loop = true;
+      el.preload = "auto";
+      el.controls = false;
+      el.style.cssText =
+        "width:100%;height:100%;object-fit:cover;display:block;background:#120810;position:absolute;inset:0;z-index:0;";
+      host.appendChild(el);
+      videoRef.current = el;
+      setHostReady(true);
+    };
+
+    attach();
+    // Extra delayed retry — RN-web sometimes hydrates the host a tick later
+    timer = window.setTimeout(attach, 50);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timer);
+      const node = videoRef.current;
+      if (node) {
+        try {
+          node.pause();
+          node.removeAttribute("src");
+          node.load();
+          node.remove();
+        } catch {
+          /* ignore */
+        }
+      }
+      videoRef.current = null;
+      mountedSrcRef.current = "";
+    };
+  }, []);
+
+  // Resolve durable URI and assign src without React remounts
   useEffect(() => {
+    if (!hostReady) return;
     let cancelled = false;
-    startedRef.current = false;
-    setReady(false);
-    setSrc("");
+    let failsafe = 0;
+    let onFrame: (() => void) | null = null;
+    let boundEl: HTMLVideoElement | null = null;
+
+    const detach = () => {
+      if (failsafe) window.clearTimeout(failsafe);
+      failsafe = 0;
+      if (boundEl && onFrame) {
+        boundEl.removeEventListener("loadeddata", onFrame);
+        boundEl.removeEventListener("canplay", onFrame);
+        boundEl.removeEventListener("playing", onFrame);
+      }
+      onFrame = null;
+      boundEl = null;
+    };
+
     setResolveError("");
     setPaused(false);
-    if (typeof mutedProp !== "boolean") setInternalMuted(true);
+
     if (!uri) {
       setResolveError("missing");
+      setReady(false);
       return;
     }
     if (isImageUri(uri)) {
       setResolveError("not_video");
+      setReady(false);
       return;
     }
+
     void (async () => {
+      let next = "";
       try {
-        const next = await resolvePlayableUri(uri);
-        if (cancelled) return;
-        if (isPlayableVideoSrc(next)) setSrc(next);
-        else if (isPlayableVideoSrc(uri)) setSrc(uri);
-        else setResolveError("unresolved");
+        const resolved = await resolvePlayableUri(uri);
+        if (isPlayableVideoSrc(resolved)) next = resolved;
+        else if (isPlayableVideoSrc(uri)) next = uri;
       } catch {
-        if (cancelled) return;
-        if (isPlayableVideoSrc(uri)) setSrc(uri);
-        else setResolveError("unresolved");
+        if (isPlayableVideoSrc(uri)) next = uri;
       }
+      if (cancelled) return;
+      if (!next) {
+        setResolveError("unresolved");
+        setReady(false);
+        return;
+      }
+
+      const el = videoRef.current;
+      if (!el) {
+        setResolveError("unresolved");
+        return;
+      }
+
+      // Same playable URL already mounted — don't reload / don't flash spinner
+      if (mountedSrcRef.current === next && (el.currentSrc || el.src)) {
+        if (el.readyState >= 2) markReady();
+        kickPlay(el);
+        return;
+      }
+
+      setReady(false);
+      mountedSrcRef.current = next;
+      boundEl = el;
+
+      onFrame = () => {
+        if (cancelled) return;
+        markReady();
+        kickPlay(el);
+      };
+
+      el.addEventListener("loadeddata", onFrame);
+      el.addEventListener("canplay", onFrame);
+      el.addEventListener("playing", onFrame);
+      el.addEventListener(
+        "error",
+        () => {
+          if (!cancelled) setResolveError("unresolved");
+        },
+        { once: true },
+      );
+
+      applyMuteDom(el, true);
+      const posterUri =
+        poster && !isMediaStoreUri(poster) && (isImageUri(poster) || poster.startsWith("blob:") || poster.startsWith("data:image"))
+          ? poster
+          : "";
+      if (posterUri) el.setAttribute("poster", posterUri);
+      else el.removeAttribute("poster");
+      el.src = next;
+      el.load();
+      kickPlay(el);
+
+      failsafe = window.setTimeout(() => {
+        if (cancelled) return;
+        if (el.readyState >= 2) markReady();
+      }, 2500);
     })();
+
     return () => {
       cancelled = true;
+      detach();
     };
-  }, [uri]);
+  }, [uri, hostReady, poster]);
 
-  const applyMuteDom = (el: HTMLVideoElement, wantMuted: boolean) => {
-    el.muted = wantMuted;
-    el.defaultMuted = wantMuted;
-    el.volume = wantMuted ? 0 : 1;
-    if (wantMuted) el.setAttribute("muted", "");
-    else {
-      el.removeAttribute("muted");
-      el.muted = false;
-      el.volume = 1;
+  // Pause / resume with visibility — never reload src
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !mountedSrcRef.current) return;
+    if (!live) {
+      el.pause();
+      return;
     }
-  };
+    kickPlay(el);
+    const retry = window.setInterval(() => {
+      if (!liveRef.current || !el.paused) return;
+      kickPlay(el);
+    }, 800);
+    return () => window.clearInterval(retry);
+  }, [live]);
 
-  const unmuteNow = () => {
+  // External mute toggles
+  useEffect(() => {
     const el = videoRef.current;
-    setMuted(false);
-    if (!el) return;
-    applyMuteDom(el, false);
-    void el.play().catch(() => {
-      // If unmute play fails, stay muted rather than thrashing
-      applyMuteDom(el, true);
-      setMuted(true);
-      void el.play().catch(() => undefined);
-    });
-  };
-
-  const muteNow = () => {
-    const el = videoRef.current;
-    setMuted(true);
-    if (!el) return;
-    applyMuteDom(el, true);
-  };
+    if (!el || !mountedSrcRef.current) return;
+    applyMuteDom(el, muted);
+    if (!muted && live) void el.play().catch(() => undefined);
+  }, [muted, live]);
 
   useEffect(() => {
     if (!clipRef) return;
     clipRef.current = {
-      unmute: unmuteNow,
-      mute: muteNow,
-      isMuted: () => muted,
+      unmute: () => {
+        setMuted(false);
+        const el = videoRef.current;
+        if (!el) return;
+        applyMuteDom(el, false);
+        void el.play().catch(() => {
+          applyMuteDom(el, true);
+          setMuted(true);
+        });
+      },
+      mute: () => {
+        setMuted(true);
+        const el = videoRef.current;
+        if (el) applyMuteDom(el, true);
+      },
+      isMuted: () => mutedRef.current,
     };
     return () => {
       clipRef.current = null;
     };
   });
 
-  // Start once, muted — do not re-enter on mute toggles
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el || !src) return;
-    let cancelled = false;
-
-    const markReady = () => {
-      if (cancelled) return;
-      startedRef.current = true;
-      setReady(true);
-    };
-
-    const kickPlay = () => {
-      if (cancelled || !live) {
-        if (!cancelled && !live) el.pause();
-        return;
-      }
-      el.playsInline = true;
-      el.loop = true;
-      el.setAttribute("playsinline", "true");
-      el.setAttribute("webkit-playsinline", "true");
-      // Only force mute on the very first start — later canplay must not remute.
-      if (!startedRef.current) applyMuteDom(el, true);
-      else applyMuteDom(el, mutedRef.current);
-      void el.play().then(markReady).catch(() => undefined);
-    };
-
-    if (el.getAttribute("data-src") !== src) {
-      el.setAttribute("data-src", src);
-      startedRef.current = false;
-      el.src = src;
-      el.load();
-    }
-
-    el.addEventListener("loadeddata", kickPlay);
-    el.addEventListener("canplay", kickPlay);
-    el.addEventListener("playing", markReady);
-    kickPlay();
-
-    // Soft resume only if stalled after we already started
-    const retry = window.setInterval(() => {
-      if (cancelled || !live || !startedRef.current || !el.paused) return;
-      applyMuteDom(el, mutedRef.current);
-      void el.play().catch(() => undefined);
-    }, 1000);
-
-    return () => {
-      cancelled = true;
-      el.removeEventListener("loadeddata", kickPlay);
-      el.removeEventListener("canplay", kickPlay);
-      el.removeEventListener("playing", markReady);
-      window.clearInterval(retry);
-      el.pause();
-    };
-    // intentionally not depending on muted — unmute is handled separately
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, live]);
-
-  // Mute toggles only change volume flags — never reload src
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el || !startedRef.current) return;
-    applyMuteDom(el, muted);
-    if (live && el.paused) void el.play().catch(() => undefined);
-  }, [muted, live]);
-
   return (
     <View style={{ width: "100%", height, backgroundColor: "#120810", overflow: "hidden" }}>
-      {src
-        ? createElement("video", {
-            ref: (node: HTMLVideoElement | null) => {
-              videoRef.current = node;
-              // Set muted only on attach — do NOT pass React `muted` prop.
-              // StoryViewer re-renders ~12×/s for progress; React would remute
-              // the element every tick and stall / restart buffering forever.
-              if (node && !node.getAttribute("data-mute-init")) {
-                node.setAttribute("data-mute-init", "1");
-                applyMuteDom(node, true);
-              }
-            },
-            src,
-            // Intentionally omit `muted` — managed via applyMuteDom / unmuteNow only
-            defaultMuted: true,
-            autoPlay: true,
-            playsInline: true,
-            loop: true,
-            preload: "auto",
-            poster: still || undefined,
-            controls: false,
-            "webkit-playsinline": "true",
-            style: {
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block",
-              backgroundColor: "#120810",
-            } as CSSProperties,
-          })
-        : null}
+      <View
+        ref={hostRef}
+        collapsable={false}
+        style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}
+      />
 
       {!ready && still ? (
         <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}>
           <Image
             source={{ uri: still }}
-            style={{ width: "100%", height: "100%", opacity: src ? 0.9 : 1 }}
+            style={{ width: "100%", height: "100%", opacity: mountedSrcRef.current ? 0.9 : 1 }}
             resizeMode="cover"
             accessibilityIgnoresInvertColors
           />
@@ -357,7 +451,23 @@ function WebLoopClip({
           </Pressable>
           <Pressable
             accessibilityLabel={muted ? "Unmute video" : "Mute video"}
-            onPress={() => (muted ? unmuteNow() : muteNow())}
+            onPress={() => {
+              if (muted) {
+                setMuted(false);
+                const el = videoRef.current;
+                if (el) {
+                  applyMuteDom(el, false);
+                  void el.play().catch(() => {
+                    applyMuteDom(el, true);
+                    setMuted(true);
+                  });
+                }
+              } else {
+                setMuted(true);
+                const el = videoRef.current;
+                if (el) applyMuteDom(el, true);
+              }
+            }}
             style={{
               width: 40,
               height: 40,
@@ -438,7 +548,7 @@ function NativeLoopClip({
           await v.setIsMutedAsync(true);
           await v.playAsync();
         } catch {
-          /* keep trying quietly */
+          /* quiet */
         }
       }
     };
