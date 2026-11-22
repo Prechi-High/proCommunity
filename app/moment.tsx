@@ -640,8 +640,20 @@ export default function Moment() {
         onBack={() => patch({ step: "preview" })}
         onPublish={() => void post()}
         onExportShare={async () => {
-          const uri = await runRender({ burnBranding: true });
-          return uri || previewUri;
+          try {
+            const uri = await runRender({ burnBranding: true });
+            // For video, if bake looks like a still, share the playable original instead
+            if (
+              draft.mediaKind === "video" &&
+              uri &&
+              (uri.startsWith("data:image") || /\.(jpe?g|png|webp)(\?|$)/i.test(uri))
+            ) {
+              return draft.mediaUri || previewUri;
+            }
+            return uri || draft.mediaUri || previewUri;
+          } catch {
+            return draft.mediaUri || previewUri;
+          }
         }}
         onSaveDraft={() => {
           hapticSaved("moment");

@@ -66,9 +66,17 @@ export async function renderUnmaskMediaWeb(
   }
 
   onProgress?.(0.15, "Burning Unmask mark…");
+  // Resolve durable IndexedDB keys before canvas bake (blob:/http only)
+  let videoSrc = input.mediaUri;
+  try {
+    const { resolvePlayableUri } = await import("@/lib/moment/mediaBlobStore");
+    videoSrc = (await resolvePlayableUri(input.mediaUri)) || input.mediaUri;
+  } catch {
+    /* keep input uri */
+  }
   const blob = await withTimeout(
     exportProcessedVideo(
-      input.mediaUri,
+      videoSrc,
       "video",
       input.creator,
       (ratio) => onProgress?.(0.15 + ratio * 0.8, "Adding Unmask mark…"),

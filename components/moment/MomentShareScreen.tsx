@@ -73,17 +73,27 @@ export function MomentShareScreen({
       .slice(0, 3)
       .join(" · ");
     const title = context.momentTitle || `${config.title}${occasion ? ` · ${occasion}` : ""}`;
+    const deepLink =
+      typeof window !== "undefined" && window.location?.origin
+        ? `${window.location.origin}/community`
+        : "https://unmasker.vercel.app/community";
     const message = [
-      `${title} on Unmask`,
+      `${title} on Unmask ✦`,
       productLine ? `Using: ${productLine}` : null,
       caption?.trim() || null,
-      "Open Unmask to see the full routine & track progress with me.",
+      `See the routine & products → ${deepLink}`,
     ]
       .filter(Boolean)
       .join("\n");
     setExporting(true);
     try {
-      const url = onExportShare ? await onExportShare() : mediaUri;
+      // Prefer branded bake; fall back to original media so share never sends a black frame.
+      let url = mediaUri;
+      try {
+        if (onExportShare) url = (await onExportShare()) || mediaUri;
+      } catch {
+        url = mediaUri;
+      }
       await Share.share({ message, url: url || mediaUri });
     } catch {
       /* cancelled */
