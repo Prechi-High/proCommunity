@@ -3,7 +3,7 @@ import { Image, Modal, Pressable, Share, Text, useWindowDimensions, View } from 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Audio } from "expo-av";
 
-import { ArrowClockwise, CalendarBlank, Heart, ShareNetwork, Sun, UserCircle, X } from "@/components/icons";
+import { ArrowClockwise, CalendarBlank, Heart, ShareNetwork, SpeakerHigh, SpeakerSlash, Sun, UserCircle, X } from "@/components/icons";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { resolvePlayableUri } from "@/lib/moment/mediaBlobStore";
@@ -11,11 +11,13 @@ import { useLocalMoments } from "@/lib/moment/localPosts";
 import { stopStudioSound, UNMASK_IMAGE_BGM_MAX_SEC } from "@/lib/moment/studioAudio";
 import { useAppStore } from "@/lib/store";
 import type { PulseMoment } from "@/lib/social/previewMoments";
+import { markUserGesture, withinUserGesture } from "@/lib/userGesture";
 import { usePageActive } from "@/lib/usePageActive";
 
-import { LoopClip } from "./LoopClip";
+import { LoopClip, type LoopClipHandle } from "./LoopClip";
 
 const STORY_MS = 6000;
+const VIDEO_STORY_MS = 30_000;
 
 export function StoryViewer({
   queue,
@@ -36,9 +38,12 @@ export function StoryViewer({
   const [index, setIndex] = useState(startIndex);
   const [progress, setProgress] = useState(0);
   const [videoUri, setVideoUri] = useState<string>("");
+  /** Video own-audio mute — owned here so the unmute control sits above tap overlays. */
+  const [videoMuted, setVideoMuted] = useState(() => !withinUserGesture());
   const elapsed = useRef(0);
   const paused = useRef(false);
   const soundRef = useRef<Audio.Sound | null>(null);
+  const clipRef = useRef<LoopClipHandle | null>(null);
   const pageActive = usePageActive();
   const toggleLike = useLocalMoments((s) => s.toggleStoryLike);
   const reshareStory = useLocalMoments((s) => s.reshareStory);
@@ -79,9 +84,15 @@ export function StoryViewer({
   }, [pageActive, visible, onClose]);
 
   const item = queue[index];
+  const wantsVideoSound = Boolean(item?.video) && !item?.soundUri;
   const durationMs = item?.video
-    ? STORY_MS
+    ? VIDEO_STORY_MS
     : Math.min((item?.soundMaxMs || UNMASK_IMAGE_BGM_MAX_SEC * 1000), UNMASK_IMAGE_BGM_MAX_SEC * 1000) || STORY_MS;
+
+  useEffect(() => {
+    // Fresh clip: try with sound if the open was a recent tap; otherwise start muted until Tap for sound
+    setVideoMuted(wantsVideoSound ? !withinUserGesture() : true);
+  }, [item?.id, wantsVideoSound]);
 
   useEffect(() => {
     if (!live || !item) return;
@@ -192,12 +203,21 @@ export function StoryViewer({
 
   if (!item) return null;
 
+  const unlockVideoSound = () => {
+    if (!wantsVideoSound) return;
+    markUserGesture();
+    setVideoMuted(false);
+    clipRef.current?.unmute();
+  };
+
   const goPrev = () => {
+    unlockVideoSound();
     if (index > 0) setIndex((i) => i - 1);
     else onClose();
   };
 
   const goNext = () => {
+    unlockVideoSound();
     if (index < queue.length - 1) setIndex((i) => i + 1);
     else if (onFinishedPerson) onFinishedPerson();
     else onClose();
@@ -222,9 +242,10 @@ export function StoryViewer({
             poster={item.media || ""}
             height={height}
             active={visible}
-            // Original video audio when no overlay track; mute under BGM if attached
-            playSound={!item.soundUri}
-            controls
+            playSound={wantsVideoSound}
+            muted={wantsVideoSound ? videoMuted : true}
+            onMutedChange={setVideoMuted}
+            clipRef={clipRef}
           />
         ) : item.media ? (
           <Image source={{ uri: item.media }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
@@ -348,39 +369,79 @@ export function StoryViewer({
                 })}
             </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: "#FFF8F4" }}>{item.caption}</Text>
-            {interactive && item.storyId ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 20 }}>
-                <Pressable
-                  accessibilityLabel="Like status"
-                  onPress={() => {
-                    hapticSelect();
-                    toggleLike(storyId);
-                  }}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-                >
-                  <Heart size={26} color={loved ? "#FF6B9D" : "#FFF8F4"} weight={loved ? "fill" : "regular"} />
-                  <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4" }}>{item.likes}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityLabel="Reshare to your status"
-                  onPress={() => {
-                    hapticSelect();
-                    reshareStory(storyId, display);
-                  }}
-                >
-                  <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#F0CF69" }}>Reshare</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityLabel="Share outside Unmask"
-                  onPress={() => {
-                    hapticSelect();
-                    void Share.share({ message: `${item.name} on Unmask: ${item.caption}`, url: item.video || item.media });
-                  }}
-                >
-                  <ShareNetwork size={24} color="#FFF8F4" />
-                </Pressable>
-              </View>
+            {wantsVideoSound && videoMuted ? (
+              <Pressable
+                accessibilityLabel="Tap for sound"
+                onPress={() => {
+                  hapticSelect();
+                  unlockVideoSound();
+                }}
+                style={{
+                  alignSelf: "center",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  borderRadius: 999,
+                  backgroundColor: "rgba(255,255,255,0.92)",
+                }}
+              >
+                <SpeakerSlash size={18} color="#1A0A14" />
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#1A0A14" }}>Tap for sound</Text>
+              </Pressable>
             ) : null}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 20 }}>
+              {wantsVideoSound ? (
+                <Pressable
+                  accessibilityLabel={videoMuted ? "Unmute video" : "Mute video"}
+                  onPress={() => {
+                    hapticSelect();
+                    if (videoMuted) unlockVideoSound();
+                    else {
+                      setVideoMuted(true);
+                      clipRef.current?.mute();
+                    }
+                  }}
+                  hitSlop={10}
+                >
+                  {videoMuted ? <SpeakerSlash size={26} color="#FFF8F4" /> : <SpeakerHigh size={26} color="#FFF8F4" />}
+                </Pressable>
+              ) : null}
+              {interactive && item.storyId ? (
+                <>
+                  <Pressable
+                    accessibilityLabel="Like status"
+                    onPress={() => {
+                      hapticSelect();
+                      toggleLike(storyId);
+                    }}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+                  >
+                    <Heart size={26} color={loved ? "#FF6B9D" : "#FFF8F4"} weight={loved ? "fill" : "regular"} />
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF8F4" }}>{item.likes}</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel="Reshare to your status"
+                    onPress={() => {
+                      hapticSelect();
+                      reshareStory(storyId, display);
+                    }}
+                  >
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#F0CF69" }}>Reshare</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel="Share outside Unmask"
+                    onPress={() => {
+                      hapticSelect();
+                      void Share.share({ message: `${item.name} on Unmask: ${item.caption}`, url: item.video || item.media });
+                    }}
+                  >
+                    <ShareNetwork size={24} color="#FFF8F4" />
+                  </Pressable>
+                </>
+              ) : null}
+            </View>
           </View>
         </SafeAreaView>
       </View>

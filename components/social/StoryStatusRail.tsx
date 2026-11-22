@@ -16,6 +16,8 @@ import { CREATE_UNMASK_GLOW, CREATE_UNMASK_RING, storyMetaFor } from "@/lib/soci
 import { useRoomTone } from "@/lib/social/roomTone";
 import { useAppStore } from "@/lib/store";
 
+import { markUserGesture } from "@/lib/userGesture";
+
 import { StoryViewer } from "./StoryViewer";
 
 export function StoryStatusRail({ onQueueChange }: { onQueueChange?: (open: boolean) => void }) {
@@ -86,6 +88,7 @@ export function StoryStatusRail({ onQueueChange }: { onQueueChange?: (open: bool
     });
 
   const openStories = (startId: string) => {
+    markUserGesture();
     hapticSelect();
     setStoryQueue(previewStoriesForPerson(startId));
     onQueueChange?.(true);
@@ -96,6 +99,7 @@ export function StoryStatusRail({ onQueueChange }: { onQueueChange?: (open: bool
       goPost();
       return;
     }
+    markUserGesture();
     hapticSelect();
     setStoryQueue(myStoryQueue());
     onQueueChange?.(true);

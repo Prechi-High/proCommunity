@@ -10,6 +10,8 @@ import { PREVIEW_MOMENTS, type PulseMoment } from "@/lib/social/previewMoments";
 import { previewKindFor } from "@/lib/social/storyMomentMap";
 import { useRoomTone } from "@/lib/social/roomTone";
 
+import { markUserGesture } from "@/lib/userGesture";
+
 import { StoryStatusRail } from "./StoryStatusRail";
 import { StoryViewer } from "./StoryViewer";
 
@@ -44,6 +46,7 @@ export function UpdatesFeed() {
   const openSection = (kind: MomentKind) => {
     const queue = previewByKind[kind];
     if (!queue.length) return;
+    markUserGesture();
     hapticSelect();
     setSectionQueue(queue);
   };
