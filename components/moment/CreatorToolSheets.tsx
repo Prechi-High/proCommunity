@@ -52,18 +52,6 @@ export function CreatorToolSheets({
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [pickerError, setPickerError] = useState("");
 
-  if (mediaKind === "video") {
-    // Sounds are for photos / slides only
-    if (!open) return null;
-    return (
-      <ActionSheet open title="Music" onClose={onClose}>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: momentFlow.muted, lineHeight: 20 }}>
-          Sound is for photos and slides. Videos keep their own audio — Unmask just adds the brand mark and product context.
-        </Text>
-      </ActionSheet>
-    );
-  }
-
   async function previewSound(track: SoundOption) {
     try {
       setPickerError("");

@@ -114,9 +114,7 @@ export function MomentPreviewScreen({
             {
               label: "Music",
               Icon: Waveform,
-              onPress: () => {
-                if (mediaKind === "photo") setToolOpen("music");
-              },
+              onPress: () => setToolOpen("music"),
             },
             { label: "Text", Icon: NotePencil, onPress: onEditCompose },
             { label: "Slides", Icon: PencilSimple, onPress: onEditCompose },

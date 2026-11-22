@@ -62,13 +62,30 @@ export function UpdatesFeed() {
       <View style={{ gap: 14, paddingHorizontal: 16 }}>
         {MOMENTS.map((m) => {
           const items = previewByKind[m.id];
-          const cover = items[0]?.media || m.cardImage;
+          const first = items[0];
+          const cover = first?.media || m.cardImage;
+          const hasVideo = Boolean(first?.video);
           return (
             <Pressable key={m.id} accessibilityRole="button" onPress={() => openSection(m.id)} style={{ borderRadius: livelyRadii.card, overflow: "hidden" }}>
               <LinearGradient colors={[m.border[0], m.border[1]]} style={{ padding: 2 }}>
                 <View style={{ borderRadius: livelyRadii.card - 2, overflow: "hidden", backgroundColor: "#140B12" }}>
                   <Image source={{ uri: cover }} style={{ width: "100%", height: 140 }} resizeMode="cover" accessibilityIgnoresInvertColors />
                   <LinearGradient colors={["transparent", "rgba(10,4,8,0.9)"]} style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 140 }} />
+                  {hasVideo ? (
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: 12,
+                        right: 12,
+                        paddingHorizontal: 10,
+                        paddingVertical: 5,
+                        borderRadius: 999,
+                        backgroundColor: "rgba(0,0,0,0.55)",
+                      }}
+                    >
+                      <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: "#FFF8F4" }}>Video</Text>
+                    </View>
+                  ) : null}
                   <View style={{ position: "absolute", left: 16, right: 16, bottom: 14, gap: 4 }}>
                     <Text style={{ fontFamily: fonts.serifBold, fontSize: 20, color: "#FFF8F4" }}>
                       {m.title} {m.emoji}

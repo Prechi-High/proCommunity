@@ -443,7 +443,8 @@ export default function Moment() {
         usageDuration: context.usageDuration,
         timelineId: context.timelineId,
         timelineLabel: context.timelineLabel,
-        destination: "story",
+        // both → 24h status + Living feed so video stays a real playable post
+        destination: "both",
         mediaKind: draft.mediaKind,
         momentKind: kind,
         occasion,
@@ -461,12 +462,12 @@ export default function Moment() {
           const u = pickPersistableMediaUri(draft.coverPosterUri, "");
           return u || undefined;
         })(),
-        soundUri: draft.mediaKind === "photo" ? resolveStudioSoundUri(draft.creator) || undefined : undefined,
-        soundMaxMs:
-          draft.mediaKind === "photo"
-            ? Math.min(UNMASK_IMAGE_BGM_MAX_SEC, selectedSoundDurationSec(draft.creator) ?? UNMASK_IMAGE_BGM_MAX_SEC) *
-              1000
-            : undefined,
+        // Optional overlay sound for photo or video (video stays muted under the track)
+        soundUri: resolveStudioSoundUri(draft.creator) || undefined,
+        soundMaxMs: resolveStudioSoundUri(draft.creator)
+          ? Math.min(UNMASK_IMAGE_BGM_MAX_SEC, selectedSoundDurationSec(draft.creator) ?? UNMASK_IMAGE_BGM_MAX_SEC) *
+            1000
+          : undefined,
         slideCaptions: draft.mediaAssets.map((a) => a.caption || "").filter(Boolean),
       });
       hapticSaved("moment");

@@ -47,22 +47,35 @@ export function LivingFeed({ guest, feedTab = "for-you" }: { guest?: boolean; fe
   const avatarUrl = localAvatar || identity.data?.avatar_url || "";
   const [loved, setLoved] = useState<Record<string, boolean>>({});
   const [openId, setOpenId] = useState<string | null>(null);
-  const experiencePosts = useMemo(() => mine.filter((p) => !p.momentKind), [mine]);
+  // Include Moment posts (esp. video) so the feed plays real video — not poster-only cards.
+  const experiencePosts = useMemo(() => mine, [mine]);
   const yours: PulseMoment[] = experiencePosts.map((post) => ({
     id: post.id,
     name,
     face: avatarUrl,
-    media: post.photo || "",
+    media:
+      post.mediaKind === "video"
+        ? post.coverPosterUri || ""
+        : post.photo || "",
     caption: post.caption || "A moment, no essay.",
     product: post.productName,
+    productLabels: post.productLabels,
+    productImages: post.productImages,
+    momentTitle: post.momentTitle,
+    skinType: post.skinType,
+    usageFrequency: post.usageFrequency,
+    usageDuration: post.usageDuration,
+    occasion: post.occasion,
     timeline: post.timelineLabel,
-    skin: post.skin,
+    skin: post.skin || post.skinType,
     likes: 1,
     comments: 0,
     thread: [],
     video: post.mediaKind === "video" ? post.photo : undefined,
+    soundUri: post.soundUri,
+    soundMaxMs: post.soundMaxMs,
     stickers: post.stickers,
-    invite: "Your experience post.",
+    invite: post.momentKind ? "Your Unmask moment." : "Your experience post.",
   }));
 
   const openPost = (id: string) => {
@@ -236,7 +249,7 @@ function MomentCard({
 
       <View style={{ position: "relative" }}>
         {item.video ? (
-          <LoopClip uri={item.video} poster={item.media} height={420} />
+          <LoopClip uri={item.video} poster={item.media} height={420} controls />
         ) : item.media ? (
           <Image source={{ uri: item.media }} style={{ width: "100%", height: 420 }} resizeMode="cover" accessibilityIgnoresInvertColors />
         ) : (

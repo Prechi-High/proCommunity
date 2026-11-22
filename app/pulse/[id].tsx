@@ -31,7 +31,10 @@ export default function PulsePost() {
 
   const author = local ? name : preview!.name;
   const caption = local?.caption || preview?.caption || "";
-  const media = local?.photo || preview?.media || "";
+  const media =
+    local?.mediaKind === "video"
+      ? local.coverPosterUri || ""
+      : local?.photo || preview?.media || "";
   const video = local?.mediaKind === "video" ? local.photo : preview?.video;
   const thread = [...(preview?.thread ?? []), ...extra];
   const skin = local?.skin || preview?.skin;
@@ -42,9 +45,9 @@ export default function PulsePost() {
     <AppShell back title={author} subtitle="The post, then the conversation.">
       <View style={{ gap: 14 }}>
         {video && !local ? (
-          <LoopClip uri={video} poster={media} height={420} />
+          <LoopClip uri={video} poster={media} height={420} controls />
         ) : local?.mediaKind === "video" && local.photo ? (
-          <LoopClip uri={local.photo} poster={local.photo} height={420} />
+          <LoopClip uri={local.photo} poster={local.coverPosterUri || ""} height={420} controls />
         ) : media ? (
           <Image source={{ uri: media }} style={{ width: "100%", height: 420, borderRadius: 24 }} resizeMode="cover" accessibilityIgnoresInvertColors />
         ) : null}

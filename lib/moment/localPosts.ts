@@ -123,12 +123,15 @@ export const useLocalMoments = create<State>()(
         const isMoment = !!post.momentKind;
         const toStory =
           isMoment || post.destination === "story" || post.destination === "both";
-        const toFeed = !isMoment && (post.destination === "post" || post.destination === "both");
+        // Moments may also land in the Living feed when destination is both/post
+        // so video posts remain playable there — not story-only image cards.
+        const toFeed = post.destination === "post" || post.destination === "both";
 
         const storyRow: StoryItem | null =
           toStory && post.photo
             ? {
                 id: `story-${Date.now()}`,
+                // For video: media MUST stay the playable video URI; poster is separate.
                 media: post.photo,
                 mediaKind: post.mediaKind || "photo",
                 coverPosterUri: post.coverPosterUri || undefined,
@@ -142,8 +145,8 @@ export const useLocalMoments = create<State>()(
                 skinType: post.skinType,
                 usageFrequency: post.usageFrequency,
                 usageDuration: post.usageDuration,
-                soundUri: post.mediaKind === "video" ? undefined : post.soundUri,
-                soundMaxMs: post.mediaKind === "video" ? undefined : post.soundMaxMs,
+                soundUri: post.soundUri,
+                soundMaxMs: post.soundMaxMs,
                 createdAt: row.createdAt,
                 expiresAt: new Date(Date.now() + STORY_TTL_MS).toISOString(),
                 likes: 0,

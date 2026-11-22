@@ -123,7 +123,7 @@ export function StoryViewer({
     };
   }, [item?.video, item?.id]);
 
-  // Photo / slide BGM — only while status is visible AND tab is foreground
+  // Overlay BGM for photo OR video (video stays muted; sound is the audio layer)
   useEffect(() => {
     let alive = true;
     void (async () => {
@@ -133,7 +133,7 @@ export function StoryViewer({
         /* ignore */
       }
       soundRef.current = null;
-      if (!live || !item?.soundUri || item.video) return;
+      if (!live || !item?.soundUri) return;
       try {
         await Audio.setAudioModeAsync({
           playsInSilentModeIOS: true,
@@ -173,7 +173,7 @@ export function StoryViewer({
         soundRef.current = null;
       })();
     };
-  }, [live, item?.id, item?.soundUri, item?.video, item?.soundMaxMs]);
+  }, [live, item?.id, item?.soundUri, item?.soundMaxMs]);
 
   // Hard stop when viewer closes
   useEffect(() => {

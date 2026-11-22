@@ -10,11 +10,13 @@ export function LoopClip({
   poster,
   height,
   active = true,
+  controls: _controls = false,
 }: {
   uri: string;
   poster: string;
   height: number;
   active?: boolean;
+  controls?: boolean;
 }) {
   const ref = useRef<Video>(null);
   const pageActive = usePageActive();
