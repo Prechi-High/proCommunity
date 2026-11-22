@@ -11,7 +11,7 @@ import { useLocalMoments } from "@/lib/moment/localPosts";
 import { stopStudioSound, UNMASK_IMAGE_BGM_MAX_SEC } from "@/lib/moment/studioAudio";
 import { useAppStore } from "@/lib/store";
 import type { PulseMoment } from "@/lib/social/previewMoments";
-import { markUserGesture, withinUserGesture } from "@/lib/userGesture";
+import { markUserGesture } from "@/lib/userGesture";
 import { usePageActive } from "@/lib/usePageActive";
 
 import { LoopClip, type LoopClipHandle } from "./LoopClip";
@@ -38,8 +38,8 @@ export function StoryViewer({
   const [index, setIndex] = useState(startIndex);
   const [progress, setProgress] = useState(0);
   const [videoUri, setVideoUri] = useState<string>("");
-  /** Video own-audio mute — owned here so the unmute control sits above tap overlays. */
-  const [videoMuted, setVideoMuted] = useState(() => !withinUserGesture());
+  /** Always start muted so autoplay works; unmute only via Tap for sound / speaker. */
+  const [videoMuted, setVideoMuted] = useState(true);
   const elapsed = useRef(0);
   const paused = useRef(false);
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -90,9 +90,9 @@ export function StoryViewer({
     : Math.min((item?.soundMaxMs || UNMASK_IMAGE_BGM_MAX_SEC * 1000), UNMASK_IMAGE_BGM_MAX_SEC * 1000) || STORY_MS;
 
   useEffect(() => {
-    // Fresh clip: try with sound if the open was a recent tap; otherwise start muted until Tap for sound
-    setVideoMuted(wantsVideoSound ? !withinUserGesture() : true);
-  }, [item?.id, wantsVideoSound]);
+    // Fresh clip always muted first — unmuted autoplay fights the browser and stalls load.
+    setVideoMuted(true);
+  }, [item?.id]);
 
   useEffect(() => {
     if (!live || !item) return;
@@ -211,13 +211,11 @@ export function StoryViewer({
   };
 
   const goPrev = () => {
-    unlockVideoSound();
     if (index > 0) setIndex((i) => i - 1);
     else onClose();
   };
 
   const goNext = () => {
-    unlockVideoSound();
     if (index < queue.length - 1) setIndex((i) => i + 1);
     else if (onFinishedPerson) onFinishedPerson();
     else onClose();
@@ -242,7 +240,6 @@ export function StoryViewer({
             poster={item.media || ""}
             height={height}
             active={visible}
-            playSound={wantsVideoSound}
             muted={wantsVideoSound ? videoMuted : true}
             onMutedChange={setVideoMuted}
             clipRef={clipRef}
