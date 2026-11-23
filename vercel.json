@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "rm -rf dist .expo && NODE_OPTIONS='--max-old-space-size=8192' npm run export:web",
-  "outputDirectory": "dist",
+  "buildCommand": "rm -rf dist .expo .vercel/output/static && NODE_OPTIONS='--max-old-space-size=8192' npm run export:web && mkdir -p .vercel/output/static && cp -R dist/. .vercel/output/static/",
+  "outputDirectory": ".vercel/output/static",
   "framework": null,
   "rewrites": [
     {
