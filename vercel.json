@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run export:web",
-  "outputDirectory": "dist",
+  "buildCommand": "npm run export:web && rm -rf public && mkdir -p public && cp -R dist/. public",
+  "outputDirectory": "public",
   "framework": null,
   "rewrites": [
     {
