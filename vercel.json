@@ -1,16 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "rm -rf dist .expo && NODE_OPTIONS='--max-old-space-size=8192' npm run build:auth && npm run typecheck && npm run test:parallel-research && npm run test:dynamic-ui && mkdir -p .vercel/output/static && npx expo export --platform web --output-dir .vercel/output/static",
+  "buildCommand": "rm -rf dist .expo && npm run export:web",
   "outputDirectory": ".vercel/output/static",
   "framework": null,
   "rewrites": [
-    {
-      "source": "/r/:token",
-      "destination": "/api/r/:token"
-    },
-    {
-      "source": "/((?!api|_expo|assets).*)",
-      "destination": "/index.html"
-    }
+    {"source": "/r/:token", "destination": "/api/r/:token"},
+    {"source": "/((?!api|_expo|assets).*)", "destination": "/index.html"}
   ]
 }
