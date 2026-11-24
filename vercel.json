@@ -1,7 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run export:web",
-  "outputDirectory": "vercel-dist",
   "framework": null,
   "installCommand": "npm install --include=dev",
   "rewrites": [
