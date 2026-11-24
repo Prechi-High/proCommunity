@@ -3,7 +3,7 @@
   "buildCommand": "npm run export:web",
   "framework": null,
   "installCommand": "npm install --include=dev",
-  "outputDirectory": "public",
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/r/:token",
