@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build:auth && npm run typecheck && npm run test:parallel-research && npm run test:dynamic-ui && expo export --platform web",
+  "buildCommand": "npm run export:web",
   "framework": null,
   "installCommand": "npm install --include=dev",
   "outputDirectory": "dist",
