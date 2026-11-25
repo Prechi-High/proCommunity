@@ -7,6 +7,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Pressable, Text, View } from "react-native";
 import { ExperienceWizard } from "@/components/tracking/ExperienceWizard";
+import { CommunityExperienceComposer } from "@/components/community/CommunityFlow";
 import {
   AppShell,
   ActionButton,
@@ -18,6 +19,7 @@ import * as clarity from "@/lib/clarity/api";
 import * as community from "@/lib/community-v2/api";
 import { useAppStore } from "@/lib/store";
 import { colors, fonts } from "@/constants/theme";
+
 export default function Contribute() {
   const p = useLocalSearchParams<{
     product?: string;
@@ -28,9 +30,15 @@ export default function Contribute() {
     resumeGuest?: string;
     moment?: string;
     productName?: string;
+    community?: string;
   }>();
-  const uid = useAppStore((s) => s.profile?.id),
-    r = useRouter();
+  const uid = useAppStore((s) => s.profile?.id);
+  const r = useRouter();
+
+  if (p.community === "1" && p.product) {
+    return <CommunityExperienceComposer />;
+  }
+
   const own = useQuery({
     queryKey: ["my-clarity-experiences", uid],
     queryFn: () => clarity.experiences(true),
@@ -41,8 +49,10 @@ export default function Contribute() {
     queryFn: () => community.experience(p.experience!),
     enabled: !!p.experience && !!p.update,
   });
+
   if (p.experience && !p.update)
     return <Redirect href={`/story/${p.experience}` as Href} />;
+
   if (p.mine)
     return (
       <AppShell back navigation title="My experiences">
@@ -102,18 +112,21 @@ export default function Contribute() {
         />
       </AppShell>
     );
+
   if (p.experience && source.isLoading)
     return (
       <AppShell back title="Opening your experience…">
         <ContentSkeleton />
       </AppShell>
     );
+
   if (source.isError)
     return (
       <AppShell back title="This experience couldn’t open">
         <ActionButton label="Try again" onPress={() => void source.refetch()} />
       </AppShell>
     );
+
   return (
     <ExperienceWizard
       key={p.experience || p.product || p.moment || "new"}
