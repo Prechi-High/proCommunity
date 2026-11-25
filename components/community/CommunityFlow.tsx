@@ -30,7 +30,6 @@ import { colors, fonts } from "@/constants/theme";
 import * as living from "@/lib/living/api";
 import * as clarity from "@/lib/clarity/api";
 import * as community from "@/lib/community-v2/api";
-import { SAMPLE_FEED } from "@/lib/unmask/samples";
 import { timeAgo } from "@/lib/community";
 import { useAppStore } from "@/lib/store";
 import { hapticSaved, hapticSelect, hapticTap } from "@/lib/haptics";
@@ -100,17 +99,38 @@ function ProductCard({ row, compact = false }: { row: FeedRow; compact?: boolean
 
 export function CommunityHub() {
   const router = useRouter();
-  const demo = useAppStore((s) => s.demoCommunity);
+  const profile = useAppStore((s) => s.profile);
   const [filter, setFilter] = useState<Filter>("All");
   const [search, setSearch] = useState("");
-  const catalog = useQuery({ queryKey: ["community-catalog"], queryFn: () => living.catalog() });
-  const questions = useQuery({ queryKey: ["community-questions"], queryFn: () => living.questions() });
-  const experiences = useQuery({ queryKey: ["community-experiences"], queryFn: () => clarity.experiences(false) });
+
+  const catalog = useQuery({
+    queryKey: ["community-catalog"],
+    queryFn: () => living.catalog(),
+    staleTime: 60_000,
+  });
+  const questions = useQuery({
+    queryKey: ["community-questions"],
+    queryFn: () => living.questions(),
+    staleTime: 15_000,
+  });
+  const questionStats = useQuery({
+    queryKey: ["community-question-stats", (questions.data || []).map((q) => q.id)],
+    queryFn: () => living.questionAnswerStats((questions.data || []).map((q) => q.id)),
+    enabled: !!questions.data,
+    staleTime: 15_000,
+  });
+  const experiences = useQuery({
+    queryKey: ["community-experiences"],
+    queryFn: () => clarity.experiences(false),
+    staleTime: 30_000,
+  });
 
   const rows = useMemo<FeedRow[]>(() => {
     const products = new Map((catalog.data || []).map((p) => [p.id, p]));
+    const stats = questionStats.data || {};
     const liveQuestions = (questions.data || []).map((q) => {
       const p = q.product_id ? products.get(q.product_id) : undefined;
+      const stat = stats[q.id];
       return {
         id: q.id,
         kind: "question" as const,
@@ -123,12 +143,14 @@ export function CommunityHub() {
         productBrand: p?.brand || undefined,
         productImage: p?.image_url,
         skin: q.skin_type,
-        answers: 0,
+        answers: stat?.count || 0,
+        helpful: 0,
         views: 0,
         createdAt: q.created_at,
         href: `/question/${q.id}`,
       };
     });
+
     const liveExperiences = (experiences.data || []).map((e) => ({
       id: e.id,
       kind: "experience" as const,
@@ -143,168 +165,261 @@ export function CommunityHub() {
       skin: e.skin_type,
       duration: e.duration,
       frequency: e.frequency,
-      helpful: 0,
+      helpful: e.helpful_count || 0,
       createdAt: e.created_at,
       href: `/story/${e.id}`,
     }));
-    const sample = demo ? SAMPLE_FEED.map((f) => ({
-      id: f.id,
-      kind: (f.kind === "question" ? "question" : "experience") as "question" | "experience",
-      author: f.author,
-      authorId: undefined,
-      title: f.title,
-      body: f.body,
-      productId: f.productId,
-      productName: f.productName,
-      productImage: f.productImage,
-      skin: (f as any).skinType ?? null,
-      duration: (f as any).usageDuration ?? null,
-      frequency: (f as any).usageFrequency ?? null,
-      answers: f.replies,
-      views: 1200,
-      helpful: f.likes,
-      createdAt: f.createdAt,
-      href: f.href,
-    })) : [];
-    const merged = [...liveQuestions, ...liveExperiences, ...sample]
+
+    return [...liveQuestions, ...liveExperiences]
       .filter((r) => productMatches(r, filter))
       .filter((r) => {
         const q = search.trim().toLowerCase();
-        return !q || `${r.title} ${r.productName || ""} ${r.author}`.toLowerCase().includes(q);
+        return !q || `${r.title} ${r.productName || ""} ${r.productBrand || ""} ${r.author}`.toLowerCase().includes(q);
       })
       .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
-    return merged;
-  }, [catalog.data, questions.data, experiences.data, demo, filter, search]);
+  }, [catalog.data, questions.data, questionStats.data, experiences.data, filter, search]);
+
+  const categoryIcon = (name: Filter) => {
+    if (name === "All") return <UsersThree size={18} color="#FFF" weight="regular" />;
+    if (name === "Skincare") return <Text style={{ fontSize: 17 }}>▢</Text>;
+    if (name === "Makeup") return <Text style={{ fontSize: 17 }}>♢</Text>;
+    if (name === "Hair") return <Text style={{ fontSize: 17 }}>◕</Text>;
+    return <Text style={{ fontSize: 17 }}>□</Text>;
+  };
 
   return (
-    <AppShell navigation notify flush scroll={false} ambient="socialNight">
-      <View style={{ paddingHorizontal: 20, paddingTop: 8, gap: 18 }}>
-        <View style={{ gap: 6 }}>
-          <Text style={{ fontFamily: fonts.serifBold, fontSize: 36, lineHeight: 42, color: colors.brandDeep }}>
-            The Community
-          </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 22, color: colors.inkSoft }}>
-            Ask, share and get real answers from Unmaskers who actually use the products.
-          </Text>
-        </View>
-
-        <View style={{
-          minHeight: 52, borderRadius: 18, borderWidth: 1, borderColor: colors.line,
-          backgroundColor: colors.white, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 10,
-        }}>
-          <MagnifyingGlass size={21} color={colors.inkSoft} />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search questions, products or topics"
-            placeholderTextColor={colors.inkSoft}
-            style={{ flex: 1, fontFamily: fonts.regular, fontSize: 16, color: colors.ink }}
-          />
-          <SlidersHorizontal size={21} color={colors.brandDeep} />
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 9 }}>
-          {FILTERS.map((f) => {
-            const active = filter === f;
-            return (
-              <Pressable key={f} onPress={() => { hapticSelect(); setFilter(f); }} style={{
-                paddingHorizontal: 17, paddingVertical: 10, borderRadius: 999,
-                backgroundColor: active ? colors.brandDeep : colors.white,
-                borderWidth: active ? 0 : 1, borderColor: colors.line,
-              }}>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: active ? "#FFF" : colors.ink }}>
-                  {f}
-                </Text>
+    <AppShell navigation flush scroll={false} ambient="page" hideHeader>
+      <View style={{ flex: 1, backgroundColor: "#FEF4F2" }}>
+        <View style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="Unmask home"
+              onPress={() => router.replace("/")}
+              style={{ paddingVertical: 4 }}
+            >
+              <Text style={{ fontFamily: fonts.serifBold, fontSize: 31, color: "#6E183C", letterSpacing: -1.2 }}>
+                Unmask
+              </Text>
+            </Pressable>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Notifications"
+                onPress={() => router.push("/notifications")}
+                style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
+              >
+                <View style={{ position: "relative" }}>
+                  <Text style={{ fontSize: 31, lineHeight: 34, color: "#1D1020" }}>♧</Text>
+                  <View style={{ position: "absolute", right: -1, top: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: "#F26C62" }} />
+                </View>
               </Pressable>
-            );
-          })}
-        </ScrollView>
+              <Pressable accessibilityRole="button" accessibilityLabel="Your profile" onPress={() => router.push("/you")}>
+                <PersonAvatar id={profile?.id || "you"} name={profile?.displayName || "You"} size={46} />
+              </Pressable>
+            </View>
+          </View>
 
-        <Pressable
-          onPress={() => { hapticTap(); router.push("/community-ask" as Href); }}
-          style={({ pressed }) => ({
-            borderRadius: 24, padding: 18, backgroundColor: colors.brandDeep,
-            opacity: pressed ? 0.9 : 1, flexDirection: "row", alignItems: "center", gap: 14,
-          })}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 14 }}>
+            <View style={{ width: 78, height: 78, borderRadius: 25, backgroundColor: "#F9DDE3", alignItems: "center", justifyContent: "center" }}>
+              <UsersThree size={43} color="#6E183C" weight="regular" />
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 31, lineHeight: 35, color: "#241329", letterSpacing: -0.8 }}>
+                The Community
+              </Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 21, color: "#5D5360" }}>
+                Ask, share and get real answers from Unmaskers who actually use the products.
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 150, gap: 14 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: "#F7B8D0", alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 27, color: colors.brandDeep }}>?</Text>
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <View style={{
+              flex: 1, minHeight: 54, borderRadius: 19, borderWidth: 1, borderColor: "#D9D0D1",
+              backgroundColor: "#FFFDFC", flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 10,
+            }}>
+              <MagnifyingGlass size={23} color="#2B1A2C" />
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search questions, products or topics"
+                placeholderTextColor="#746B76"
+                style={{ flex: 1, fontFamily: fonts.regular, fontSize: 16, color: "#241329" }}
+              />
+            </View>
+            <Pressable
+              accessibilityLabel="Filter community"
+              style={{ width: 70, minHeight: 54, borderRadius: 19, borderWidth: 1, borderColor: "#D9D0D1", backgroundColor: "#FFFDFC", alignItems: "center", justifyContent: "center" }}
+            >
+              <SlidersHorizontal size={24} color="#5A163A" />
+            </Pressable>
           </View>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: "#FFF" }}>Ask the community</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: "rgba(255,255,255,0.86)" }}>
-              Have a product question, concern or experience to share?
-            </Text>
-          </View>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 25, color: "#FFF" }}>→</Text>
-        </Pressable>
-      </View>
 
-      <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 130, gap: 16 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {questions.isLoading || experiences.isLoading ? <ContentSkeleton rows={3} /> : null}
-        {rows.map((row) => (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 9, paddingVertical: 2 }}>
+            {FILTERS.map((f) => {
+              const active = filter === f;
+              return (
+                <Pressable
+                  key={f}
+                  onPress={() => { hapticSelect(); setFilter(f); }}
+                  style={{
+                    height: 50, paddingHorizontal: 17, borderRadius: 999,
+                    backgroundColor: active ? "#71154A" : "#FFFDFC",
+                    borderWidth: active ? 0 : 1, borderColor: "#D9D0D1",
+                    flexDirection: "row", alignItems: "center", gap: 8,
+                  }}
+                >
+                  {categoryIcon(f)}
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: active ? "#FFF" : "#241329" }}>{f}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
           <Pressable
-            key={`${row.kind}-${row.id}`}
-            onPress={() => router.push(row.href as Href)}
+            onPress={() => { hapticTap(); router.push("/community-ask" as Href); }}
             style={({ pressed }) => ({
-              borderRadius: 24, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line,
-              padding: 14, gap: 12, opacity: pressed ? 0.94 : 1,
+              minHeight: 110, borderRadius: 25, paddingHorizontal: 18, paddingVertical: 16,
+              backgroundColor: "#A62B72", opacity: pressed ? 0.92 : 1,
+              flexDirection: "row", alignItems: "center", gap: 14,
             })}
           >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <PersonAvatar id={row.authorId || row.author} name={row.author} size={42} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, color: colors.ink }}>{row.author}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>
-                  {timeAgo(row.createdAt)}{row.skin ? ` · ${row.skin} skin` : ""}
-                </Text>
-              </View>
-              <DotsThree size={22} color={colors.inkSoft} weight="bold" />
+            <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: "#F8B9CF", alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 30, color: "#6B1644" }}>?</Text>
             </View>
-
-            <Text style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 26, color: colors.ink }}>
-              {row.kind === "question" ? row.title : row.title.length > 115 ? `${row.title.slice(0, 115)}…` : row.title}
-            </Text>
-
-            {row.productName ? <ProductCard row={row} compact /> : null}
-
-            {row.kind === "experience" ? (
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                {[row.skin, row.duration, row.frequency].filter(Boolean).map((x) => (
-                  <View key={x} style={{ paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, backgroundColor: "#F4E7F1" }}>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.brandDeep }}>{x}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 18 }}>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>
-                {row.kind === "question" ? `${row.answers || 0} answers` : `${row.helpful || 0} helpful`}
-                {row.views ? ` · ${row.views.toLocaleString()} views` : ""}
+            <View style={{ flex: 1, gap: 3 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 24, color: "#FFF" }}>Ask the community</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 20, color: "#FFF" }}>
+                Have a product question, concern or experience to share?
               </Text>
-              <View style={{ flex: 1 }} />
-              {row.kind === "question" ? <ChatCircle size={19} color={colors.inkSoft} /> : <Heart size={19} color={colors.coral} />}
-              <BookmarkSimple size={19} color={colors.inkSoft} />
             </View>
-
-            {row.kind === "question" ? (
-              <Pressable
-                onPress={(e) => { e.stopPropagation(); router.push(`/question/${row.id}` as Href); }}
-                style={{ alignSelf: "flex-start", paddingHorizontal: 17, paddingVertical: 10, borderRadius: 999, backgroundColor: colors.brandDeep }}
-              >
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#FFF" }}>Answer</Text>
-              </Pressable>
-            ) : null}
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: "#FFF1F5", alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: "#6B1644" }}>→</Text>
+            </View>
           </Pressable>
-        ))}
-        {!rows.length && !questions.isLoading && !experiences.isLoading ? (
-          <StatusMessage title="Nothing here yet." detail="Try another topic or ask the community a question." />
-        ) : null}
-      </ScrollView>
+
+          {questions.isLoading || experiences.isLoading ? <ContentSkeleton rows={2} /> : null}
+
+          {rows.map((row) => (
+            <Pressable
+              key={`${row.kind}-${row.id}`}
+              onPress={() => router.push(row.href as Href)}
+              style={({ pressed }) => ({
+                borderRadius: 27, backgroundColor: "#FFFBFA", borderWidth: 1, borderColor: "#E7DCDD",
+                padding: 16, gap: 12, opacity: pressed ? 0.96 : 1,
+              })}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <PersonAvatar id={row.authorId || row.author} name={row.author} size={44} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 15.5, color: "#241329" }}>{row.author}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: "#746B76" }}>
+                    {timeAgo(row.createdAt)}
+                  </Text>
+                </View>
+                <DotsThree size={22} color="#2B1A2C" weight="bold" />
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 14 }}>
+                {row.productImage ? (
+                  <View style={{ width: 132, height: 132, borderRadius: 20, overflow: "hidden" }}>
+                    <MediaFrame uri={row.productImage} label={row.productName || "Product"} ratio={1} />
+                  </View>
+                ) : null}
+                <View style={{ flex: 1, gap: 9, justifyContent: "center" }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 21, lineHeight: 26, color: "#241329" }}>
+                    {row.title}
+                  </Text>
+                  {row.productName ? (
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: "#6E183C" }}>
+                      {row.productBrand ? `${row.productBrand} · ` : ""}{row.productName}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {row.skin ? (
+                  <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: "#F5E5EC" }}>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: "#6E183C" }}>{row.skin}</Text>
+                  </View>
+                ) : null}
+                {row.duration ? (
+                  <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: "#F5E5EC" }}>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: "#6E183C" }}>{row.duration}</Text>
+                  </View>
+                ) : null}
+                {row.frequency ? (
+                  <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: "#F5E5EC" }}>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: "#6E183C" }}>{row.frequency}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                {row.kind === "question" ? (
+                  <>
+                    <ChatCircle size={19} color="#6E183C" />
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#3C2C3D" }}>
+                      {row.answers || 0} answers
+                    </Text>
+                    {row.answers ? (
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: "#E45C57" }}>
+                        · {row.answers > 0 ? "active" : ""}
+                      </Text>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <Heart size={19} color="#D95B68" />
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#3C2C3D" }}>
+                      {row.helpful || 0} helpful
+                    </Text>
+                  </>
+                )}
+                <View style={{ flex: 1 }} />
+                <Pressable
+                  onPress={(e) => { e.stopPropagation(); router.push(row.kind === "question" ? `/question/${row.id}` as Href : `/story/${row.id}` as Href); }}
+                  style={{ paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999, backgroundColor: "#73164D" }}
+                >
+                  <Text style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: "#FFF" }}>
+                    {row.kind === "question" ? "Answer" : "View"}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {row.kind === "question" && questionStats.data?.[row.id]?.preview ? (
+                <View style={{ borderRadius: 18, backgroundColor: "#FCEBED", padding: 13, flexDirection: "row", gap: 10 }}>
+                  <PersonAvatar
+                    id={questionStats.data[row.id].preview.user_id}
+                    name={questionStats.data[row.id].preview.author_name}
+                    size={38}
+                  />
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: "#241329" }}>
+                      {questionStats.data[row.id].preview.author_name}
+                    </Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: "#3C2C3D" }}>
+                      {questionStats.data[row.id].preview.body}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+            </Pressable>
+          ))}
+
+          {!rows.length && !questions.isLoading && !experiences.isLoading ? (
+            <StatusMessage title="Nothing here yet." detail="Be the first to ask the community a question." />
+          ) : null}
+        </ScrollView>
+      </View>
     </AppShell>
   );
 }
