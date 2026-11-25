@@ -455,6 +455,91 @@ export function CommunityQuestionScreen() {
   );
 }
 
+export function CommunityQuestionComposer() {
+  const { id, q: initialQuestion } = useLocalSearchParams<{ id: string; q?: string }>();
+  const router = useRouter();
+  const uid = useAppStore((s) => s.profile?.id);
+  const product = useQuery({ queryKey: ["community-question-composer-product", id], queryFn: () => living.catalog(id!), enabled: !!id });
+  const p = product.data?.[0];
+  const [body, setBody] = useState(initialQuestion || "");
+  const [skin, setSkin] = useState("Combination");
+  const [duration, setDuration] = useState("4 weeks");
+  const [routine, setRoutine] = useState("Morning & Evening");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async () => {
+    if (!uid) {
+      router.push({ pathname: "/(auth)/sign-in", params: { returnTo: `/product/${id}/ask-community` } } as Href);
+      return;
+    }
+    if (!id || body.trim().length < 10 || busy) return;
+    setBusy(true); setError("");
+    try {
+      await living.registerProduct({
+        id,
+        name: p?.name || "Product",
+        brand: p?.brand || "",
+        category: p?.category || "Beauty",
+        heroImageUrl: p?.image_url,
+      });
+      const out = await living.addQuestion({
+        product_id: id,
+        body: body.trim(),
+        context: `Duration: ${duration}. Routine: ${routine}.`,
+        skin_type: skin,
+        audience: "same_product",
+      });
+      hapticSaved(out.id);
+      router.replace(`/question/${out.id}` as Href);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Your question could not be posted.");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <AppShell back navigation title="Ask about a product" subtitle="Get real answers from Unmaskers who’ve used it in their routines.">
+      <View style={{ gap: 18 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <MagnifyingGlass size={22} color={colors.brandDeep} />
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>Search for a product, brand, or routine</Text>
+        </View>
+        {p ? <ProductCard row={{ id: "p", kind: "question", author: "", title: "", productId: p.id, productName: p.name, productBrand: p.brand || undefined, productImage: p.image_url, createdAt: "", href: "" }} /> : <ContentSkeleton rows={2} />}
+        <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.ink }}>Your question</Text>
+        <TextInput
+          value={body}
+          onChangeText={setBody}
+          maxLength={250}
+          multiline
+          placeholder="Has anyone with combination skin used this for more than 4 weeks? How did it affect your skin?"
+          placeholderTextColor={colors.inkSoft}
+          style={{ minHeight: 150, borderWidth: 1, borderColor: colors.line, borderRadius: 22, padding: 16, fontFamily: fonts.regular, fontSize: 17, lineHeight: 25, color: colors.ink, backgroundColor: colors.white }}
+        />
+        <Text style={{ alignSelf: "flex-end", fontFamily: fonts.regular, fontSize: 12, color: colors.inkSoft }}>{body.length}/250</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.ink }}>Add your context <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.inkSoft }}>(optional)</Text></Text>
+        <View style={{ gap: 12 }}>
+          {[
+            ["Skin type", skin, ["Dry","Oily","Combination","Normal","Sensitive"]],
+            ["Duration of use", duration, ["1 week","4 weeks","6 weeks","3 months"]],
+            ["Your routine", routine, ["Morning","Evening","Morning & Evening","Night only"]],
+          ].map(([label, value, options]) => (
+            <View key={label as string} style={{ padding: 13, borderRadius: 18, backgroundColor: "#F7EDF4", gap: 8 }}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.ink }}>{label as string}</Text>
+              <FilterChips
+                options={options as string[]}
+                value={value as string}
+                onChange={label === "Skin type" ? setSkin : label === "Duration of use" ? setDuration : setRoutine}
+              />
+            </View>
+          ))}
+        </View>
+        {error ? <StatusMessage kind="error" title="Not posted yet" detail={error} /> : null}
+        <ActionButton label="Post question →" pending={busy} disabled={body.trim().length < 10} onPress={() => void submit()} />
+      </View>
+    </AppShell>
+  );
+}
+
 export function CommunityExperienceComposer() {
   const { product } = useLocalSearchParams<{ product?: string }>();
   const router = useRouter();
