@@ -42,6 +42,13 @@ const ACTIONS = [
     colors: ["#5C2834", "#C9A227"] as const,
   },
   {
+    label: "Know before you buy",
+    detail: "Search products, brands and real experiences before you buy.",
+    href: "/results",
+    Icon: Package,
+    colors: ["#5B4A19", "#B68B35"] as const,
+  },
+  {
     label: COPY.createTrack,
     detail: "A timeline you can pin later.",
     href: "/products/add",
