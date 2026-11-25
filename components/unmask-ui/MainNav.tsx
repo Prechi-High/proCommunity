@@ -3,7 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { usePathname, useRouter, type Href } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { House, MagnifyingGlass, Plus, UsersThree, User } from "@/components/icons";
+import { House, Bell, Plus, UsersThree, User } from "@/components/icons";
 import { fonts, livelyElevation, livelyRadii, livelySpace } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import { CreateSheet } from "./CreateSheet";
@@ -16,7 +16,7 @@ export function MainNav() {
   const [open, setOpen] = useState(false);
   const routes = [
     { label: "Home", href: "/", Icon: House },
-    { label: "Search", href: "/results", Icon: MagnifyingGlass },
+    { label: "Updates", href: "/updates", Icon: Bell },
     { label: "Create", href: null, Icon: Plus },
     { label: "Community", href: "/ask-community", Icon: UsersThree },
     { label: "You", href: "/you", Icon: User },
@@ -54,8 +54,8 @@ export function MainNav() {
           const active =
             href === "/"
               ? path === "/"
-              : href === "/results"
-                ? path.startsWith("/results")
+              : href === "/updates"
+                ? path.startsWith("/updates")
                 : href === "/ask-community"
                   ? path.startsWith("/ask-community") || path.startsWith("/question") || path.startsWith("/community-ask")
                   : !!href && path.startsWith(href);
