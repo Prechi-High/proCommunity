@@ -570,6 +570,221 @@ export function CommunityQuestionScreen() {
   );
 }
 
+export function CommunityAskComposer() {
+  const router = useRouter();
+  const { product: initialProduct, q: initialQuestion } = useLocalSearchParams<{ product?: string; q?: string }>();
+  const uid = useAppStore((s) => s.profile?.id);
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState(initialProduct || "");
+  const [body, setBody] = useState(initialQuestion || "");
+  const [skin, setSkin] = useState("Combination");
+  const [duration, setDuration] = useState("4 weeks");
+  const [routine, setRoutine] = useState("Morning & Evening");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const popular = useQuery({
+    queryKey: ["community-ask-popular"],
+    queryFn: () => popularBeautyProducts(12),
+    enabled: !selectedId,
+  });
+  const lookup = useQuery({
+    queryKey: ["community-ask-search", search],
+    queryFn: () => searchCommunityProducts(search),
+    enabled: !selectedId && search.trim().length > 1,
+  });
+  const catalog = useQuery({
+    queryKey: ["community-ask-selected", selectedId],
+    queryFn: () => living.catalog(selectedId),
+    enabled: !!selectedId,
+  });
+  const p = catalog.data?.[0];
+  const rows: PopularBeautyProduct[] = (
+    search.trim().length > 1 ? lookup.data ?? [] : popular.data ?? []
+  ).filter((x) => isBeautyCatalogItem(x.category, x.name, x.brand));
+
+  const submit = async () => {
+    if (!uid) {
+      router.push({ pathname: "/(auth)/sign-in", params: { returnTo: selectedId ? `/product/${selectedId}/ask-community` : "/community-ask" } } as Href);
+      return;
+    }
+    if (!selectedId || !body.trim() || body.trim().length < 10 || busy) return;
+    setBusy(true); setError("");
+    try {
+      await living.registerProduct({
+        id: selectedId,
+        name: p?.name || "Product",
+        brand: p?.brand || "",
+        category: p?.category || "Beauty",
+        heroImageUrl: p?.image_url,
+      });
+      const out = await living.addQuestion({
+        product_id: selectedId,
+        body: body.trim(),
+        context: `Duration: ${duration}. Routine: ${routine}.`,
+        skin_type: skin,
+        audience: "same_product",
+      });
+      hapticSaved(out.id);
+      router.replace(`/question/${out.id}` as Href);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Your question could not be posted.");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <AppShell back navigation flush scroll={false} ambient="page" hideHeader>
+      <View style={{ flex: 1, backgroundColor: "#FEF4F2" }}>
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 34, paddingTop: 8, paddingBottom: 140, gap: 18 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 52 }}>
+            <Pressable onPress={() => router.back()} style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: "#F8E9EA", alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontSize: 32, lineHeight: 32, color: "#231427" }}>‹</Text>
+            </Pressable>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 34, color: "#151019", letterSpacing: -1.5 }}>
+              Unmask<Text style={{ color: "#C96B72" }}>*</Text>
+            </Text>
+            <Pressable accessibilityLabel="More options" style={{ width: 52, height: 52, alignItems: "center", justifyContent: "center" }}>
+              <DotsThree size={28} color="#151019" weight="bold" />
+            </Pressable>
+          </View>
+
+          <View style={{ gap: 5, marginTop: 8 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, letterSpacing: 2.2, color: "#705277" }}>ASK THE COMMUNITY</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 36, lineHeight: 39, color: "#17101A", letterSpacing: -1.2 }}>
+              Ask about a product
+            </Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 17, lineHeight: 25, color: "#69616A", maxWidth: 520 }}>
+              Get real answers from Unmaskers who’ve used it in their routines.
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: "row", alignItems: "center", minHeight: 62, borderRadius: 31, borderWidth: 1, borderColor: "#D7CDCF", backgroundColor: "#FFFDFC", paddingHorizontal: 18, gap: 11 }}>
+            <MagnifyingGlass size={26} color="#28182C" />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search for a product, brand, or routine"
+              placeholderTextColor="#746B76"
+              style={{ flex: 1, fontFamily: fonts.regular, fontSize: 17, color: "#241329" }}
+            />
+            <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "#F2DDF0", alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontSize: 20, color: "#6E3C76" }}>⌁</Text>
+            </View>
+          </View>
+
+          {!selectedId ? (
+            <View style={{ gap: 10 }}>
+              {(search.trim().length > 1 ? lookup.isLoading : popular.isLoading) ? <ContentSkeleton rows={4} /> : null}
+              {rows.map((row) => (
+                <Pressable
+                  key={row.id}
+                  onPress={() => {
+                    setSelectedId(row.id);
+                    rememberProduct({ id: row.id, name: row.name, brand: row.brand || "", category: row.category || "Beauty", heroImageUrl: row.heroImageUrl });
+                  }}
+                  style={{ flexDirection: "row", gap: 12, alignItems: "center", padding: 12, borderRadius: 20, backgroundColor: "#FFFDFC", borderWidth: 1, borderColor: "#E7DCDD" }}
+                >
+                  <View style={{ width: 74, height: 74 }}><MediaFrame uri={row.heroImageUrl} label={row.name} ratio={1} /></View>
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 16, color: "#241329" }}>{row.name}</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, color: "#746B76" }}>{row.brand || "Beauty"}</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <>
+              {p ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 14, padding: 14, borderRadius: 24, backgroundColor: "#FFF9F8", borderWidth: 1, borderColor: "#E7DCDD" }}>
+                  <View style={{ width: 190, height: 120, borderRadius: 18, overflow: "hidden" }}>
+                    <MediaFrame uri={p.image_url} label={p.name} ratio={1.58} />
+                  </View>
+                  <View style={{ flex: 1, gap: 5 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: "#17101A" }}>{p.name}</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, color: "#6B626C" }}>{p.category || "Product"} · {p.brand || "Beauty"}</Text>
+                    <View style={{ alignSelf: "flex-start", paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: "#F0E1F0" }}>
+                      <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#6A4770" }}>✓  Selected product</Text>
+                    </View>
+                  </View>
+                  <Pressable onPress={() => setSelectedId("")} style={{ position: "absolute", right: 14, top: 14, width: 32, height: 32, borderRadius: 16, backgroundColor: "#F8EEED", alignItems: "center", justifyContent: "center" }}>
+                    <Text style={{ fontSize: 23, color: "#4C3A42" }}>×</Text>
+                  </Pressable>
+                </View>
+              ) : <ContentSkeleton rows={2} />}
+
+              <View style={{ gap: 7 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: "#17101A" }}>Your question</Text>
+                <View style={{ minHeight: 140, borderWidth: 1, borderColor: "#D5CCCE", borderRadius: 22, backgroundColor: "#FFFDFC", padding: 16 }}>
+                  <TextInput
+                    value={body}
+                    onChangeText={setBody}
+                    maxLength={250}
+                    multiline
+                    placeholder="Has anyone with combination skin used this for more than 4 weeks? How did it affect your skin?"
+                    placeholderTextColor="#746B76"
+                    style={{ minHeight: 105, fontFamily: fonts.regular, fontSize: 17, lineHeight: 25, color: "#241329", textAlignVertical: "top" }}
+                  />
+                  <Text style={{ position: "absolute", right: 16, bottom: 12, fontFamily: fonts.regular, fontSize: 12, color: "#746B76" }}>{body.length}/250</Text>
+                </View>
+              </View>
+
+              <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: "#17101A" }}>
+                Add your context <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: "#746B76" }}>(optional)</Text>
+              </Text>
+
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                {[
+                  ["Skin type", skin, ["Dry","Oily","Combination","Normal","Sensitive"]],
+                  ["Duration of use", duration, ["1 week","4 weeks","6 weeks","3 months"]],
+                  ["Your routine", routine, ["Morning","Evening","Morning & Evening","Night only"]],
+                ].map(([label, value, options]) => (
+                  <View key={label as string} style={{ flex: 1, padding: 10, borderRadius: 20, backgroundColor: "#F7E8ED", gap: 8 }}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: "#3B273C" }}>{label as string}</Text>
+                    <FilterChips
+                      options={options as string[]}
+                      value={value as string}
+                      onChange={label === "Skin type" ? setSkin : label === "Duration of use" ? setDuration : setRoutine}
+                    />
+                  </View>
+                ))}
+              </View>
+
+              <View style={{ gap: 10 }}>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 18, color: "#5D555E" }}>Add more details <Text style={{ fontFamily: fonts.regular, fontSize: 14 }}>(optional)</Text></Text>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  {[
+                    ["📷", "Add a photo"],
+                    ["▷", "Add a video"],
+                    ["☷", "Add to my routine"],
+                  ].map(([icon, label]) => (
+                    <Pressable key={label} style={{ flex: 1, minHeight: 54, paddingHorizontal: 8, borderRadius: 28, borderWidth: 1, borderColor: "#D7CDCF", backgroundColor: "#FFFDFC", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                      <Text style={{ fontSize: 17 }}>{icon}</Text>
+                      <Text style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: "#2D222F" }}>{label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {error ? <StatusMessage kind="error" title="Not posted yet" detail={error} /> : null}
+              <Pressable
+                onPress={() => void submit()}
+                disabled={body.trim().length < 10 || busy}
+                style={{ minHeight: 74, borderRadius: 38, backgroundColor: body.trim().length >= 10 ? "#ED795E" : "#E7B8AC", alignItems: "center", justifyContent: "center" }}
+              >
+                <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: "#FFF" }}>{busy ? "Posting…" : "✈  Post question"}</Text>
+              </Pressable>
+            </>
+          )}
+        </ScrollView>
+      </View>
+    </AppShell>
+  );
+}
+
 export function CommunityQuestionComposer() {
   const { id, q: initialQuestion } = useLocalSearchParams<{ id: string; q?: string }>();
   const router = useRouter();
