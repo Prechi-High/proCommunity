@@ -177,7 +177,7 @@ export function CommunityHub() {
   }, [catalog.data, questions.data, experiences.data, demo, filter, search]);
 
   return (
-    <AppShell navigation notify flush ambient="socialNight">
+    <AppShell navigation notify flush scroll={false} ambient="socialNight">
       <View style={{ paddingHorizontal: 20, paddingTop: 8, gap: 18 }}>
         <View style={{ gap: 6 }}>
           <Text style={{ fontFamily: fonts.serifBold, fontSize: 36, lineHeight: 42, color: colors.brandDeep }}>
