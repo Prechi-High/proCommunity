@@ -119,6 +119,9 @@ export interface Answer {
   body: string;
   uncertainty: string | null;
   created_at: string;
+  helpful_count?: number | null;
+  is_brand?: boolean;
+  author_type?: "member" | "brand" | "expert" | string;
 }
 export interface Subscription {
   target_type: string;
