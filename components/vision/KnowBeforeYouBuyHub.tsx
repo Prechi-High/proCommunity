@@ -8,11 +8,7 @@ import {
   Bell,
   Camera,
   CaretRight,
-  Clock,
-  Heart,
   MagnifyingGlass,
-  Scan,
-  Search,
   SealCheck,
   SlidersHorizontal,
   Star,
@@ -225,7 +221,7 @@ export function KnowBeforeYouBuyHub({
             <View style={{ minHeight: 58, borderRadius: 18, borderWidth: 1, borderColor: "#D8CCCF", backgroundColor: "#FFFDFC", flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 10 }}>
               <MagnifyingGlass size={24} color="#241329" />
               <TextInput value={draft} onChangeText={onDraftChange} onSubmitEditing={submitSearch} style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 17, color: "#241329" }} />
-              <Pressable onPress={() => { onDraftChange(""); onSubmit(); }}><Text style={{ fontSize: 24, color: "#8B8588" }}>×</Text></Pressable>
+              <Pressable onPress={() => router.replace("/results" as Href)}><Text style={{ fontSize: 24, color: "#8B8588" }}>×</Text></Pressable>
             </View>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
