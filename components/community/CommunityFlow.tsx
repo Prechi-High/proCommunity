@@ -46,8 +46,8 @@ type FeedRow = {
   title: string;
   body?: string;
   productId?: string | null;
-  productName?: string;
-  productBrand?: string;
+  productName?: string | null;
+  productBrand?: string | null;
   productImage?: string | null;
   skin?: string | null;
   duration?: string | null;
@@ -157,9 +157,9 @@ export function CommunityHub() {
       productId: f.productId,
       productName: f.productName,
       productImage: f.productImage,
-      skin: f.skinType,
-      duration: f.usageDuration,
-      frequency: f.usageFrequency,
+      skin: (f as any).skinType ?? null,
+      duration: (f as any).usageDuration ?? null,
+      frequency: (f as any).usageFrequency ?? null,
       answers: f.replies,
       views: 1200,
       helpful: f.likes,
