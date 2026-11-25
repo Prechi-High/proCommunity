@@ -44,7 +44,8 @@ export function AppShell({
   /** Tagline under the Unmask wordmark when this screen has no title. */
   brandSubtitle?: string;
   /** Show profile avatar beside notifications on home. */
-  homeProfile?: { id?: string; name?: string };\n  hideHeader?: boolean;
+  homeProfile?: { id?: string; name?: string };
+  hideHeader?: boolean;
   footer?: ReactNode;
   scroll?: boolean;
   flush?: boolean;
