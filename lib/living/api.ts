@@ -335,6 +335,32 @@ export async function addQuestion(row: {
     await db().from("unmask_questions").insert(row).select().single(),
   );
 }
+export async function questionAnswerStats(ids: string[]) {
+  if (!ids.length) return {} as Record<string, {
+    count: number;
+    preview: Answer | null;
+  }>;
+
+  const { data, error } = await db()
+    .from("unmask_answers")
+    .select("*")
+    .in("question_id", ids)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  const stats: Record<string, { count: number; preview: Answer | null }> = {};
+  for (const id of ids) stats[id] = { count: 0, preview: null };
+
+  for (const row of (data || []) as Answer[]) {
+    const item = stats[row.question_id] || { count: 0, preview: null };
+    item.count += 1;
+    if (!item.preview) item.preview = row;
+    stats[row.question_id] = item;
+  }
+  return stats;
+}
+
 export async function answers(id: string) {
   return unwrap<Answer[]>(
     await db()
