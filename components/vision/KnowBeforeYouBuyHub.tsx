@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Image, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 
@@ -8,6 +8,10 @@ import {
   Bell,
   Camera,
   CaretRight,
+  BookmarkSimple,
+  CalendarBlank,
+  MoonStars,
+  Sun,
   MagnifyingGlass,
   SealCheck,
   SlidersHorizontal,
@@ -53,6 +57,7 @@ export function KnowBeforeYouBuyHub({
   onPick: (p: Product) => void;
 }) {
   const router = useRouter();
+  const { width: viewportWidth } = useWindowDimensions();
   const uid = useAppStore((s) => s.profile?.id);
   const history = useAppStore((s) => s.searchHistory);
   const addSearch = useAppStore((s) => s.addSearch);
@@ -205,93 +210,141 @@ export function KnowBeforeYouBuyHub({
     ["Questions", qCount],
     ["Brands", hero?.brand ? 1 : 0],
   ] as const;
+  const cardImageWidth = Math.max(126, Math.min(255, viewportWidth * 0.34));
 
   return (
     <AppShell navigation flush scroll={false} ambient="page" hideHeader>
       <View style={{ flex: 1, backgroundColor: "#FEF4F2" }}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 150 }}>
-          <View style={{ paddingHorizontal: 34, paddingTop: 14, gap: 10 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <Pressable onPress={() => router.back()} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#F5E6E5", alignItems: "center", justifyContent: "center" }}>
+          <View style={{ paddingHorizontal: 24, paddingTop: 10, gap: 10 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 52 }}>
+              <Pressable onPress={() => router.back()} style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: "#F5E6E5", alignItems: "center", justifyContent: "center" }}>
                 <ArrowLeft size={23} color="#241329" />
               </Pressable>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: "#151019", letterSpacing: -1.2 }}>Unmask<Text style={{ color: "#C96B72" }}>*</Text></Text>
+              <Text style={{ fontFamily: fonts.serifBold, fontSize: 27, color: "#151019", letterSpacing: -1.2 }}>Unmask<Text style={{ color: "#C96B72" }}>*</Text></Text>
               <Bell size={26} color="#151019" />
             </View>
 
-            <View style={{ minHeight: 58, borderRadius: 18, borderWidth: 1, borderColor: "#D8CCCF", backgroundColor: "#FFFDFC", flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 10 }}>
+            <View style={{ minHeight: 56, borderRadius: 18, borderWidth: 1, borderColor: "#D8CCCF", backgroundColor: "#FFFDFC", flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 10 }}>
               <MagnifyingGlass size={24} color="#241329" />
-              <TextInput value={draft} onChangeText={onDraftChange} onSubmitEditing={submitSearch} style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 17, color: "#241329" }} />
-              <Pressable onPress={() => router.replace("/results" as Href)}><Text style={{ fontSize: 24, color: "#8B8588" }}>×</Text></Pressable>
+              <TextInput
+                value={draft}
+                onChangeText={onDraftChange}
+                onSubmitEditing={submitSearch}
+                returnKeyType="search"
+                singleLine
+                style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 17, color: "#241329", paddingVertical: 0 }}
+              />
+              <Pressable onPress={() => router.replace("/results" as Href)} hitSlop={8}>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 29, lineHeight: 30, color: "#8B8588" }}>×</Text>
+              </Pressable>
             </View>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 1 }}>
               {TOP_TABS.map((tab) => {
                 const active = tab === "All Results";
                 return (
-                  <View key={tab} style={{ paddingHorizontal: 16, paddingVertical: 11, borderRadius: 999, backgroundColor: active ? "#5B7420" : "#F7EDE8" }}>
-                    <Text style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: active ? "#FFF" : "#241329" }}>{tab}</Text>
+                  <View key={tab} style={{ paddingHorizontal: 17, paddingVertical: 11, borderRadius: 999, backgroundColor: active ? "#5B7420" : "#F7EDE8" }}>
+                    <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: active ? "#FFF" : "#241329" }}>{tab}</Text>
                   </View>
                 );
               })}
             </ScrollView>
 
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
-              <View>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: "#17101A" }}>Results for “{query}”</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: "#6F656B" }}>{products.length + expCount + qCount} results · Products, experiences, questions & brand info</Text>
-              </View>
-              <Pressable style={{ paddingHorizontal: 13, paddingVertical: 10, borderRadius: 18, backgroundColor: "#F8E9E5", flexDirection: "row", alignItems: "center", gap: 5 }}>
+            <View style={{ marginTop: 4 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: "#17101A", letterSpacing: -0.5 }}>Results for “{query}”</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, color: "#6F656B", marginTop: 2 }}>
+                {products.length + expCount + qCount} results · Products, experiences, questions & brand info
+              </Text>
+            </View>
+
+            <View style={{ alignItems: "flex-end", marginTop: -4 }}>
+              <Pressable style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 18, backgroundColor: "#F8E9E5", flexDirection: "row", alignItems: "center", gap: 5 }}>
                 <SlidersHorizontal size={17} color="#332433" />
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: "#332433" }}>Filters</Text>
               </Pressable>
             </View>
 
             {loading ? <ContentSkeleton rows={2} /> : null}
+
             {hero ? (
-              <Pressable onPress={() => onPick(hero)} style={{ borderRadius: 24, backgroundColor: "#FFFDFC", borderWidth: 1, borderColor: "#E6DAD7", padding: 10, flexDirection: "row", gap: 14 }}>
-                <View style={{ width: 225, height: 300, borderRadius: 20, overflow: "hidden" }}>
+              <Pressable onPress={() => onPick(hero)} style={{ borderRadius: 24, backgroundColor: "#FFFDFC", borderWidth: 1, borderColor: "#E6DAD7", padding: 10, flexDirection: "row", gap: 14, overflow: "hidden" }}>
+                <View style={{ width: cardImageWidth, height: Math.min(390, cardImageWidth * 1.48), borderRadius: 20, overflow: "hidden", flexShrink: 0 }}>
                   <MediaFrame uri={hero.heroImageUrl} label={hero.name} ratio={0.75} corners={false} />
                 </View>
-                <View style={{ flex: 1, paddingTop: 8, gap: 8 }}>
-                  <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: "#6A5862" }}>{hero.brand} <SealCheck size={14} color="#687C43" weight="fill" /></Text>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 25, lineHeight: 27, color: "#17101A" }}>{hero.name}</Text>
-                  <Text numberOfLines={3} style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 19, color: "#625A61" }}>{hero.description || "Product details, real experiences and community context."}</Text>
+
+                <View style={{ flex: 1, minWidth: 0, paddingTop: 4, gap: 8 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                    <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: fonts.semibold, fontSize: 15, color: "#4F424B" }}>{hero.brand}</Text>
+                    <SealCheck size={16} color="#687C43" weight="fill" />
+                  </View>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: viewportWidth < 500 ? 20 : 25, lineHeight: viewportWidth < 500 ? 23 : 27, color: "#17101A" }}>{hero.name}</Text>
+                  <Text numberOfLines={3} style={{ fontFamily: fonts.regular, fontSize: viewportWidth < 500 ? 12.5 : 13.5, lineHeight: 18, color: "#625A61" }}>
+                    {hero.description || `Real experiences and community context for ${hero.name}.`}
+                  </Text>
+
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                    <View style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: "#EAF0D7" }}><Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: "#475426" }}>{hero.category || "Beauty"}</Text></View>
-                    <View style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: "#F7D9CB" }}><Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: "#704132" }}>Barrier-friendly</Text></View>
-                    <View style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: "#EAF0D7" }}><Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: "#475426" }}>Non-comedogenic</Text></View>
+                    <View style={{ paddingHorizontal: 9, paddingVertical: 6, borderRadius: 999, backgroundColor: "#EAF0D7" }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, color: "#475426" }}>{hero.category || "Product"}</Text>
+                    </View>
+                    <View style={{ paddingHorizontal: 9, paddingVertical: 6, borderRadius: 999, backgroundColor: "#F7D9CB" }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, color: "#704132" }}>Community reviewed</Text>
+                    </View>
                   </View>
-                  <View style={{ marginTop: 2, padding: 12, borderRadius: 17, backgroundColor: "#EFF2DC", flexDirection: "row", gap: 10 }}>
+
+                  <View style={{ padding: 10, borderRadius: 16, backgroundColor: "#EFF2DC", flexDirection: "row", alignItems: "center", gap: 8 }}>
                     <UsersThree size={20} color="#4B5D28" />
-                    <View style={{ flex: 1 }}><Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: "#46512E" }}>Most shared by</Text><Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: "#26331A" }}>Unmask community</Text></View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, color: "#46512E" }}>Community context</Text>
+                      <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 12.5, color: "#26331A" }}>
+                        {expCount > 0 ? `${expCount.toLocaleString()} real experiences` : "Real community activity"}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flexDirection: "row", gap: 12, marginTop: 2 }}>
-                    <View style={{ flex: 1 }}><Text style={{ fontFamily: fonts.bold, fontSize: 15, color: "#241329" }}>{hero.rating != null ? hero.rating.toFixed(1) : "—"}/5</Text><Text style={{ fontFamily: fonts.regular, fontSize: 10.5, color: "#6B6268" }}>{hero.ratingCount ? `${hero.ratingCount.toLocaleString()} ratings` : "ratings unavailable"}</Text></View>
-                    <View style={{ flex: 1 }}><Text style={{ fontFamily: fonts.bold, fontSize: 15, color: "#241329" }}>{expCount.toLocaleString()}</Text><Text style={{ fontFamily: fonts.regular, fontSize: 10.5, color: "#6B6268" }}>Experiences</Text></View>
-                    <View style={{ flex: 1 }}><Text style={{ fontFamily: fonts.bold, fontSize: 15, color: "#241329" }}>{qCount.toLocaleString()}</Text><Text style={{ fontFamily: fonts.regular, fontSize: 10.5, color: "#6B6268" }}>Questions</Text></View>
+
+                  <View style={{ flexDirection: "row", gap: 8, marginTop: 1 }}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: "#241329" }}>{hero.rating != null ? hero.rating.toFixed(1) : "—"}<Text style={{ fontFamily: fonts.regular }}> /5</Text></Text>
+                      <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 9.5, color: "#6B6268" }}>{hero.ratingCount ? `${hero.ratingCount.toLocaleString()} ratings` : "Ratings"}</Text>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: "#241329" }}>{expCount.toLocaleString()}</Text>
+                      <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 9.5, color: "#6B6268" }}>Experiences</Text>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: "#241329" }}>{qCount.toLocaleString()}</Text>
+                      <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 9.5, color: "#6B6268" }}>Questions</Text>
+                    </View>
+                  </View>
+
+                  <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
+                    <BookmarkSimple size={21} color="#241329" />
+                    <CaretRight size={20} color="#241329" />
                   </View>
                 </View>
               </Pressable>
             ) : null}
 
             <View style={{ gap: 8, marginTop: 2 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: "#17101A" }}>Explore more</Text>
-              <View style={{ flexDirection: "row", borderBottomWidth: 1, borderColor: "#D9CDCF" }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 23, color: "#17101A" }}>Explore more</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 0, borderBottomWidth: 1, borderColor: "#D9CDCF", minWidth: "100%" }}>
                 {["Experiences", "Questions", "Brands"].map((t, i) => (
-                  <View key={t} style={{ flex: 1, paddingVertical: 10, alignItems: "center", borderBottomWidth: i === 0 ? 3 : 0, borderColor: "#607A2D" }}>
+                  <View key={t} style={{ minWidth: Math.max(105, viewportWidth / 3 - 8), paddingVertical: 10, alignItems: "center", borderBottomWidth: i === 0 ? 3 : 0, borderColor: "#607A2D" }}>
                     <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: "#241329" }}>{t} ({i === 0 ? expCount.toLocaleString() : i === 1 ? qCount.toLocaleString() : hero?.brand ? 1 : 0})</Text>
                   </View>
                 ))}
-              </View>
+              </ScrollView>
             </View>
 
             {products.slice(1, 4).map((p) => (
               <Pressable key={p.id} onPress={() => onPick(p)} style={{ flexDirection: "row", gap: 12, alignItems: "center", padding: 12, borderRadius: 20, backgroundColor: "#FFF9F7", borderWidth: 1, borderColor: "#E7DAD7" }}>
-                <View style={{ width: 88, height: 88, borderRadius: 15, overflow: "hidden" }}><MediaFrame uri={p.heroImageUrl} label={p.name} ratio={1} corners={false} /></View>
+                <View style={{ width: 92, height: 92, borderRadius: 15, overflow: "hidden" }}>
+                  <MediaFrame uri={p.heroImageUrl} label={p.name} ratio={1} corners={false} />
+                </View>
                 <View style={{ flex: 1, gap: 4 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: "#241329" }}>{p.name}</Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: "#6F656B" }}>{p.brand} · {p.category}</Text>
+                  <Text numberOfLines={2} style={{ fontFamily: fonts.bold, fontSize: 15.5, color: "#241329" }}>{p.name}</Text>
+                  <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12.5, color: "#6F656B" }}>{p.brand} · {p.category}</Text>
+                  {p.rating != null ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: "#4D4220" }}>★ {p.rating.toFixed(1)} {p.ratingCount ? `(${p.ratingCount.toLocaleString()})` : ""}</Text> : null}
                 </View>
                 <CaretRight size={20} color="#241329" />
               </Pressable>
