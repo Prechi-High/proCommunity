@@ -33,6 +33,9 @@ import * as community from "@/lib/community-v2/api";
 import { timeAgo } from "@/lib/community";
 import { useAppStore } from "@/lib/store";
 import { hapticSaved, hapticSelect, hapticTap } from "@/lib/haptics";
+import { popularBeautyProducts, searchCommunityProducts, type PopularBeautyProduct } from "@/lib/unmask/communitySearch";
+import { isBeautyCatalogItem } from "@/lib/unmask/beautyCatalog";
+import { rememberProduct } from "@/lib/products";
 
 const FILTERS = ["All", "Skincare", "Makeup", "Hair", "Body"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -165,7 +168,7 @@ export function CommunityHub() {
       skin: e.skin_type,
       duration: e.duration,
       frequency: e.frequency,
-      helpful: e.helpful_count || 0,
+      helpful: 0,
       createdAt: e.created_at,
       href: `/story/${e.id}`,
     }));
@@ -395,23 +398,19 @@ export function CommunityHub() {
                 </Pressable>
               </View>
 
-              {row.kind === "question" && questionStats.data?.[row.id]?.preview ? (
-                <View style={{ borderRadius: 18, backgroundColor: "#FCEBED", padding: 13, flexDirection: "row", gap: 10 }}>
-                  <PersonAvatar
-                    id={questionStats.data[row.id].preview.user_id}
-                    name={questionStats.data[row.id].preview.author_name}
-                    size={38}
-                  />
-                  <View style={{ flex: 1, gap: 3 }}>
-                    <Text style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: "#241329" }}>
-                      {questionStats.data[row.id].preview.author_name}
-                    </Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: "#3C2C3D" }}>
-                      {questionStats.data[row.id].preview.body}
-                    </Text>
+              {row.kind === "question" && questionStats.data?.[row.id]?.preview ? (() => {
+                const preview = questionStats.data[row.id]?.preview;
+                if (!preview) return null;
+                return (
+                  <View style={{ borderRadius: 18, backgroundColor: "#FCEBED", padding: 13, flexDirection: "row", gap: 10 }}>
+                    <PersonAvatar id={preview.user_id} name={preview.author_name} size={38} />
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <Text style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: "#241329" }}>{preview.author_name}</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: "#3C2C3D" }}>{preview.body}</Text>
+                    </View>
                   </View>
-                </View>
-              ) : null}
+                );
+              })() : null}
             </Pressable>
           ))}
 
