@@ -4,7 +4,7 @@ import { dedupeCatalogProducts } from "./beautyCatalog";
 import { cleanProductQuery } from "./communitySearchQuery";
 export async function searchCommunityProducts(
   query: string,
-): Promise<Product[]> {
+): Promise<PopularBeautyProduct[]> {
   const { data, error } = await db().rpc("unmask_find_products", {
     p_query: cleanProductQuery(query),
   });
@@ -22,6 +22,7 @@ export async function searchCommunityProducts(
       brand: p.brand || "",
       category: p.category || "Product",
       heroImageUrl: p.image_url,
+      searchCount: 0,
     }),
   );
   return dedupeCatalogProducts(mapped);
