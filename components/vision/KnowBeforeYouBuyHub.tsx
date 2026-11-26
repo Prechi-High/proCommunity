@@ -232,7 +232,6 @@ export function KnowBeforeYouBuyHub({
                 onChangeText={onDraftChange}
                 onSubmitEditing={submitSearch}
                 returnKeyType="search"
-                />
                 style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 17, color: "#241329", paddingVertical: 0 }}
               />
               <Pressable onPress={() => router.replace("/results" as Href)} hitSlop={8}>
