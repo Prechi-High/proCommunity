@@ -15,7 +15,8 @@ import {
   Tag,
   UsersThree,
 } from "@/components/icons";
-import { AppShell, MediaFrame, PersonAvatar, ContentSkeleton, StatusMessage } from "@/components/unmask-ui";
+import { AppShell, MediaFrame, ContentSkeleton, StatusMessage } from "@/components/unmask-ui";
+import { PersonAvatar } from "@/components/unmask-ui/PersonAvatar";
 import { fonts } from "@/constants/theme";
 import { hapticSelect } from "@/lib/haptics";
 import * as living from "@/lib/living/api";
@@ -172,7 +173,7 @@ export function KnowBeforeYouBuyHub({
                 </ScrollView>
                 {popular.isLoading ? <ContentSkeleton rows={2} /> : null}
                 <View style={{ flexDirection: "row", gap: 10 }}>
-                  {discover.map((p) => (
+                  {discover.map((p, i) => (
                     <Pressable key={p.id} onPress={() => onPick(p as unknown as Product)} style={{ flex: 1, borderRadius: 22, overflow: "hidden", backgroundColor: "#F2E7E2", minHeight: 250 }}>
                       <View style={{ height: 170 }}>
                         <MediaFrame uri={p.heroImageUrl} label={p.name} ratio={1} corners={false} />
