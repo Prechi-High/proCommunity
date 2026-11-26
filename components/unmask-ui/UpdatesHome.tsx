@@ -10,7 +10,8 @@ import {
   Sparkle,
   UsersThree,
 } from "@/components/icons";
-import { AppShell, MediaFrame, PersonAvatar, ContentSkeleton, StatusMessage } from "@/components/unmask-ui";
+import { AppShell, MediaFrame, ContentSkeleton, StatusMessage } from "@/components/unmask-ui";
+import { PersonAvatar } from "@/components/unmask-ui/PersonAvatar";
 import { fonts } from "@/constants/theme";
 import { useAppStore } from "@/lib/store";
 import { loadHomeFeed, type FeedItem } from "@/lib/unmask/feed";
